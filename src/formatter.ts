@@ -31,11 +31,11 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         const config = vscode.workspace.getConfiguration('thrift.format');
         const text = document.getText(range);
         const formattedText = this.formatThriftCode(text, {
-            trailingComma: config.get('trailingComma', true),
+            trailingComma: config.get('trailingComma', 'preserve'), // 'preserve', 'add', 'remove'
             alignTypes: config.get('alignTypes', true),
-            alignFieldNames: config.get('alignFieldNames', true),
+            alignFieldNames: config.get('alignFieldNames', false), // Don't align field names by default
             alignComments: config.get('alignComments', true),
-            indentSize: config.get('indentSize', 2),
+            indentSize: config.get('indentSize', 4),
             maxLineLength: config.get('maxLineLength', 100),
             insertSpaces: options.insertSpaces,
             tabSize: options.tabSize
@@ -114,30 +114,45 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
 
     private isStructField(line: string): boolean {
         // Match field definitions like: 1: required string name, or 1: string name,
-        return /^\s*\d+:\s*(required|optional)?\s*\w+\s+\w+/.test(line);
+        // Also match complex types like: 1: required list<string> names,
+        return /^\s*\d+:\s*(required|optional)?\s*[\w<>,\s]+\s+\w+/.test(line);
     }
 
     private parseStructField(line: string): {line: string, type: string, name: string, comment: string} | null {
         // Parse field: 1: required string name, // comment
-        // Handle complex types like list<string>, map<string, string>
-        const match = line.match(/^\s*(\d+:\s*(?:required|optional)?\s*)([\w<>,\s]+?)\s+(\w+)(.*)$/);
-        if (match) {
-            const prefix = match[1];
-            const type = match[2].trim();
-            const name = match[3];
-            const suffix = match[4].trim();
-            const commentMatch = suffix.match(/^([^/]*)(\/.*)$/);
-            const fieldSuffix = commentMatch ? commentMatch[1].trim() : suffix;
-            const comment = commentMatch ? commentMatch[2] : '';
-            
-            return {
-                line: line,
-                type: type,
-                name: name,
-                comment: comment
-            };
-        }
-        return null;
+        // Handle complex types like list<string>, map<string, string> with or without spaces
+        
+        // First, extract the prefix (field number and optional required/optional)
+        const prefixMatch = line.match(/^\s*(\d+:\s*(?:required|optional)?\s*)(.*)$/);
+        if (!prefixMatch) return null;
+        
+        const prefix = prefixMatch[1];
+        const remainder = prefixMatch[2];
+        
+        // Find the field name by looking for the last word before comma/semicolon/comment
+        const nameMatch = remainder.match(/(\w+)\s*([,;]?\s*(?:\/\/.*)?\s*)$/);
+        if (!nameMatch) return null;
+        
+        const name = nameMatch[1];
+        const suffix = nameMatch[2];
+        
+        // Extract type by removing the name and suffix from remainder
+        const typeEndIndex = remainder.lastIndexOf(name);
+        let type = remainder.substring(0, typeEndIndex).trim();
+        
+        // Clean up the type by removing extra spaces around < > and commas
+        type = type.replace(/\s*<\s*/g, '<').replace(/\s*>\s*/g, '>');
+        type = type.replace(/\s*,\s*/g, ',');
+        
+        const commentMatch = suffix.match(/^([^/]*)(\/.*)$/);
+        const comment = commentMatch ? commentMatch[2] : '';
+        
+        return {
+            line: line,
+            type: type,
+            name: name,
+            comment: comment
+        };
     }
 
     private formatStructFields(
@@ -154,25 +169,28 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         let maxNameWidth = 0;
 
         const parsedFields = fields.map(field => {
-            const match = field.line.match(/^\s*(\d+:\s*(?:required|optional)?\s*)(\w+)\s+(\w+)(.*)$/);
-            if (match) {
-                const prefix = match[1];
-                const type = match[2];
-                const name = match[3];
-                const remainder = match[4].trim();
-                
-                // Parse suffix and comment
-                const commentMatch = remainder.match(/^([^/]*)(\/.*)$/);
-                const suffix = commentMatch ? commentMatch[1].trim() : remainder;
-                const comment = commentMatch ? commentMatch[2] : '';
-                
-                maxTypeWidth = Math.max(maxTypeWidth, type.length);
-                maxNameWidth = Math.max(maxNameWidth, name.length);
-                
-                return { prefix, type, name, suffix, comment };
-            }
-            return null;
-        }).filter(f => f !== null);
+            // Extract prefix from the original line
+            const prefixMatch = field.line.match(/^\s*(\d+:\s*(?:required|optional)?\s*)/);
+            const prefix = prefixMatch ? prefixMatch[1] : '';
+            
+            // Use the already parsed and cleaned type from field.type
+            let type = field.type;
+            // Clean up type formatting - remove spaces around < > and ,
+            type = type.replace(/\s*<\s*/g, '<').replace(/\s*>\s*/g, '>').replace(/\s*,\s*/g, ',');
+            
+            const name = field.name;
+            
+            // Extract suffix and comment from the remainder of the line
+            const afterName = field.line.substring(field.line.indexOf(field.name) + field.name.length);
+            const commentMatch = afterName.match(/^([^/]*)(\/.*)$/);
+            const suffix = commentMatch ? commentMatch[1].trim() : afterName.trim();
+            const comment = field.comment || (commentMatch ? commentMatch[2] : '');
+            
+            maxTypeWidth = Math.max(maxTypeWidth, type.length);
+            maxNameWidth = Math.max(maxNameWidth, name.length);
+            
+            return { prefix, type, name, suffix, comment };
+        });
 
         // Format fields with alignment
         return parsedFields.map(field => {
@@ -200,12 +218,25 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 cleanSuffix = cleanSuffix.replace(/\s*=\s*/, ' = ');
             }
             
-            formattedLine += cleanSuffix;
+            // Handle trailing comma based on configuration
+            const hasComma = cleanSuffix.includes(',');
+            const hasSemicolon = cleanSuffix.includes(';');
             
-            // Add trailing comma if configured
-            if (options.trailingComma && !cleanSuffix.includes(',') && !cleanSuffix.includes(';')) {
-                formattedLine += ',';
+            if (options.trailingComma === 'add' && !hasComma && !hasSemicolon) {
+                // Add comma if not present
+                cleanSuffix = cleanSuffix.trim();
+                if (cleanSuffix && !cleanSuffix.endsWith(',')) {
+                    cleanSuffix += ',';
+                } else if (!cleanSuffix) {
+                    cleanSuffix = ',';
+                }
+            } else if (options.trailingComma === 'remove' && hasComma && !hasSemicolon) {
+                // Remove comma if present
+                cleanSuffix = cleanSuffix.replace(/,\s*$/, '').trim();
             }
+            // For 'preserve', keep the original comma state
+            
+            formattedLine += cleanSuffix;
             
             if (field.comment && options.alignComments) {
                 // Align comments
