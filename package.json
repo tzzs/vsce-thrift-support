@@ -1,0 +1,113 @@
+{
+  "name": "thrift-support",
+  "displayName": "Thrift Support",
+  "description": "VSCode extension for Apache Thrift with syntax highlighting, formatting, and navigation support",
+  "version": "0.1.0",
+  "publisher": "thrift-support",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/thrift-support.git"
+  },
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Formatters",
+    "Other"
+  ],
+  "keywords": [
+    "thrift",
+    "apache thrift",
+    "syntax highlighting",
+    "formatter"
+  ],
+  "activationEvents": [
+    "onLanguage:thrift"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "thrift",
+        "aliases": [
+          "Thrift",
+          "thrift"
+        ],
+        "extensions": [
+          ".thrift"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "thrift",
+        "scopeName": "source.thrift",
+        "path": "./syntaxes/thrift.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "thrift.format.document",
+        "title": "Format Document",
+        "category": "Thrift"
+      },
+      {
+        "command": "thrift.format.selection",
+        "title": "Format Selection",
+        "category": "Thrift"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Thrift Support Configuration",
+      "properties": {
+        "thrift.format.trailingComma": {
+          "type": "boolean",
+          "default": true,
+          "description": "Add trailing comma after the last field in structs/unions/exceptions"
+        },
+        "thrift.format.alignTypes": {
+          "type": "boolean",
+          "default": true,
+          "description": "Align field types in structs/unions/exceptions"
+        },
+        "thrift.format.alignFieldNames": {
+          "type": "boolean",
+          "default": true,
+          "description": "Align field names in structs/unions/exceptions"
+        },
+        "thrift.format.alignComments": {
+          "type": "boolean",
+          "default": true,
+          "description": "Align inline comments"
+        },
+        "thrift.format.indentSize": {
+          "type": "number",
+          "default": 2,
+          "description": "Number of spaces for indentation"
+        },
+        "thrift.format.maxLineLength": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum line length for formatting"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "16.x",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "eslint": "^8.28.0",
+    "typescript": "^4.9.4"
+  }
+}
