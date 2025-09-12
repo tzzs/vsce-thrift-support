@@ -8,12 +8,13 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         position: vscode.Position,
         token: vscode.CancellationToken
     ): Promise<vscode.Definition | undefined> {
-        // Check if cursor is on an include statement
+        // Check if cursor is on an include statement first
         const includeDefinition = await this.checkIncludeStatement(document, position);
         if (includeDefinition) {
             return includeDefinition;
         }
 
+        // For non-include statements, use standard word range detection
         const wordRange = document.getWordRangeAtPosition(position);
         if (!wordRange) {
             return undefined;
@@ -72,12 +73,20 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         const includePath = includeMatch[1];
         const documentDir = path.dirname(document.uri.fsPath);
         
-        // Calculate the position of the filename in the include statement
+        // Find the exact position of the quoted filename in the line
         const fullLineText = line.text;
-        const filenameStart = fullLineText.indexOf(includePath);
+        const quotePattern = /["']([^"']+)["']/;
+        const quoteMatch = fullLineText.match(quotePattern);
+        
+        if (!quoteMatch) {
+            return undefined;
+        }
+        
+        const quoteStart = fullLineText.indexOf(quoteMatch[0]);
+        const filenameStart = quoteStart + 1; // Skip the opening quote
         const filenameEnd = filenameStart + includePath.length;
         
-        // Check if cursor is within the filename
+        // Check if cursor is within the filename (including dots and extensions)
         if (position.character >= filenameStart && position.character <= filenameEnd) {
             let fullPath: string;
             
