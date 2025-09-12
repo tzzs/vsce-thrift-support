@@ -28,13 +28,16 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         range: vscode.Range,
         options: vscode.FormattingOptions
     ): vscode.TextEdit[] {
-        const config = vscode.workspace.getConfiguration('thrift.format');
+        const config = vscode.workspace.getConfiguration('thrift-support.formatting');
         const text = document.getText(range);
         const formattedText = this.formatThriftCode(text, {
-            trailingComma: config.get('trailingComma', 'preserve'), // 'preserve', 'add', 'remove'
+            trailingComma: config.get('trailingComma', true),
             alignTypes: config.get('alignTypes', true),
-            alignFieldNames: config.get('alignFieldNames', false), // Don't align field names by default
+            alignFieldNames: config.get('alignFieldNames', true),
             alignComments: config.get('alignComments', true),
+            alignEnumNames: config.get('alignEnumNames', true),
+            alignEnumEquals: config.get('alignEnumEquals', true),
+            alignEnumValues: config.get('alignEnumValues', true),
             indentSize: config.get('indentSize', 4),
             maxLineLength: config.get('maxLineLength', 100),
             insertSpaces: options.insertSpaces,
@@ -49,7 +52,9 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         const formattedLines: string[] = [];
         let indentLevel = 0;
         let inStruct = false;
+        let inEnum = false;
         let structFields: Array<{line: string, type: string, name: string, comment: string}> = [];
+        let enumFields: Array<{line: string, name: string, value: string, comment: string}> = [];
 
         for (let i = 0; i < lines.length; i++) {
             let originalLine = lines[i];
@@ -61,12 +66,17 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 continue;
             }
 
-            // Handle struct/union/exception/service definitions
+            // Handle struct/union/exception/service/enum definitions
             if (this.isStructStart(line)) {
                 formattedLines.push(this.getIndent(indentLevel, options) + line);
                 indentLevel++;
-                inStruct = true;
-                structFields = [];
+                if (line.includes('enum')) {
+                    inEnum = true;
+                    enumFields = [];
+                } else {
+                    inStruct = true;
+                    structFields = [];
+                }
                 continue;
             }
 
@@ -77,10 +87,16 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     const formattedFields = this.formatStructFields(structFields, options, indentLevel);
                     formattedLines.push(...formattedFields);
                     structFields = [];
+                } else if (inEnum && enumFields.length > 0) {
+                    // Format accumulated enum fields
+                    const formattedFields = this.formatEnumFields(enumFields, options, indentLevel);
+                    formattedLines.push(...formattedFields);
+                    enumFields = [];
                 }
                 // Ensure indentLevel doesn't go below 0
                 indentLevel = Math.max(0, indentLevel - 1);
                 inStruct = false;
+                inEnum = false;
                 formattedLines.push(this.getIndent(indentLevel, options) + line);
                 continue;
             }
@@ -94,6 +110,15 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 }
             }
 
+            // Handle enum fields - use original line to preserve indentation for parsing
+            if (inEnum && this.isEnumField(originalLine)) {
+                const fieldInfo = this.parseEnumField(originalLine);
+                if (fieldInfo) {
+                    enumFields.push(fieldInfo);
+                    continue;
+                }
+            }
+
             // Regular lines
             formattedLines.push(this.getIndent(indentLevel, options) + line);
         }
@@ -101,6 +126,12 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         // Handle any remaining struct fields
         if (structFields.length > 0) {
             const formattedFields = this.formatStructFields(structFields, options, indentLevel);
+            formattedLines.push(...formattedFields);
+        }
+
+        // Handle any remaining enum fields
+        if (enumFields.length > 0) {
+            const formattedFields = this.formatEnumFields(enumFields, options, indentLevel);
             formattedLines.push(...formattedFields);
         }
 
@@ -116,6 +147,11 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         // Match field definitions like: 1: required string name, or 1: string name,
         // Also match complex types like: 1: required list<string> names,
         return /^\s*\d+:\s*(required|optional)?\s*[\w<>,\s]+\s+\w+/.test(line);
+    }
+
+    private isEnumField(line: string): boolean {
+        // Match enum field definitions like: ACTIVE = 1, or INACTIVE = 2,
+        return /^\s*\w+\s*=\s*\d+/.test(line);
     }
 
     private parseStructField(line: string): {line: string, type: string, name: string, comment: string} | null {
@@ -151,6 +187,26 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             line: line,
             type: type,
             name: name,
+            comment: comment
+        };
+    }
+
+    private parseEnumField(line: string): {line: string, name: string, value: string, comment: string} | null {
+        // Parse enum field: ACTIVE = 1, // comment
+        const match = line.match(/^\s*(\w+)\s*=\s*(\d+)\s*([,;]?\s*(?:\/\/.*)?)\s*$/);
+        if (!match) return null;
+        
+        const name = match[1];
+        const value = match[2];
+        const suffix = match[3] || '';
+        
+        const commentMatch = suffix.match(/^([^/]*)(\/.*)$/);
+        const comment = commentMatch ? commentMatch[2] : '';
+        
+        return {
+            line: line,
+            name: name,
+            value: value,
             comment: comment
         };
     }
@@ -219,6 +275,98 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             }
             
             // Handle trailing comma based on configuration
+            const hasComma = cleanSuffix.includes(',');
+            const hasSemicolon = cleanSuffix.includes(';');
+            
+            if (options.trailingComma === 'add' && !hasComma && !hasSemicolon) {
+                // Add comma if not present
+                cleanSuffix = cleanSuffix.trim();
+                if (cleanSuffix && !cleanSuffix.endsWith(',')) {
+                    cleanSuffix += ',';
+                } else if (!cleanSuffix) {
+                    cleanSuffix = ',';
+                }
+            } else if (options.trailingComma === 'remove' && hasComma && !hasSemicolon) {
+                // Remove comma if present
+                cleanSuffix = cleanSuffix.replace(/,\s*$/, '').trim();
+            }
+            // For 'preserve', keep the original comma state
+            
+            formattedLine += cleanSuffix;
+            
+            if (field.comment && options.alignComments) {
+                // Align comments
+                const targetLength = 60; // Target column for comments
+                const currentLength = formattedLine.length;
+                if (currentLength < targetLength) {
+                    formattedLine += ' '.repeat(targetLength - currentLength);
+                } else {
+                    formattedLine += ' ';
+                }
+                formattedLine += field.comment;
+            } else if (field.comment) {
+                formattedLine += ' ' + field.comment;
+            }
+            
+            return formattedLine;
+        });
+    }
+
+    private formatEnumFields(
+        fields: Array<{line: string, name: string, value: string, comment: string}>,
+        options: any,
+        indentLevel: number
+    ): string[] {
+        if (!options.alignEnumNames && !options.alignEnumEquals && !options.alignEnumValues && !options.alignComments) {
+            return fields.map(f => this.getIndent(indentLevel, options) + f.line);
+        }
+
+        // Calculate max widths for alignment
+        let maxNameWidth = 0;
+        let maxValueWidth = 0;
+
+        const parsedFields = fields.map(field => {
+            const name = field.name;
+            const value = field.value;
+            
+            // Extract suffix and comment from the remainder of the line
+            const afterValue = field.line.substring(field.line.indexOf(field.value) + field.value.length);
+            const commentMatch = afterValue.match(/^([^/]*)(\/.*)$/);
+            const suffix = commentMatch ? commentMatch[1].trim() : afterValue.trim();
+            const comment = field.comment || (commentMatch ? commentMatch[2] : '');
+            
+            maxNameWidth = Math.max(maxNameWidth, name.length);
+            maxValueWidth = Math.max(maxValueWidth, value.length);
+            
+            return { name, value, suffix, comment };
+        });
+
+        // Format fields with alignment
+        return parsedFields.map(field => {
+            if (!field) {return '';}
+            
+            let formattedLine = this.getIndent(indentLevel, options);
+            
+            if (options.alignEnumNames) {
+                formattedLine += field.name.padEnd(maxNameWidth);
+            } else {
+                formattedLine += field.name;
+            }
+            
+            if (options.alignEnumEquals) {
+                formattedLine += ' = ';
+            } else {
+                formattedLine += ' = ';
+            }
+            
+            if (options.alignEnumValues) {
+                formattedLine += field.value.padStart(maxValueWidth);
+            } else {
+                formattedLine += field.value;
+            }
+            
+            // Handle trailing comma based on configuration
+            let cleanSuffix = field.suffix;
             const hasComma = cleanSuffix.includes(',');
             const hasSemicolon = cleanSuffix.includes(';');
             

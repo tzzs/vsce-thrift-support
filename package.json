@@ -83,6 +83,21 @@
           "default": true,
           "description": "Align inline comments"
         },
+        "thrift.format.alignEnumNames": {
+          "type": "boolean",
+          "default": true,
+          "description": "Align enum names in enum definitions"
+        },
+        "thrift.format.alignEnumEquals": {
+          "type": "boolean",
+          "default": true,
+          "description": "Align equals signs in enum definitions"
+        },
+        "thrift.format.alignEnumValues": {
+          "type": "boolean",
+          "default": true,
+          "description": "Align enum values in enum definitions"
+        },
         "thrift.format.indentSize": {
           "type": "number",
           "default": 2,
@@ -100,7 +115,15 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "clean": "rimraf out",
+    "build": "npm run clean && npm run compile",
+    "package": "vsce package",
+    "publish": "vsce publish",
+    "test": "node tests/test-include-navigation-fix.js",
+        "test:complex": "node tests/test-complex-types.js",
+        "test:enum": "node tests/test-enum-formatting.js",
+        "test:all": "npm run test && npm run test:complex && npm run test:enum"
   },
   "devDependencies": {
     "@types/vscode": "^1.74.0",
@@ -108,6 +131,8 @@
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
     "eslint": "^8.28.0",
-    "typescript": "^4.9.4"
+    "typescript": "^4.9.4",
+    "rimraf": "^3.0.2",
+    "vsce": "^2.15.0"
   }
 }
