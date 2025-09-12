@@ -8,6 +8,12 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         position: vscode.Position,
         token: vscode.CancellationToken
     ): Promise<vscode.Definition | undefined> {
+        // Check if cursor is on an include statement
+        const includeDefinition = await this.checkIncludeStatement(document, position);
+        if (includeDefinition) {
+            return includeDefinition;
+        }
+
         const wordRange = document.getWordRangeAtPosition(position);
         if (!wordRange) {
             return undefined;
@@ -47,6 +53,51 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
             return workspaceDefinition;
         }
 
+        return undefined;
+    }
+
+    private async checkIncludeStatement(
+        document: vscode.TextDocument,
+        position: vscode.Position
+    ): Promise<vscode.Location | undefined> {
+        const line = document.lineAt(position.line);
+        const lineText = line.text.trim();
+        
+        // Check if current line is an include statement
+        const includeMatch = lineText.match(/^include\s+["']([^"']+)["']/);
+        if (!includeMatch) {
+            return undefined;
+        }
+        
+        const includePath = includeMatch[1];
+        const documentDir = path.dirname(document.uri.fsPath);
+        
+        // Calculate the position of the filename in the include statement
+        const fullLineText = line.text;
+        const filenameStart = fullLineText.indexOf(includePath);
+        const filenameEnd = filenameStart + includePath.length;
+        
+        // Check if cursor is within the filename
+        if (position.character >= filenameStart && position.character <= filenameEnd) {
+            let fullPath: string;
+            
+            if (path.isAbsolute(includePath)) {
+                fullPath = includePath;
+            } else {
+                fullPath = path.resolve(documentDir, includePath);
+            }
+            
+            try {
+                const uri = vscode.Uri.file(fullPath);
+                // Check if file exists by trying to get its stats
+                await vscode.workspace.fs.stat(uri);
+                return new vscode.Location(uri, new vscode.Position(0, 0));
+            } catch (error) {
+                // File doesn't exist, return undefined
+                return undefined;
+            }
+        }
+        
         return undefined;
     }
 
