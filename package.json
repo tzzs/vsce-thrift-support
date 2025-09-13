@@ -2,7 +2,7 @@
   "name": "thrift-support",
   "displayName": "Thrift Support",
   "description": "VSCode extension for Apache Thrift with syntax highlighting, formatting, and navigation support",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "tzzs",
   "repository": {
     "type": "git",
@@ -82,6 +82,11 @@
           "type": "boolean",
           "default": true,
           "description": "Align field names in structs/unions/exceptions"
+        },
+        "thrift.format.alignStructEquals": {
+          "type": "boolean",
+          "default": false,
+          "description": "Align equals sign and default values for struct fields (e.g., align 'name = value'). When false, use standard 'name = value' without extra padding."
         },
         "thrift.format.alignComments": {
           "type": "boolean",

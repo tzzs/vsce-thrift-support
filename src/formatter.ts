@@ -29,18 +29,25 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         options: vscode.FormattingOptions
     ): vscode.TextEdit[] {
         const config = vscode.workspace.getConfiguration('thrift.format');
+        // Backward-compat: also read legacy test namespace if present
+        const legacyConfig = vscode.workspace.getConfiguration('thrift-support.formatting');
+        const getOpt = (key: string, def: any) => {
+            const v = config.get(key);
+            return (v !== undefined && v !== null) ? v : legacyConfig.get(key, def);
+        };
         const text = document.getText(range);
         const formattedText = this.formatThriftCode(text, {
-            trailingComma: config.get('trailingComma', 'preserve'),
-            alignTypes: config.get('alignTypes', true),
-            alignFieldNames: config.get('alignFieldNames', true),
-            alignComments: config.get('alignComments', true),
-            alignEnumNames: config.get('alignEnumNames', true),
-            alignEnumEquals: config.get('alignEnumEquals', true),
-            alignEnumValues: config.get('alignEnumValues', true),
-            indentSize: config.get('indentSize', 4),
-            maxLineLength: config.get('maxLineLength', 100),
-            collectionStyle: config.get('collectionStyle', 'preserve'),
+            trailingComma: getOpt('trailingComma', 'preserve'),
+            alignTypes: getOpt('alignTypes', true),
+            alignFieldNames: getOpt('alignFieldNames', true),
+            alignStructEquals: getOpt('alignStructEquals', false),
+            alignComments: getOpt('alignComments', true),
+            alignEnumNames: getOpt('alignEnumNames', true),
+            alignEnumEquals: getOpt('alignEnumEquals', true),
+            alignEnumValues: getOpt('alignEnumValues', true),
+            indentSize: getOpt('indentSize', 4),
+            maxLineLength: getOpt('maxLineLength', 100),
+            collectionStyle: getOpt('collectionStyle', 'preserve'),
             insertSpaces: options.insertSpaces,
             tabSize: options.tabSize
         });
@@ -49,6 +56,11 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     }
 
     private formatThriftCode(text: string, options: any): string {
+
+        // Backward compatibility for callers that don't pass the new option
+        if (typeof options.alignStructEquals === 'undefined') {
+            options.alignStructEquals = options.alignFieldNames;
+        }
 
         const lines = text.split('\n');
         const formattedLines: string[] = [];
@@ -118,302 +130,89 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
 
                 formattedLines.push(this.getIndent(indentLevel, options) + line);
                 indentLevel++;
-                if (line.includes('enum')) {
-                    inEnum = true;
-                    enumFields = [];
-
-                } else {
-                    inStruct = true;
-                    structFields = [];
-
-                }
+                inStruct = true;
                 continue;
             }
-
-            // Handle closing braces
-            if (line === '}' || line === '},') {
-
-                if (inStruct && structFields.length > 0) {
-                    // Format accumulated struct fields
-
-                    const formattedFields = this.formatStructFields(structFields, options, indentLevel);
-                    formattedLines.push(...formattedFields);
-                    structFields = [];
-                } else if (inEnum && enumFields.length > 0) {
-                    // Format accumulated enum fields
-
-                    const formattedFields = this.formatEnumFields(enumFields, options, indentLevel);
-                    formattedLines.push(...formattedFields);
-                    enumFields = [];
+            if (inStruct) {
+                if (line.startsWith('}')) {
+                    // End of struct/union/exception/service
+                    if (structFields.length > 0) {
+                        const formattedFields = this.formatStructFields(structFields, options, indentLevel);
+                        formattedLines.push(...formattedFields);
+                        structFields = [];
+                    }
+                    indentLevel--;
+                    formattedLines.push(this.getIndent(indentLevel, options) + line);
+                    inStruct = false;
+                    continue;
                 }
-                // Ensure indentLevel doesn't go below 0
-                indentLevel = Math.max(0, indentLevel - 1);
-                inStruct = false;
-                inEnum = false;
+
+                if (this.isStructField(line)) {
+                    const fieldInfo = this.parseStructField(line);
+                    if (fieldInfo) {
+                        structFields.push(fieldInfo);
+                        continue;
+                    }
+                }
+            }
+
+            if (this.isEnumStart(line)) {
                 formattedLines.push(this.getIndent(indentLevel, options) + line);
+                indentLevel++;
+                inEnum = true;
                 continue;
             }
-
-            // Handle struct fields - use original line to preserve indentation for parsing
-            if (inStruct && this.isStructField(originalLine)) {
-                const fieldInfo = this.parseStructField(originalLine);
-                if (fieldInfo) {
-                    structFields.push(fieldInfo);
+            if (inEnum) {
+                if (line.startsWith('}')) {
+                    if (enumFields.length > 0) {
+                        const formattedFields = this.formatEnumFields(enumFields, options, indentLevel);
+                        formattedLines.push(...formattedFields);
+                        enumFields = [];
+                    }
+                    indentLevel--;
+                    formattedLines.push(this.getIndent(indentLevel, options) + line);
+                    inEnum = false;
                     continue;
+                }
+
+                if (this.isEnumField(line)) {
+                    const fieldInfo = this.parseEnumField(line);
+                    if (fieldInfo) {
+                        enumFields.push(fieldInfo);
+                        continue;
+                    }
                 }
             }
 
-            // Handle enum fields - use original line to preserve indentation for parsing
-            if (inEnum && this.isEnumField(originalLine)) {
-                const fieldInfo = this.parseEnumField(originalLine);
-                if (fieldInfo) {
-                    enumFields.push(fieldInfo);
-                    continue;
-                }
-            }
-
-
-
-            // Regular lines
+            // Default: keep the line as-is with proper indentation
             formattedLines.push(this.getIndent(indentLevel, options) + line);
         }
 
-        // Handle any remaining struct fields
+        // Flush any remaining blocks
+        if (constFields.length > 0) {
+            const formattedFields = this.formatConstFields(constFields, options, indentLevel);
+            formattedLines.push(...formattedFields);
+        }
         if (structFields.length > 0) {
             const formattedFields = this.formatStructFields(structFields, options, indentLevel);
             formattedLines.push(...formattedFields);
         }
-
-        // Handle any remaining enum fields
         if (enumFields.length > 0) {
             const formattedFields = this.formatEnumFields(enumFields, options, indentLevel);
-            formattedLines.push(...formattedFields);
-        }
-
-        // Handle any remaining const fields
-        if (constFields.length > 0) {
-            const formattedFields = this.formatConstFields(constFields, options, indentLevel);
             formattedLines.push(...formattedFields);
         }
 
         return formattedLines.join('\n');
     }
 
-    private isStructStart(line: string): boolean {
-        const result = /^(struct|union|exception|service|enum)\s+\w+\s*\{?$/.test(line) ||
-               /^(struct|union|exception|service|enum)\s+\w+.*\{$/.test(line);
-
-        return result;
+    private isConstStart(line: string): boolean {
+        // Match the start of a const declaration that might span multiple lines
+        return /^const\s+\w[\w<>,\s]*\s+\w+\s*=\s*[\[{]/.test(line);
     }
 
     private isConstField(line: string): boolean {
-        // Match single-line const definitions like: const i32 MAX_USERS = 10000
-        // Also match single-line collection definitions that are complete on one line
-        const noComment = line.replace(/\/\/.*$/, '').trim();
-        const isConst = /^const\s+\w+(<[^>]+>)?(\[\])?\s+\w+\s*=\s*.+$/.test(noComment);
-        const isCollectionType = /^const\s+(map|list|set)</.test(noComment);
-        const hasInlineBraces = noComment.includes('{') && noComment.includes('}');
-        const hasInlineBrackets = noComment.includes('[') && noComment.includes(']');
-        const endsWithOpenBrace = noComment.endsWith('{');
-        const endsWithOpenBracket = noComment.endsWith('[');
-        
-        // If it's a collection type that ends with an opening brace/bracket (incomplete), treat as multiline const start
-        if (isConst && isCollectionType && (endsWithOpenBrace || endsWithOpenBracket)) {
-            return false; // Will be handled by isConstStart
-        }
-        
-        return isConst;
-    }
-
-    private isConstStart(line: string): boolean {
-        // Match const definitions like: const map<string, i32> ERROR_CODES = {
-        // Only match incomplete collection definitions that end with opening brace/bracket
-        const noComment = line.replace(/\/\/.*$/, '').trim();
-        const isMultilineStart = /^const\s+.+\s*=\s*\{$/.test(noComment) || /^const\s+.+\s*=\s*\[$/.test(noComment);
-        const isCollectionType = /^const\s+(map|list|set)</.test(noComment);
-        const endsWithOpenBrace = noComment.endsWith('{');
-        const endsWithOpenBracket = noComment.endsWith('[');
-        
-        return isMultilineStart || (isCollectionType && (endsWithOpenBrace || endsWithOpenBracket));
-    }
-
-    private parseConstField(line: string, options: any = null, indentLevel: number = 0): {line: string, type: string, name: string, value: string, comment: string} | null {
-        // Parse const field: const i32 MAX_USERS = 10000 // comment
-        // Also handles multiline const definitions and expands single-line collections
-        let remainder = line.trim();
-        
-        // For multiline const, extract comment from the first line only
-        let comment = '';
-        const firstLine = remainder.split('\n')[0];
-        const commentMatch = firstLine.match(/^(.*?)(\/\/.*)$/);
-        if (commentMatch) {
-            comment = commentMatch[2];
-            // Remove comment from the entire remainder
-            remainder = remainder.replace(commentMatch[2], '').trim();
-        }
-        
-        // Parse the main content: const type name = value
-        // For multiline, the value part might span multiple lines
-        const constMatch = remainder.match(/^const\s+(\w+(?:<[^>]+>)?(?:\[\])?)\s+(\w+)\s*=\s*([\s\S]+)$/);
-        if (!constMatch) return null;
-        
-        const type = constMatch[1].trim();
-        const name = constMatch[2];
-        let value = constMatch[3].trim();
-        
-        // Check if this is a single-line collection that may need to be expanded
-        const isCollectionType = /^(map|list|set)</.test(type);
-        const isInlineCollection = (value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']'));
-        if (isCollectionType && isInlineCollection) {
-            if (options && options.collectionStyle === 'multiline') {
-                value = this.expandInlineCollection(value, type, options, indentLevel + 1);
-            } else if (options && options.collectionStyle === 'auto') {
-                // Auto mode: expand only when the estimated single-line exceeds maxLineLength
-                const indent = this.getIndent(indentLevel, options);
-                const singleLineBase = `${indent}const ${type} ${name} = ${value}`;
-                const commentPart = comment ? ` ${comment}` : '';
-                const estimatedLen = singleLineBase.length + commentPart.length;
-                const maxLen = (options && typeof options.maxLineLength === 'number') ? options.maxLineLength : 100;
-                if (estimatedLen > maxLen) {
-                    value = this.expandInlineCollection(value, type, options, indentLevel + 1);
-                }
-            } // else preserve single-line as-is
-        }
-        
-        return {
-            line: line,
-            type: type,
-            name: name,
-            value: value,
-            comment: comment
-        };
-    }
-
-    private expandInlineCollection(value: string, type: string, options: any = null, indentLevel: number = 1): string {
-        // Expand single-line collections to multi-line format
-        const itemIndent = options ? this.getIndent(indentLevel, options) : '    '.repeat(indentLevel);
-        
-        if (value.startsWith('{') && value.endsWith('}')) {
-            // Handle map: {"key1": value1, "key2": value2}
-            const content = value.slice(1, -1).trim();
-            if (!content) return '{\n}';
-            
-            const items = this.parseMapItems(content);
-            if (items.length === 0) return '{\n}';
-            
-            return '{\n' + items.map(item => `${itemIndent}${item}`).join(',\n') + '\n}';
-        } else if (value.startsWith('[') && value.endsWith(']')) {
-            // Handle list/set: ["item1", "item2"]
-            const content = value.slice(1, -1).trim();
-            if (!content) return '[\n]';
-            
-            const items = this.parseListItems(content);
-            if (items.length === 0) return '[\n]';
-            
-            return '[\n' + items.map(item => `${itemIndent}${item}`).join(',\n') + '\n]';
-        }
-        
-        return value;
-    }
-
-    private parseMapItems(content: string): string[] {
-        const items: string[] = [];
-        let current = '';
-        let depth = 0;
-        let inString = false;
-        let escapeNext = false;
-        
-        for (let i = 0; i < content.length; i++) {
-            const char = content[i];
-            
-            if (escapeNext) {
-                current += char;
-                escapeNext = false;
-                continue;
-            }
-            
-            if (char === '\\') {
-                current += char;
-                escapeNext = true;
-                continue;
-            }
-            
-            if (char === '"' && !escapeNext) {
-                inString = !inString;
-                current += char;
-                continue;
-            }
-            
-            if (!inString) {
-                if (char === '{' || char === '[') {
-                    depth++;
-                } else if (char === '}' || char === ']') {
-                    depth--;
-                } else if (char === ',' && depth === 0) {
-                    items.push(current.trim());
-                    current = '';
-                    continue;
-                }
-            }
-            
-            current += char;
-        }
-        
-        if (current.trim()) {
-            items.push(current.trim());
-        }
-        
-        return items;
-    }
-
-    private parseListItems(content: string): string[] {
-        const items: string[] = [];
-        let current = '';
-        let depth = 0;
-        let inString = false;
-        let escapeNext = false;
-        
-        for (let i = 0; i < content.length; i++) {
-            const char = content[i];
-            
-            if (escapeNext) {
-                current += char;
-                escapeNext = false;
-                continue;
-            }
-            
-            if (char === '\\') {
-                current += char;
-                escapeNext = true;
-                continue;
-            }
-            
-            if (char === '"' && !escapeNext) {
-                inString = !inString;
-                current += char;
-                continue;
-            }
-            
-            if (!inString) {
-                if (char === '{' || char === '[') {
-                    depth++;
-                } else if (char === '}' || char === ']') {
-                    depth--;
-                } else if (char === ',' && depth === 0) {
-                    items.push(current.trim());
-                    current = '';
-                    continue;
-                }
-            }
-            
-            current += char;
-        }
-        
-        if (current.trim()) {
-            items.push(current.trim());
-        }
-        
-        return items;
+        // Match a single-line const declaration
+        return /^const\s+\w[\w<>,\s]*\s+\w+\s*=/.test(line);
     }
 
     private formatConstFields(
@@ -423,24 +222,101 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     ): string[] {
         if (fields.length === 0) return [];
         
-        // Calculate max widths for alignment
-        const maxTypeWidth = Math.max(...fields.map(f => f.type.length));
-        const maxNameWidth = Math.max(...fields.map(f => f.name.length));
+        const collectionStyle: 'preserve' | 'multiline' | 'auto' = (options && options.collectionStyle) || 'preserve';
+        const maxLineLength: number = (options && options.maxLineLength) || 100;
         
         const indent = this.getIndent(indentLevel, options);
         const valueIndent = this.getIndent(indentLevel + 1, options);
         const alignComments = options && options.alignComments !== false;
 
+        // Expand inline collections to multiline according to collectionStyle before measuring widths
+        const adjFields = fields.map((f) => {
+            let value = f.value;
+            const isInlineCollection = !value.includes('\n') && ((/^\[.*\]$/.test(value)) || (/^\{.*\}$/.test(value)));
+
+            let shouldExpand = false;
+            if (isInlineCollection) {
+                if (collectionStyle === 'multiline') {
+                    shouldExpand = true;
+                } else if (collectionStyle === 'auto') {
+                    const inlineLine = `${indent}const ${f.type} ${f.name} = ${value}${f.comment ? ' ' + f.comment : ''}`;
+                    if (inlineLine.length > maxLineLength) {
+                        shouldExpand = true;
+                    }
+                }
+            }
+
+            if (shouldExpand) {
+                const open = value[0];
+                const close = value[value.length - 1];
+                const inner = value.substring(1, value.length - 1).trim();
+
+                const items: string[] = [];
+                let current = '';
+                let depth = 0;
+                let inString = false;
+                let stringChar = '';
+                for (let i = 0; i < inner.length; i++) {
+                    const ch = inner[i];
+                    const prev = i > 0 ? inner[i - 1] : '';
+                    if (inString) {
+                        current += ch;
+                        if (ch === stringChar && prev !== '\\') {
+                            inString = false;
+                        }
+                        continue;
+                    }
+                    if (ch === '"' || ch === "'") {
+                        inString = true;
+                        stringChar = ch;
+                        current += ch;
+                        continue;
+                    }
+                    if (ch === '[' || ch === '{' || ch === '(') {
+                        depth++;
+                        current += ch;
+                        continue;
+                    }
+                    if (ch === ']' || ch === '}' || ch === ')') {
+                        depth--;
+                        current += ch;
+                        continue;
+                    }
+                    if (ch === ',' && depth === 0) {
+                        if (current.trim()) items.push(current.trim());
+                        current = '';
+                    } else {
+                        current += ch;
+                    }
+                }
+                if (current.trim()) items.push(current.trim());
+
+                const lines: string[] = [open];
+                for (let idx = 0; idx < items.length; idx++) {
+                    const comma = idx < items.length - 1 ? ',' : '';
+                    lines.push(items[idx] + comma);
+                }
+                lines.push(close);
+                value = lines.join('\n');
+            }
+
+            return { ...f, value };
+        });
+        
+        // Calculate max widths for alignment (type and name)
+        const maxTypeWidth = Math.max(...adjFields.map(f => f.type.length));
+        const maxNameWidth = Math.max(...adjFields.map(f => f.name.length));
+
         // Pre-compute max base length for aligning comments on the first line of each const
         let maxFirstLineBaseLen = 0;
-        for (const f of fields) {
+        for (const f of adjFields) {
             if (!f.comment) continue;
             const firstLineValue = f.value.includes('\n') ? f.value.split('\n')[0] : f.value;
             const base = `const ${f.type.padEnd(maxTypeWidth)} ${f.name.padEnd(maxNameWidth)} = ${firstLineValue}`;
             if (base.length > maxFirstLineBaseLen) maxFirstLineBaseLen = base.length;
         }
         
-        return fields.map(field => {
+        return adjFields.map(field => {
             const paddedType = field.type.padEnd(maxTypeWidth);
             const paddedName = field.name.padEnd(maxNameWidth);
             
@@ -624,7 +500,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         const suffixAndComment = match[3] || '';
         
         // Separate suffix (comma/semicolon) from comment
-        const commentMatch = suffixAndComment.match(/^([^/]*)(\/.*)$/);
+        const commentMatch = suffixAndComment.match(/^([^/]*)(\/.+)$/);
         const suffix = commentMatch ? commentMatch[1].trim() : suffixAndComment.trim();
         const comment = commentMatch ? commentMatch[2] : '';
         
@@ -634,6 +510,48 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             value: value,
             suffix: suffix,
             comment: comment
+        };
+    }
+
+    private parseConstField(
+        source: string,
+        options: any,
+        indentLevel: number
+    ): { line: string, type: string, name: string, value: string, comment: string } | null {
+        if (!source) return null;
+        const lines = source.split('\n');
+        const header = (lines[0] || '').trim();
+        // Match: const <type> <name> = <value>[ // comment]
+        const m = header.match(/^const\s+([\w<>,\s]+?)\s+(\w+)\s*=\s*(.*)$/);
+        if (!m) return null;
+        let type = m[1].trim();
+        const name = m[2].trim();
+        let firstValuePart = (m[3] || '').trim();
+
+        // Extract possible inline comment from the first line's value
+        let comment = '';
+        const commentIdx = firstValuePart.indexOf('//');
+        if (commentIdx >= 0) {
+            comment = firstValuePart.slice(commentIdx).trim();
+            firstValuePart = firstValuePart.slice(0, commentIdx).trim();
+        }
+
+        // Build full value (may be multiline)
+        let value = firstValuePart;
+        if (lines.length > 1) {
+            const rest = lines.slice(1).map(l => l.trim()).join('\n');
+            value = (value ? value + '\n' : '') + rest;
+        }
+
+        // Normalize generic spacing in type
+        type = type.replace(/\s*<\s*/g, '<').replace(/\s*>\s*/g, '>').replace(/\s*,\s*/g, ',');
+
+        return {
+            line: header,
+            type,
+            name,
+            value,
+            comment
         };
     }
 
@@ -687,6 +605,11 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             return { fieldId, qualifier, type, name, suffix, comment };
         });
         
+        // Determine max name width for fields that have default values (for aligning '=')
+        const maxNameWidthWithDefault = parsedFields
+            .filter(f => f.suffix && f.suffix.includes('='))
+            .reduce((m, f) => Math.max(m, f.name.length), 0);
+
         // Calculate max content width after we know the alignment widths
         parsedFields.forEach(field => {
             // Calculate content width for comment alignment considering alignment
@@ -708,7 +631,12 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             
             if (options.alignFieldNames) {
                 if (field.suffix) {
-                    contentWidth += maxNameWidth + field.suffix.length;
+                    // If there's a default value
+                    if (options.alignStructEquals) {
+                        contentWidth += maxNameWidth + field.suffix.length;
+                    } else {
+                        contentWidth += field.name.length + field.suffix.length;
+                    }
                 } else {
                     contentWidth += field.name.length;
                 }
@@ -720,7 +648,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             }
             
             // Add comma if present or will be added
-            if (field.suffix.includes(',') || options.trailingComma === 'add') {
+            if ((field.suffix && field.suffix.includes(',')) || options.trailingComma === 'add') {
                 contentWidth += 1; // for comma
             }
             
@@ -731,8 +659,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
 
         // Format fields with alignment
         return parsedFields.map(field => {
-            if (!field) {return '';}
-            
+            if (!field) {return '';}            
             let formattedLine = this.getIndent(indentLevel, options);
             
             // Add field ID with colon, then pad to alignment
@@ -776,8 +703,12 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             // Add field name with proper alignment
             if (options.alignFieldNames) {
                 if (cleanSuffix) {
-                    // If there's a default value, pad the field name for alignment
-                    formattedLine += field.name.padEnd(maxNameWidth);
+                    // If there's a default value, pad the field name only when aligning '=' is enabled
+                    if (options.alignStructEquals) {
+                        formattedLine += field.name.padEnd(maxNameWidth);
+                    } else {
+                        formattedLine += field.name;
+                    }
                     formattedLine += cleanSuffix;
                 } else {
                     // If no default value, don't pad to avoid extra spaces before comma
@@ -820,110 +751,77 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         options: any,
         indentLevel: number
     ): string[] {
-        const needsAlignment = options.alignEnumNames || options.alignEnumEquals || options.alignEnumValues || options.alignComments;
-        if (!needsAlignment && options.trailingComma === 'preserve') {
+        const needsAlignment = options.alignEnumNames || options.alignEnumEquals || options.alignEnumValues || options.alignComments || options.trailingComma !== 'preserve';
+        if (!needsAlignment) {
             return fields.map(f => this.getIndent(indentLevel, options) + f.line);
         }
 
-        // Calculate max widths for alignment
-        let maxNameWidth = 0;
-        let maxValueWidth = 0;
-        let maxContentWidth = 0; // For comment alignment
+        const indent = this.getIndent(indentLevel, options);
 
-        const parsedFields = fields.map(field => {
-            const name = field.name;
-            const value = field.value;
-            
-            // Extract suffix and comment from the remainder of the line
-            const afterValue = field.line.substring(field.line.indexOf(field.value) + field.value.length);
-            const commentMatch = afterValue.match(/^([^/]*)(\/.*)$/);
-            const suffix = commentMatch ? commentMatch[1].trim() : afterValue.trim();
-            const comment = field.comment || (commentMatch ? commentMatch[2] : '');
-            
-            maxNameWidth = Math.max(maxNameWidth, name.length);
-            maxValueWidth = Math.max(maxValueWidth, value.length);
-            
-            // Calculate content width for comment alignment (name + = + value + suffix)
-            let contentWidth = name.length + 3 + value.length; // +3 for " = "
-            if (suffix) {
-                contentWidth += suffix.length;
-            }
-            maxContentWidth = Math.max(maxContentWidth, contentWidth);
-            
-            return { name, value, suffix, comment };
-        });
+        const maxNameWidth = Math.max(...fields.map(f => f.name.length), 0);
+        const maxValueWidth = options.alignEnumValues ? Math.max(...fields.map(f => String(f.value).length)) : 0;
 
-        // Format fields with alignment
-        return parsedFields.map(field => {
-            if (!field) {return '';}
-            
-            let formattedLine = this.getIndent(indentLevel, options);
-            
-            if (options.alignEnumNames) {
-                formattedLine += field.name.padEnd(maxNameWidth);
-            } else {
-                formattedLine += field.name;
+        let maxContentWidth = 0;
+        const interim: Array<{ base: string; comment: string } > = [];
+
+        for (const f of fields) {
+            let hasComma = f.suffix ? /,/.test(f.suffix) : false;
+            const hasSemicolon = f.suffix ? /;/.test(f.suffix) : false;
+
+            if (!hasSemicolon) {
+                if (options.trailingComma === 'add') hasComma = true;
+                else if (options.trailingComma === 'remove') hasComma = false;
             }
-            
+
+            // Handle name/equals alignment
+            let base = indent;
             if (options.alignEnumEquals) {
-                formattedLine += ' = ';
+                // Align '=' by padding name to max width regardless of alignEnumNames
+                base += f.name.padEnd(maxNameWidth) + ' = ';
             } else {
-                formattedLine += ' = ';
+                const namePart = options.alignEnumNames ? f.name.padEnd(maxNameWidth) : f.name;
+                base += namePart + ' = ';
             }
-            
-            if (options.alignEnumValues) {
-                formattedLine += field.value.padStart(maxValueWidth);
-            } else {
-                formattedLine += field.value;
-            }
-            
-            // Handle trailing comma based on configuration
-            let cleanSuffix = field.suffix;
-            const hasComma = cleanSuffix.includes(',');
-            const hasSemicolon = cleanSuffix.includes(';');
-            
 
-            
-            if (options.trailingComma === 'add' && !hasComma && !hasSemicolon) {
-                // Add comma if not present
-                cleanSuffix = ',' + cleanSuffix;
+            // Handle value alignment
+            const valuePart = options.alignEnumValues ? String(f.value).padEnd(maxValueWidth) : String(f.value);
+            base += valuePart;
 
-            } else if (options.trailingComma === 'remove' && hasComma && !hasSemicolon) {
-                // Remove comma if present
-                cleanSuffix = cleanSuffix.replace(/,.*$/, '');
+            if (hasComma) base += ',';
 
-            }
-            // For 'preserve', keep the original comma state
-            
-            // Add suffix (including comma) directly to the line
-            if (cleanSuffix) {
-                formattedLine += cleanSuffix;
-            }
-            
-            // Add comment with alignment if enabled
-            if (field.comment) {
+            interim.push({ base, comment: f.comment || '' });
+            const width = base.length - indent.length;
+            if (width > maxContentWidth) maxContentWidth = width;
+        }
+
+        return interim.map(item => {
+            let line = item.base;
+            if (item.comment) {
                 if (options.alignComments) {
-                    // Calculate current line width for alignment
-                    const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
-                    const paddingNeeded = Math.max(1, maxContentWidth - currentWidth + 2); // +2 for spacing
-                    formattedLine += ' '.repeat(paddingNeeded) + field.comment;
+                    const pad = Math.max(1, maxContentWidth - (line.length - indent.length) + 1);
+                    line += ' '.repeat(pad) + item.comment;
                 } else {
-                    formattedLine += ' ' + field.comment;
+                    line += ' ' + item.comment;
                 }
             }
-            
-            return formattedLine;
+            return line;
         });
     }
 
     private getIndent(level: number, options: any): string {
         const indentSize = options.indentSize || 4;
-        // Ensure level is not negative to avoid String.repeat() error
-        const safeLevel = Math.max(0, level);
         if (options.insertSpaces) {
-            return ' '.repeat(safeLevel * indentSize);
+            return ' '.repeat(level * indentSize);
         } else {
-            return '\t'.repeat(safeLevel);
+            return '\t'.repeat(level);
         }
+    }
+
+    private isStructStart(line: string): boolean {
+        return /^(struct|union|exception|service)\b/.test(line);
+    }
+
+    private isEnumStart(line: string): boolean {
+        return /^enum\b/.test(line);
     }
 }
