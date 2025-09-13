@@ -22,6 +22,9 @@
     "syntax highlighting",
     "formatter"
   ],
+  "activationEvents": [
+    "onLanguage:thrift"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "languages": [
