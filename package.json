@@ -2,7 +2,7 @@
   "name": "thrift-support",
   "displayName": "Thrift Support",
   "description": "VSCode extension for Apache Thrift with syntax highlighting, formatting, and navigation support",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "tzzs",
   "repository": {
     "type": "git",

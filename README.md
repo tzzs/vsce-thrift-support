@@ -117,12 +117,9 @@ struct User {
 
 ## 🔄 更新日志
 
-### 0.1.0
-- 初始版本发布
-- Thrift 文件语法高亮
-- 文档和选择格式化功能
-- 跳转到定义支持
-- 可配置的格式化选项
+完整的更新记录请查看 CHANGELOG：
+- 本地：CHANGELOG.md
+- GitHub：https://github.com/tzzs/thrift-support/blob/main/CHANGELOG.md
 
 ## 🔗 相关链接
 
