@@ -1,35 +1,48 @@
 # Thrift Support for VSCode
 
-A comprehensive VSCode extension that provides full support for Apache Thrift files with syntax highlighting, formatting, and navigation features.
+一个为 VSCode 提供 Apache Thrift 文件完整支持的扩展，包含语法高亮、代码格式化和导航功能。
 
-## Features
+## 🚀 功能特性
 
-### 🎨 Syntax Highlighting
-- **Keywords**: `struct`, `service`, `enum`, `union`, `exception`, `namespace`, `include`, etc.
-- **Data Types**: Primitive types (`string`, `i32`, `bool`, etc.) and container types (`list`, `map`, `set`)
-- **Strings**: Double and single quoted strings with escape sequence support
-- **Comments**: Line comments (`//`, `#`) and block comments (`/* */`)
-- **Numbers**: Integer, floating-point, hexadecimal, and octal literals
+### 语法高亮
+- 完整的 Thrift 语法支持，包括关键字、数据类型、字符串、注释和数字字面量
+- 支持所有 Thrift 原生类型和容器类型
+- 智能的语法着色，提升代码可读性
 
-### 🔧 Code Formatting
-- **Document Formatting**: Format entire Thrift files
-- **Selection Formatting**: Format selected code blocks
-- **Configurable Options**:
-  - Trailing commas after struct fields
-  - Type alignment in struct definitions
-  - Field name alignment
-  - Comment alignment
-  - Customizable indentation size
-  - Maximum line length
+### 代码格式化
+- **文档格式化**：一键格式化整个 Thrift 文件
+- **选择格式化**：格式化选中的代码块
+- **智能对齐**：自动对齐字段类型、字段名和注释
+- **可配置选项**：支持自定义缩进、行长度等格式化规则
 
-### 🔍 Navigation Support
-- **Go to Definition**: Navigate to type definitions across files
-- **Include File Resolution**: Follow `include` statements to referenced files
-- **Workspace-wide Search**: Find definitions across all Thrift files in workspace
+### 代码导航
+- **跳转到定义**：快速导航到类型定义
+- **包含文件解析**：支持跟踪 `include` 语句
+- **工作区搜索**：在整个工作区中查找定义
 
-### ⚙️ Configuration
+## 📦 安装
 
-The extension provides several configuration options under `thrift.format`:
+1. 打开 VSCode
+2. 进入扩展市场 (`Ctrl+Shift+X`)
+3. 搜索 "Thrift Support"
+4. 点击安装
+
+## 🔧 使用方法
+
+### 格式化代码
+- **格式化文档**：`Ctrl+Shift+I` (Windows/Linux) 或 `Cmd+Shift+I` (Mac)
+- **格式化选择**：选中代码后使用 `Ctrl+K Ctrl+F` (Windows/Linux) 或 `Cmd+K Cmd+F` (Mac)
+- **命令面板**：
+  - `Thrift: Format Document`
+  - `Thrift: Format Selection`
+
+### 代码导航
+- **跳转到定义**：`F12` 或 `Ctrl+点击` 类型名
+- **查看定义**：`Alt+F12`
+
+### 配置选项
+
+在 VSCode 设置中可以配置以下选项：
 
 ```json
 {
@@ -37,37 +50,14 @@ The extension provides several configuration options under `thrift.format`:
   "thrift.format.alignTypes": true,
   "thrift.format.alignFieldNames": true,
   "thrift.format.alignComments": true,
-  "thrift.format.indentSize": 2,
+  "thrift.format.indentSize": 4,
   "thrift.format.maxLineLength": 100
 }
 ```
 
-## Usage
+## 📝 格式化示例
 
-### Formatting
-1. **Format Document**: `Ctrl+Shift+I` (Windows/Linux) or `Cmd+Shift+I` (Mac)
-2. **Format Selection**: Select code and use `Ctrl+K Ctrl+F` (Windows/Linux) or `Cmd+K Cmd+F` (Mac)
-3. **Command Palette**: 
-   - `Thrift: Format Document`
-   - `Thrift: Format Selection`
-
-### Navigation
-1. **Go to Definition**: `F12` or `Ctrl+Click` on type names
-2. **Peek Definition**: `Alt+F12`
-
-## Code Standards
-
-This extension follows the [Apache Thrift Coding Standards](https://thrift.apache.org/docs/coding_standards.html):
-
-- Uses spaces instead of tabs (configurable)
-- Maximum line width of 100 characters (configurable)
-- 2-space indentation (configurable)
-- Proper alignment of struct fields
-- Consistent formatting across files
-
-## Example
-
-### Before Formatting:
+### 格式化前：
 ```thrift
 struct User{
 1:required string name
@@ -76,57 +66,70 @@ struct User{
 }
 ```
 
-### After Formatting:
+### 格式化后：
 ```thrift
 struct User {
-  1: required string name,                    // 
-  2: optional i32    age,                     // 
-  3:          string email,                   // user email
+    1:    required string name,
+    100:  optional i32    age,
+    1000: string          email  // user email
 }
 ```
 
-## Installation
+## 🐛 问题反馈
 
-1. Open VSCode
-2. Go to Extensions (`Ctrl+Shift+X`)
-3. Search for "Thrift Support"
-4. Click Install
+如果您遇到任何问题或有功能建议，请通过以下方式反馈：
 
-## Development
+1. **GitHub Issues**：在 [项目仓库](https://github.com/tzzs/vsce-thrift-support) 中创建 Issue
+2. **描述问题**：请详细描述遇到的问题，包括：
+   - VSCode 版本
+   - 扩展版本
+   - 重现步骤
+   - 期望行为
+   - 实际行为
+3. **提供示例**：如果可能，请提供相关的 Thrift 代码示例
 
-### Prerequisites
-- Node.js 16+
-- VSCode 1.74+
+## 🤝 贡献指南
 
-### Setup
-```bash
-npm install
-npm run compile
-```
+我们欢迎社区贡献！如果您想为项目做出贡献：
 
-### Testing
-```bash
-npm run test
-```
+### 贡献方式
+1. **报告 Bug**：发现问题请及时报告
+2. **功能建议**：提出新功能的想法和建议
+3. **代码贡献**：提交 Pull Request
+4. **文档改进**：帮助完善文档
 
-### Building
-```bash
-npm run vscode:prepublish
-```
+### 开发环境
+1. Fork [项目仓库](https://github.com/tzzs/vsce-thrift-support)
+2. 克隆到本地：`git clone https://github.com/your-username/vsce-thrift-support.git`
+3. 安装依赖：`npm install`
+4. 编译代码：`npm run compile`
+5. 运行测试：`npm run test`
 
-## Contributing
+### 提交 Pull Request
+1. 创建功能分支：`git checkout -b feature/your-feature`
+2. 提交更改：`git commit -m "Add your feature"`
+3. 推送分支：`git push origin feature/your-feature`
+4. 创建 Pull Request
 
-Contributions are welcome! Please feel free to submit issues and pull requests.
+## 📄 许可证
 
-## License
+本扩展基于 MIT 许可证开源。
 
-This extension is licensed under the MIT License.
-
-## Changelog
+## 🔄 更新日志
 
 ### 0.1.0
-- Initial release
-- Syntax highlighting for Thrift files
-- Document and selection formatting
-- Go-to-definition support
-- Configurable formatting options
+- 初始版本发布
+- Thrift 文件语法高亮
+- 文档和选择格式化功能
+- 跳转到定义支持
+- 可配置的格式化选项
+
+## 🔗 相关链接
+
+- **GitHub 仓库**：[https://github.com/tzzs/vsce-thrift-support](https://github.com/tzzs/vsce-thrift-support)
+- **问题反馈**：[GitHub Issues](https://github.com/tzzs/vsce-thrift-support/issues)
+- **功能请求**：[GitHub Discussions](https://github.com/tzzs/vsce-thrift-support/discussions)
+
+---
+
+**享受使用 Thrift Support 扩展！** 如果觉得有用，请在 [GitHub](https://github.com/tzzs/vsce-thrift-support) 给我们一个 ⭐️
