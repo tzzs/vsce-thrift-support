@@ -1,6 +1,16 @@
 # Thrift Support for VSCode
 
+[English](./README.en.md) | [中文](./README.md)
+
+[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/tanzz.thrift-support?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=tanzz.thrift-support)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/tanzz.thrift-support?label=Installs)](https://marketplace.visualstudio.com/items?itemName=tanzz.thrift-support)
+[![Open VSX](https://img.shields.io/open-vsx/v/tanzz/thrift-support?label=Open%20VSX)](https://open-vsx.org/extension/tanzz/thrift-support)
+[![OVSX Downloads](https://img.shields.io/open-vsx/dt/tanzz/thrift-support?label=OVSX%20Downloads)](https://open-vsx.org/extension/tanzz/thrift-support)
+[![CI](https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml/badge.svg?branch=master)](https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml)
+
 一个为 VSCode 提供 Apache Thrift 文件完整支持的扩展，包含语法高亮、代码格式化和导航功能。
+
+> 开发者请阅读开发指南：见仓库根目录的 [DEVELOPMENT.md](DEVELOPMENT.md)。
 
 ## 🚀 功能特性
 
@@ -36,6 +46,8 @@
   - `Thrift: Format Document`
   - `Thrift: Format Selection`
 
+> 发布命名空间：`tanzz`（VS Marketplace 与 Open VSX 均使用此命名空间）
+
 ### 代码导航
 - **跳转到定义**：`F12` 或 `Ctrl+点击` 类型名
 - **查看定义**：`Alt+F12`
@@ -46,12 +58,17 @@
 
 ```json
 {
-  "thrift.format.trailingComma": true,
+  "thrift.format.trailingComma": "preserve", // "preserve" | "add" | "remove"
   "thrift.format.alignTypes": true,
   "thrift.format.alignFieldNames": true,
+  "thrift.format.alignStructEquals": false,
   "thrift.format.alignComments": true,
+  "thrift.format.alignEnumNames": true,
+  "thrift.format.alignEnumEquals": true,
+  "thrift.format.alignEnumValues": true,
   "thrift.format.indentSize": 4,
-  "thrift.format.maxLineLength": 100
+  "thrift.format.maxLineLength": 100,
+  "thrift.format.collectionStyle": "preserve" // "preserve" | "multiline" | "auto"
 }
 ```
 
@@ -99,11 +116,7 @@ struct User {
 4. **文档改进**：帮助完善文档
 
 ### 开发环境
-1. Fork [项目仓库](https://github.com/tzzs/vsce-thrift-support)
-2. 克隆到本地：`git clone https://github.com/your-username/vsce-thrift-support.git`
-3. 安装依赖：`npm install`
-4. 编译代码：`npm run compile`
-5. 运行测试：`npm run test`
+开发相关内容已迁移至 [DEVELOPMENT.md](DEVELOPMENT.md)，请前往查看最新要求与步骤（包括 Node.js 版本、构建、测试与发布流程）。
 
 ### 提交 Pull Request
 1. 创建功能分支：`git checkout -b feature/your-feature`
@@ -118,14 +131,15 @@ struct User {
 ## 🔄 更新日志
 
 完整的更新记录请查看 CHANGELOG：
-- 本地：CHANGELOG.md
-- GitHub：https://github.com/tzzs/thrift-support/blob/main/CHANGELOG.md
+- 本地：[CHANGELOG.md](CHANGELOG.md)
+- GitHub：https://github.com/tzzs/vsce-thrift-support/blob/master/CHANGELOG.md
 
 ## 🔗 相关链接
 
 - **GitHub 仓库**：[https://github.com/tzzs/vsce-thrift-support](https://github.com/tzzs/vsce-thrift-support)
 - **问题反馈**：[GitHub Issues](https://github.com/tzzs/vsce-thrift-support/issues)
 - **功能请求**：[GitHub Discussions](https://github.com/tzzs/vsce-thrift-support/discussions)
+- **CI 状态**：[Publish Workflow](https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml)
 
 ---
 

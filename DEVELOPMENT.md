@@ -1,317 +1,110 @@
-# Thrift Support for VSCode - Development Guide
+# Thrift Support for VSCode — 开发指南
 
-A comprehensive VSCode extension that provides full support for Apache Thrift files with syntax highlighting, formatting, and navigation features.
+本文件仅保留面向开发者的必要信息，帮助你在本地开发、构建、测试与发布扩展。
 
-## Project Overview
+## 版本要求（务必统一）
+- Node.js: 22.18.0（与 CI 一致）
+- VS Code 引擎: ^1.74.0（与 package.json engines.vscode 一致）
+- TypeScript: ^4.9.4（与 devDependencies 一致）
+- vsce: ^2.15.0（用于本地打包/发布，可选）
 
-**Name**: thrift-support  
-**Version**: 0.1.0  
-**Publisher**: tzzs  
-**Repository**: https://github.com/tzzs/thrift-support.git  
-**VSCode Engine**: ^1.74.0  
+提示：如本地 Node 版本不同，可能导致安装或构建失败（如 undici 要求 Node >= 20.18.1）。建议使用 nvm-windows/Volta 等工具固定 Node 版本。
 
-## Project Architecture
+## 项目架构与设计
 
-### Directory Structure
+### 目录结构（简）
 ```
 thrift-support/
-├── src/                          # TypeScript source code
-│   ├── extension.ts             # Main extension entry point
-│   ├── formatter.ts             # Thrift code formatter implementation
-│   └── definitionProvider.ts   # Go-to-definition provider
-├── syntaxes/                    # Language grammar definitions
-│   └── thrift.tmLanguage.json  # TextMate grammar for syntax highlighting
-├── test-files/                  # Thrift test and example files
-│   ├── apache-thrift-test.thrift
-│   ├── example-enum.thrift
-│   ├── example.thrift
-│   ├── main.thrift
-│   ├── shared-common.thrift
-│   ├── shared.thrift
-│   └── test-user-issue.thrift
-├── tests/                       # Test scripts and utilities
-│   ├── debug-*.js              # Debug and diagnostic scripts
-│   ├── test-*.js               # Feature-specific test scripts
-│   ├── simple-test.js           # Basic functionality tests
-│   └── verify-installation.js  # Installation verification
-├── .vscode/                     # VSCode workspace configuration
-├── package.json                 # Extension manifest and dependencies
-├── tsconfig.json               # TypeScript configuration
-├── language-configuration.json # Language-specific settings
-└── README.md                   # User documentation
+├── src/
+│   ├── extension.ts            # 扩展入口，注册能力与命令
+│   ├── formatter.ts            # 格式化核心逻辑
+│   └── definitionProvider.ts   # 跳转到定义/引用解析
+├── syntaxes/
+│   └── thrift.tmLanguage.json  # 语法高亮的 TextMate 语法
+├── language-configuration.json # 语言括号/注释等配置
+├── tests/                      # 测试脚本
+└── test-files/                 # 示例与测试用 Thrift 文件
 ```
 
-### Core Components
+### 模块划分
+- 扩展入口（Extension）— <mcfile name="extension.ts" path="src/extension.ts"></mcfile> ([src/extension.ts](src/extension.ts))
+  - 激活时机：onLanguage:thrift
+  - 注册命令与提供者（格式化、跳转到定义）
+  - 读取并响应配置变更
 
-#### 1. Extension Entry Point (`src/extension.ts`)
-- Registers language providers and commands
-- Manages extension lifecycle
-- Handles configuration changes
+- 格式化器（Formatter）— <mcfile name="formatter.ts" path="src/formatter.ts"></mcfile> ([src/formatter.ts](src/formatter.ts))
+  - 负责文档/选区格式化、对齐策略、缩进与行长控制
+  - 受配置项影响（如 alignTypes/alignFieldNames/alignComments/trailingComma/indentSize/maxLineLength/collectionStyle 等）
 
-#### 2. Formatter (`src/formatter.ts`)
-- Implements comprehensive Thrift code formatting
-- Supports configurable alignment and styling options
-- Handles complex indentation scenarios
+- 定义提供器（Definition Provider）— <mcfile name="definitionProvider.ts" path="src/definitionProvider.ts"></mcfile> ([src/definitionProvider.ts](src/definitionProvider.ts))
+  - 解析 include 关系与跨文件符号定位
+  - 支持工作区范围的跳转到定义
 
-#### 3. Definition Provider (`src/definitionProvider.ts`)
-- Provides go-to-definition functionality
-- Resolves include statements and cross-file references
-- Supports workspace-wide navigation
+- 语法与语言配置— <mcfile name="thrift.tmLanguage.json" path="syntaxes/thrift.tmLanguage.json"></mcfile>、<mcfile name="language-configuration.json" path="language-configuration.json"></mcfile>（[syntaxes/thrift.tmLanguage.json](syntaxes/thrift.tmLanguage.json)、[language-configuration.json](language-configuration.json)）
+  - 提供高亮、括号配对、注释等语言层支持
 
-#### 4. Syntax Grammar (`syntaxes/thrift.tmLanguage.json`)
-- TextMate grammar for syntax highlighting
-- Comprehensive token recognition
-- Support for all Thrift language constructs
+### 设计要点
+- 格式化流水线（多步）：
+  1) 解析：扫描/分段 Thrift 结构（struct/enum/service/const 等）
+  2) 分析：计算对齐宽度与规则（类型、字段名、等号、值、注释）
+  3) 变换：根据配置应用缩进、对齐、尾随逗号与集合展开策略
+  4) 输出：生成格式化文本，保持语义不变
+- 跳转到定义：
+  - 构建 include 依赖图，按相对路径解析目标文件
+  - 在目标文件中进行符号表/模式匹配，定位标识符定义位置
+- 配置驱动：
+  - 关键配置见 package.json 的 contributes.configuration（已在本开发指南“版本要求”与“常见问题”中强调）
+- 性能与稳定性：
+  - 对齐计算按块进行，避免全文件多次回扫
+  - 解析过程容错，对异常片段尽量不破坏原有布局
 
-## Features
-
-### 🎨 Syntax Highlighting
-- **Keywords**: `struct`, `service`, `enum`, `union`, `exception`, `namespace`, `include`, etc.
-- **Data Types**: Primitive types (`string`, `i32`, `bool`, etc.) and container types (`list`, `map`, `set`)
-- **Strings**: Double and single quoted strings with escape sequence support
-- **Comments**: Line comments (`//`, `#`) and block comments (`/* */`)
-- **Numbers**: Integer, floating-point, hexadecimal, and octal literals
-
-### 🔧 Code Formatting
-- **Document Formatting**: Format entire Thrift files
-- **Selection Formatting**: Format selected code blocks
-- **Advanced Alignment Options**:
-  - Field types alignment in structs/unions/exceptions
-  - Field names alignment
-  - Inline comments alignment
-  - Enum names, equals signs, and values alignment
-- **Configurable Settings**:
-  - Trailing comma behavior (preserve/add/remove)
-  - Customizable indentation size (default: 4 spaces)
-  - Maximum line length (default: 100 characters)
-
-### 🔍 Navigation Support
-- **Go to Definition**: Navigate to type definitions across files
-- **Include File Resolution**: Follow `include` statements to referenced files
-- **Workspace-wide Search**: Find definitions across all Thrift files in workspace
-
-### ⚙️ Configuration
-
-The extension provides comprehensive configuration options under `thrift.format`:
-
-```json
-{
-  "thrift.format.trailingComma": "preserve",        // "preserve" | "add" | "remove"
-  "thrift.format.alignTypes": true,                 // Align field types
-  "thrift.format.alignFieldNames": true,            // Align field names
-  "thrift.format.alignComments": true,              // Align inline comments
-  "thrift.format.alignEnumNames": true,             // Align enum names
-  "thrift.format.alignEnumEquals": true,            // Align enum equals signs
-  "thrift.format.alignEnumValues": true,            // Align enum values
-  "thrift.format.indentSize": 4,                    // Indentation spaces
-  "thrift.format.maxLineLength": 100                // Maximum line length
-}
-```
-
-#### Configuration Details
-- **trailingComma**: Controls trailing comma behavior with three options:
-  - `preserve`: Keep existing trailing commas as-is
-  - `add`: Always add trailing commas
-  - `remove`: Always remove trailing commas
-- **Alignment Options**: Fine-grained control over different alignment aspects
-- **indentSize**: Configurable indentation (default: 4 spaces)
-- **maxLineLength**: Line length limit for formatting decisions
-
-## Usage
-
-### Formatting
-1. **Format Document**: `Ctrl+Shift+I` (Windows/Linux) or `Cmd+Shift+I` (Mac)
-2. **Format Selection**: Select code and use `Ctrl+K Ctrl+F` (Windows/Linux) or `Cmd+K Cmd+F` (Mac)
-3. **Command Palette**: 
-   - `Thrift: Format Document`
-   - `Thrift: Format Selection`
-
-### Navigation
-1. **Go to Definition**: `F12` or `Ctrl+Click` on type names
-2. **Peek Definition**: `Alt+F12`
-
-## Code Standards
-
-This extension follows the [Apache Thrift Coding Standards](https://thrift.apache.org/docs/coding_standards.html):
-
-- Uses spaces instead of tabs (configurable)
-- Maximum line width of 100 characters (configurable)
-- 2-space indentation (configurable)
-- Proper alignment of struct fields
-- Consistent formatting across files
-
-## Example
-
-### Before Formatting:
-```thrift
-struct User{
-1:required string name
-2:optional i32 age,
-3: string email // user email
-}
-```
-
-### After Formatting:
-```thrift
-struct User {
-  1: required string name,                    // 
-  2: optional i32    age,                     // 
-  3:          string email,                   // user email
-}
-```
-
-## Development
-
-### Prerequisites
-- Node.js 16+
-- VSCode 1.74+
-- TypeScript 4.9+
-
-### Setup
+## 快速开始
 ```bash
-# Install dependencies
+# 安装依赖（首次或依赖变更后）
 npm install
 
-# Compile TypeScript
+# 编译 TypeScript
 npm run compile
 
-# Watch mode for development
+# 开发监听模式
 npm run watch
-```
 
-### Testing
-
-The project includes comprehensive test suites organized in the `tests/` directory:
-
-```bash
-# Run primary test suite
+# 运行主要测试
 npm run test
 
-# Run specific test categories
-npm run test:complex     # Complex type formatting tests
-npm run test:enum        # Enum formatting tests
-npm run test:indent      # Indentation tests
-npm run test:comma       # Trailing comma tests
-
-# Run all tests
+# 全量测试
 npm run test:all
 ```
 
-#### Test Categories
-- **Core Functionality**: `test-formatter.js`, `simple-test.js`
-- **Feature-Specific**: `test-enum-formatting.js`, `test-complex-types.js`
-- **Edge Cases**: `test-edge-cases.js`, `test-user-scenario.js`
-- **Integration**: `test-vscode-format.js`, `test-include-navigation.js`
-- **Debug Tools**: `debug-*.js` scripts for troubleshooting
+## 常用脚本
+- 构建：`npm run build`（等同 clean + compile）
+- 清理：`npm run clean`
+- 打包 VSIX：`npm run package`（调用 vsce package）
+- 本地发布：`npm run publish`（调用 vsce publish，需 VSCE_PAT）
 
-### Building and Packaging
+## 本地打包与发布（可选）
+- 仅验证产物：执行 `npm run package`，生成 `.vsix` 文件，可在 VS Code 中手动安装测试。
+- 本地直发 Marketplace：执行 `npm run publish`，需在环境变量或 CI Secrets 中配置 VSCE_PAT；Open VSX 需使用 ovsx CLI 或交由 CI 发布（推荐）。
 
-```bash
-# Clean build artifacts
-npm run clean
+## CI/CD 工作流（精简说明）
+本仓库使用两条 GitHub Actions 流水线自动完成“版本生成 → 发布”：
 
-# Full build
-npm run build
+- release-please（.github/workflows/release-please.yml）
+  - 触发：推送到 master、或手动触发（workflow_dispatch）
+  - 作用：根据 Conventional Commits 生成/更新 Release PR；合并后创建 Git Tag + GitHub Release
 
-# Prepare for publishing
-npm run vscode:prepublish
+- publish（.github/workflows/publish.yml）
+  - 触发：GitHub Release 发布（released: published）、或手动触发（workflow_dispatch）
+  - 作用：安装依赖 → 构建 → 打包 VSIX →（可选）上传到 GitHub Release → 发布到 VS Code Marketplace 与 Open VSX
+  - 凭据：VSCE_PAT（Marketplace）、OVSX_PAT（Open VSX），以及内置 GITHUB_TOKEN（上传 Release 附件）
 
-# Create VSIX package
-npm run package
+建议流程：功能分支开发 → 合并到 master → 等待/审阅 release-please 生成的 Release PR → 合并 Release PR → 触发 publish 自动发布。
 
-# Publish to marketplace
-npm run publish
-```
+## 提交与分支规范
+- 提交信息遵循 Conventional Commits（feat/fix/docs/chore/refactor/perf 等），以便 release-please 正确生成版本与变更日志。
+- 默认分支为 master（release-please.yml 已配置 default-branch: master）。
 
-### Development Workflow
-
-1. **Code Changes**: Edit TypeScript files in `src/`
-2. **Compile**: Run `npm run compile` or use watch mode
-3. **Test**: Run relevant test suites
-4. **Debug**: Use VSCode's built-in debugging with `.vscode/launch.json`
-5. **Package**: Create VSIX for testing in clean environment
-
-### File Organization
-
-- **Source Code**: All TypeScript source in `src/`
-- **Test Files**: Thrift examples and test cases in `test-files/`
-- **Test Scripts**: JavaScript test runners in `tests/`
-- **Build Output**: Compiled JavaScript in `out/` (git-ignored)
-
-### Dependencies
-
-#### Runtime Dependencies
-- None (extension runs in VSCode's Node.js environment)
-
-#### Development Dependencies
-- **TypeScript**: Language and compiler
-- **ESLint**: Code linting and style enforcement
-- **VSCE**: VSCode extension packaging tool
-- **Rimraf**: Cross-platform file cleanup
-
-## Architecture Notes
-
-### Formatter Design
-The formatter (`src/formatter.ts`) uses a multi-pass approach:
-1. **Parsing**: Tokenize and understand Thrift structure
-2. **Analysis**: Determine alignment requirements and formatting needs
-3. **Transformation**: Apply formatting rules while preserving semantics
-4. **Output**: Generate formatted code with proper indentation and alignment
-
-### Extension Activation
-The extension activates on `onLanguage:thrift` events and registers:
-- Document and selection formatting providers
-- Definition providers for navigation
-- Commands for manual formatting operations
-
-### Configuration Management
-Configuration changes are monitored and applied dynamically without requiring extension restart.
-
-## Contributing
-
-Contributions are welcome! Please follow these guidelines:
-
-1. **Code Style**: Follow existing TypeScript and formatting conventions
-2. **Testing**: Add tests for new features in the `tests/` directory
-3. **Documentation**: Update relevant documentation for changes
-4. **Test Files**: Add example Thrift files to `test-files/` if needed
-
-### Development Setup for Contributors
-1. Fork the repository
-2. Clone your fork locally
-3. Run `npm install` to install dependencies
-4. Make changes and test thoroughly
-5. Submit a pull request with clear description
-
-## License
-
-This extension is licensed under the MIT License.
-
-## Testing Strategy
-
-### Test File Organization
-The `test-files/` directory contains various Thrift files for testing different scenarios:
-- **apache-thrift-test.thrift**: Comprehensive Apache Thrift test cases
-- **example-*.thrift**: Basic examples and common patterns
-- **shared-*.thrift**: Shared type definitions and includes
-- **test-user-issue.thrift**: User-reported issue reproductions
-
-### Test Script Categories
-1. **Formatter Tests**: Validate code formatting behavior
-2. **Navigation Tests**: Test go-to-definition and include resolution
-3. **Edge Case Tests**: Handle unusual or complex scenarios
-4. **Integration Tests**: End-to-end functionality validation
-5. **Debug Scripts**: Diagnostic and troubleshooting tools
-
-## Changelog
-
-### 0.1.0
-- Initial release
-- Comprehensive syntax highlighting for Thrift files
-- Advanced document and selection formatting with alignment options
-- Go-to-definition support with cross-file navigation
-- Extensive configuration options for formatting behavior
-- Support for trailing comma control (preserve/add/remove)
-- Enum formatting with multiple alignment options
-- Robust include file resolution
-- Comprehensive test suite with multiple test categories
+## 常见问题排查
+- Node 版本不一致导致 npm ci/install 报错：请切换到 Node 22.18.0 再执行。
+- package-lock.json 与 package.json 不同步：在 Node 22.18.0 下执行 `npm install` 修复锁文件并提交。
+- 市场命名空间：由 package.json 的 publisher（当前为 tanzz）与 name 决定，令牌需具备对应命名空间的发布权限。
