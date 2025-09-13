@@ -87,7 +87,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 }
                 
                 // Parse the complete multiline const
-                const fieldInfo = this.parseConstField(constValue);
+                const fieldInfo = this.parseConstField(constValue, options, indentLevel);
                 if (fieldInfo) {
                     constFields.push(fieldInfo);
                     inConstBlock = true;
@@ -97,14 +97,14 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 i = j;
                 continue;
             } else if (this.isConstField(line)) {
-                const fieldInfo = this.parseConstField(line);
+                const fieldInfo = this.parseConstField(line, options, indentLevel);
                 if (fieldInfo) {
                     constFields.push(fieldInfo);
                     inConstBlock = true;
                     continue;
                 }
-            } else if (inConstBlock && constFields.length > 0) {
-                // End of const block, format accumulated const fields
+            } else if (inConstBlock && constFields.length > 0 && !this.isConstField(line) && !this.isConstStart(line)) {
+                // End of const block only if current line is not a const definition
                 const formattedFields = this.formatConstFields(constFields, options, indentLevel);
                 formattedLines.push(...formattedFields);
                 constFields = [];
@@ -207,17 +207,34 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
 
     private isConstStart(line: string): boolean {
         // Match const definitions like: const map<string, i32> ERROR_CODES = {
-        return /^const\s+.+\s*=\s*\{$/.test(line);
+        // Also match single-line collection definitions that need to be expanded
+        const isMultilineStart = /^const\s+.+\s*=\s*\{$/.test(line);
+        const isCollectionType = /^const\s+(map|list|set)</.test(line);
+        const hasInlineBraces = line.includes('{') && line.includes('}');
+        const hasInlineBrackets = line.includes('[') && line.includes(']');
+        
+        return isMultilineStart || (isCollectionType && (hasInlineBraces || hasInlineBrackets));
     }
 
     private isConstField(line: string): boolean {
         // Match single-line const definitions like: const i32 MAX_USERS = 10000
-        return /^const\s+\w+(<[^>]+>)?(\[\])?\s+\w+\s*=\s*.+$/.test(line);
+        // But exclude single-line map/list/set definitions that should be expanded
+        const isConst = /^const\s+\w+(<[^>]+>)?(\[\])?\s+\w+\s*=\s*.+$/.test(line);
+        const isCollectionType = /^const\s+(map|list|set)</.test(line);
+        const hasInlineBraces = line.includes('{') && line.includes('}');
+        const hasInlineBrackets = line.includes('[') && line.includes(']');
+        
+        // If it's a collection type with inline braces/brackets, treat as multiline const
+        if (isConst && isCollectionType && (hasInlineBraces || hasInlineBrackets)) {
+            return false; // Will be handled by isConstStart
+        }
+        
+        return isConst;
     }
 
-    private parseConstField(line: string): {line: string, type: string, name: string, value: string, comment: string} | null {
+    private parseConstField(line: string, options: any = null, indentLevel: number = 0): {line: string, type: string, name: string, value: string, comment: string} | null {
         // Parse const field: const i32 MAX_USERS = 10000 // comment
-        // Also handles multiline const definitions
+        // Also handles multiline const definitions and expands single-line collections
         
         let remainder = line.trim();
         
@@ -238,7 +255,13 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         
         const type = constMatch[1].trim();
         const name = constMatch[2];
-        const value = constMatch[3].trim();
+        let value = constMatch[3].trim();
+        
+        // Check if this is a single-line collection that needs to be expanded
+        const isCollectionType = /^(map|list|set)</.test(type);
+        if (isCollectionType && ((value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']')))) {
+            value = this.expandInlineCollection(value, type, options, indentLevel + 1);
+        }
         
         return {
             line: line,
@@ -247,6 +270,133 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             value: value,
             comment: comment
         };
+    }
+
+    private expandInlineCollection(value: string, type: string, options: any = null, indentLevel: number = 1): string {
+        // Expand single-line collections to multi-line format
+        const itemIndent = options ? this.getIndent(indentLevel, options) : '    '.repeat(indentLevel);
+        
+        if (value.startsWith('{') && value.endsWith('}')) {
+            // Handle map: {"key1": value1, "key2": value2}
+            const content = value.slice(1, -1).trim();
+            if (!content) return '{\n}';
+            
+            const items = this.parseMapItems(content);
+            if (items.length === 0) return '{\n}';
+            
+            return '{\n' + items.map(item => `${itemIndent}${item}`).join(',\n') + '\n}';
+        } else if (value.startsWith('[') && value.endsWith(']')) {
+            // Handle list/set: ["item1", "item2"]
+            const content = value.slice(1, -1).trim();
+            if (!content) return '[\n]';
+            
+            const items = this.parseListItems(content);
+            if (items.length === 0) return '[\n]';
+            
+            return '[\n' + items.map(item => `${itemIndent}${item}`).join(',\n') + '\n]';
+        }
+        
+        return value;
+    }
+
+    private parseMapItems(content: string): string[] {
+        const items: string[] = [];
+        let current = '';
+        let depth = 0;
+        let inString = false;
+        let escapeNext = false;
+        
+        for (let i = 0; i < content.length; i++) {
+            const char = content[i];
+            
+            if (escapeNext) {
+                current += char;
+                escapeNext = false;
+                continue;
+            }
+            
+            if (char === '\\') {
+                current += char;
+                escapeNext = true;
+                continue;
+            }
+            
+            if (char === '"' && !escapeNext) {
+                inString = !inString;
+                current += char;
+                continue;
+            }
+            
+            if (!inString) {
+                if (char === '{' || char === '[') {
+                    depth++;
+                } else if (char === '}' || char === ']') {
+                    depth--;
+                } else if (char === ',' && depth === 0) {
+                    items.push(current.trim());
+                    current = '';
+                    continue;
+                }
+            }
+            
+            current += char;
+        }
+        
+        if (current.trim()) {
+            items.push(current.trim());
+        }
+        
+        return items;
+    }
+
+    private parseListItems(content: string): string[] {
+        const items: string[] = [];
+        let current = '';
+        let depth = 0;
+        let inString = false;
+        let escapeNext = false;
+        
+        for (let i = 0; i < content.length; i++) {
+            const char = content[i];
+            
+            if (escapeNext) {
+                current += char;
+                escapeNext = false;
+                continue;
+            }
+            
+            if (char === '\\') {
+                current += char;
+                escapeNext = true;
+                continue;
+            }
+            
+            if (char === '"' && !escapeNext) {
+                inString = !inString;
+                current += char;
+                continue;
+            }
+            
+            if (!inString) {
+                if (char === '{' || char === '[') {
+                    depth++;
+                } else if (char === '}' || char === ']') {
+                    depth--;
+                } else if (char === ',' && depth === 0) {
+                    items.push(current.trim());
+                    current = '';
+                    continue;
+                }
+            }
+            
+            current += char;
+        }
+        
+        if (current.trim()) {
+            items.push(current.trim());
+        }
+        
+        return items;
     }
 
     private formatConstFields(
@@ -267,24 +417,16 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             const paddedType = field.type.padEnd(maxTypeWidth);
             const paddedName = field.name.padEnd(maxNameWidth);
             
-            // Check if value is multiline (contains { or [)
-            if (field.value.includes('{') || field.value.includes('[')) {
-                // Handle multiline values
+            // Check if value is multiline (contains newlines)
+            if (field.value.includes('\n')) {
+                // Handle multiline values - they are already properly formatted
                 const lines = field.value.split('\n');
                 const firstLine = lines[0];
                 let result = `${indent}const ${paddedType} ${paddedName} = ${firstLine}`;
                 
-                // Add subsequent lines with proper indentation
+                // Add subsequent lines as-is (they are already properly indented)
                 for (let i = 1; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    if (line) {
-                        // For closing braces/brackets, use original indentation
-                        if (line === '}' || line === ']') {
-                            result += '\n' + indent + line;
-                        } else {
-                            result += '\n' + valueIndent + line;
-                        }
-                    }
+                    result += '\n' + lines[i];
                 }
                 
                 if (field.comment) {

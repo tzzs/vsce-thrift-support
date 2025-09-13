@@ -97,7 +97,7 @@ const i32 MAX_USERS = 10000
 const string DEFAULT_NAMESPACE = "com.example"
 const list<string> SUPPORTED_LANGUAGES = ["java", "python", "cpp", "javascript"]
 const map<string, i32> ERROR_CODES = {
-  "NOT_FOUND": 404,
-  "VALIDATION_ERROR": 400,
-  "INTERNAL_ERROR": 500
+    "NOT_FOUND": 404,
+    "VALIDATION_ERROR": 400,
+    "INTERNAL_ERROR": 500
 }
