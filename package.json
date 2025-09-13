@@ -112,6 +112,15 @@
           "type": "number",
           "default": 100,
           "description": "Maximum line length for formatting"
+        },
+        "thrift.format.collectionStyle": {
+          "type": "string",
+          "enum": [
+            "preserve",
+            "multiline"
+          ],
+          "default": "preserve",
+          "description": "How to format collection values in const declarations: preserve (keep inline if originally inline), multiline (always expand to multiple lines)"
         }
       }
     }
@@ -130,7 +139,8 @@
     "test:enum": "node tests/test-enum-formatting.js",
     "test:indent": "node tests/test-indent-width.js",
     "test:comma": "node tests/test-trailing-comma.js",
-    "test:all": "npm run test && npm run test:complex && npm run test:enum && npm run test:indent && npm run test:comma"
+    "test:const": "node tests/test-const-formatting.js",
+    "test:all": "npm run test && npm run test:complex && npm run test:enum && npm run test:indent && npm run test:comma && npm run test:const"
   },
   "devDependencies": {
     "@types/vscode": "^1.74.0",

@@ -40,6 +40,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             alignEnumValues: config.get('alignEnumValues', true),
             indentSize: config.get('indentSize', 4),
             maxLineLength: config.get('maxLineLength', 100),
+            collectionStyle: config.get('collectionStyle', 'preserve'),
             insertSpaces: options.insertSpaces,
             tabSize: options.tabSize
         });
@@ -76,12 +77,12 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 let j = i + 1;
                 
                 // Collect all lines until the closing brace
-                while (j < lines.length && !lines[j].trim().endsWith('}')) {
+                while (j < lines.length && !(lines[j].trim().endsWith('}') || lines[j].trim().endsWith(']'))) {
                     constValue += '\n' + lines[j].trim(); // Remove original indentation
                     j++;
                 }
                 
-                // Add the closing brace line
+                // Add the closing brace/bracket line
                 if (j < lines.length) {
                     constValue += '\n' + lines[j].trim(); // Remove original indentation
                 }
@@ -205,26 +206,16 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         return result;
     }
 
-    private isConstStart(line: string): boolean {
-        // Match const definitions like: const map<string, i32> ERROR_CODES = {
-        // Only match incomplete collection definitions that end with opening brace/bracket
-        const isMultilineStart = /^const\s+.+\s*=\s*\{$/.test(line);
-        const isCollectionType = /^const\s+(map|list|set)</.test(line);
-        const endsWithOpenBrace = line.trim().endsWith('{');
-        const endsWithOpenBracket = line.trim().endsWith('[');
-        
-        return isMultilineStart || (isCollectionType && (endsWithOpenBrace || endsWithOpenBracket));
-    }
-
     private isConstField(line: string): boolean {
         // Match single-line const definitions like: const i32 MAX_USERS = 10000
         // Also match single-line collection definitions that are complete on one line
-        const isConst = /^const\s+\w+(<[^>]+>)?(\[\])?\s+\w+\s*=\s*.+$/.test(line);
-        const isCollectionType = /^const\s+(map|list|set)</.test(line);
-        const hasInlineBraces = line.includes('{') && line.includes('}');
-        const hasInlineBrackets = line.includes('[') && line.includes(']');
-        const endsWithOpenBrace = line.trim().endsWith('{');
-        const endsWithOpenBracket = line.trim().endsWith('[');
+        const noComment = line.replace(/\/\/.*$/, '').trim();
+        const isConst = /^const\s+\w+(<[^>]+>)?(\[\])?\s+\w+\s*=\s*.+$/.test(noComment);
+        const isCollectionType = /^const\s+(map|list|set)</.test(noComment);
+        const hasInlineBraces = noComment.includes('{') && noComment.includes('}');
+        const hasInlineBrackets = noComment.includes('[') && noComment.includes(']');
+        const endsWithOpenBrace = noComment.endsWith('{');
+        const endsWithOpenBracket = noComment.endsWith('[');
         
         // If it's a collection type that ends with an opening brace/bracket (incomplete), treat as multiline const start
         if (isConst && isCollectionType && (endsWithOpenBrace || endsWithOpenBracket)) {
@@ -234,10 +225,21 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         return isConst;
     }
 
+    private isConstStart(line: string): boolean {
+        // Match const definitions like: const map<string, i32> ERROR_CODES = {
+        // Only match incomplete collection definitions that end with opening brace/bracket
+        const noComment = line.replace(/\/\/.*$/, '').trim();
+        const isMultilineStart = /^const\s+.+\s*=\s*\{$/.test(noComment) || /^const\s+.+\s*=\s*\[$/.test(noComment);
+        const isCollectionType = /^const\s+(map|list|set)</.test(noComment);
+        const endsWithOpenBrace = noComment.endsWith('{');
+        const endsWithOpenBracket = noComment.endsWith('[');
+        
+        return isMultilineStart || (isCollectionType && (endsWithOpenBrace || endsWithOpenBracket));
+    }
+
     private parseConstField(line: string, options: any = null, indentLevel: number = 0): {line: string, type: string, name: string, value: string, comment: string} | null {
         // Parse const field: const i32 MAX_USERS = 10000 // comment
         // Also handles multiline const definitions and expands single-line collections
-        
         let remainder = line.trim();
         
         // For multiline const, extract comment from the first line only
@@ -259,10 +261,13 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         const name = constMatch[2];
         let value = constMatch[3].trim();
         
-        // Check if this is a single-line collection that needs to be expanded
+        // Check if this is a single-line collection that may need to be expanded
         const isCollectionType = /^(map|list|set)</.test(type);
-        if (isCollectionType && ((value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']')))) {
-            value = this.expandInlineCollection(value, type, options, indentLevel + 1);
+        const isInlineCollection = (value.startsWith('{') && value.endsWith('}')) || (value.startsWith('[') && value.endsWith(']'));
+        if (isCollectionType && isInlineCollection) {
+            if (options && options.collectionStyle === 'multiline') {
+                value = this.expandInlineCollection(value, type, options, indentLevel + 1);
+            } // else preserve single-line as-is
         }
         
         return {
@@ -414,6 +419,16 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         
         const indent = this.getIndent(indentLevel, options);
         const valueIndent = this.getIndent(indentLevel + 1, options);
+        const alignComments = options && options.alignComments !== false;
+
+        // Pre-compute max base length for aligning comments on the first line of each const
+        let maxFirstLineBaseLen = 0;
+        for (const f of fields) {
+            if (!f.comment) continue;
+            const firstLineValue = f.value.includes('\n') ? f.value.split('\n')[0] : f.value;
+            const base = `const ${f.type.padEnd(maxTypeWidth)} ${f.name.padEnd(maxNameWidth)} = ${firstLineValue}`;
+            if (base.length > maxFirstLineBaseLen) maxFirstLineBaseLen = base.length;
+        }
         
         return fields.map(field => {
             const paddedType = field.type.padEnd(maxTypeWidth);
@@ -424,38 +439,99 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 // Handle multiline values - apply proper indentation
                 const lines = field.value.split('\n');
                 const firstLine = lines[0];
-                let result = `${indent}const ${paddedType} ${paddedName} = ${firstLine}`;
+                const outLines: string[] = [];
+                
+                // First line content
+                let first = `${indent}const ${paddedType} ${paddedName} = ${firstLine}`;
+                if (field.comment) {
+                    if (alignComments) {
+                        const currentLen = first.length - indent.length; // exclude common indent
+                        const pad = Math.max(1, maxFirstLineBaseLen - currentLen + 1);
+                        first = first + ' '.repeat(pad) + field.comment;
+                    } else {
+                        first += ` ${field.comment}`;
+                    }
+                }
+                outLines.push(first);
                 
                 // Add subsequent lines with proper indentation
                 for (let i = 1; i < lines.length; i++) {
-                    const line = lines[i].trim();
-                    if (line) {
-                        // Check if this is a closing brace - it should align with const declaration
-                        if (line === '}' || line === ']') {
-                            result += '\n' + indent + line;
+                    const raw = lines[i];
+                    const line = raw.trim();
+                    if (!line) {
+                        outLines.push('');
+                        continue;
+                    }
+                    
+                    // Closing brace/bracket should align with const declaration
+                    if (line === '}' || line === ']') {
+                        outLines.push(indent + line);
+                        continue;
+                    }
+                    
+                    // If this line is a standalone comment, merge to previous content line
+                    if (line.startsWith('//')) {
+                        let idx = outLines.length - 1;
+                        while (idx >= 0 && outLines[idx] === '') idx--;
+                        if (idx >= 0) {
+                            outLines[idx] += ` ${line}`;
                         } else {
-                            // Apply value indentation for content lines
-                            result += '\n' + valueIndent + line;
+                            outLines.push(indent + line);
                         }
-                    } else {
-                        result += '\n';
+                        continue;
+                    }
+                    
+                    // Regular content line: indent one level deeper than the const
+                    outLines.push(valueIndent + line);
+                }
+
+                // Align inline comments within multiline collection items
+                if (alignComments) {
+                    // Determine lines eligible for alignment (between first and last, excluding closing brace/bracket)
+                    const indices: number[] = [];
+                    let maxContentLen = 0;
+                    for (let idx = 1; idx < outLines.length; idx++) {
+                        const l = outLines[idx];
+                        const trimmed = l.trim();
+                        if (!trimmed || trimmed === '}' || trimmed === ']') continue;
+                        const m = l.match(/^(\s*)(.*?)(\s*)(\/\/.*)$/);
+                        if (m) {
+                            const leading = m[1] || '';
+                            const content = (m[2] || '').replace(/\s+$/,'');
+                            const len = leading.length + content.length;
+                            if (len > maxContentLen) maxContentLen = len;
+                            indices.push(idx);
+                        }
+                    }
+                    if (indices.length > 0) {
+                        for (const idx of indices) {
+                            const l = outLines[idx];
+                            const m = l.match(/^(\s*)(.*?)(\s*)(\/\/.*)$/);
+                            if (!m) continue;
+                            const leading = m[1] || '';
+                            const content = (m[2] || '').replace(/\s+$/,'');
+                            const comment = (m[4] || '').replace(/^\s+/, '');
+                            const currentLen = leading.length + content.length;
+                            const pad = Math.max(1, maxContentLen - currentLen + 1);
+                            outLines[idx] = leading + content + ' '.repeat(pad) + comment;
+                        }
                     }
                 }
                 
-                if (field.comment) {
-                    result += ` ${field.comment}`;
-                }
-                
-                return result;
+                return outLines.join('\n');
             } else {
                 // Handle single line values
-                let result = `${indent}const ${paddedType} ${paddedName} = ${field.value}`;
-                
+                let base = `${indent}const ${paddedType} ${paddedName} = ${field.value}`;
                 if (field.comment) {
-                    result += ` ${field.comment}`;
+                    if (alignComments) {
+                        const currentLen = base.length - indent.length; // exclude common indent
+                        const pad = Math.max(1, maxFirstLineBaseLen - currentLen + 1);
+                        base = base + ' '.repeat(pad) + field.comment;
+                    } else {
+                        base += ` ${field.comment}`;
+                    }
                 }
-                
-                return result;
+                return base;
             }
         });
     }
