@@ -1,0 +1,51 @@
+name: publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build --if-present
+
+      - name: Read version from package.json
+        id: pkg
+        run: |
+          echo "version=$(node -p -e \"require('./package.json').version\")" >> $GITHUB_OUTPUT
+
+      - name: Package VSIX
+        run: npx vsce package -o thrift-support-${{ steps.pkg.outputs.version }}.vsix
+
+      - name: Upload VSIX to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: thrift-support-${{ steps.pkg.outputs.version }}.vsix
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to VS Code Marketplace
+        run: npx vsce publish --skip-duplicate -p $VSCE_PAT
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+      - name: Publish to Open VSX
+        run: npx ovsx publish --skip-duplicate -p $OVSX_PAT --packagePath thrift-support-${{ steps.pkg.outputs.version }}.vsix
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
