@@ -70,7 +70,33 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             }
 
             // Handle const fields for alignment - check before other processing
-            if (this.isConstField(line)) {
+            if (this.isConstStart(line)) {
+                // Handle multiline const definitions (map, set, list with {})
+                let constValue = line;
+                let j = i + 1;
+                
+                // Collect all lines until the closing brace
+                while (j < lines.length && !lines[j].trim().endsWith('}')) {
+                    constValue += '\n' + lines[j];
+                    j++;
+                }
+                
+                // Add the closing brace line
+                if (j < lines.length) {
+                    constValue += '\n' + lines[j];
+                }
+                
+                // Parse the complete multiline const
+                const fieldInfo = this.parseConstField(constValue);
+                if (fieldInfo) {
+                    constFields.push(fieldInfo);
+                    inConstBlock = true;
+                }
+                
+                // Skip the processed lines
+                i = j;
+                continue;
+            } else if (this.isConstField(line)) {
                 const fieldInfo = this.parseConstField(line);
                 if (fieldInfo) {
                     constFields.push(fieldInfo);
@@ -84,13 +110,6 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 constFields = [];
                 inConstBlock = false;
                 // Continue processing current line
-            }
-
-            // Handle const definitions
-            if (this.isConstStart(line)) {
-                formattedLines.push(this.getIndent(indentLevel, options) + line);
-                indentLevel++;
-                continue;
             }
 
             // Handle struct/union/exception/service/enum definitions
@@ -198,19 +217,23 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
 
     private parseConstField(line: string): {line: string, type: string, name: string, value: string, comment: string} | null {
         // Parse const field: const i32 MAX_USERS = 10000 // comment
+        // Also handles multiline const definitions
         
         let remainder = line.trim();
         
-        // Extract comment first
+        // For multiline const, extract comment from the first line only
         let comment = '';
-        const commentMatch = remainder.match(/^(.*?)(\/\/.*)$/);
+        const firstLine = remainder.split('\n')[0];
+        const commentMatch = firstLine.match(/^(.*?)(\/\/.*)$/);
         if (commentMatch) {
-            remainder = commentMatch[1].trim();
             comment = commentMatch[2];
+            // Remove comment from the entire remainder
+            remainder = remainder.replace(commentMatch[2], '').trim();
         }
         
         // Parse the main content: const type name = value
-        const constMatch = remainder.match(/^const\s+(\w+(?:<[^>]+>)?(?:\[\])?)\s+(\w+)\s*=\s*(.+)$/);
+        // For multiline, the value part might span multiple lines
+        const constMatch = remainder.match(/^const\s+(\w+(?:<[^>]+>)?(?:\[\])?)\s+(\w+)\s*=\s*([\s\S]+)$/);
         if (!constMatch) return null;
         
         const type = constMatch[1].trim();
@@ -238,18 +261,47 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         const maxNameWidth = Math.max(...fields.map(f => f.name.length));
         
         const indent = this.getIndent(indentLevel, options);
+        const valueIndent = this.getIndent(indentLevel + 1, options);
         
         return fields.map(field => {
             const paddedType = field.type.padEnd(maxTypeWidth);
             const paddedName = field.name.padEnd(maxNameWidth);
             
-            let result = `${indent}const ${paddedType} ${paddedName} = ${field.value}`;
-            
-            if (field.comment) {
-                result += ` ${field.comment}`;
+            // Check if value is multiline (contains { or [)
+            if (field.value.includes('{') || field.value.includes('[')) {
+                // Handle multiline values
+                const lines = field.value.split('\n');
+                const firstLine = lines[0];
+                let result = `${indent}const ${paddedType} ${paddedName} = ${firstLine}`;
+                
+                // Add subsequent lines with proper indentation
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (line) {
+                        // For closing braces/brackets, use original indentation
+                        if (line === '}' || line === ']') {
+                            result += '\n' + indent + line;
+                        } else {
+                            result += '\n' + valueIndent + line;
+                        }
+                    }
+                }
+                
+                if (field.comment) {
+                    result += ` ${field.comment}`;
+                }
+                
+                return result;
+            } else {
+                // Handle single line values
+                let result = `${indent}const ${paddedType} ${paddedName} = ${field.value}`;
+                
+                if (field.comment) {
+                    result += ` ${field.comment}`;
+                }
+                
+                return result;
             }
-            
-            return result;
         });
     }
 

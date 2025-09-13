@@ -38,7 +38,13 @@ const string DEFAULT_NAMESPACE = "com.example"
 const list<string> SUPPORTED_LANGUAGES = ["java", "python", "cpp", "javascript"]
 const map<string, i32> ERROR_CODES = {
     "NOT_FOUND": 404,
+    "VALIDATION_ERROR": 400,
     "INTERNAL_ERROR": 500
+}
+const set<string> VALID_STATUSES = {
+    "ACTIVE",
+    "INACTIVE",
+    "PENDING"
 }
 
 struct User {
@@ -105,10 +111,33 @@ try {
             console.log('Names aligned:', namesAligned);
             console.log('Equals aligned:', equalsAligned);
             
-            if (typesAligned && namesAligned && equalsAligned) {
-                console.log('\n✅ Const alignment test PASSED!');
+            // Check multiline value indentation
+            console.log('\nMultiline value indentation check:');
+            const multilineValueLines = lines.filter(line => 
+                line.trim() && !line.trim().startsWith('const') && !line.trim().startsWith('struct') && 
+                !line.trim().startsWith('//') && !line.trim().startsWith('}') && 
+                (line.includes('"') || line.includes('ACTIVE') || line.includes('INACTIVE'))
+            );
+
+            multilineValueLines.forEach((line, index) => {
+                const leadingSpaces = line.match(/^(\s*)/)[1].length;
+                console.log(`Multiline ${index + 1}: "${line}" (${leadingSpaces} spaces)`);
+            });
+
+            // Check if multiline values have consistent indentation (should be more than const lines)
+            const constIndent = constLines[0] ? constLines[0].match(/^(\s*)/)[1].length : 0;
+            const multilineIndentCorrect = multilineValueLines.every(line => {
+                const lineIndent = line.match(/^(\s*)/)[1].length;
+                return lineIndent > constIndent;
+            });
+
+            console.log(`\nConst base indent: ${constIndent} spaces`);
+            console.log('Multiline values properly indented:', multilineIndentCorrect);
+            
+            if (typesAligned && namesAligned && equalsAligned && multilineIndentCorrect) {
+                console.log('\n✅ Const alignment and indentation test PASSED!');
             } else {
-                console.log('\n❌ Const alignment test FAILED!');
+                console.log('\n❌ Const alignment and indentation test FAILED!');
             }
         } else {
             console.log('\n⚠️  Not enough const lines to test alignment');
