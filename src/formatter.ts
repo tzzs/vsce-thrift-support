@@ -267,6 +267,16 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         if (isCollectionType && isInlineCollection) {
             if (options && options.collectionStyle === 'multiline') {
                 value = this.expandInlineCollection(value, type, options, indentLevel + 1);
+            } else if (options && options.collectionStyle === 'auto') {
+                // Auto mode: expand only when the estimated single-line exceeds maxLineLength
+                const indent = this.getIndent(indentLevel, options);
+                const singleLineBase = `${indent}const ${type} ${name} = ${value}`;
+                const commentPart = comment ? ` ${comment}` : '';
+                const estimatedLen = singleLineBase.length + commentPart.length;
+                const maxLen = (options && typeof options.maxLineLength === 'number') ? options.maxLineLength : 100;
+                if (estimatedLen > maxLen) {
+                    value = this.expandInlineCollection(value, type, options, indentLevel + 1);
+                }
             } // else preserve single-line as-is
         }
         

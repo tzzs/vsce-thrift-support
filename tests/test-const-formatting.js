@@ -180,5 +180,56 @@ function checkAlignedColumns(lines, extractor) {
     if (!ok) process.exitCode = 1;
   })();
   
+  // 6) collectionStyle = auto: 短行保持单行
+  (function testCollectionStyleAutoShortLine() {
+    console.log('\n=== Test 6: collectionStyle = auto keeps short inline ===');
+    const input = `const list<string> SHORT = ["a", "b"]`;
+    const output = runWithConfig(input, { collectionStyle: 'auto', maxLineLength: 120 });
+    if (output.trim() !== `const list<string> SHORT = ["a", "b"]`) {
+      console.error('✗ Should preserve inline when within maxLineLength');
+      console.error('Output was:\n' + output);
+      process.exitCode = 1;
+    } else {
+      console.log('✓ Auto mode preserves short inline');
+    }
+  })();
+  
+  // 7) collectionStyle = auto: 超长自动展开（考虑注释）
+  (function testCollectionStyleAutoLongLineWithComment() {
+    console.log('\n=== Test 7: collectionStyle = auto expands when long (including comment) ===');
+    const input = `const list<string> LONG = ["java", "python", "cpp", "javascript"] // comment making it long`;
+    const output = runWithConfig(input, { collectionStyle: 'auto', maxLineLength: 80 });
+    const expected = [
+      `const list<string> LONG = [ // comment making it long`,
+      `    "java",`,
+      `    "python",`,
+      `    "cpp",`,
+      `    "javascript"`,
+      `]`
+    ].join('\n');
+    if (output.trim() !== expected) {
+      console.error('✗ Should expand to multiline when exceeding maxLineLength considering comment');
+      console.error('Output was:\n' + output);
+      process.exitCode = 1;
+    } else {
+      console.log('✓ Auto mode expands when exceeding maxLineLength');
+    }
+  })();
+  
+  // 8) collectionStyle = auto: 恰好边界（等于 maxLineLength 时不展开）
+  (function testCollectionStyleAutoBoundary() {
+    console.log('\n=== Test 8: collectionStyle = auto boundary condition ===');
+    const input = `const list<string> B = ["aa", "bb", "cc"]`;
+    // Compute length to be exactly 60 by adjusting maxLineLength
+    const output = runWithConfig(input, { collectionStyle: 'auto', maxLineLength: 60 });
+    // Implementation only expands when > maxLineLength
+    if (output.trim() !== `const list<string> B = ["aa", "bb", "cc"]`) {
+      console.error('✗ Should not expand when length equals maxLineLength');
+      console.error('Output was:\n' + output);
+      process.exitCode = 1;
+    } else {
+      console.log('✓ Auto mode does not expand when equals maxLineLength');
+    }
+  })();
   console.log('\nConst formatting tests completed.');
 })();

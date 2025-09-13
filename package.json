@@ -117,10 +117,11 @@
           "type": "string",
           "enum": [
             "preserve",
-            "multiline"
+            "multiline",
+            "auto"
           ],
           "default": "preserve",
-          "description": "How to format collection values in const declarations: preserve (keep inline if originally inline), multiline (always expand to multiple lines)"
+          "description": "How to format collection values in const declarations: preserve (keep inline), multiline (always expand), auto (expand if line exceeds maxLineLength)"
         }
       }
     }
