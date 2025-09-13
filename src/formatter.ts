@@ -28,7 +28,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         range: vscode.Range,
         options: vscode.FormattingOptions
     ): vscode.TextEdit[] {
-        const config = vscode.workspace.getConfiguration('thrift-support.formatting');
+        const config = vscode.workspace.getConfiguration('thrift.format');
         const text = document.getText(range);
         const formattedText = this.formatThriftCode(text, {
             trailingComma: config.get('trailingComma', 'preserve'),
@@ -268,6 +268,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         // Calculate max widths for alignment
         let maxTypeWidth = 0;
         let maxNameWidth = 0;
+        let maxContentWidth = 0; // For comment alignment
 
         const parsedFields = sortedFields.map(field => {
             // Extract prefix from the original line
@@ -288,6 +289,42 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             
             return { prefix, type, name, suffix, comment };
         });
+        
+        // Calculate max content width after we know the alignment widths
+        parsedFields.forEach(field => {
+            // Calculate content width for comment alignment considering alignment
+            let contentWidth = field.prefix.length;
+            
+            if (options.alignTypes) {
+                contentWidth += maxTypeWidth;
+            } else {
+                contentWidth += field.type.length;
+            }
+            
+            contentWidth += 1; // space after type
+            
+            if (options.alignFieldNames) {
+                if (field.suffix) {
+                    contentWidth += maxNameWidth + field.suffix.length;
+                } else {
+                    contentWidth += field.name.length;
+                }
+            } else {
+                contentWidth += field.name.length;
+                if (field.suffix) {
+                    contentWidth += field.suffix.length;
+                }
+            }
+            
+            // Add comma if present or will be added
+            if (field.suffix.includes(',') || options.trailingComma === 'add') {
+                contentWidth += 1; // for comma
+            }
+            
+            maxContentWidth = Math.max(maxContentWidth, contentWidth);
+        });
+        
+        // Use parsedFields for formatting
 
         // Format fields with alignment
         return parsedFields.map(field => {
@@ -352,9 +389,16 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 }
             }
             
-            // Add comment directly after suffix
+            // Add comment with alignment if enabled
             if (field.comment) {
-                formattedLine += ' ' + field.comment;
+                if (options.alignComments) {
+                    // Calculate current line width for alignment
+                    const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
+                    const paddingNeeded = Math.max(1, maxContentWidth - currentWidth + 2); // +2 for spacing
+                    formattedLine += ' '.repeat(paddingNeeded) + field.comment;
+                } else {
+                    formattedLine += ' ' + field.comment;
+                }
             }
             
             return formattedLine;
@@ -374,6 +418,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         // Calculate max widths for alignment
         let maxNameWidth = 0;
         let maxValueWidth = 0;
+        let maxContentWidth = 0; // For comment alignment
 
         const parsedFields = fields.map(field => {
             const name = field.name;
@@ -387,6 +432,13 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             
             maxNameWidth = Math.max(maxNameWidth, name.length);
             maxValueWidth = Math.max(maxValueWidth, value.length);
+            
+            // Calculate content width for comment alignment (name + = + value + suffix)
+            let contentWidth = name.length + 3 + value.length; // +3 for " = "
+            if (suffix) {
+                contentWidth += suffix.length;
+            }
+            maxContentWidth = Math.max(maxContentWidth, contentWidth);
             
             return { name, value, suffix, comment };
         });
@@ -438,9 +490,16 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 formattedLine += cleanSuffix;
             }
             
-            // Add comment directly after suffix
+            // Add comment with alignment if enabled
             if (field.comment) {
-                formattedLine += ' ' + field.comment;
+                if (options.alignComments) {
+                    // Calculate current line width for alignment
+                    const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
+                    const paddingNeeded = Math.max(1, maxContentWidth - currentWidth + 2); // +2 for spacing
+                    formattedLine += ' '.repeat(paddingNeeded) + field.comment;
+                } else {
+                    formattedLine += ' ' + field.comment;
+                }
             }
             
             return formattedLine;
