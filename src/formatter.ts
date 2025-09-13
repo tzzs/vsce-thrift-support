@@ -56,6 +56,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         let inEnum = false;
         let structFields: Array<{line: string, type: string, name: string, suffix: string, comment: string}> = [];
         let enumFields: Array<{line: string, name: string, value: string, suffix: string, comment: string}> = [];
+        let constFields: Array<{line: string, type: string, name: string, value: string, comment: string}> = [];
+        let inConstBlock = false;
 
         for (let i = 0; i < lines.length; i++) {
             let originalLine = lines[i];
@@ -64,6 +66,30 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             // Skip empty lines and comments
             if (!line || line.startsWith('//') || line.startsWith('#') || line.startsWith('/*')) {
                 formattedLines.push(this.getIndent(indentLevel, options) + line);
+                continue;
+            }
+
+            // Handle const fields for alignment - check before other processing
+            if (this.isConstField(line)) {
+                const fieldInfo = this.parseConstField(line);
+                if (fieldInfo) {
+                    constFields.push(fieldInfo);
+                    inConstBlock = true;
+                    continue;
+                }
+            } else if (inConstBlock && constFields.length > 0) {
+                // End of const block, format accumulated const fields
+                const formattedFields = this.formatConstFields(constFields, options, indentLevel);
+                formattedLines.push(...formattedFields);
+                constFields = [];
+                inConstBlock = false;
+                // Continue processing current line
+            }
+
+            // Handle const definitions
+            if (this.isConstStart(line)) {
+                formattedLines.push(this.getIndent(indentLevel, options) + line);
+                indentLevel++;
                 continue;
             }
 
@@ -126,6 +152,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 }
             }
 
+
+
             // Regular lines
             formattedLines.push(this.getIndent(indentLevel, options) + line);
         }
@@ -142,6 +170,12 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             formattedLines.push(...formattedFields);
         }
 
+        // Handle any remaining const fields
+        if (constFields.length > 0) {
+            const formattedFields = this.formatConstFields(constFields, options, indentLevel);
+            formattedLines.push(...formattedFields);
+        }
+
         return formattedLines.join('\n');
     }
 
@@ -150,6 +184,73 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                /^(struct|union|exception|service|enum)\s+\w+.*\{$/.test(line);
 
         return result;
+    }
+
+    private isConstStart(line: string): boolean {
+        // Match const definitions like: const map<string, i32> ERROR_CODES = {
+        return /^const\s+.+\s*=\s*\{$/.test(line);
+    }
+
+    private isConstField(line: string): boolean {
+        // Match single-line const definitions like: const i32 MAX_USERS = 10000
+        return /^const\s+\w+(<[^>]+>)?(\[\])?\s+\w+\s*=\s*.+$/.test(line);
+    }
+
+    private parseConstField(line: string): {line: string, type: string, name: string, value: string, comment: string} | null {
+        // Parse const field: const i32 MAX_USERS = 10000 // comment
+        
+        let remainder = line.trim();
+        
+        // Extract comment first
+        let comment = '';
+        const commentMatch = remainder.match(/^(.*?)(\/\/.*)$/);
+        if (commentMatch) {
+            remainder = commentMatch[1].trim();
+            comment = commentMatch[2];
+        }
+        
+        // Parse the main content: const type name = value
+        const constMatch = remainder.match(/^const\s+(\w+(?:<[^>]+>)?(?:\[\])?)\s+(\w+)\s*=\s*(.+)$/);
+        if (!constMatch) return null;
+        
+        const type = constMatch[1].trim();
+        const name = constMatch[2];
+        const value = constMatch[3].trim();
+        
+        return {
+            line: line,
+            type: type,
+            name: name,
+            value: value,
+            comment: comment
+        };
+    }
+
+    private formatConstFields(
+        fields: Array<{line: string, type: string, name: string, value: string, comment: string}>,
+        options: any,
+        indentLevel: number
+    ): string[] {
+        if (fields.length === 0) return [];
+        
+        // Calculate max widths for alignment
+        const maxTypeWidth = Math.max(...fields.map(f => f.type.length));
+        const maxNameWidth = Math.max(...fields.map(f => f.name.length));
+        
+        const indent = this.getIndent(indentLevel, options);
+        
+        return fields.map(field => {
+            const paddedType = field.type.padEnd(maxTypeWidth);
+            const paddedName = field.name.padEnd(maxNameWidth);
+            
+            let result = `${indent}const ${paddedType} ${paddedName} = ${field.value}`;
+            
+            if (field.comment) {
+                result += ` ${field.comment}`;
+            }
+            
+            return result;
+        });
     }
 
     private isStructField(line: string): boolean {
