@@ -124,6 +124,15 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 continue;
             }
             
+            // If we were in a const block and current line is not a const, flush the const block first (preserve order)
+            if (inConstBlock && constFields.length > 0 && !this.isConstField(line) && !this.isConstStart(line)) {
+                const formattedFields = this.formatConstFields(constFields, options, indentLevel);
+                formattedLines.push(...formattedFields);
+                constFields = [];
+                inConstBlock = false;
+                // fall through to handle current line
+            }
+
             // Skip empty lines and line comments
             if (!line || line.startsWith('//') || line.startsWith('#')) {
                 formattedLines.push(this.getIndent(indentLevel, options) + line);
@@ -166,11 +175,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 }
             } else if (inConstBlock && constFields.length > 0 && !this.isConstField(line) && !this.isConstStart(line)) {
                 // End of const block only if current line is not a const definition
-                const formattedFields = this.formatConstFields(constFields, options, indentLevel);
-                formattedLines.push(...formattedFields);
-                constFields = [];
-                inConstBlock = false;
-                // Continue processing current line
+                // (Flushed earlier above before handling comments/empty lines)
+                // No-op here to avoid double flush
             }
 
             // Handle struct/union/exception/service definitions
