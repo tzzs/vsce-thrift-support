@@ -266,14 +266,16 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         }
 
         // Calculate max widths for alignment
+        let maxFieldIdWidth = 0;
         let maxTypeWidth = 0;
         let maxNameWidth = 0;
         let maxContentWidth = 0; // For comment alignment
 
         const parsedFields = sortedFields.map(field => {
-            // Extract prefix from the original line
-            const prefixMatch = field.line.match(/^\s*(\d+:\s*(?:required|optional)?\s*)/);
-            const prefix = prefixMatch ? prefixMatch[1] : '';
+            // Extract field ID and required/optional parts separately
+            const fieldMatch = field.line.match(/^\s*(\d+):\s*((?:required|optional)?\s*)/);
+            const fieldId = fieldMatch ? fieldMatch[1] : '';
+            const qualifier = fieldMatch ? fieldMatch[2] : '';
             
             // Use the already parsed and cleaned type from field.type
             let type = field.type;
@@ -284,16 +286,23 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             const suffix = field.suffix;
             const comment = field.comment;
             
+            maxFieldIdWidth = Math.max(maxFieldIdWidth, fieldId.length);
             maxTypeWidth = Math.max(maxTypeWidth, type.length);
             maxNameWidth = Math.max(maxNameWidth, name.length);
             
-            return { prefix, type, name, suffix, comment };
+            return { fieldId, qualifier, type, name, suffix, comment };
         });
         
         // Calculate max content width after we know the alignment widths
         parsedFields.forEach(field => {
             // Calculate content width for comment alignment considering alignment
-            let contentWidth = field.prefix.length;
+            let contentWidth = 0;
+            
+            // Field ID width (always aligned)
+            contentWidth += maxFieldIdWidth + 2; // +2 for ": "
+            
+            // Qualifier width (required/optional)
+            contentWidth += field.qualifier.length;
             
             if (options.alignTypes) {
                 contentWidth += maxTypeWidth;
@@ -330,7 +339,14 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         return parsedFields.map(field => {
             if (!field) {return '';}
             
-            let formattedLine = this.getIndent(indentLevel, options) + field.prefix;
+            let formattedLine = this.getIndent(indentLevel, options);
+            
+            // Add field ID with colon, then pad to alignment
+            const fieldIdWithColon = field.fieldId + ':';
+            formattedLine += fieldIdWithColon.padEnd(maxFieldIdWidth + 1) + ' ';
+            
+            // Add qualifier (required/optional)
+            formattedLine += field.qualifier;
             
             if (options.alignTypes) {
                 formattedLine += field.type.padEnd(maxTypeWidth);
@@ -507,7 +523,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     }
 
     private getIndent(level: number, options: any): string {
-        const indentSize = options.indentSize || 2;
+        const indentSize = options.indentSize || 4;
         // Ensure level is not negative to avoid String.repeat() error
         const safeLevel = Math.max(0, level);
         if (options.insertSpaces) {
