@@ -71,13 +71,61 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         let enumFields: Array<{line: string, name: string, value: string, suffix: string, comment: string}> = [];
         let constFields: Array<{line: string, type: string, name: string, value: string, comment: string}> = [];
         let inConstBlock = false;
+        let inBlockComment = false;
 
         for (let i = 0; i < lines.length; i++) {
             let originalLine = lines[i];
             let line = originalLine.trim();
+
+            // Handle block comments: re-indent to current code indent and align '*' columns
+            if (line.startsWith('/*')) {
+                const commentLines: string[] = [originalLine];
+                let j = i + 1;
+                let closed = line.includes('*/');
+                while (!closed && j < lines.length) {
+                    commentLines.push(lines[j]);
+                    if (lines[j].includes('*/')) closed = true;
+                    j++;
+                }
+
+                const indentStr = this.getIndent(indentLevel, options);
+
+                // Single-line block comment
+                if (commentLines.length === 1) {
+                    formattedLines.push(indentStr + line);
+                    continue;
+                }
+
+                // Opening line (preserve /** vs /* and any trailing text)
+                const openTrim = commentLines[0].trim();
+                const openIsDoc = openTrim.startsWith('/**');
+                const openToken = openIsDoc ? '/**' : '/*';
+                const openRest = openTrim.slice(openToken.length); // keep any trailing content as-is
+                formattedLines.push(indentStr + openToken + openRest);
+
+                // Middle lines: normalize to `indent + ' *' + (space + content if any)`
+                for (let k = 1; k < commentLines.length - 1; k++) {
+                    let mid = commentLines[k].trim();
+                    // Strip leading '*' and spaces
+                    if (mid.startsWith('*')) mid = mid.slice(1);
+                    mid = mid.replace(/^\s*/, '');
+                    if (mid.length > 0) {
+                        formattedLines.push(indentStr + ' * ' + mid);
+                    } else {
+                        formattedLines.push(indentStr + ' *');
+                    }
+                }
+
+                // Closing line: place `*/` aligned with opening
+                formattedLines.push(indentStr + ' */');
+
+                // Skip consumed lines
+                i = j - 1;
+                continue;
+            }
             
-            // Skip empty lines and comments
-            if (!line || line.startsWith('//') || line.startsWith('#') || line.startsWith('/*')) {
+            // Skip empty lines and line comments
+            if (!line || line.startsWith('//') || line.startsWith('#')) {
                 formattedLines.push(this.getIndent(indentLevel, options) + line);
                 continue;
             }
@@ -125,9 +173,13 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 // Continue processing current line
             }
 
-            // Handle struct/union/exception/service/enum definitions
+            // Handle struct/union/exception/service definitions
             if (this.isStructStart(line)) {
-
+                // If inline single-line block like: struct EmptyStruct {}
+                if (line.includes('{') && line.includes('}')) {
+                    formattedLines.push(this.getIndent(indentLevel, options) + line);
+                    continue;
+                }
                 formattedLines.push(this.getIndent(indentLevel, options) + line);
                 indentLevel++;
                 inStruct = true;
@@ -157,6 +209,11 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             }
 
             if (this.isEnumStart(line)) {
+                // Inline enum block on a single line: enum X { A = 1 }
+                if (line.includes('{') && line.includes('}')) {
+                    formattedLines.push(this.getIndent(indentLevel, options) + line);
+                    continue;
+                }
                 formattedLines.push(this.getIndent(indentLevel, options) + line);
                 indentLevel++;
                 inEnum = true;
@@ -182,6 +239,13 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                         continue;
                     }
                 }
+            }
+
+            // If line is a standalone opening brace, align it with the declaration line (no extra indent)
+            if (line === '{') {
+                const level = Math.max(indentLevel - 1, 0);
+                formattedLines.push(this.getIndent(level, options) + line);
+                continue;
             }
 
             // Default: keep the line as-is with proper indentation
