@@ -15,17 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run release-please
-        uses: google-github-actions/release-please-action@v4
+        uses: googleapis/release-please-action@v4
         with:
           release-type: node
-          package-name: thrift-support
-          default-branch: master
-          changelog-types: |
-            [
-              {"type":"feat","section":"Features","hidden":false},
-              {"type":"fix","section":"Bug Fixes","hidden":false},
-              {"type":"docs","section":"Documentation","hidden":false},
-              {"type":"chore","section":"Chores","hidden":false},
-              {"type":"refactor","section":"Refactoring","hidden":false},
-              {"type":"perf","section":"Performance","hidden":false}
-            ]
+          target-branch: master
