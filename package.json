@@ -22,9 +22,6 @@
     "syntax highlighting",
     "formatter"
   ],
-  "activationEvents": [
-    "onLanguage:thrift"
-  ],
   "main": "./out/extension.js",
   "contributes": {
     "languages": [
@@ -65,7 +62,11 @@
       "properties": {
         "thrift.format.trailingComma": {
           "type": "string",
-          "enum": ["preserve", "add", "remove"],
+          "enum": [
+            "preserve",
+            "add",
+            "remove"
+          ],
           "default": "preserve",
           "description": "Control trailing comma behavior: preserve (keep existing), add (always add), remove (always remove)"
         },
@@ -122,8 +123,8 @@
     "package": "vsce package",
     "publish": "vsce publish",
     "test": "node tests/test-include-navigation-fix.js",
-        "test:complex": "node tests/test-complex-types.js",
-        "test:enum": "node tests/test-enum-formatting.js",
+    "test:complex": "node tests/test-complex-types.js",
+    "test:enum": "node tests/test-enum-formatting.js",
     "test:indent": "node tests/test-indent-width.js",
     "test:comma": "node tests/test-trailing-comma.js",
     "test:all": "npm run test && npm run test:complex && npm run test:enum && npm run test:indent && npm run test:comma"
