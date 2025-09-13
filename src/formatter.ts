@@ -77,13 +77,13 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 
                 // Collect all lines until the closing brace
                 while (j < lines.length && !lines[j].trim().endsWith('}')) {
-                    constValue += '\n' + lines[j];
+                    constValue += '\n' + lines[j].trim(); // Remove original indentation
                     j++;
                 }
                 
                 // Add the closing brace line
                 if (j < lines.length) {
-                    constValue += '\n' + lines[j];
+                    constValue += '\n' + lines[j].trim(); // Remove original indentation
                 }
                 
                 // Parse the complete multiline const
@@ -207,25 +207,27 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
 
     private isConstStart(line: string): boolean {
         // Match const definitions like: const map<string, i32> ERROR_CODES = {
-        // Also match single-line collection definitions that need to be expanded
+        // Only match incomplete collection definitions that end with opening brace/bracket
         const isMultilineStart = /^const\s+.+\s*=\s*\{$/.test(line);
         const isCollectionType = /^const\s+(map|list|set)</.test(line);
-        const hasInlineBraces = line.includes('{') && line.includes('}');
-        const hasInlineBrackets = line.includes('[') && line.includes(']');
+        const endsWithOpenBrace = line.trim().endsWith('{');
+        const endsWithOpenBracket = line.trim().endsWith('[');
         
-        return isMultilineStart || (isCollectionType && (hasInlineBraces || hasInlineBrackets));
+        return isMultilineStart || (isCollectionType && (endsWithOpenBrace || endsWithOpenBracket));
     }
 
     private isConstField(line: string): boolean {
         // Match single-line const definitions like: const i32 MAX_USERS = 10000
-        // But exclude single-line map/list/set definitions that should be expanded
+        // Also match single-line collection definitions that are complete on one line
         const isConst = /^const\s+\w+(<[^>]+>)?(\[\])?\s+\w+\s*=\s*.+$/.test(line);
         const isCollectionType = /^const\s+(map|list|set)</.test(line);
         const hasInlineBraces = line.includes('{') && line.includes('}');
         const hasInlineBrackets = line.includes('[') && line.includes(']');
+        const endsWithOpenBrace = line.trim().endsWith('{');
+        const endsWithOpenBracket = line.trim().endsWith('[');
         
-        // If it's a collection type with inline braces/brackets, treat as multiline const
-        if (isConst && isCollectionType && (hasInlineBraces || hasInlineBrackets)) {
+        // If it's a collection type that ends with an opening brace/bracket (incomplete), treat as multiline const start
+        if (isConst && isCollectionType && (endsWithOpenBrace || endsWithOpenBracket)) {
             return false; // Will be handled by isConstStart
         }
         
@@ -419,14 +421,25 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             
             // Check if value is multiline (contains newlines)
             if (field.value.includes('\n')) {
-                // Handle multiline values - they are already properly formatted
+                // Handle multiline values - apply proper indentation
                 const lines = field.value.split('\n');
                 const firstLine = lines[0];
                 let result = `${indent}const ${paddedType} ${paddedName} = ${firstLine}`;
                 
-                // Add subsequent lines as-is (they are already properly indented)
+                // Add subsequent lines with proper indentation
                 for (let i = 1; i < lines.length; i++) {
-                    result += '\n' + lines[i];
+                    const line = lines[i].trim();
+                    if (line) {
+                        // Check if this is a closing brace - it should align with const declaration
+                        if (line === '}' || line === ']') {
+                            result += '\n' + indent + line;
+                        } else {
+                            // Apply value indentation for content lines
+                            result += '\n' + valueIndent + line;
+                        }
+                    } else {
+                        result += '\n';
+                    }
                 }
                 
                 if (field.comment) {
