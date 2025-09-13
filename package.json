@@ -3,10 +3,10 @@
   "displayName": "Thrift Support",
   "description": "VSCode extension for Apache Thrift with syntax highlighting, formatting, and navigation support",
   "version": "0.1.0",
-  "publisher": "thrift-support",
+  "publisher": "tzzs",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/thrift-support.git"
+    "url": "https://github.com/tzzs/thrift-support.git"
   },
   "engines": {
     "vscode": "^1.74.0"
