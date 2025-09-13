@@ -64,9 +64,10 @@
       "title": "Thrift Support Configuration",
       "properties": {
         "thrift.format.trailingComma": {
-          "type": "boolean",
-          "default": true,
-          "description": "Add trailing comma after the last field in structs/unions/exceptions"
+          "type": "string",
+          "enum": ["preserve", "add", "remove"],
+          "default": "preserve",
+          "description": "Control trailing comma behavior: preserve (keep existing), add (always add), remove (always remove)"
         },
         "thrift.format.alignTypes": {
           "type": "boolean",
@@ -100,7 +101,7 @@
         },
         "thrift.format.indentSize": {
           "type": "number",
-          "default": 2,
+          "default": 4,
           "description": "Number of spaces for indentation"
         },
         "thrift.format.maxLineLength": {
@@ -123,7 +124,9 @@
     "test": "node tests/test-include-navigation-fix.js",
         "test:complex": "node tests/test-complex-types.js",
         "test:enum": "node tests/test-enum-formatting.js",
-        "test:all": "npm run test && npm run test:complex && npm run test:enum"
+    "test:indent": "node tests/test-indent-width.js",
+    "test:comma": "node tests/test-trailing-comma.js",
+    "test:all": "npm run test && npm run test:complex && npm run test:enum && npm run test:indent && npm run test:comma"
   },
   "devDependencies": {
     "@types/vscode": "^1.74.0",
