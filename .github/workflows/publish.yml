@@ -9,12 +9,10 @@ permissions:
   contents: write
 
 jobs:
-  publish:
+  package:
     runs-on: ubuntu-latest
-    environment: vsce
-    env:
-      VSCE_PAT: ${{ secrets.VSCE_PAT || secrets.VSCE_TOKEN }}
-      OVSX_PAT: ${{ secrets.OVSX_PAT || secrets.OPENVSX_TOKEN }}
+    outputs:
+      version: ${{ steps.pkg.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,11 +39,27 @@ jobs:
       - name: Package VSIX
         run: npx vsce package -o thrift-support-${{ steps.pkg.outputs.version }}.vsix
 
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix-artifact
+          path: thrift-support-${{ steps.pkg.outputs.version }}.vsix
+          if-no-files-found: error
+
+  github_release:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download VSIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vsix-artifact
+
       - name: Upload VSIX to GitHub Release (release event)
         if: ${{ github.event_name == 'release' }}
         uses: softprops/action-gh-release@v2
         with:
-          files: thrift-support-${{ steps.pkg.outputs.version }}.vsix
+          files: thrift-support-${{ needs.package.outputs.version }}.vsix
           tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -54,26 +68,54 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.pkg.outputs.version }}
-          name: v${{ steps.pkg.outputs.version }}
+          tag_name: v${{ needs.package.outputs.version }}
+          name: v${{ needs.package.outputs.version }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
-          files: thrift-support-${{ steps.pkg.outputs.version }}.vsix
+          files: thrift-support-${{ needs.package.outputs.version }}.vsix
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  vsce_publish:
+    needs: package
+    runs-on: ubuntu-latest
+    environment: vsce
+    env:
+      VSCE_PAT: ${{ secrets.VSCE_PAT || secrets.VSCE_TOKEN }}
+    steps:
+      - name: Download VSIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vsix-artifact
+
+      - name: Ensure VSCE token present
+        run: |
+          if [ -z "${VSCE_PAT}" ]; then
+            echo "VSCE_PAT/VSCE_TOKEN is not configured in repository or environment 'vsce'." >&2
+            exit 1
+          fi
+
       - name: Publish to VS Code Marketplace
-        if: ${{ env.VSCE_PAT != '' }}
         run: npx vsce publish --skip-duplicate
 
-      - name: Skip VS Code Marketplace (token not configured)
-        if: ${{ env.VSCE_PAT == '' }}
-        run: echo "Skipping VS Code Marketplace publish because VSCE_PAT/VSCE_TOKEN is not configured."
+  openvsx_publish:
+    needs: package
+    runs-on: ubuntu-latest
+    environment: vsce
+    env:
+      OVSX_PAT: ${{ secrets.OVSX_PAT || secrets.OPENVSX_TOKEN }}
+    steps:
+      - name: Download VSIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: vsix-artifact
+
+      - name: Ensure Open VSX token present
+        run: |
+          if [ -z "${OVSX_PAT}" ]; then
+            echo "OVSX_PAT/OPENVSX_TOKEN is not configured in repository or environment 'vsce'." >&2
+            exit 1
+          fi
 
       - name: Publish to Open VSX
-        if: ${{ env.OVSX_PAT != '' }}
-        run: npx ovsx publish --skip-duplicate --packagePath thrift-support-${{ steps.pkg.outputs.version }}.vsix
-
-      - name: Skip Open VSX (token not configured)
-        if: ${{ env.OVSX_PAT == '' }}
-        run: echo "Skipping Open VSX publish because OVSX_PAT/OPENVSX_TOKEN is not configured."
+        run: npx ovsx publish --skip-duplicate --packagePath thrift-support-${{ needs.package.outputs.version }}.vsix
