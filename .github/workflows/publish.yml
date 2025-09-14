@@ -54,6 +54,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vsix-artifact
+          path: .
 
       - name: Upload VSIX to GitHub Release (release event)
         if: ${{ github.event_name == 'release' }}
@@ -87,6 +88,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vsix-artifact
+          path: .
 
       - name: Ensure VSCE token present
         run: |
@@ -109,6 +111,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: vsix-artifact
+          path: .
 
       - name: Ensure Open VSX token present
         run: |
