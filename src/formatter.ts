@@ -84,7 +84,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 let closed = line.includes('*/');
                 while (!closed && j < lines.length) {
                     commentLines.push(lines[j]);
-                    if (lines[j].includes('*/')) closed = true;
+                    if (lines[j].includes('*/')) {closed = true;}
                     j++;
                 }
 
@@ -107,7 +107,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 for (let k = 1; k < commentLines.length - 1; k++) {
                     let mid = commentLines[k].trim();
                     // Strip leading '*' and spaces
-                    if (mid.startsWith('*')) mid = mid.slice(1);
+                    if (mid.startsWith('*')) {mid = mid.slice(1);}
                     mid = mid.replace(/^\s*/, '');
                     if (mid.length > 0) {
                         formattedLines.push(indentStr + ' * ' + mid);
@@ -290,7 +290,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         options: any,
         indentLevel: number
     ): string[] {
-        if (fields.length === 0) return [];
+        if (fields.length === 0) {return [];}
         
         const collectionStyle: 'preserve' | 'multiline' | 'auto' = (options && options.collectionStyle) || 'preserve';
         const maxLineLength: number = (options && options.maxLineLength) || 100;
@@ -353,13 +353,13 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                         continue;
                     }
                     if (ch === ',' && depth === 0) {
-                        if (current.trim()) items.push(current.trim());
+                        if (current.trim()) {items.push(current.trim());}
                         current = '';
                     } else {
                         current += ch;
                     }
                 }
-                if (current.trim()) items.push(current.trim());
+                if (current.trim()) {items.push(current.trim());}
 
                 const lines: string[] = [open];
                 for (let idx = 0; idx < items.length; idx++) {
@@ -380,10 +380,10 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         // Pre-compute max base length for aligning comments on the first line of each const
         let maxFirstLineBaseLen = 0;
         for (const f of adjFields) {
-            if (!f.comment) continue;
+            if (!f.comment) {continue;}
             const firstLineValue = f.value.includes('\n') ? f.value.split('\n')[0] : f.value;
             const base = `const ${f.type.padEnd(maxTypeWidth)} ${f.name.padEnd(maxNameWidth)} = ${firstLineValue}`;
-            if (base.length > maxFirstLineBaseLen) maxFirstLineBaseLen = base.length;
+            if (base.length > maxFirstLineBaseLen) {maxFirstLineBaseLen = base.length;}
         }
         
         return adjFields.map(field => {
@@ -428,7 +428,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     // If this line is a standalone comment, merge to previous content line
                     if (line.startsWith('//')) {
                         let idx = outLines.length - 1;
-                        while (idx >= 0 && outLines[idx] === '') idx--;
+                        while (idx >= 0 && outLines[idx] === '') {idx--;}
                         if (idx >= 0) {
                             outLines[idx] += ` ${line}`;
                         } else {
@@ -449,13 +449,13 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     for (let idx = 1; idx < outLines.length; idx++) {
                         const l = outLines[idx];
                         const trimmed = l.trim();
-                        if (!trimmed || trimmed === '}' || trimmed === ']') continue;
+                        if (!trimmed || trimmed === '}' || trimmed === ']') {continue;}
                         const m = l.match(/^(\s*)(.*?)(\s*)(\/\/.*)$/);
                         if (m) {
                             const leading = m[1] || '';
                             const content = (m[2] || '').replace(/\s+$/,'');
                             const len = leading.length + content.length;
-                            if (len > maxContentLen) maxContentLen = len;
+                            if (len > maxContentLen) {maxContentLen = len;}
                             indices.push(idx);
                         }
                     }
@@ -463,7 +463,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                         for (const idx of indices) {
                             const l = outLines[idx];
                             const m = l.match(/^(\s*)(.*?)(\s*)(\/\/.*)$/);
-                            if (!m) continue;
+                            if (!m) {continue;}
                             const leading = m[1] || '';
                             const content = (m[2] || '').replace(/\s+$/,'');
                             const comment = (m[4] || '').replace(/^\s+/, '');
@@ -508,7 +508,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         
         // First, extract the prefix (field number and optional required/optional)
         const prefixMatch = line.match(/^\s*(\d+:\s*(?:required|optional)?\s*)(.*)$/);
-        if (!prefixMatch) return null;
+        if (!prefixMatch) {return null;}
         
         const prefix = prefixMatch[1];
         let remainder = prefixMatch[2];
@@ -532,7 +532,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         // Parse the main content: type fieldname [= defaultvalue]
         // Use a more careful regex that handles complex default values
         const fieldMatch = remainder.match(/^(.+?)\s+(\w+)(?:\s*=\s*(.+))?$/);
-        if (!fieldMatch) return null;
+        if (!fieldMatch) {return null;}
         
         let type = fieldMatch[1].trim();
         const name = fieldMatch[2];
@@ -563,7 +563,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     private parseEnumField(line: string): {line: string, name: string, value: string, suffix: string, comment: string} | null {
         // Parse enum field: ACTIVE = 1, // comment
         const match = line.match(/^\s*(\w+)\s*=\s*(\d+)\s*([,;]?\s*(?:\/\/.*)?\s*)$/);
-        if (!match) return null;
+        if (!match) {return null;}
         
         const name = match[1];
         const value = match[2];
@@ -588,12 +588,12 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         options: any,
         indentLevel: number
     ): { line: string, type: string, name: string, value: string, comment: string } | null {
-        if (!source) return null;
+        if (!source) {return null;}
         const lines = source.split('\n');
         const header = (lines[0] || '').trim();
         // Match: const <type> <name> = <value>[ // comment]
         const m = header.match(/^const\s+([\w<>,\s]+?)\s+(\w+)\s*=\s*(.*)$/);
-        if (!m) return null;
+        if (!m) {return null;}
         let type = m[1].trim();
         const name = m[2].trim();
         let firstValuePart = (m[3] || '').trim();
@@ -839,8 +839,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             const hasSemicolon = f.suffix ? /;/.test(f.suffix) : false;
 
             if (!hasSemicolon) {
-                if (options.trailingComma === 'add') hasComma = true;
-                else if (options.trailingComma === 'remove') hasComma = false;
+                if (options.trailingComma === 'add') {hasComma = true;}
+                else if (options.trailingComma === 'remove') {hasComma = false;}
             }
 
             // Handle name/equals alignment
@@ -857,11 +857,11 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             const valuePart = options.alignEnumValues ? String(f.value).padEnd(maxValueWidth) : String(f.value);
             base += valuePart;
 
-            if (hasComma) base += ',';
+            if (hasComma) {base += ',';}
 
             interim.push({ base, comment: f.comment || '' });
             const width = base.length - indent.length;
-            if (width > maxContentWidth) maxContentWidth = width;
+            if (width > maxContentWidth) {maxContentWidth = width;}
         }
 
         return interim.map(item => {
