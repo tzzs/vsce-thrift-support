@@ -37,7 +37,7 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Package VSIX
-        run: npx vsce package -o thrift-support-${{ steps.pkg.outputs.version }}.vsix
+        run: npx @vscode/vsce package -o thrift-support-${{ steps.pkg.outputs.version }}.vsix
 
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v4
@@ -78,7 +78,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   vsce_publish:
-    needs: package
+    needs: [package, github_release]
     runs-on: ubuntu-latest
     environment: vsce
     env:
@@ -98,10 +98,10 @@ jobs:
           fi
 
       - name: Publish to VS Code Marketplace
-        run: npx vsce publish --skip-duplicate --packagePath thrift-support-${{ needs.package.outputs.version }}.vsix
+        run: npx @vscode/vsce publish --skip-duplicate --packagePath thrift-support-${{ needs.package.outputs.version }}.vsix
 
   openvsx_publish:
-    needs: package
+    needs: [package, github_release]
     runs-on: ubuntu-latest
     environment: vsce
     env:
