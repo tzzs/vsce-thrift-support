@@ -59,11 +59,21 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to VS Code Marketplace
-        run: npx vsce publish --skip-duplicate -p $VSCE_PAT
+        if: ${{ secrets.VSCE_PAT != '' }}
+        run: npx vsce publish --skip-duplicate
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
+      - name: Skip VS Code Marketplace (token not configured)
+        if: ${{ secrets.VSCE_PAT == '' }}
+        run: echo "Skipping VS Code Marketplace publish because VSCE_PAT is not configured."
+
       - name: Publish to Open VSX
-        run: npx ovsx publish --skip-duplicate -p $OVSX_PAT --packagePath thrift-support-${{ steps.pkg.outputs.version }}.vsix
+        if: ${{ secrets.OVSX_PAT != '' }}
+        run: npx ovsx publish --skip-duplicate --packagePath thrift-support-${{ steps.pkg.outputs.version }}.vsix
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
+
+      - name: Skip Open VSX (token not configured)
+        if: ${{ secrets.OVSX_PAT == '' }}
+        run: echo "Skipping Open VSX publish because OVSX_PAT is not configured."
