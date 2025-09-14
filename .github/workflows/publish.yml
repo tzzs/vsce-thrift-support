@@ -98,7 +98,7 @@ jobs:
           fi
 
       - name: Publish to VS Code Marketplace
-        run: npx vsce publish --skip-duplicate
+        run: npx vsce publish --skip-duplicate --packagePath thrift-support-${{ needs.package.outputs.version }}.vsix
 
   openvsx_publish:
     needs: package
