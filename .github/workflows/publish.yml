@@ -5,6 +5,9 @@ on:
     types: [published]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -34,9 +37,23 @@ jobs:
       - name: Package VSIX
         run: npx vsce package -o thrift-support-${{ steps.pkg.outputs.version }}.vsix
 
-      - name: Upload VSIX to GitHub Release
+      - name: Upload VSIX to GitHub Release (release event)
+        if: ${{ github.event_name == 'release' }}
         uses: softprops/action-gh-release@v2
         with:
+          files: thrift-support-${{ steps.pkg.outputs.version }}.vsix
+          tag_name: ${{ github.event.release.tag_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload/Create GitHub Release (manual)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.pkg.outputs.version }}
+          name: v${{ steps.pkg.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
           files: thrift-support-${{ steps.pkg.outputs.version }}.vsix
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
