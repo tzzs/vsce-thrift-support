@@ -11,6 +11,7 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: vsce
     env:
       VSCE_PAT: ${{ secrets.VSCE_PAT || secrets.VSCE_TOKEN }}
       OVSX_PAT: ${{ secrets.OVSX_PAT || secrets.OPENVSX_TOKEN }}
