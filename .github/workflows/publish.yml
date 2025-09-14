@@ -11,6 +11,9 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      VSCE_PAT: ${{ secrets.VSCE_PAT || secrets.VSCE_TOKEN }}
+      OVSX_PAT: ${{ secrets.OVSX_PAT || secrets.OPENVSX_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -59,21 +62,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to VS Code Marketplace
-        if: ${{ secrets.VSCE_PAT != '' || secrets.VSCE_TOKEN != '' }}
+        if: ${{ env.VSCE_PAT != '' }}
         run: npx vsce publish --skip-duplicate
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT != '' && secrets.VSCE_PAT || secrets.VSCE_TOKEN }}
 
       - name: Skip VS Code Marketplace (token not configured)
-        if: ${{ secrets.VSCE_PAT == '' && secrets.VSCE_TOKEN == '' }}
+        if: ${{ env.VSCE_PAT == '' }}
         run: echo "Skipping VS Code Marketplace publish because VSCE_PAT/VSCE_TOKEN is not configured."
 
       - name: Publish to Open VSX
-        if: ${{ secrets.OVSX_PAT != '' || secrets.OPENVSX_TOKEN != '' }}
+        if: ${{ env.OVSX_PAT != '' }}
         run: npx ovsx publish --skip-duplicate --packagePath thrift-support-${{ steps.pkg.outputs.version }}.vsix
-        env:
-          OVSX_PAT: ${{ secrets.OVSX_PAT != '' && secrets.OVSX_PAT || secrets.OPENVSX_TOKEN }}
 
       - name: Skip Open VSX (token not configured)
-        if: ${{ secrets.OVSX_PAT == '' && secrets.OPENVSX_TOKEN == '' }}
+        if: ${{ env.OVSX_PAT == '' }}
         run: echo "Skipping Open VSX publish because OVSX_PAT/OPENVSX_TOKEN is not configured."
