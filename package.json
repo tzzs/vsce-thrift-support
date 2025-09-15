@@ -2,12 +2,12 @@
   "name": "thrift-support",
   "displayName": "Thrift Support",
   "description": "Apache Thrift language support: syntax highlighting, formatter, and code navigation",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "tanzz",
   "icon": "icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/tzzs/thrift-support.git"
+    "url": "https://github.com/tzzs/vsce-thrift-support.git"
   },
   "engines": {
     "vscode": "^1.74.0"
