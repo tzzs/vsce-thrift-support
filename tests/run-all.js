@@ -8,7 +8,9 @@ const tests = [
   'tests/test-enum-formatting.js',
   'tests/test-indent-width.js',
   'tests/test-trailing-comma.js',
-  'tests/test-const-formatting.js'
+  'tests/test-const-formatting.js',
+  // Added to exercise struct annotation/name alignment branches
+  'tests/test-struct-annotations-combinations.js'
 ];
 
 let failed = 0;
@@ -33,3 +35,5 @@ if (failed > 0) {
 }
 
 console.log('\nAll test files passed.');
+
+// Add new targeted tests to improve coverage of uncovered branches

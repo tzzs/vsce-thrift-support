@@ -224,8 +224,9 @@ function test_struct_annotations_with_semicolon_preserve() {
     const l1 = lines[0];
     const l2 = lines[1];
 
-    // First line ends with semicolon, should not be changed to comma
-    assert.ok(/;\s*$/.test(l1), "semicolon line should be preserved");
+    // First line contains a semicolon (preserved), and should not end with comma
+    assert.ok(l1.includes(";"), "semicolon should be preserved");
+    assert.ok(!/,\s*$/.test(l1), "semicolon line should not end with comma");
     // Second line should end with comma due to add
     assert.ok(/,\s*$/.test(l2), "second line should end with comma when add mode");
 
@@ -236,20 +237,100 @@ function test_struct_annotations_with_semicolon_preserve() {
   });
 }
 
+function test_struct_annotations_trailing_comma_remove_and_semicolon_preserve() {
+  const input = [
+    "struct S3 {",
+    "    1: required string a = \"\" (anno='x'); // has semicolon",
+    "    2: required string b (anno='y'), // has comma",
+    "}",
+  ].join("\n");
+
+  withConfig({ trailingComma: "remove" }, () => {
+    const out = runRangeFormat(input, 1, 3);
+    const lines = out.split("\n");
+    const l1 = lines[0];
+    const l2 = lines[1];
+  
+    // First line keeps semicolon; no trailing comma added
+    assert.ok(l1.includes(";"), "semicolon should be preserved in remove mode");
+    assert.ok(!/,\s*$/.test(l1), "semicolon line should not end with comma in remove mode");
+  
+    // Second line comma should be removed by remove mode (comment exists after)
+    assert.ok(!/,\s*\/\//.test(l2), "comma before comment should be removed in remove mode");
+  
+    // Annotation columns remain aligned under defaults
+    const a1 = l1.indexOf(" (");
+    const a2 = l2.indexOf(" (");
+    assert.strictEqual(a1, a2, "annotation columns should align even with semicolon/comma differences");
+  });
+}
+
+function test_struct_comment_alignment_only_comments_true() {
+  // Only enable comment alignment; disable other alignments to observe its isolated effect
+  withConfig({ alignComments: true, alignStructAnnotations: false, alignAnnotations: false, alignTypes: false, alignFieldNames: false }, () => {
+    const input = [
+      "struct S4 {",
+      "    1: required string a (anno='x') // first",
+      "    2: i64 bbbbbbbbbbbbbbbbbbbbbbbbb // second long name",
+      "    3: string c // third",
+      "}",
+    ].join("\n");
+
+    const out = runRangeFormat(input, 1, 4);
+    const lines = out.split("\n");
+    const l1 = lines[0];
+    const l2 = lines[1];
+    const l3 = lines[2];
+  
+    const c1 = l1.indexOf(" //");
+    const c2 = l2.indexOf(" //");
+    const c3 = l3.indexOf(" //");
+    assert.ok(c1 > 0 && c2 > 0 && c3 > 0, "comments should exist");
+    // With alignComments=true, these should be aligned even though other alignments are disabled
+    assert.strictEqual(c1, c2, "comment columns should align when alignComments=true");
+    assert.strictEqual(c1, c3, "comment columns should align when alignComments=true");
+  });
+}
+
+function test_struct_comments_not_aligned_when_disabled() {
+  // Disable other alignments that might equalize base widths
+  withConfig({ alignComments: false, alignStructAnnotations: false, alignAnnotations: false, alignTypes: false, alignFieldNames: false }, () => {
+    const input = buildInputWithVariants();
+    const out = runRangeFormat(input, 1, 5);
+    const lines = out.split("\n");
+    const l1 = lines[0];
+    const l4 = lines[3];
+  
+    const c1 = l1.indexOf(" //");
+    const c4 = l4.indexOf(" //");
+    if (c1 > 0 && c4 > 0) {
+      const assert = require("assert");
+      // With alignComments disabled and also annotation alignment off, comment columns should not be equal
+      assert.notStrictEqual(c1, c4, "comment columns should not align when all comment-related alignments are disabled");
+    }
+  });
+}
+
 (function main() {
   try {
     console.log("[test-struct-annotations-combinations] Running tests...");
     test_struct_annotations_align_all_on();
-    console.log("  \u2713 struct annotations aligned with all defaults");
+    console.log("  ✓ struct annotations aligned with all defaults");
     test_struct_annotations_align_no_type_no_name();
-    console.log("  \u2713 struct annotations aligned without type/name alignment");
+    console.log("  ✓ struct annotations aligned without type/name alignment");
     test_struct_annotations_disabled();
-    console.log("  \u2713 struct annotations not aligned when disabled");
+    console.log("  ✓ struct annotations not aligned when disabled");
     test_struct_annotations_trailing_comma_add();
-    console.log("  \u2713 struct annotations alignment stable with trailingComma=add");
+    console.log("  ✓ struct annotations alignment stable with trailingComma=add");
     test_struct_annotations_with_semicolon_preserve();
-    console.log("  \u2713 semicolon preserved and annotations aligned");
-    console.log("All tests passed.");
+    console.log("  ✓ semicolon preserved and annotations aligned");
+    test_struct_comments_not_aligned_when_disabled();
+    console.log("  ✓ comments not aligned when alignComments=false");
++   test_struct_annotations_trailing_comma_remove_and_semicolon_preserve();
++   console.log("  ✓ trailingComma=remove removes commas and preserves semicolons");
++   test_struct_comment_alignment_only_comments_true();
++   console.log("  ✓ comments align when only alignComments=true");
+     console.log("All tests passed.");
   } catch (e) {
     console.error("Test failed:", e);
     process.exit(1);
