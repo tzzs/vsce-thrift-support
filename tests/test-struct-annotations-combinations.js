@@ -14,7 +14,7 @@ const vscode = {
               alignTypes: true,
               alignFieldNames: true,
               alignStructEquals: false,
-              alignStructAnnotations: true,
+              alignAnnotations: true,
               alignComments: true,
               alignEnumNames: true,
               alignEnumEquals: true,
@@ -91,7 +91,7 @@ function withConfig(overrides, fn) {
             alignTypes: true,
             alignFieldNames: true,
             alignStructEquals: false,
-            alignStructAnnotations: true,
+            alignAnnotations: true,
             alignComments: true,
             alignEnumNames: true,
             alignEnumEquals: true,
@@ -170,7 +170,7 @@ function test_struct_annotations_align_no_type_no_name() {
 }
 
 function test_struct_annotations_disabled() {
-  withConfig({ alignStructAnnotations: false }, () => {
+  withConfig({ alignAnnotations: false }, () => {
     const input = buildInputWithVariants();
     const out = runRangeFormat(input, 1, 5);
     const lines = out.split("\n");

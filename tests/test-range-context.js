@@ -14,7 +14,7 @@ const vscode = {
               alignTypes: true,
               alignFieldNames: true,
               alignStructEquals: false,
-              alignStructAnnotations: true,
+              alignAnnotations: true,
               alignComments: true,
               alignEnumNames: true,
               alignEnumEquals: true,
@@ -152,7 +152,7 @@ function testAlignAnnotationsDisabled() {
             alignTypes: true,
             alignFieldNames: true,
             alignStructEquals: false,
-            alignStructAnnotations: false,
+            alignAnnotations: false,
             alignComments: true,
             alignEnumNames: true,
             alignEnumEquals: true,
@@ -197,6 +197,48 @@ function testAlignAnnotationsDisabled() {
     console.log("  ✓ align type/name/annotations when enabled");
     testAlignAnnotationsDisabled();
     console.log("  ✓ annotations not aligned when disabled");
+    // Legacy compatibility: old key should still work
+    (function testAlignAnnotationsDisabledLegacy() {
+      const originalGetConfiguration = vscode.workspace.getConfiguration;
+      vscode.workspace.getConfiguration = (section) => {
+        if (section === "thrift.format") {
+          return {
+            get: (key) => {
+              const overrides = {
+                trailingComma: "preserve",
+                alignTypes: true,
+                alignFieldNames: true,
+                alignStructEquals: false,
+                alignStructAnnotations: false, // legacy key
+                alignComments: true,
+                alignEnumNames: true,
+                alignEnumEquals: true,
+                alignEnumValues: true,
+                indentSize: 4,
+                maxLineLength: 100,
+                collectionStyle: "preserve",
+              };
+              return overrides[key];
+            },
+          };
+        }
+        return { get: () => undefined };
+      };
+
+      const input = [
+        "struct MainStruct {",
+        "    1: required string a (x='1')",
+        "    2: required string bb (x='2')",
+        "}",
+      ].join("\n");
+      const out = runRangeFormat(input, 1, 3);
+      const lines = out.split("\n");
+      const s1 = lines[0].indexOf(" (");
+      const s2 = lines[1].indexOf(" (");
+      assert.notStrictEqual(s1, s2, "legacy key alignStructAnnotations=false should disable alignment");
+      vscode.workspace.getConfiguration = originalGetConfiguration;
+    })();
+    console.log("  ✓ legacy key alignStructAnnotations remains supported");
     console.log("All tests passed.");
   } catch (e) {
     console.error("Test failed:", e);

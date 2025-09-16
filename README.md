@@ -60,12 +60,10 @@
 {
   "thrift.format.trailingComma": "preserve", // "preserve" | "add" | "remove"
   "thrift.format.alignTypes": true,
-  "thrift.format.alignFieldNames": true,
-  "thrift.format.alignStructEquals": false,
+  "thrift.format.alignNames": true,
+  "thrift.format.alignAssignments": true,
+  "thrift.format.alignAnnotations": true,
   "thrift.format.alignComments": true,
-  "thrift.format.alignEnumNames": true,
-  "thrift.format.alignEnumEquals": true,
-  "thrift.format.alignEnumValues": true,
   "thrift.format.indentSize": 4,
   "thrift.format.maxLineLength": 100,
   "thrift.format.collectionStyle": "preserve" // "preserve" | "multiline" | "auto"

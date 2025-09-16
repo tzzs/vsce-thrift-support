@@ -41,19 +41,54 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         if (!(range.start.line === 0 && range.start.character === 0)) {
             initialContext = this.computeInitialContext(document, range.start);
         }
-        const formattedText = this.formatThriftCode(text, {
+        const alignNames = getOpt('alignNames', true);
+        // Global master switch for assignments alignment (option B)
+        const alignAssignments = getOpt('alignAssignments', undefined);
+        // Read per-kind (keep undefined when not set, to allow fallback to alignAssignments and preserve defaults)
+        const cfgAlignStructEquals = getOpt('alignStructEquals', undefined);
+        const cfgAlignEnumEquals = getOpt('alignEnumEquals', undefined);
+        const cfgAlignEnumValues = getOpt('alignEnumValues', undefined);
+        // New unified annotations switch with backward compatibility
+        const cfgAlignAnnotations = getOpt('alignAnnotations', undefined);
+        const resolvedAlignAnnotations = (typeof cfgAlignAnnotations !== 'undefined')
+            ? cfgAlignAnnotations
+            : getOpt('alignStructAnnotations', true);
+
+        // explicit per-kind > global alignAssignments > kind default (struct=false, enum=true)
+        const resolvedAlignStructEquals = (typeof cfgAlignStructEquals !== 'undefined')
+            ? cfgAlignStructEquals
+            : (typeof alignAssignments === 'boolean')
+            ? alignAssignments
+            : false;
+        const resolvedAlignEnumEquals = (typeof cfgAlignEnumEquals !== 'undefined')
+            ? cfgAlignEnumEquals
+            : (typeof alignAssignments === 'boolean')
+            ? alignAssignments
+            : true;
+        const resolvedAlignEnumValues = (typeof cfgAlignEnumValues !== 'undefined')
+            ? cfgAlignEnumValues
+            : (typeof alignAssignments === 'boolean')
+            ? alignAssignments
+            : true;
+
+        const fmtOptions = {
             trailingComma: getOpt('trailingComma', 'preserve'),
             alignTypes: getOpt('alignTypes', true),
-            alignFieldNames: getOpt('alignFieldNames', true),
-            alignStructEquals: getOpt('alignStructEquals', false),
-            alignStructAnnotations: getOpt('alignStructAnnotations', true),
+            alignFieldNames: getOpt('alignFieldNames', alignNames),
+            alignStructEquals: resolvedAlignStructEquals,
+            // Use unified annotations setting (fallback to legacy)
+            alignStructAnnotations: resolvedAlignAnnotations,
             alignComments: getOpt('alignComments', true),
-            alignEnumNames: getOpt('alignEnumNames', true),
-            alignEnumEquals: getOpt('alignEnumEquals', true),
-            alignEnumValues: getOpt('alignEnumValues', true),
+            alignEnumNames: getOpt('alignEnumNames', alignNames),
+            alignEnumEquals: resolvedAlignEnumEquals,
+            alignEnumValues: resolvedAlignEnumValues,
             indentSize: getOpt('indentSize', 4),
             maxLineLength: getOpt('maxLineLength', 100),
             collectionStyle: getOpt('collectionStyle', 'preserve'),
+        } as const;
+
+        const formattedText = this.formatThriftCode(text, {
+            ...fmtOptions,
             insertSpaces: options.insertSpaces,
             tabSize: options.tabSize,
             initialContext
