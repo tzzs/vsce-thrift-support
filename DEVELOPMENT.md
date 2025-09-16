@@ -58,6 +58,40 @@ thrift-support/
   - 对齐计算按块进行，避免全文件多次回扫
   - 解析过程容错，对异常片段尽量不破坏原有布局
 
+### 格式化器配置与优先级（重要）
+核心逻辑集中在 <mcfile name="formatter.ts" path="src/formatter.ts"></mcfile> 中。
+
+- 对齐选项：
+  - alignTypes / alignFieldNames / alignStructEquals：控制类型、字段名与等号的列对齐。
+  - alignComments：控制“行尾内联注释”的列对齐（例如 // comment）。当其为 false 时不会主动为注释添加对齐填充；但若其它内容（如类型/字段名/注解）恰好等宽，注释列可能“看起来对齐”，这是偶然一致而非 formatter 强制对齐所致。
+  - alignAnnotations 与 alignStructAnnotations（兼容键）：
+    - 若 alignAnnotations 显式设置，则优先生效；
+    - 否则回退到 alignStructAnnotations 的值（默认 true）；
+    - 用于控制结构体字段上的圆括号注解（如 (key='value')）是否对齐。
+- 尾随逗号（trailingComma）：支持 add | remove | preserve。
+  - 规则与分号协同：当行以分号 ; 结束时，视为语句终止，formatter 会尊重分号，不会再强行追加或替换为逗号。
+- 其它常见项：
+  - indentSize、maxLineLength、collectionStyle（preserve/inline/multiLine）等。
+
+以上选项共同决定“最大内容宽度”和各列的目标对齐位置，详细实现与宽度计算请参考 <mcfile name="formatter.ts" path="src/formatter.ts"></mcfile>。
+
+### 测试与新增用例说明
+主要测试脚本位于 <mcfile name="tests" path="tests/"></mcfile> 目录，格式化相关的组合测试集中在 <mcfile name="test-struct-annotations-combinations.js" path="tests/test-struct-annotations-combinations.js"></mcfile>。
+
+新增/强化的用例（便于回归理解）：
+- test_struct_comments_not_aligned_when_disabled：关闭 alignComments、对齐注解以及其它对齐项，验证注释列不会被强制对齐，避免“偶然对齐”造成的脆弱断言。
+- test_struct_annotations_trailing_comma_remove_and_semicolon_preserve：在 remove 模式下，确保逗号被移除而分号被保留，并且注解列仍能正确对齐。
+- test_struct_comment_alignment_only_comments_true：仅开启 alignComments，关闭其余对齐项，验证注释列在孤立条件下仍会被对齐。
+
+如何运行单个测试文件（便于开发调试）：
+```bash
+node tests/test-struct-annotations-combinations.js
+```
+或使用覆盖率脚本一次性查看总体效果：
+```bash
+npm run coverage
+```
+
 ## 快速开始
 ```bash
 # 安装依赖（首次或依赖变更后）
@@ -74,13 +108,13 @@ npm run test
 
 # 全量测试
 npm run test:all
-```
 
-## 常用脚本
-- 构建：`npm run build`（等同 clean + compile）
-- 清理：`npm run clean`
-- 打包 VSIX：`npm run package`（调用 vsce package）
-- 本地发布：`npm run publish`（调用 vsce publish，需 VSCE_PAT）
+# 生成覆盖率报告（控制台摘要 + coverage/ 覆盖率目录）
+npm run coverage
+
+# 仅运行常量相关测试（如有）
+npm run test:const
+```
 
 ## 本地打包与发布（可选）
 - 仅验证产物：执行 `npm run package`，生成 `.vsix` 文件，可在 VS Code 中手动安装测试。

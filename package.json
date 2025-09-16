@@ -2,7 +2,7 @@
   "name": "thrift-support",
   "displayName": "Thrift Support",
   "description": "Apache Thrift language support: syntax highlighting, formatter, and code navigation",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "publisher": "tanzz",
   "icon": "icon.png",
   "repository": {
@@ -89,35 +89,25 @@
           "default": true,
           "description": "Align field types in structs/unions/exceptions"
         },
-        "thrift.format.alignFieldNames": {
+        "thrift.format.alignNames": {
           "type": "boolean",
           "default": true,
-          "description": "Align field names in structs/unions/exceptions"
+          "description": "Align names for struct fields and enum members (unified control for field and enum names)"
         },
-        "thrift.format.alignStructEquals": {
+        "thrift.format.alignAssignments": {
           "type": "boolean",
-          "default": false,
-          "description": "Align equals sign and default values for struct fields (e.g., align 'name = value'). When false, use standard 'name = value' without extra padding."
+          "default": true,
+          "description": "Master switch to align '=' signs and values for both struct fields and enum members. When set, it overrides per-kind equals/values alignment; if not set explicitly, struct and enum fall back to their own defaults."
+        },
+        "thrift.format.alignAnnotations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Align inline annotations (e.g., (go.tag='json:...')) for struct fields and enum members (unified control)."
         },
         "thrift.format.alignComments": {
           "type": "boolean",
           "default": true,
           "description": "Align inline comments"
-        },
-        "thrift.format.alignEnumNames": {
-          "type": "boolean",
-          "default": true,
-          "description": "Align enum names in enum definitions"
-        },
-        "thrift.format.alignEnumEquals": {
-          "type": "boolean",
-          "default": true,
-          "description": "Align equals signs in enum definitions"
-        },
-        "thrift.format.alignEnumValues": {
-          "type": "boolean",
-          "default": true,
-          "description": "Align enum values in enum definitions"
         },
         "thrift.format.indentSize": {
           "type": "number",
@@ -157,7 +147,9 @@
     "test:indent": "node tests/test-indent-width.js",
     "test:comma": "node tests/test-trailing-comma.js",
     "test:const": "node tests/test-const-formatting.js",
-    "test:all": "npm run test && npm run test:complex && npm run test:enum && npm run test:indent && npm run test:comma && npm run test:const"
+    "test:all": "npm run test && npm run test:complex && npm run test:enum && npm run test:indent && npm run test:comma && npm run test:const",
+    "test:all:node": "node tests/run-all.js",
+    "coverage": "nyc --reporter=text-summary node tests/run-all.js"
   },
   "devDependencies": {
     "@types/vscode": "^1.74.0",
@@ -167,6 +159,27 @@
     "eslint": "^8.28.0",
     "typescript": "^4.9.4",
     "rimraf": "^3.0.2",
-    "vsce": "^2.15.0"
+    "vsce": "^2.15.0",
+    "nyc": "^15.1.0"
+  },
+  "nyc": {
+    "include": [
+      "src/**/*.ts",
+      "out/**/*.js"
+    ],
+    "exclude": [
+      "tests/**"
+    ],
+    "extension": [
+      ".js",
+      ".ts"
+    ],
+    "all": false,
+    "sourceMap": true,
+    "instrument": true,
+    "reporter": [
+      "text-summary",
+      "lcov"
+    ]
   }
 }
