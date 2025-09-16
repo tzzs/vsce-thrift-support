@@ -867,6 +867,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             let cleanSuffix = field.suffix || '';
             let hasComma = cleanSuffix ? /,\s*$/.test(cleanSuffix) : false;
             const hasSemicolon = cleanSuffix ? /;/.test(cleanSuffix) : false;
+            let appendedComma = false;
              
              // Remove comma from suffix temporarily
              if (hasComma) {
@@ -905,14 +906,26 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     if (options.alignStructAnnotations) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
                         const spaces = targetAnnoStart - currentWidth + 1;
-                        formattedLine += ' '.repeat(spaces) + field.annotation.padEnd(maxAnnotationWidth);
+                        if (hasComma && options.trailingComma !== 'add') {
+                            const padAfterComma = Math.max(0, maxAnnotationWidth - field.annotation.length);
+                            formattedLine += ' '.repeat(spaces) + field.annotation + ',' + ' '.repeat(padAfterComma);
+                            appendedComma = true;
+                        } else {
+                            formattedLine += ' '.repeat(spaces) + field.annotation.padEnd(maxAnnotationWidth);
+                        }
                     } else {
                         formattedLine += ' ' + field.annotation;
+                        // Append comma immediately after annotation for non-"add" modes
+                        if (hasComma && options.trailingComma !== 'add') {
+                            formattedLine += ',';
+                            appendedComma = true;
+                        }
                     }
                  }
                  // Add comma before comments for non-"add" modes
-                 if (hasComma && options.trailingComma !== 'add') {
+                 if (hasComma && options.trailingComma !== 'add' && !appendedComma) {
                      formattedLine += ',';
+                     appendedComma = true;
                  }
                 // Add inline comment, aligned if enabled
                 if (field.comment) {
@@ -939,7 +952,13 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     if (options.alignStructAnnotations) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
                         const spaces = targetAnnoStart - currentWidth + 1;
-                        formattedLine += ' '.repeat(spaces) + field.annotation.padEnd(maxAnnotationWidth);
+                        if (hasComma && options.trailingComma !== 'add') {
+                            const padAfterComma = Math.max(0, maxAnnotationWidth - field.annotation.length);
+                            formattedLine += ' '.repeat(spaces) + field.annotation + ',' + ' '.repeat(padAfterComma);
+                            appendedComma = true;
+                        } else {
+                            formattedLine += ' '.repeat(spaces) + field.annotation.padEnd(maxAnnotationWidth);
+                        }
                     } else {
                         formattedLine += ' ' + field.annotation;
                     }

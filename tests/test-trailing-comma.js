@@ -135,6 +135,24 @@ function testTrailingComma() {
                        output.includes('INACTIVE = 2') && !output.includes('INACTIVE = 2,');
             },
             description: 'Should remove commas from enum values'
+        },
+        {
+            name: 'Add mode - comma tight before when annotations add padding',
+            trailingComma: 'add',
+            input: `struct S {
+    1: string a (anno='x')
+    2: i32    b (anno='y')    
+}`,
+            expectedCheck: (output) => {
+                // Ensure both lines end with comma
+                const lines = output.split('\n').filter(l => l.trim().length > 0);
+                const l1 = lines[1] || '';
+                const l2 = lines[2] || '';
+                const noSpaceBeforeComma1 = !/\)\s+,\s*$/.test(l1) && /\),\s*$/.test(l1);
+                const noSpaceBeforeComma2 = !/\)\s+,\s*$/.test(l2) && /\),\s*$/.test(l2);
+                return noSpaceBeforeComma1 && noSpaceBeforeComma2;
+            },
+            description: 'Comma should be appended immediately after content with no preceding spaces even if alignment produced trailing spaces'
         }
     ];
     

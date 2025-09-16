@@ -10,7 +10,9 @@ const tests = [
   'tests/test-trailing-comma.js',
   'tests/test-const-formatting.js',
   // Added to exercise struct annotation/name alignment branches
-  'tests/test-struct-annotations-combinations.js'
+  'tests/test-struct-annotations-combinations.js',
+  // Regression for main.thrift comma placement
+  'tests/test-main-file-regression.js'
 ];
 
 let failed = 0;
