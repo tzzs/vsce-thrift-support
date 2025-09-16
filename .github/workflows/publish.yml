@@ -1,8 +1,9 @@
 name: publish
 
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: ["release-please"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -10,9 +11,13 @@ permissions:
 
 jobs:
   package:
+    # Only run for successful release-please runs on master when triggered by workflow_run;
+    # always run for manual dispatch
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'master') }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.pkg.outputs.version }}
+      should_publish: ${{ steps.chk.outputs.should_publish }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,8 +51,27 @@ jobs:
           path: thrift-support-${{ steps.pkg.outputs.version }}.vsix
           if-no-files-found: error
 
+      - name: Check tag exists for workflow_run
+        id: chk
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            V="v${{ steps.pkg.outputs.version }}"
+            if git ls-remote --tags origin | grep -q "refs/tags/${V}$"; then
+              echo "Tag ${V} exists on origin." >&2
+              echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "Tag ${V} does not exist on origin. Skipping publish." >&2
+              echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "Manual dispatch, proceed to publish." >&2
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
   github_release:
     needs: package
+    if: ${{ needs.package.outputs.should_publish == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Download VSIX artifact
@@ -56,12 +80,12 @@ jobs:
           name: vsix-artifact
           path: .
 
-      - name: Upload VSIX to GitHub Release (release event)
-        if: ${{ github.event_name == 'release' }}
+      - name: Upload VSIX to GitHub Release (workflow_run)
+        if: ${{ github.event_name == 'workflow_run' }}
         uses: softprops/action-gh-release@v2
         with:
           files: thrift-support-${{ needs.package.outputs.version }}.vsix
-          tag_name: ${{ github.event.release.tag_name }}
+          tag_name: v${{ needs.package.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -79,6 +103,7 @@ jobs:
 
   vsce_publish:
     needs: [package, github_release]
+    if: ${{ needs.package.outputs.should_publish == 'true' }}
     runs-on: ubuntu-latest
     environment: vsce
     env:
@@ -102,6 +127,7 @@ jobs:
 
   openvsx_publish:
     needs: [package, github_release]
+    if: ${{ needs.package.outputs.should_publish == 'true' }}
     runs-on: ubuntu-latest
     environment: vsce
     env:
