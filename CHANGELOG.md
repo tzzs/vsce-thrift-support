@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.5 - 2025-09-16
+
+新增
+- 新增配置项 thrift.format.alignStructAnnotations，用于控制结构体字段注解的对齐。
+
+改进
+- 实现结构体字段注解对齐的格式化逻辑，并与类型/字段名/注释等对齐选项组合时保持稳定。
+- 支持 range 格式化上下文（range format context）。
+
+回归与测试
+- 新增对 test-files/main.thrift 的回归测试，确保注解列对齐时尾随逗号紧跟注解文本、逗号前无多余空格；并更新尾随逗号相关测试覆盖（preserve/add/remove）。
+- 增补结构体、枚举及区间（range）格式化在多种组合配置下的测试用例。
+
+验证
+- 通过 npm run build 与 npm run test:all 全量测试。
+
 ## 0.1.2 - 2025-09-13
 
 修复
