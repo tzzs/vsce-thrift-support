@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.0](https://github.com/tzzs/vsce-thrift-support/compare/v0.1.4...v0.2.0) (2025-09-16)
+
+
+### Features
+
+* **tests:** add struct annotation alignment test cases ([5496214](https://github.com/tzzs/vsce-thrift-support/commit/5496214f9303b06d92dce91a740ec4e08b705e16))
+* **thrift:** add annotation alignment formatting and tests ([61d13e8](https://github.com/tzzs/vsce-thrift-support/commit/61d13e8b36c2cf679a96a5385221d8cd687d7c71))
+
+
+### Bug Fixes
+
+* **formatter:** ensure tight comma placement in struct fields ([62172d5](https://github.com/tzzs/vsce-thrift-support/commit/62172d5d0a57c8c0bcff3f91eccbe7ec6de1efeb))
+
 ## 0.1.5 - 2025-09-16
 
 新增
