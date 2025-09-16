@@ -99,6 +99,11 @@
           "default": false,
           "description": "Align equals sign and default values for struct fields (e.g., align 'name = value'). When false, use standard 'name = value' without extra padding."
         },
+        "thrift.format.alignStructAnnotations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Align inline annotation parentheses that follow struct fields, e.g. (go.tag='json:...')."
+        },
         "thrift.format.alignComments": {
           "type": "boolean",
           "default": true,

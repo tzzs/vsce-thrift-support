@@ -36,11 +36,17 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             return (v !== undefined && v !== null) ? v : legacyConfig.get(key, def);
         };
         const text = document.getText(range);
+        // Compute initial context from the content before the selection to make range formatting context-aware
+        let initialContext: { indentLevel: number; inStruct: boolean; inEnum: boolean } | undefined;
+        if (!(range.start.line === 0 && range.start.character === 0)) {
+            initialContext = this.computeInitialContext(document, range.start);
+        }
         const formattedText = this.formatThriftCode(text, {
             trailingComma: getOpt('trailingComma', 'preserve'),
             alignTypes: getOpt('alignTypes', true),
             alignFieldNames: getOpt('alignFieldNames', true),
             alignStructEquals: getOpt('alignStructEquals', false),
+            alignStructAnnotations: getOpt('alignStructAnnotations', true),
             alignComments: getOpt('alignComments', true),
             alignEnumNames: getOpt('alignEnumNames', true),
             alignEnumEquals: getOpt('alignEnumEquals', true),
@@ -49,7 +55,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             maxLineLength: getOpt('maxLineLength', 100),
             collectionStyle: getOpt('collectionStyle', 'preserve'),
             insertSpaces: options.insertSpaces,
-            tabSize: options.tabSize
+            tabSize: options.tabSize,
+            initialContext
         });
 
         return [vscode.TextEdit.replace(range, formattedText)];
@@ -64,10 +71,11 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
 
         const lines = text.split('\n');
         const formattedLines: string[] = [];
-        let indentLevel = 0;
-        let inStruct = false;
-        let inEnum = false;
-        let structFields: Array<{line: string, type: string, name: string, suffix: string, comment: string}> = [];
+        let indentLevel = (options && options.initialContext && typeof options.initialContext.indentLevel === 'number')
+            ? options.initialContext.indentLevel : 0;
+        let inStruct = !!(options && options.initialContext && options.initialContext.inStruct);
+        let inEnum = !!(options && options.initialContext && options.initialContext.inEnum);
+        let structFields: Array<{line: string, type: string, name: string, suffix: string, comment: string, annotation?: string}> = [];
         let enumFields: Array<{line: string, name: string, value: string, suffix: string, comment: string}> = [];
         let constFields: Array<{line: string, type: string, name: string, value: string, comment: string}> = [];
         let inConstBlock = false;
@@ -107,7 +115,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 for (let k = 1; k < commentLines.length - 1; k++) {
                     let mid = commentLines[k].trim();
                     // Strip leading '*' and spaces
-                    if (mid.startsWith('*')) {mid = mid.slice(1);}
+                    if (mid.startsWith('*')) {mid = mid.slice(1);} 
                     mid = mid.replace(/^\s*/, '');
                     if (mid.length > 0) {
                         formattedLines.push(indentStr + ' * ' + mid);
@@ -290,7 +298,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         options: any,
         indentLevel: number
     ): string[] {
-        if (fields.length === 0) {return [];}
+        if (fields.length === 0) {return [];}        
         
         const collectionStyle: 'preserve' | 'multiline' | 'auto' = (options && options.collectionStyle) || 'preserve';
         const maxLineLength: number = (options && options.maxLineLength) || 100;
@@ -503,7 +511,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         return /^\s*\w+\s*=\s*\d+/.test(line);
     }
 
-    private parseStructField(line: string): {line: string, type: string, name: string, suffix: string, comment: string} | null {
+    private parseStructField(line: string): {line: string, type: string, name: string, suffix: string, comment: string, annotation?: string} | null {
         // Parse field: 1: required string name = defaultValue, // comment
         
         // First, extract the prefix (field number and optional required/optional)
@@ -529,8 +537,15 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             trailingComma = suffixMatch[2];
         }
         
+        // Extract inline annotation parentheses at the end: ( ... ) possibly with spaces
+        let annotation = '';
+        const annMatch = remainder.match(/^(.*?)(\(.*\))\s*$/);
+        if (annMatch) {
+            remainder = annMatch[1].trim();
+            annotation = annMatch[2];
+        }
+        
         // Parse the main content: type fieldname [= defaultvalue]
-        // Use a more careful regex that handles complex default values
         const fieldMatch = remainder.match(/^(.+?)\s+(\w+)(?:\s*=\s*(.+))?$/);
         if (!fieldMatch) {return null;}
         
@@ -556,7 +571,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             type: type,
             name: name,
             suffix: suffix,
-            comment: comment
+            comment: comment,
+            annotation: annotation
         };
     }
 
@@ -626,7 +642,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     }
 
     private formatStructFields(
-        fields: Array<{line: string, type: string, name: string, suffix: string, comment: string}>,
+        fields: Array<{line: string, type: string, name: string, suffix: string, comment: string, annotation?: string}>,
         options: any,
         indentLevel: number
     ): string[] {
@@ -641,7 +657,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         });
         
         // Always process fields for trailing comma handling, even if alignment is disabled
-        const needsAlignment = options.alignTypes || options.alignFieldNames || options.alignComments;
+        const needsAlignment = options.alignTypes || options.alignFieldNames || options.alignComments || options.alignStructAnnotations;
         
         if (!needsAlignment && options.trailingComma === 'preserve') {
             return sortedFields.map(f => this.getIndent(indentLevel, options) + f.line);
@@ -651,6 +667,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         let maxFieldIdWidth = 0;
         let maxTypeWidth = 0;
         let maxNameWidth = 0;
+        let maxAnnotationWidth = 0;
         let maxContentWidth = 0; // For comment alignment
 
         const parsedFields = sortedFields.map(field => {
@@ -667,12 +684,16 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             const name = field.name;
             const suffix = field.suffix;
             const comment = field.comment;
+            const annotation = field.annotation || '';
             
             maxFieldIdWidth = Math.max(maxFieldIdWidth, fieldId.length);
             maxTypeWidth = Math.max(maxTypeWidth, type.length);
             maxNameWidth = Math.max(maxNameWidth, name.length);
+            if (options.alignStructAnnotations) {
+                maxAnnotationWidth = Math.max(maxAnnotationWidth, annotation.length);
+            }
             
-            return { fieldId, qualifier, type, name, suffix, comment };
+            return { fieldId, qualifier, type, name, suffix, comment, annotation };
         });
         
         // Determine max name width for fields that have default values (for aligning '=')
@@ -717,101 +738,197 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 }
             }
             
-            // Add comma if present or will be added
-            if ((field.suffix && field.suffix.includes(',')) || options.trailingComma === 'add') {
-                contentWidth += 1; // for comma
+            // Add annotation width if enabled
+            if (options.alignStructAnnotations && field.annotation) {
+                contentWidth += 1; // space before annotation
+                contentWidth += maxAnnotationWidth;
+            } else if (field.annotation) {
+                contentWidth += 1 + field.annotation.length;
+            }
+            
+            // Add comma width only if it will appear before comments
+            if (options.trailingComma === 'preserve') {
+                if ((field.suffix && field.suffix.includes(','))) {
+                    contentWidth += 1; // for comma before comments
+                }
             }
             
             maxContentWidth = Math.max(maxContentWidth, contentWidth);
         });
         
-        // Use parsedFields for formatting
+        // Pre-compute the target column where annotations should start when alignment is enabled
+        const targetAnnoStart = (() => {
+            if (!options.alignStructAnnotations) return 0;
+            let max = 0;
+            parsedFields.forEach(f => {
+                if (!f || !f.annotation) return;
+                let w = 0;
+                // id and colon+space
+                w += maxFieldIdWidth + 2;
+                // qualifier
+                w += f.qualifier.length;
+                // type (aligned or actual)
+                w += (options.alignTypes ? maxTypeWidth : f.type.length);
+                // space after type
+                w += 1;
+                if (options.alignFieldNames) {
+                    if (f.suffix) {
+                        let s = f.suffix;
+                        if (/\,\s*$/.test(s)) {
+                            s = s.replace(/,\s*$/, '');
+                        }
+                        if (s.includes('=')) {
+                            s = s.replace(/\s*=\s*/, ' = ');
+                        }
+                        if (options.alignStructEquals) {
+                            w += maxNameWidth + s.length;
+                        } else {
+                            w += f.name.length + s.length;
+                        }
+                    } else {
+                        w += f.name.length;
+                    }
+                } else {
+                    w += f.name.length;
+                    if (f.suffix) {
+                        let s = f.suffix;
+                        if (/\,\s*$/.test(s)) {
+                            s = s.replace(/,\s*$/, '');
+                        }
+                        if (s.includes('=')) {
+                            s = s.replace(/\s*=\s*/, ' = ');
+                        }
+                        w += s.length;
+                    }
+                }
+                if (w > max) max = w;
+            });
+            return max;
+        })();
 
-        // Format fields with alignment
-        return parsedFields.map(field => {
-            if (!field) {return '';}            
-            let formattedLine = this.getIndent(indentLevel, options);
-            
-            // Add field ID with colon, then pad to alignment
-            const fieldIdWithColon = field.fieldId + ':';
-            formattedLine += fieldIdWithColon.padEnd(maxFieldIdWidth + 1) + ' ';
-            
-            // Add qualifier (required/optional)
-            formattedLine += field.qualifier;
-            
-            if (options.alignTypes) {
-                formattedLine += field.type.padEnd(maxTypeWidth);
-            } else {
-                formattedLine += field.type;
-            }
-            
-            formattedLine += ' ';
-            
-            // Separate comma from suffix for proper alignment
-            let cleanSuffix = field.suffix;
-            let hasComma = cleanSuffix.includes(',');
-            const hasSemicolon = cleanSuffix.includes(';');
-            
-            // Remove comma from suffix temporarily
-            if (hasComma) {
-                cleanSuffix = cleanSuffix.replace(/,\s*$/, '');
-            }
-            
-            // Fix spacing around equals sign if present
-            if (cleanSuffix.includes('=')) {
+         // Use parsedFields for formatting
+
+         // Format fields with alignment
+         return parsedFields.map(field => {
+             if (!field) {return '';}            
+             let formattedLine = this.getIndent(indentLevel, options);
+             
+             // Add field ID with colon, then pad to alignment
+             const fieldIdWithColon = field.fieldId + ':';
+             formattedLine += fieldIdWithColon.padEnd(maxFieldIdWidth + 1) + ' ';
+             
+             // Add qualifier (required/optional)
+             formattedLine += field.qualifier;
+             
+             if (options.alignTypes) {
+                 formattedLine += field.type.padEnd(maxTypeWidth);
+             } else {
+                 formattedLine += field.type;
+             }
+             
+             formattedLine += ' ';
+             
+             // Separate comma from suffix for proper alignment
+            let cleanSuffix = field.suffix || '';
+            let hasComma = cleanSuffix ? /,\s*$/.test(cleanSuffix) : false;
+            const hasSemicolon = cleanSuffix ? /;/.test(cleanSuffix) : false;
+             
+             // Remove comma from suffix temporarily
+             if (hasComma) {
+                 cleanSuffix = cleanSuffix.replace(/,\s*$/, '');
+             }
+             
+             // Fix spacing around equals sign if present
+            if (cleanSuffix && cleanSuffix.includes('=')) {
                 cleanSuffix = cleanSuffix.replace(/\s*=\s*/, ' = ');
             }
-            
-            // Handle trailing comma based on configuration
-            if (options.trailingComma === 'add' && !hasComma && !hasSemicolon) {
-                hasComma = true;
-            } else if (options.trailingComma === 'remove' && hasComma && !hasSemicolon) {
-                hasComma = false;
-            }
-            // For 'preserve', keep the original comma state
-            
-            // Add field name with proper alignment
-            if (options.alignFieldNames) {
-                if (cleanSuffix) {
-                    // If there's a default value, pad the field name only when aligning '=' is enabled
-                    if (options.alignStructEquals) {
-                        formattedLine += field.name.padEnd(maxNameWidth);
+             
+             // Handle trailing comma based on configuration
+             if (options.trailingComma === 'add' && !hasComma && !hasSemicolon) {
+                 hasComma = true;
+             } else if (options.trailingComma === 'remove' && hasComma && !hasSemicolon) {
+                 hasComma = false;
+             }
+             // For 'preserve', keep the original comma state
+             
+             // Add field name with proper alignment
+             if (options.alignFieldNames) {
+                 if (cleanSuffix) {
+                     // If there's a default value, pad the field name only when aligning '=' is enabled
+                     if (options.alignStructEquals) {
+                         formattedLine += field.name.padEnd(maxNameWidth);
+                     } else {
+                         formattedLine += field.name;
+                     }
+                     formattedLine += cleanSuffix;
+                 } else {
+                     // If no default value, don't pad to avoid extra spaces before comma
+                     formattedLine += field.name;
+                 }
+                 // Add annotation aligned if enabled
+                 if (field.annotation) {
+                    if (options.alignStructAnnotations) {
+                        const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
+                        const spaces = targetAnnoStart - currentWidth + 1;
+                        formattedLine += ' '.repeat(spaces) + field.annotation.padEnd(maxAnnotationWidth);
                     } else {
-                        formattedLine += field.name;
+                        formattedLine += ' ' + field.annotation;
                     }
-                    formattedLine += cleanSuffix;
-                } else {
-                    // If no default value, don't pad to avoid extra spaces before comma
-                    formattedLine += field.name;
+                 }
+                 // Add comma before comments for non-"add" modes
+                 if (hasComma && options.trailingComma !== 'add') {
+                     formattedLine += ',';
+                 }
+                // Add inline comment, aligned if enabled
+                if (field.comment) {
+                    if (options.alignComments) {
+                        const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
+                        const pad = Math.max(1, maxContentWidth - currentWidth + 1);
+                        formattedLine += ' '.repeat(pad) + field.comment;
+                    } else {
+                        formattedLine += ' ' + field.comment;
+                    }
                 }
-                // Add comma at the end if needed
-                if (hasComma) {
+                // For trailingComma === 'add', append comma at the very end of the line (after comments)
+                if (hasComma && options.trailingComma === 'add') {
                     formattedLine += ',';
                 }
-            } else {
-                formattedLine += field.name;
-                // Add suffix (default values) to the line
-                if (cleanSuffix) {
-                    formattedLine += cleanSuffix;
+             } else {
+                 formattedLine += field.name;
+                 // Add suffix (default values) to the line
+                 if (cleanSuffix) {
+                     formattedLine += cleanSuffix;
+                 }
+                 // Add annotation
+                 if (field.annotation) {
+                    if (options.alignStructAnnotations) {
+                        const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
+                        const spaces = targetAnnoStart - currentWidth + 1;
+                        formattedLine += ' '.repeat(spaces) + field.annotation.padEnd(maxAnnotationWidth);
+                    } else {
+                        formattedLine += ' ' + field.annotation;
+                    }
+                 }
+                 // Add comma before comments for non-"add" modes
+                 if (hasComma && options.trailingComma !== 'add') {
+                     formattedLine += ',';
+                 }
+                // Add inline comment, aligned if enabled
+                if (field.comment) {
+                    if (options.alignComments) {
+                        const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
+                        const pad = Math.max(1, maxContentWidth - currentWidth + 1);
+                        formattedLine += ' '.repeat(pad) + field.comment;
+                    } else {
+                        formattedLine += ' ' + field.comment;
+                    }
                 }
-                // Add comma at the end if not aligned and needed
-                if (hasComma) {
+                // For trailingComma === 'add', append comma at the very end of the line (after comments)
+                if (hasComma && options.trailingComma === 'add') {
                     formattedLine += ',';
                 }
-            }
-            
-            // Add comment with alignment if enabled
-            if (field.comment) {
-                if (options.alignComments) {
-                    // Calculate current line width for alignment
-                    const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
-                    const paddingNeeded = Math.max(1, maxContentWidth - currentWidth + 2); // +2 for spacing
-                    formattedLine += ' '.repeat(paddingNeeded) + field.comment;
-                } else {
-                    formattedLine += ' ' + field.comment;
-                }
-            }
-            
+             }
+
             return formattedLine;
         });
     }
@@ -832,7 +949,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         const maxValueWidth = options.alignEnumValues ? Math.max(...fields.map(f => String(f.value).length)) : 0;
 
         let maxContentWidth = 0;
-        const interim: Array<{ base: string; comment: string } > = [];
+        const interim: Array<{ base: string; comment: string; hasComma: boolean; hasSemicolon: boolean } > = [];
 
         for (const f of fields) {
             let hasComma = f.suffix ? /,/.test(f.suffix) : false;
@@ -852,27 +969,38 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 const namePart = options.alignEnumNames ? f.name.padEnd(maxNameWidth) : f.name;
                 base += namePart + ' = ';
             }
+            
+            let valueStr = '' + f.value;
+            if (options.alignEnumValues) {
+                valueStr = valueStr.padEnd(maxValueWidth);
+            }
+            base += valueStr;
 
-            // Handle value alignment
-            const valuePart = options.alignEnumValues ? String(f.value).padEnd(maxValueWidth) : String(f.value);
-            base += valuePart;
+            // Preserve semicolons; for commas, only include in base for non-'add' modes so width excludes comma in 'add'
+            if (hasSemicolon) {
+                base += ';';
+            } else if (options.trailingComma !== 'add' && hasComma) {
+                base += ',';
+            }
 
-            if (hasComma) {base += ',';}
-
-            interim.push({ base, comment: f.comment || '' });
-            const width = base.length - indent.length;
-            if (width > maxContentWidth) {maxContentWidth = width;}
+            interim.push({ base, comment: f.comment, hasComma, hasSemicolon });
+            maxContentWidth = Math.max(maxContentWidth, base.length - indent.length);
         }
 
-        return interim.map(item => {
-            let line = item.base;
-            if (item.comment) {
+        return interim.map(({ base, comment, hasComma, hasSemicolon }) => {
+            let line = base;
+            if (comment) {
                 if (options.alignComments) {
-                    const pad = Math.max(1, maxContentWidth - (line.length - indent.length) + 1);
-                    line += ' '.repeat(pad) + item.comment;
+                    const currentWidth = base.length - indent.length;
+                    const pad = Math.max(1, maxContentWidth - currentWidth + 2);
+                    line = base + ' '.repeat(pad) + comment;
                 } else {
-                    line += ' ' + item.comment;
+                    line = base + ' ' + comment;
                 }
+            }
+            // In 'add' mode, append comma at the very end (after comments) when appropriate
+            if (!hasSemicolon && hasComma && options.trailingComma === 'add') {
+                line += ',';
             }
             return line;
         });
@@ -893,5 +1021,88 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
 
     private isEnumStart(line: string): boolean {
         return /^enum\b/.test(line);
+    }
+
+    // Compute initial context (indent level and whether inside struct/enum) from the content before the selection start
+    private computeInitialContext(document: vscode.TextDocument, start: vscode.Position): { indentLevel: number; inStruct: boolean; inEnum: boolean } {
+        try {
+            const before = document.getText(new vscode.Range(new vscode.Position(0, 0), start));
+            if (!before) {
+                return { indentLevel: 0, inStruct: false, inEnum: false };
+            }
+            const lines = before.split('\n');
+            let inBlockComment = false;
+            const stack: Array<'struct' | 'enum'> = [];
+            for (let raw of lines) {
+                let line = raw;
+
+                // Handle existing block comment state
+                if (inBlockComment) {
+                    const endIdx = line.indexOf('*/');
+                    if (endIdx >= 0) {
+                        line = line.slice(endIdx + 2);
+                        inBlockComment = false;
+                    } else {
+                        continue; // entire line is inside block comment
+                    }
+                }
+
+                // Strip inline block comments starting on this line
+                const startIdx = line.indexOf('/*');
+                if (startIdx >= 0) {
+                    const endIdx = line.indexOf('*/', startIdx + 2);
+                    if (endIdx >= 0) {
+                        line = line.slice(0, startIdx) + line.slice(endIdx + 2);
+                    } else {
+                        line = line.slice(0, startIdx);
+                        inBlockComment = true;
+                    }
+                }
+
+                // Strip line comments
+                const slIdx = line.indexOf('//');
+                if (slIdx >= 0) {
+                    line = line.slice(0, slIdx);
+                }
+
+                const trimmed = line.trim();
+                if (!trimmed) { continue; }
+
+                // Close brace reduces struct/enum depth
+                if (trimmed.startsWith('}')) {
+                    if (stack.length > 0) { stack.pop(); }
+                    continue;
+                }
+
+                // Detect enum start
+                if (this.isEnumStart(trimmed)) {
+                    if (trimmed.includes('{') && trimmed.includes('}')) {
+                        // single-line enum body, ignore
+                    } else if (trimmed.includes('{')) {
+                        stack.push('enum');
+                    }
+                    continue;
+                }
+
+                // Detect struct-like start
+                if (this.isStructStart(trimmed)) {
+                    if (trimmed.includes('{') && trimmed.includes('}')) {
+                        // single-line body, ignore
+                    } else if (trimmed.includes('{')) {
+                        stack.push('struct');
+                    }
+                    continue;
+                }
+            }
+
+            const top = stack.length > 0 ? stack[stack.length - 1] : undefined;
+            return {
+                indentLevel: stack.length,
+                inStruct: top === 'struct',
+                inEnum: top === 'enum'
+            };
+        } catch (e) {
+            return { indentLevel: 0, inStruct: false, inEnum: false };
+        }
     }
 }
