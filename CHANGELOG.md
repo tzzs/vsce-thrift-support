@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### 开发工具升级
+- 升级构建工具从 `vsce` 2.15.0 到 `@vscode/vsce` 3.6.0
+- 更新 package.json 脚本命令使用 `npx @vscode/vsce`
+- 新版本提供更好的安全扫描和错误处理
+
 ## [0.2.0](https://github.com/tzzs/vsce-thrift-support/compare/v0.1.4...v0.2.0) (2025-09-16)
 
 
