@@ -120,6 +120,15 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             let originalLine = lines[i];
             let line = originalLine.trim();
 
+            // Flush accumulated struct fields before non-field separators/comments inside struct
+            // This preserves original blank lines and comments positions between struct fields
+            if (inStruct && structFields.length > 0 && !this.isStructField(line) && !line.startsWith('}')) {
+                const formattedFields = this.formatStructFields(structFields, options, indentLevel);
+                formattedLines.push(...formattedFields);
+                structFields = [];
+                // fall through to handle current line (blank/comment/other) normally
+            }
+
             // Handle block comments: re-indent to current code indent and align '*' columns
             if (line.startsWith('/*')) {
                 const commentLines: string[] = [originalLine];
