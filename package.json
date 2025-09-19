@@ -99,6 +99,11 @@
           "default": true,
           "description": "Master switch to align '=' signs and values for both struct fields and enum members. When set, it overrides per-kind equals/values alignment; if not set explicitly, struct and enum fall back to their own defaults."
         },
+        "thrift.format.alignStructDefaults": {
+          "type": "boolean",
+          "default": false,
+          "description": "Align '=' signs for struct field default values (e.g., 'field = defaultValue'). This is separate from alignStructEquals which controls general struct field assignments."
+        },
         "thrift.format.alignAnnotations": {
           "type": "boolean",
           "default": true,

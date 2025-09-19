@@ -46,6 +46,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         const alignAssignments = getOpt('alignAssignments', undefined);
         // Read per-kind (keep undefined when not set, to allow fallback to alignAssignments and preserve defaults)
         const cfgAlignStructEquals = getOpt('alignStructEquals', undefined);
+        const cfgAlignStructDefaults = getOpt('alignStructDefaults', undefined);
         const cfgAlignEnumEquals = getOpt('alignEnumEquals', undefined);
         const cfgAlignEnumValues = getOpt('alignEnumValues', undefined);
         // New unified annotations switch with backward compatibility
@@ -60,6 +61,9 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             : (typeof alignAssignments === 'boolean')
             ? alignAssignments
             : false;
+        const resolvedAlignStructDefaults = (typeof cfgAlignStructDefaults !== 'undefined')
+            ? cfgAlignStructDefaults
+            : false; // Default to false for struct default values
         const resolvedAlignEnumEquals = (typeof cfgAlignEnumEquals !== 'undefined')
             ? cfgAlignEnumEquals
             : (typeof alignAssignments === 'boolean')
@@ -76,6 +80,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             alignTypes: getOpt('alignTypes', true),
             alignFieldNames: getOpt('alignFieldNames', alignNames),
             alignStructEquals: resolvedAlignStructEquals,
+            alignStructDefaults: resolvedAlignStructDefaults,
             // Use unified annotations setting (fallback to legacy)
             alignStructAnnotations: resolvedAlignAnnotations,
             alignComments: getOpt('alignComments', true),
@@ -899,11 +904,23 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
              // Add field name with proper alignment
              if (options.alignFieldNames) {
                  if (cleanSuffix) {
-                     // If there's a default value, pad the field name only when aligning '=' is enabled
-                     if (options.alignStructEquals) {
-                         formattedLine += field.name.padEnd(maxNameWidth);
+                     // Check if this is a default value assignment (contains '=')
+                     const hasDefaultValue = cleanSuffix.includes('=');
+                     
+                     if (hasDefaultValue) {
+                         // For default values, use alignStructDefaults configuration
+                         if (options.alignStructDefaults) {
+                             formattedLine += field.name.padEnd(maxNameWidth);
+                         } else {
+                             formattedLine += field.name;
+                         }
                      } else {
-                         formattedLine += field.name;
+                         // For non-default values (like annotations), use alignStructEquals
+                         if (options.alignStructEquals) {
+                             formattedLine += field.name.padEnd(maxNameWidth);
+                         } else {
+                             formattedLine += field.name;
+                         }
                      }
                      formattedLine += cleanSuffix;
                  } else {
