@@ -14,8 +14,8 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
             return includeDefinition;
         }
 
-        // For non-include statements, use standard word range detection
-        const wordRange = document.getWordRangeAtPosition(position);
+        // For non-include statements, get the word at cursor position
+        const wordRange = this.getWordRangeAtPosition(document, position);
         if (!wordRange) {
             return undefined;
         }
@@ -27,8 +27,37 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
             return undefined;
         }
 
+        // Check if we need to look for a namespaced type
+        // Look at the full line to see if this word is part of a namespaced reference
+        const line = document.lineAt(position.line);
+        const lineText = line.text;
+        const wordStart = wordRange.start.character;
+        const wordEnd = wordRange.end.character;
+        
+        let searchTypeName = word;
+        let targetNamespace = '';
+        
+        // Check if there's a dot before or after the current word to form a namespace
+        if (wordStart > 0 && lineText[wordStart - 1] === '.') {
+            // Current word is the type part (e.g., "SharedStruct" in "shared.SharedStruct")
+            const beforeDot = lineText.substring(0, wordStart - 1);
+            const namespaceMatch = beforeDot.match(/([a-zA-Z_][a-zA-Z0-9_]*)$/);
+            if (namespaceMatch) {
+                targetNamespace = namespaceMatch[1];
+                searchTypeName = word;
+            }
+        } else if (wordEnd < lineText.length && lineText[wordEnd] === '.') {
+            // Current word is the namespace part (e.g., "shared" in "shared.SharedStruct")
+            const afterDot = lineText.substring(wordEnd + 1);
+            const typeMatch = afterDot.match(/^([a-zA-Z_][a-zA-Z0-9_]*)/);
+            if (typeMatch) {
+                targetNamespace = word;
+                searchTypeName = typeMatch[1];
+            }
+        }
+
         // Search for type definition in current document
-        const currentDocDefinition = await this.findDefinitionInDocument(document, word);
+        const currentDocDefinition = await this.findDefinitionInDocument(document, searchTypeName);
         if (currentDocDefinition) {
             return currentDocDefinition;
         }
@@ -38,7 +67,16 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         for (const includedFile of includedFiles) {
             try {
                 const includedDocument = await vscode.workspace.openTextDocument(includedFile);
-                const definition = await this.findDefinitionInDocument(includedDocument, word);
+                
+                // If we have a namespace, check if this file matches the namespace
+                if (targetNamespace) {
+                    const fileName = path.basename(includedFile.fsPath, '.thrift');
+                    if (fileName !== targetNamespace) {
+                        continue; // Skip files that don't match the namespace
+                    }
+                }
+                
+                const definition = await this.findDefinitionInDocument(includedDocument, searchTypeName);
                 if (definition) {
                     return definition;
                 }
@@ -49,12 +87,37 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         }
 
         // Search in all thrift files in workspace
-        const workspaceDefinition = await this.findDefinitionInWorkspace(word);
+        const workspaceDefinition = await this.findDefinitionInWorkspace(searchTypeName);
         if (workspaceDefinition) {
             return workspaceDefinition;
         }
 
         return undefined;
+    }
+
+    private getWordRangeAtPosition(document: vscode.TextDocument, position: vscode.Position): vscode.Range | undefined {
+        const line = document.lineAt(position.line);
+        const text = line.text;
+        
+        // Check if we're in an include statement - if so, treat the entire filename as one word
+        const includeMatch = text.match(/^include\s+["']([^"']+)["']/);
+        if (includeMatch) {
+            const includePath = includeMatch[1];
+            const quoteStart = text.indexOf('"') !== -1 ? text.indexOf('"') : text.indexOf("'");
+            const filenameStart = quoteStart + 1;
+            const filenameEnd = filenameStart + includePath.length;
+            
+            if (position.character >= filenameStart && position.character <= filenameEnd) {
+                return new vscode.Range(
+                    position.line, filenameStart,
+                    position.line, filenameEnd
+                );
+            }
+        }
+        
+        // For other cases, use default word detection to allow individual part selection
+        // This allows users to click on 'shared' or 'SharedStruct' separately in 'shared.SharedStruct'
+        return document.getWordRangeAtPosition(position);
     }
 
     private async checkIncludeStatement(
