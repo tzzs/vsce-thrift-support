@@ -2,7 +2,7 @@
   "name": "thrift-support",
   "displayName": "Thrift Support",
   "description": "Apache Thrift language support: syntax highlighting, formatter, and code navigation",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "tanzz",
   "icon": "icon.png",
   "repository": {
@@ -99,6 +99,11 @@
           "default": true,
           "description": "Master switch to align '=' signs and values for both struct fields and enum members. When set, it overrides per-kind equals/values alignment; if not set explicitly, struct and enum fall back to their own defaults."
         },
+        "thrift.format.alignStructDefaults": {
+          "type": "boolean",
+          "default": false,
+          "description": "Align '=' signs for struct field default values (e.g., 'field = defaultValue'). This is separate from alignStructEquals which controls general struct field assignments."
+        },
         "thrift.format.alignAnnotations": {
           "type": "boolean",
           "default": true,
@@ -139,8 +144,8 @@
     "lint": "eslint src --ext ts",
     "clean": "rimraf out",
     "build": "npm run clean && npm run compile",
-    "package": "vsce package",
-    "publish": "vsce publish",
+    "package": "npx @vscode/vsce package",
+    "publish": "npx @vscode/vsce publish",
     "test": "node tests/test-include-navigation-fix.js",
     "test:complex": "node tests/test-complex-types.js",
     "test:enum": "node tests/test-enum-formatting.js",
@@ -152,15 +157,15 @@
     "coverage": "nyc --reporter=text-summary node tests/run-all.js"
   },
   "devDependencies": {
-    "@types/vscode": "^1.74.0",
     "@types/node": "16.x",
+    "@types/vscode": "^1.74.0",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
+    "@vscode/vsce": "^3.6.0",
     "eslint": "^8.28.0",
-    "typescript": "^4.9.4",
+    "nyc": "^15.1.0",
     "rimraf": "^3.0.2",
-    "vsce": "^2.15.0",
-    "nyc": "^15.1.0"
+    "typescript": "^4.9.4"
   },
   "nyc": {
     "include": [
