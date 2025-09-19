@@ -25,6 +25,7 @@ enum Status {
 // Struct definition with various field types - 用户信息结构体
 struct User {
   1: required UserId     id,                        // 用户唯一标识
+  
   2: required string    name,                       // 用户姓名
   3: optional Email email,                          // 邮箱地址
   4: optional i32 age,                              // 年龄
