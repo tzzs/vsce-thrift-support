@@ -6,9 +6,17 @@
 - Node.js: 22.18.0（与 CI 一致）
 - VS Code 引擎: ^1.74.0（与 package.json engines.vscode 一致）
 - TypeScript: ^4.9.4（与 devDependencies 一致）
-- vsce: ^2.15.0（用于本地打包/发布，可选）
+- @vscode/vsce: ^3.6.0（用于本地打包/发布，已从旧版 vsce 升级）
 
 提示：如本地 Node 版本不同，可能导致安装或构建失败（如 undici 要求 Node >= 20.18.1）。建议使用 nvm-windows/Volta 等工具固定 Node 版本。
+
+### vsce 升级说明
+项目已从旧版 `vsce` 升级到新版 `@vscode/vsce` 3.6.0，主要变化：
+- 包名从 `vsce` 更改为 `@vscode/vsce`
+- 新增安全性增强：打包时会扫描潜在的敏感信息（API 密钥等）
+- 改进标签处理：支持标签名包含点号
+- 更好的错误处理和依赖项更新
+- 要求 Node.js >= 20.x.x（本项目使用 22.18.0 满足要求）
 
 ## 项目架构与设计
 
@@ -119,6 +127,8 @@ npm run test:const
 ## 本地打包与发布（可选）
 - 仅验证产物：执行 `npm run package`，生成 `.vsix` 文件，可在 VS Code 中手动安装测试。
 - 本地直发 Marketplace：执行 `npm run publish`，需在环境变量或 CI Secrets 中配置 VSCE_PAT；Open VSX 需使用 ovsx CLI 或交由 CI 发布（推荐）。
+
+注意：项目已升级到 `@vscode/vsce` 3.6.0，脚本命令已更新为使用 `npx @vscode/vsce`。如果遇到打包时的安全扫描警告，可以使用 `--allow-package-secrets` 或 `--allow-package-env-file` 标志绕过检查。
 
 ## CI/CD 工作流（精简说明）
 本仓库使用两条 GitHub Actions 流水线自动完成“版本生成 → 发布”：

@@ -12,7 +12,9 @@ const tests = [
   // Added to exercise struct annotation/name alignment branches
   'tests/test-struct-annotations-combinations.js',
   // Regression for main.thrift comma placement
-  'tests/test-main-file-regression.js'
+  'tests/test-main-file-regression.js',
+  // Regression: preserve blank lines within struct fields
+  'tests/test-struct-blank-lines.js'
 ];
 
 let failed = 0;
