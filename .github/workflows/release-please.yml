@@ -17,5 +17,6 @@ jobs:
       - name: Run release-please
         uses: googleapis/release-please-action@v4
         with:
+          token: ${{ secrets.PAT_TOKEN || github.token }}
           release-type: node
           target-branch: master
