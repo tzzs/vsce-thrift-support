@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/tzzs/vsce-thrift-support/compare/v0.2.0...v0.3.0) (2025-09-19)
+
+
+### Features
+
+* **formatter:** add comprehensive test suite for blank line preservation ([1fc51aa](https://github.com/tzzs/vsce-thrift-support/commit/1fc51aa318f16f24615ad9a1be31c78f65ae1914))
+* 添加 alignStructDefaults 配置项，分离结构体默认值对齐与普通等号对齐 ([f147809](https://github.com/tzzs/vsce-thrift-support/commit/f14780960d212ef7171948a3236f56ede786100c))
+
 ## [Unreleased]
 
 ### 开发工具升级
