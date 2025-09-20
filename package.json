@@ -92,7 +92,7 @@
         "thrift.format.alignNames": {
           "type": "boolean",
           "default": true,
-          "description": "Align names for struct fields and enum members (unified control for field and enum names)"
+          "description": "Align names for struct fields and enum members (unified control for field and enum names). Fine-grained keys like alignFieldNames/alignEnumNames are not exposed; they are internally tied to this switch for simplicity."
         },
         "thrift.format.alignAssignments": {
           "type": "boolean",

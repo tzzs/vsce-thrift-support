@@ -41,7 +41,11 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         if (!(range.start.line === 0 && range.start.character === 0)) {
             initialContext = this.computeInitialContext(document, range.start);
         }
-        const alignNames = getOpt('alignNames', true);
+        // Unified control with backward-compatible fallback to fine-grained legacy keys
+        const cfgAlignNames = getOpt('alignNames', undefined);
+        const alignNames = (typeof cfgAlignNames !== 'undefined')
+            ? cfgAlignNames
+            : (getOpt('alignFieldNames', undefined) ?? getOpt('alignEnumNames', undefined) ?? true);
         // Global master switch for assignments alignment (option B)
         const alignAssignments = getOpt('alignAssignments', undefined);
         // Read per-kind (keep undefined when not set, to allow fallback to alignAssignments and preserve defaults)
@@ -78,13 +82,15 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         const fmtOptions = {
             trailingComma: getOpt('trailingComma', 'preserve'),
             alignTypes: getOpt('alignTypes', true),
-            alignFieldNames: getOpt('alignFieldNames', alignNames),
+            // unify by alignNames only
+            alignFieldNames: alignNames,
             alignStructEquals: resolvedAlignStructEquals,
             alignStructDefaults: resolvedAlignStructDefaults,
             // Use unified annotations setting (fallback to legacy)
             alignStructAnnotations: resolvedAlignAnnotations,
             alignComments: getOpt('alignComments', true),
-            alignEnumNames: getOpt('alignEnumNames', alignNames),
+            // unify by alignNames only
+            alignEnumNames: alignNames,
             alignEnumEquals: resolvedAlignEnumEquals,
             alignEnumValues: resolvedAlignEnumValues,
             indentSize: getOpt('indentSize', 4),
