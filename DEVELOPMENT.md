@@ -70,7 +70,9 @@ thrift-support/
 核心逻辑集中在 <mcfile name="formatter.ts" path="src/formatter.ts"></mcfile> 中。
 
 - 对齐选项：
-  - alignTypes / alignFieldNames / alignStructEquals：控制类型、字段名与等号的列对齐。
+  - alignTypes / alignFieldNames（外部配置键为 alignNames）：控制类型与字段名的列对齐。
+  - 等号/值对齐（Assignments）：由总开关 alignAssignments 统筹；开启时对齐 struct 字段等号与 enum 等号/枚举值；未显式设置时使用各自默认（struct 等号默认关闭、enum 等号/值默认开启）。
+  - alignStructDefaults：仅控制 struct 字段“默认值”的等号对齐，独立于 alignAssignments（不随总开关联动）。
   - alignComments：控制“行尾内联注释”的列对齐（例如 // comment）。当其为 false 时不会主动为注释添加对齐填充；但若其它内容（如类型/字段名/注解）恰好等宽，注释列可能“看起来对齐”，这是偶然一致而非 formatter 强制对齐所致。
   - alignAnnotations 与 alignStructAnnotations（兼容键）：
     - 若 alignAnnotations 显式设置，则优先生效；

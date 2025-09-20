@@ -70,6 +70,9 @@ In VSCode settings, you can configure:
 }
 ```
 
+- Global master switch (alignAssignments): when enabled, it governs alignment of '=' and values for struct fields and enum members; when not explicitly set, each kind falls back to its own default (struct equals alignment defaults to off, enum equals/values default to on).
+- Struct default value alignment (alignStructDefaults): controls alignment of '=' for default values only, independent of alignAssignments (does not follow the master switch).
+
 ## 📝 Formatting Example
 
 ### Before:
