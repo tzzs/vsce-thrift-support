@@ -1,6 +1,5 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
 
 export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
     
@@ -175,7 +174,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         // Check if cursor is within the quoted path (including quotes)
         if (position.character >= quoteStart && position.character <= quoteEnd) {
             // Resolve the complete path as a single unit (like JavaScript module imports)
-            const resolvedPath = this.resolveModulePath(includePath, documentDir);
+            const resolvedPath = await this.resolveModulePath(includePath, documentDir);
             
             if (resolvedPath) {
                 try {
@@ -229,7 +228,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
      * Resolve module path like JavaScript/TypeScript imports
      * Treats the entire path as a single clickable unit
      */
-    private resolveModulePath(includePath: string, documentDir: string): string | undefined {
+    private async resolveModulePath(includePath: string, documentDir: string): Promise<string | undefined> {
         let candidates: string[] = [];
         
         // Absolute path
@@ -249,13 +248,13 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         candidates.push(path.resolve(workspaceDir, includePath));
         candidates.push(path.resolve(workspaceDir, 'test-files', baseName));
         
-        // Return the first existing candidate
+        // Return the first existing candidate using vscode.workspace.fs.stat
         for (const p of candidates) {
             const normalized = path.normalize(p);
             try {
-                if (fs.existsSync(normalized)) {
-                    return normalized;
-                }
+                const uri = vscode.Uri.file(normalized);
+                await vscode.workspace.fs.stat(uri);
+                return normalized;
             } catch {
                 // ignore and continue
             }
