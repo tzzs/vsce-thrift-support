@@ -27,8 +27,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
             return undefined;
         }
 
-        // Check if we need to look for a namespaced type
-        // Look at the full line to see if this word is part of a namespaced reference
+        // Check if we need to look for a namespaced type by scanning the entire line
         const line = document.lineAt(position.line);
         const lineText = line.text;
         const wordStart = wordRange.start.character;
@@ -36,23 +35,41 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         
         let searchTypeName = word;
         let targetNamespace = '';
-        
-        // Check if there's a dot before or after the current word to form a namespace
-        if (wordStart > 0 && lineText[wordStart - 1] === '.') {
-            // Current word is the type part (e.g., "SharedStruct" in "shared.SharedStruct")
-            const beforeDot = lineText.substring(0, wordStart - 1);
-            const namespaceMatch = beforeDot.match(/([a-zA-Z_][a-zA-Z0-9_]*)$/);
-            if (namespaceMatch) {
-                targetNamespace = namespaceMatch[1];
-                searchTypeName = word;
+        let isNamespaceClick = false;
+
+        // Robust detection: find occurrences of namespace.type and see which part user clicked
+        const nsRegex = /([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)/g;
+        let match: RegExpExecArray | null;
+        let matchedNamespaced = false;
+        while ((match = nsRegex.exec(lineText)) !== null) {
+            const ns = match[1];
+            const type = match[2];
+            const nsStart = match.index;
+            const nsEnd = nsStart + ns.length;
+            const dotPos = nsEnd; // '.' position
+            const typeStart = dotPos + 1;
+            const typeEnd = typeStart + type.length;
+
+            if (position.character >= nsStart && position.character < nsEnd) {
+                // Clicked on namespace part
+                targetNamespace = ns;
+                isNamespaceClick = true;
+                matchedNamespaced = true;
+                break;
+            } else if (position.character >= typeStart && position.character < typeEnd) {
+                // Clicked on type part
+                targetNamespace = ns;
+                searchTypeName = type;
+                matchedNamespaced = true;
+                break;
             }
-        } else if (wordEnd < lineText.length && lineText[wordEnd] === '.') {
-            // Current word is the namespace part (e.g., "shared" in "shared.SharedStruct")
-            const afterDot = lineText.substring(wordEnd + 1);
-            const typeMatch = afterDot.match(/^([a-zA-Z_][a-zA-Z0-9_]*)/);
-            if (typeMatch) {
-                targetNamespace = word;
-                searchTypeName = typeMatch[1];
+        }
+
+        // If user clicked on namespace part, try to find the include statement
+        if (matchedNamespaced && isNamespaceClick) {
+            const includeLocation = await this.findIncludeForNamespace(document, targetNamespace);
+            if (includeLocation) {
+                return includeLocation;
             }
         }
 
@@ -99,24 +116,37 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         const line = document.lineAt(position.line);
         const text = line.text;
         
-        // Check if we're in an include statement - if so, treat the entire filename as one word
-        const includeMatch = text.match(/^include\s+["']([^"']+)["']/);
+        // 检查是否在 include 语句中
+        const includeMatch = text.match(/^(\s*)include\s+["']([^"']+)["']/);
         if (includeMatch) {
-            const includePath = includeMatch[1];
-            const quoteStart = text.indexOf('"') !== -1 ? text.indexOf('"') : text.indexOf("'");
-            const filenameStart = quoteStart + 1;
-            const filenameEnd = filenameStart + includePath.length;
+            const leadingWhitespace = includeMatch[1];
+            const includePath = includeMatch[2];
             
-            if (position.character >= filenameStart && position.character <= filenameEnd) {
-                return new vscode.Range(
-                    position.line, filenameStart,
-                    position.line, filenameEnd
-                );
+            // 找到整个include语句的位置（包含引号）
+            const includeStart = text.indexOf('include');
+            const quoteStart = text.indexOf('"') !== -1 ? text.indexOf('"') : text.indexOf("'");
+            const quoteEnd = text.lastIndexOf('"') !== -1 ? text.lastIndexOf('"') : text.lastIndexOf("'");
+            
+            // 检查光标是否在include关键字到引号结束的范围内
+            if (position.character >= includeStart && position.character <= quoteEnd) {
+                // 如果光标在include关键字上，只选中include
+                if (position.character >= includeStart && position.character < includeStart + 7) {
+                    return new vscode.Range(
+                        position.line, includeStart,
+                        position.line, includeStart + 7
+                    );
+                }
+                // 如果光标在引号内或引号上，返回整个带引号的路径
+                else if (position.character >= quoteStart && position.character <= quoteEnd) {
+                    return new vscode.Range(
+                        position.line, quoteStart,
+                        position.line, quoteEnd + 1
+                    );
+                }
             }
         }
         
-        // For other cases, use default word detection to allow individual part selection
-        // This allows users to click on 'shared' or 'SharedStruct' separately in 'shared.SharedStruct'
+        // 对于其他情况，使用默认的单词检测
         return document.getWordRangeAtPosition(position);
     }
 
@@ -138,39 +168,89 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         
         // Find the exact position of the quoted filename in the line
         const fullLineText = line.text;
-        const quotePattern = /["']([^"']+)["']/;
-        const quoteMatch = fullLineText.match(quotePattern);
+        const quoteStart = fullLineText.indexOf('"') !== -1 ? fullLineText.indexOf('"') : fullLineText.indexOf("'");
+        const quoteEnd = fullLineText.lastIndexOf('"') !== -1 ? fullLineText.lastIndexOf('"') : fullLineText.lastIndexOf("'");
         
-        if (!quoteMatch) {
-            return undefined;
-        }
-        
-        const quoteStart = fullLineText.indexOf(quoteMatch[0]);
-        const filenameStart = quoteStart + 1; // Skip the opening quote
-        const filenameEnd = filenameStart + includePath.length;
-        
-        // Check if cursor is within the filename (including dots and extensions)
-        if (position.character >= filenameStart && position.character <= filenameEnd) {
-            let fullPath: string;
+        // Check if cursor is within the quoted path (including quotes)
+        if (position.character >= quoteStart && position.character <= quoteEnd) {
+            // Resolve the complete path as a single unit (like JavaScript module imports)
+            const resolvedPath = this.resolveModulePath(includePath, documentDir);
             
-            if (path.isAbsolute(includePath)) {
-                fullPath = includePath;
-            } else {
-                fullPath = path.resolve(documentDir, includePath);
-            }
-            
-            try {
-                const uri = vscode.Uri.file(fullPath);
-                // Check if file exists by trying to get its stats
-                await vscode.workspace.fs.stat(uri);
-                return new vscode.Location(uri, new vscode.Position(0, 0));
-            } catch (error) {
-                // File doesn't exist, return undefined
-                return undefined;
+            if (resolvedPath) {
+                try {
+                    const uri = vscode.Uri.file(resolvedPath);
+                    // Check if file exists by trying to get its stats
+                    await vscode.workspace.fs.stat(uri);
+                    return new vscode.Location(uri, new vscode.Position(0, 0));
+                } catch (error) {
+                    // File doesn't exist, return undefined
+                    return undefined;
+                }
             }
         }
         
         return undefined;
+    }
+
+    /**
+     * Find the include statement for a given namespace
+     */
+    private async findIncludeForNamespace(
+        document: vscode.TextDocument,
+        namespace: string
+    ): Promise<vscode.Location | undefined> {
+        const text = document.getText();
+        const lines = text.split('\n');
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            const includeMatch = line.match(/^include\s+["']([^"']+)["']/);
+            
+            if (includeMatch) {
+                const includePath = includeMatch[1];
+                const fileName = path.basename(includePath, '.thrift');
+                
+                // Check if the filename matches the namespace
+                if (fileName === namespace) {
+                    // Return location of the include statement
+                    return new vscode.Location(
+                        document.uri,
+                        new vscode.Position(i, 0)
+                    );
+                }
+            }
+        }
+        
+        return undefined;
+    }
+
+    /**
+     * Resolve module path like JavaScript/TypeScript imports
+     * Treats the entire path as a single clickable unit
+     */
+    private resolveModulePath(includePath: string, documentDir: string): string | undefined {
+        let resolvedPath: string;
+        
+        if (path.isAbsolute(includePath)) {
+            // Absolute path - use as is
+            resolvedPath = includePath;
+        } else if (includePath.startsWith('./') || includePath.startsWith('../')) {
+            // Relative path - resolve relative to current document
+            resolvedPath = path.resolve(documentDir, includePath);
+        } else {
+            // Simple filename or relative path without explicit ./
+            resolvedPath = path.resolve(documentDir, includePath);
+        }
+        
+        // Normalize path separators for the current platform
+        resolvedPath = path.normalize(resolvedPath);
+        
+        // Additional validation: check if the resolved path makes sense
+        if (!resolvedPath || resolvedPath === documentDir) {
+            return undefined;
+        }
+        
+        return resolvedPath;
     }
 
     private isPrimitiveType(word: string): boolean {

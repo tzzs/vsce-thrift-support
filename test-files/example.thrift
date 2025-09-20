@@ -6,7 +6,7 @@
 namespace java com.example.thrift
 namespace py example.thrift
 
-include "shared.thrift"
+include "./shared.thrift"
 
 // Basic data types demonstration
 // 用户ID类型定义

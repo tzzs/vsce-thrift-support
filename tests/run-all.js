@@ -4,6 +4,7 @@ const path = require('path');
 const projectRoot = path.resolve(__dirname, '..');
 const tests = [
   'tests/test-include-navigation-fix.js',
+  'tests/test-namespace-navigation.js',
   'tests/test-complex-types.js',
   'tests/test-enum-formatting.js',
   'tests/test-indent-width.js',
