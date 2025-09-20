@@ -967,7 +967,10 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     if (options.alignComments) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
                         const diff = maxContentWidth - currentWidth;
-                        const padSpaces = commentCount > 1 ? Math.max(1, diff + 1) : 1;
+                        const basePad = (options.alignStructAnnotations && hasComma && options.trailingComma !== 'add')
+                            ? Math.max(1, diff)
+                            : Math.max(1, diff + 1);
+                        const padSpaces = commentCount > 1 ? basePad : 1;
                         formattedLine += ' '.repeat(padSpaces) + field.comment;
                     } else {
                         formattedLine += ' ' + field.comment;
@@ -1008,7 +1011,10 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     if (options.alignComments) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
                         const diff = maxContentWidth - currentWidth;
-                        const padSpaces = commentCount > 1 ? Math.max(1, diff + 1) : 1;
+                        const basePad = (options.alignStructAnnotations && hasComma && options.trailingComma !== 'add')
+                            ? Math.max(1, diff)
+                            : Math.max(1, diff + 1);
+                        const padSpaces = commentCount > 1 ? basePad : 1;
                         formattedLine += ' '.repeat(padSpaces) + field.comment;
                     } else {
                         formattedLine += ' ' + field.comment;
