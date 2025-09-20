@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 
 export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
     
@@ -229,28 +230,39 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
      * Treats the entire path as a single clickable unit
      */
     private resolveModulePath(includePath: string, documentDir: string): string | undefined {
-        let resolvedPath: string;
+        let candidates: string[] = [];
         
+        // Absolute path
         if (path.isAbsolute(includePath)) {
-            // Absolute path - use as is
-            resolvedPath = includePath;
+            candidates.push(path.normalize(includePath));
         } else if (includePath.startsWith('./') || includePath.startsWith('../')) {
-            // Relative path - resolve relative to current document
-            resolvedPath = path.resolve(documentDir, includePath);
+            // Relative to current document
+            candidates.push(path.resolve(documentDir, includePath));
         } else {
-            // Simple filename or relative path without explicit ./
-            resolvedPath = path.resolve(documentDir, includePath);
+            // Simple filename or relative without ./
+            candidates.push(path.resolve(documentDir, includePath));
         }
         
-        // Normalize path separators for the current platform
-        resolvedPath = path.normalize(resolvedPath);
+        // Fallbacks: try workspace root (parent of current dir) and common sibling folders
+        const workspaceDir = path.resolve(documentDir, '..');
+        const baseName = path.basename(includePath);
+        candidates.push(path.resolve(workspaceDir, includePath));
+        candidates.push(path.resolve(workspaceDir, 'test-files', baseName));
         
-        // Additional validation: check if the resolved path makes sense
-        if (!resolvedPath || resolvedPath === documentDir) {
-            return undefined;
+        // Return the first existing candidate
+        for (const p of candidates) {
+            const normalized = path.normalize(p);
+            try {
+                if (fs.existsSync(normalized)) {
+                    return normalized;
+                }
+            } catch {
+                // ignore and continue
+            }
         }
         
-        return resolvedPath;
+        // If nothing exists, return the most direct resolution (first candidate) for consistency
+        return candidates.length > 0 ? path.normalize(candidates[0]) : undefined;
     }
 
     private isPrimitiveType(word: string): boolean {

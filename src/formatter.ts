@@ -120,6 +120,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         let constFields: Array<{line: string, type: string, name: string, value: string, comment: string}> = [];
         let inConstBlock = false;
         let inBlockComment = false;
+        // Track the indent level where the current const block started, so flushing uses the correct base indent
+        let constBlockIndentLevel: number | null = null;
 
         for (let i = 0; i < lines.length; i++) {
             let originalLine = lines[i];
@@ -183,10 +185,11 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             
             // If we were in a const block and current line is not a const, flush the const block first (preserve order)
             if (inConstBlock && constFields.length > 0 && !this.isConstField(line) && !this.isConstStart(line)) {
-                const formattedFields = this.formatConstFields(constFields, options, indentLevel);
+                const formattedFields = this.formatConstFields(constFields, options, constBlockIndentLevel ?? indentLevel);
                 formattedLines.push(...formattedFields);
                 constFields = [];
                 inConstBlock = false;
+                constBlockIndentLevel = null;
                 // fall through to handle current line
             }
 
@@ -216,6 +219,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 // Parse the complete multiline const
                 const fieldInfo = this.parseConstField(constValue, options, indentLevel);
                 if (fieldInfo) {
+                    if (constFields.length === 0) { constBlockIndentLevel = indentLevel; }
                     constFields.push(fieldInfo);
                     inConstBlock = true;
                 }
@@ -226,6 +230,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             } else if (this.isConstField(line)) {
                 const fieldInfo = this.parseConstField(line, options, indentLevel);
                 if (fieldInfo) {
+                    if (constFields.length === 0) { constBlockIndentLevel = indentLevel; }
                     constFields.push(fieldInfo);
                     inConstBlock = true;
                     continue;
@@ -317,7 +322,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
 
         // Flush any remaining blocks
         if (constFields.length > 0) {
-            const formattedFields = this.formatConstFields(constFields, options, indentLevel);
+            const formattedFields = this.formatConstFields(constFields, options, constBlockIndentLevel ?? indentLevel);
             formattedLines.push(...formattedFields);
         }
         if (structFields.length > 0) {
@@ -329,7 +334,9 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             formattedLines.push(...formattedFields);
         }
 
-        return formattedLines.join('\n');
+        // Trim trailing whitespace from each line (including spaces on empty lines)
+        const cleaned = formattedLines.map(l => l.replace(/\s+$/g, ''));
+        return cleaned.join('\n');
     }
 
     private isConstStart(line: string): boolean {
@@ -1072,7 +1079,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             if (comment) {
                 if (options.alignComments) {
                     const currentWidth = base.length - indent.length;
-                    const pad = Math.max(1, maxContentWidth - currentWidth + 2);
+                    const pad = Math.max(1, maxContentWidth - currentWidth + 1);
                     line = base + ' '.repeat(pad) + comment;
                 } else {
                     line = base + ' ' + comment;

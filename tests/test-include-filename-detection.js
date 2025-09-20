@@ -12,6 +12,12 @@ const vscode = {
             this.character = character;
         }
     },
+    Range: class {
+        constructor(start, end) {
+            this.start = start;
+            this.end = end;
+        }
+    },
     Location: class {
         constructor(uri, position) {
             this.uri = uri;
@@ -71,21 +77,33 @@ const vscode = {
                     return line.substring(range.start.character, range.end.character);
                 }
             };
+        },
+        findFiles: async (glob) => {
+            // naive implementation: search test-files directory for .thrift files
+            const dir = path.resolve(__dirname, '..', 'test-files');
+            let entries = [];
+            try {
+                entries = fs.readdirSync(dir);
+            } catch {}
+            return entries.filter(f => f.endsWith('.thrift')).map(f => ({ fsPath: path.join(dir, f) }));
         }
     }
 };
 
-// Mock require to return our vscode mock
-const originalRequire = require;
-require = function(id) {
-    if (id === 'vscode') {
+// Ensure child modules that require('vscode') receive our mock
+const Module = require('module');
+const originalLoad = Module._load;
+Module._load = function(request, parent, isMain) {
+    if (request === 'vscode') {
         return vscode;
     }
-    return originalRequire.apply(this, arguments);
+    return originalLoad.apply(this, arguments);
 };
 
-// Import the definition provider
+// Import the definition provider (will pick up the mocked vscode)
 const { ThriftDefinitionProvider } = require('../out/definitionProvider');
+// After loading, restore the loader to avoid side effects on other tests
+Module._load = originalLoad;
 
 async function testIncludeFilenameDetection() {
     console.log('Testing include filename detection with dots...');

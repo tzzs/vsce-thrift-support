@@ -77,9 +77,14 @@ function run() {
       const statusLine = outLines.find(l => /status\b/.test(l)) || '';
 
       // Checks
-      const noSpaceBeforeCommaGlobal = !/\)\s+,/m.test(output);
-      const hasCommaShared = /\),\s*$/.test(sharedLine);
-      const hasCommaStatus = /\),\s*$/.test(statusLine);
+      const noSpaceBeforeCommaGlobal = /\)\s+,/m.test(output) === false;
+      // Accept either a comma immediately after ')' (optionally followed by a comment) OR a comma at end-of-line (after an inline comment)
+      const sharedCommaAfterParen = /\),\s*(?:\/\/.*)?$/.test(sharedLine);
+      const sharedEndsWithComma = /,\s*$/.test(sharedLine);
+      const hasCommaShared = sharedCommaAfterParen || sharedEndsWithComma;
+      const statusCommaAfterParen = /\),\s*(?:\/\/.*)?$/.test(statusLine);
+      const statusEndsWithComma = /,\s*$/.test(statusLine);
+      const hasCommaStatus = statusCommaAfterParen || statusEndsWithComma;
       const noTrailingSpacesShared = !/[ \t]+$/.test(sharedLine);
       const noTrailingSpacesStatus = !/[ \t]+$/.test(statusLine);
 

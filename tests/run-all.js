@@ -3,19 +3,36 @@ const path = require('path');
 
 const projectRoot = path.resolve(__dirname, '..');
 const tests = [
+  'tests/simple-test.js',
+  'tests/test-include-navigation.js',
   'tests/test-include-navigation-fix.js',
-  'tests/test-namespace-navigation.js',
-  'tests/test-complex-types.js',
+  'tests/test-formatter.js',
+  'tests/test-vscode-format.js',
+  'tests/test-user-scenario.js',
+  'tests/test-user-selected-range.js',
   'tests/test-enum-formatting.js',
-  'tests/test-indent-width.js',
-  'tests/test-trailing-comma.js',
-  'tests/test-const-formatting.js',
-  // Added to exercise struct annotation/name alignment branches
+  'tests/test-enum-annotations-combinations.js',
   'tests/test-struct-annotations-combinations.js',
-  // Regression for main.thrift comma placement
+  'tests/test-struct-defaults-alignment.js',
+  'tests/test-example-struct-blank-line.js',
+  'tests/test-edge-cases.js',
+  'tests/test-const-alignment.js',
+  'tests/test-const-formatting.js',
   'tests/test-main-file-regression.js',
-  // Regression: preserve blank lines within struct fields
-  'tests/test-struct-blank-lines.js'
+  'tests/test-range-context.js',
+  'tests/test-complex-types.js',
+  'tests/test-trailing-comma.js',
+  'tests/test-struct-blank-lines.js',
+  'tests/test-full-file-format.js',
+  'tests/test-real-format.js',
+  'tests/test-vscode-simulation.js',
+  'tests/test-include-filename-detection.js',
+  'tests/test-example-lines-25-38.js',
+  'tests/test-namespace-navigation.js',
+  'tests/test-indent-width.js',
+  'tests/format-example.js',
+  // Added edge cases test for include/namespace behaviors
+  'tests/test-namespace-edge-cases.js',
 ];
 
 let failed = 0;
