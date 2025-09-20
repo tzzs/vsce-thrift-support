@@ -1,0 +1,23 @@
+# <type>(<scope>): <subject>
+# 空一行后可写 body（详细描述），再空一行可写 footer（关联 issue、BREAKING CHANGE 等）
+#
+# type 必须是以下之一：
+#   feat      新功能 (会触发 minor 版本升级)
+#   fix       修复 Bug (会触发 patch 版本升级)
+#   docs      文档更新 (不会触发版本升级)
+#   style     代码风格 (空格/格式/分号之类，不是 CSS)
+#   refactor  重构 (非新增功能、非修复 bug)
+#   perf      性能优化 (会触发 patch 版本升级)
+#   test      测试代码 (不会触发版本升级)
+#   build     构建相关 (依赖、打包)
+#   ci        CI 配置
+#   chore     杂项 (不会触发版本升级)
+#   revert    回滚提交
+#
+# scope 可选，用于说明影响范围，例如 auth、ui、api 等
+#
+# footer 示例：
+#   BREAKING CHANGE: xxx
+#   Closes #123
+
+feat(auth): 新增xx支持
