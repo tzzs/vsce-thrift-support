@@ -1,5 +1,19 @@
 # Changelog | 更新日志
 
+## [0.4.0](https://github.com/tzzs/vsce-thrift-support/compare/v0.3.0...v0.4.0) (2025-09-20)
+
+
+### Features
+
+* **definition:** add support for namespaced type definitions ([e1b734e](https://github.com/tzzs/vsce-thrift-support/commit/e1b734eac5ff7771c252a440a858fa977600db91))
+
+
+### Bug Fixes
+
+* **formatter:** correct comma+comment spacing in struct fields ([2a8e431](https://github.com/tzzs/vsce-thrift-support/commit/2a8e4310f66d8754184b0214b755774a8de857b8))
+* **formatter:** unify struct annotation and inline comment alignment ([c4eb59d](https://github.com/tzzs/vsce-thrift-support/commit/c4eb59d5768730906506d77b04e3cd32c1dbbed2))
+* **navigation:** refine include + namespace click targets; add namespace/include tests; bump 0.3.5 ([3b71e5e](https://github.com/tzzs/vsce-thrift-support/commit/3b71e5e355b93c0bb8806c578c8acb51572ce7d3))
+
 ## [0.3.0](https://github.com/tzzs/vsce-thrift-support/compare/v0.2.0...v0.3.0) (2025-09-19)
 
 ### Features | 新功能
