@@ -1,0 +1,1160 @@
+
+
+===== Running: tests/simple-test.js =====
+simple-test OK, edits: 1
+
+
+===== Running: tests/test-include-navigation.js =====
+Testing include file navigation...
+
+1. Testing navigation from example.thrift to shared.thrift
+鉂?Could not find include statement for shared.thrift
+
+2. Testing cursor outside filename (should not navigate)
+鉁?Correctly ignored cursor outside filename
+
+3. Testing non-existent include file
+鉁?Correctly handled non-existent include file
+
+馃帀 Include navigation tests completed!
+
+
+===== Running: tests/test-include-navigation-fix.js =====
+Testing include navigation...
+鉁?Navigation works at start of filename (s)
+鉁?Navigation works at dot in filename
+鉁?Navigation works after dot (t)
+鉁?Navigation works at end of filename (t)
+鉁?Correctly ignores cursor outside filename
+
+Testing formatting...
+Formatted code:
+struct TestStruct {
+    1: required list<string>    names,
+    2: optional map<string,i32> values,
+    3: i32             count
+}
+鉁?Complex types formatted correctly (no spaces around < >)
+
+All tests completed!
+
+
+===== Running: tests/test-formatter.js =====
+=== 鍘熷浠ｇ爜 ===
+struct User {
+  1: required UserId     id,
+  2: required string name,
+  3: optional Email email,
+  4: optional i32 age,
+  5: optional Status status = Status.ACTIVE,
+  6: optional list<string> tags,
+  7: optional map<string, string> metadata,
+  8: optional bool isVerified = false,
+  9: optional double score = 0.0,
+  10: optional binary avatar
+}
+
+=== 寮€濮嬫牸寮忓寲娴嬭瘯 ===
+寮€濮嬪鐞?12 琛屼唬鐮?绗?琛? "struct User {" -> "struct User {"
+    isStructStart("struct User {") = true
+  -> 妫€娴嬪埌struct寮€濮嬶紝inStruct = true
+绗?琛? "  1: required UserId     id," -> "1: required UserId     id,"
+    isStructStart("1: required UserId     id,") = false
+    isStructField("  1: required UserId     id,") = true
+  -> 妫€娴嬪埌struct瀛楁
+    parseStructField("  1: required UserId     id,") =  {
+  line: '  1: required UserId     id,',
+  type: 'UserId',
+  name: 'id',
+  comment: ''
+}
+  -> 瑙ｆ瀽瀛楁鎴愬姛: {
+  line: '  1: required UserId     id,',
+  type: 'UserId',
+  name: 'id',
+  comment: ''
+}
+绗?琛? "  2: required string name," -> "2: required string name,"
+    isStructStart("2: required string name,") = false
+    isStructField("  2: required string name,") = true
+  -> 妫€娴嬪埌struct瀛楁
+    parseStructField("  2: required string name,") =  {
+  line: '  2: required string name,',
+  type: 'string',
+  name: 'name',
+  comment: ''
+}
+  -> 瑙ｆ瀽瀛楁鎴愬姛: {
+  line: '  2: required string name,',
+  type: 'string',
+  name: 'name',
+  comment: ''
+}
+绗?琛? "  3: optional Email email," -> "3: optional Email email,"
+    isStructStart("3: optional Email email,") = false
+    isStructField("  3: optional Email email,") = true
+  -> 妫€娴嬪埌struct瀛楁
+    parseStructField("  3: optional Email email,") =  {
+  line: '  3: optional Email email,',
+  type: 'Email',
+  name: 'email',
+  comment: ''
+}
+  -> 瑙ｆ瀽瀛楁鎴愬姛: {
+  line: '  3: optional Email email,',
+  type: 'Email',
+  name: 'email',
+  comment: ''
+}
+绗?琛? "  4: optional i32 age," -> "4: optional i32 age,"
+    isStructStart("4: optional i32 age,") = false
+    isStructField("  4: optional i32 age,") = true
+  -> 妫€娴嬪埌struct瀛楁
+    parseStructField("  4: optional i32 age,") =  {
+  line: '  4: optional i32 age,',
+  type: 'i32',
+  name: 'age',
+  comment: ''
+}
+  -> 瑙ｆ瀽瀛楁鎴愬姛: {
+  line: '  4: optional i32 age,',
+  type: 'i32',
+  name: 'age',
+  comment: ''
+}
+绗?琛? "  5: optional Status status = Status.ACTIVE," -> "5: optional Status status = Status.ACTIVE,"
+    isStructStart("5: optional Status status = Status.ACTIVE,") = false
+    isStructField("  5: optional Status status = Status.ACTIVE,") = true
+  -> 妫€娴嬪埌struct瀛楁
+    parseStructField("  5: optional Status status = Status.ACTIVE,") =  {
+  line: '  5: optional Status status = Status.ACTIVE,',
+  type: 'Status',
+  name: 'status',
+  comment: ''
+}
+  -> 瑙ｆ瀽瀛楁鎴愬姛: {
+  line: '  5: optional Status status = Status.ACTIVE,',
+  type: 'Status',
+  name: 'status',
+  comment: ''
+}
+绗?琛? "  6: optional list<string> tags," -> "6: optional list<string> tags,"
+    isStructStart("6: optional list<string> tags,") = false
+    isStructField("  6: optional list<string> tags,") = true
+  -> 妫€娴嬪埌struct瀛楁
+    parseStructField("  6: optional list<string> tags,") =  {
+  line: '  6: optional list<string> tags,',
+  type: 'list<string>',
+  name: 'tags',
+  comment: ''
+}
+  -> 瑙ｆ瀽瀛楁鎴愬姛: {
+  line: '  6: optional list<string> tags,',
+  type: 'list<string>',
+  name: 'tags',
+  comment: ''
+}
+绗?琛? "  7: optional map<string, string> metadata," -> "7: optional map<string, string> metadata,"
+    isStructStart("7: optional map<string, string> metadata,") = false
+    isStructField("  7: optional map<string, string> metadata,") = true
+  -> 妫€娴嬪埌struct瀛楁
+    parseStructField("  7: optional map<string, string> metadata,") =  {
+  line: '  7: optional map<string, string> metadata,',
+  type: 'map<string,',
+  name: 'string',
+  comment: ''
+}
+  -> 瑙ｆ瀽瀛楁鎴愬姛: {
+  line: '  7: optional map<string, string> metadata,',
+  type: 'map<string,',
+  name: 'string',
+  comment: ''
+}
+绗?琛? "  8: optional bool isVerified = false," -> "8: optional bool isVerified = false,"
+    isStructStart("8: optional bool isVerified = false,") = false
+    isStructField("  8: optional bool isVerified = false,") = true
+  -> 妫€娴嬪埌struct瀛楁
+    parseStructField("  8: optional bool isVerified = false,") =  {
+  line: '  8: optional bool isVerified = false,',
+  type: 'bool',
+  name: 'isVerified',
+  comment: ''
+}
+  -> 瑙ｆ瀽瀛楁鎴愬姛: {
+  line: '  8: optional bool isVerified = false,',
+  type: 'bool',
+  name: 'isVerified',
+  comment: ''
+}
+绗?0琛? "  9: optional double score = 0.0," -> "9: optional double score = 0.0,"
+    isStructStart("9: optional double score = 0.0,") = false
+    isStructField("  9: optional double score = 0.0,") = true
+  -> 妫€娴嬪埌struct瀛楁
+    parseStructField("  9: optional double score = 0.0,") =  {
+  line: '  9: optional double score = 0.0,',
+  type: 'double',
+  name: 'score',
+  comment: ''
+}
+  -> 瑙ｆ瀽瀛楁鎴愬姛: {
+  line: '  9: optional double score = 0.0,',
+  type: 'double',
+  name: 'score',
+  comment: ''
+}
+绗?1琛? "  10: optional binary avatar" -> "10: optional binary avatar"
+    isStructStart("10: optional binary avatar") = false
+    isStructField("  10: optional binary avatar") = true
+  -> 妫€娴嬪埌struct瀛楁
+    parseStructField("  10: optional binary avatar") =  {
+  line: '  10: optional binary avatar',
+  type: 'binary',
+  name: 'avatar',
+  comment: ''
+}
+  -> 瑙ｆ瀽瀛楁鎴愬姛: {
+  line: '  10: optional binary avatar',
+  type: 'binary',
+  name: 'avatar',
+  comment: ''
+}
+绗?2琛? "}" -> "}"
+    isStructStart("}") = false
+  -> 澶勭悊绱Н鐨?10 涓瓧娈?formatStructFields: 澶勭悊 10 涓瓧娈?maxTypeWidth: 8 maxNameWidth: 10
+鏍煎紡鍖栧瓧娈?   1: required UserId   id        ,
+鏍煎紡鍖栧瓧娈?   2: required string   name      ,
+鏍煎紡鍖栧瓧娈?   3: optional Email    email     ,
+鏍煎紡鍖栧瓧娈?   4: optional i32      age       ,
+鏍煎紡鍖栧瓧娈?   5: optional Status   status     = Status.ACTIVE,
+鏍煎紡鍖栧瓧娈?   6: optional list      <string> tags,
+鏍煎紡鍖栧瓧娈?   7: optional map       <string, string> metadata,
+鏍煎紡鍖栧瓧娈?   8: optional bool     isVerified = false,
+鏍煎紡鍖栧瓧娈?   9: optional double   score      = 0.0,
+鏍煎紡鍖栧瓧娈?   10: optional binary   avatar    ,
+  -> 妫€娴嬪埌struct缁撴潫锛宨nStruct = false
+
+=== 鏍煎紡鍖栫粨鏋?===
+struct User {
+  1: required UserId   id        ,
+  2: required string   name      ,
+  3: optional Email    email     ,
+  4: optional i32      age       ,
+  5: optional Status   status     = Status.ACTIVE,
+  6: optional list      <string> tags,
+  7: optional map       <string, string> metadata,
+  8: optional bool     isVerified = false,
+  9: optional double   score      = 0.0,
+  10: optional binary   avatar    ,
+}
+
+鉁?鏍煎紡鍖栨垚鍔燂紝浠ｇ爜宸叉敼鍙?
+
+===== Running: tests/test-vscode-format.js =====
+鉁?VSCode formatting test executed
+
+
+===== Running: tests/test-user-scenario.js =====
+user-scenario edits: 1
+
+
+===== Running: tests/test-user-selected-range.js =====
+Testing user selected range formatting (lines 25-38)...
+
+Original selected text (lines 25-38):
+Line 25: "// Struct definition with various field types - 鐢ㄦ埛淇℃伅缁撴瀯浣? 
+Line 26: "struct User {" 
+Line 27: "  1: required UserId     id,                        // 鐢ㄦ埛鍞竴鏍囪瘑" 
+Line 28: "  " (BLANK)
+Line 29: "  2: required string    name (go.tag='json:"name"'),                       // 鐢ㄦ埛濮撳悕" 
+Line 30: "  3: optional Email email,                          // 閭鍦板潃" 
+Line 31: "  4: optional i32 age,                              // 骞撮緞" 
+Line 32: "  5: optional Status status = Status.ACTIVE,       // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺? 
+Line 33: "  6: optional list<string> tags,                    // 鐢ㄦ埛鏍囩鍒楄〃" 
+Line 34: "  7: optional map<string, string> metadata,        // 鐢ㄦ埛鍏冩暟鎹? 
+Line 35: "  8: optional bool isVerified = false,             // 鏄惁宸查獙璇侊紝榛樿鏈獙璇? 
+Line 36: "  9: optional double score = 0.0,                  // 鐢ㄦ埛璇勫垎锛岄粯璁?.0" 
+Line 37: "  10: optional binary avatar                        // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹? 
+Line 38: "}" 
+
+Calling provideDocumentRangeFormattingEdits...
+
+Formatted text:
+Line 25: "// Struct definition with various field types - 鐢ㄦ埛淇℃伅缁撴瀯浣? 
+Line 26: "struct User {" 
+Line 27: "  1: required UserId id, // 鐢ㄦ埛鍞竴鏍囪瘑" 
+Line 28: "" (BLANK)
+Line 29: "  2:  required string             name       (go.tag='json:"name"'), // 鐢ㄦ埛濮撳悕" 
+Line 30: "  3:  optional Email              email,                             // 閭鍦板潃" 
+Line 31: "  4:  optional i32                age,                               // 骞撮緞" 
+Line 32: "  5:  optional Status             status = Status.ACTIVE,            // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺? 
+Line 33: "  6:  optional list<string>       tags,                              // 鐢ㄦ埛鏍囩鍒楄〃" 
+Line 34: "  7:  optional map<string,string> metadata,                          // 鐢ㄦ埛鍏冩暟鎹? 
+Line 35: "  8:  optional bool               isVerified = false,                // 鏄惁宸查獙璇侊紝榛樿鏈獙璇? 
+Line 36: "  9:  optional double             score = 0.0,                       // 鐢ㄦ埛璇勫垎锛岄粯璁?.0" 
+Line 37: "  10: optional binary             avatar                             // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹? 
+Line 38: "}" 
+
+Original blank line positions (relative): [4]
+Formatted blank line positions (relative): [4]
+鉁?Range formatting preserves blank line positions correctly
+
+
+===== Running: tests/test-enum-formatting.js =====
+Testing enum formatting...
+Input:
+enum Status {
+ACTIVE=1,
+INACTIVE = 2,
+PENDING= 3,
+SUSPENDED =4
+}
+
+--- Formatted Output ---
+enum Status {
+    ACTIVE    = 1,
+    INACTIVE  = 2,
+    PENDING   = 3,
+    SUSPENDED = 4
+}
+
+--- Enum field alignment check ---
+"    ACTIVE    = 1,"
+"    INACTIVE  = 2,"
+"    PENDING   = 3,"
+"    SUSPENDED = 4"
+鉁?Enum names are properly aligned
+鉁?Equals signs are properly aligned
+
+
+=== Testing different alignment configurations ===
+
+--- All alignment disabled ---
+Testing enum formatting...
+Input:
+enum Status {
+ACTIVE=1,
+INACTIVE = 2,
+PENDING= 3,
+SUSPENDED =4
+}
+
+--- Formatted Output ---
+enum Status {
+ ACTIVE = 1,
+ INACTIVE = 2,
+ PENDING = 3,
+ SUSPENDED = 4
+}
+
+--- Enum field alignment check ---
+" ACTIVE = 1,"
+" INACTIVE = 2,"
+" PENDING = 3,"
+" SUSPENDED = 4"
+鉁?Enum names are properly aligned
+鉁?Equals signs are not aligned
+
+--- Only names aligned ---
+Testing enum formatting...
+Input:
+enum Status {
+ACTIVE=1,
+INACTIVE = 2,
+PENDING= 3,
+SUSPENDED =4
+}
+
+--- Formatted Output ---
+enum Status {
+ ACTIVE    = 1,
+ INACTIVE  = 2,
+ PENDING   = 3,
+ SUSPENDED = 4
+}
+
+--- Enum field alignment check ---
+" ACTIVE    = 1,"
+" INACTIVE  = 2,"
+" PENDING   = 3,"
+" SUSPENDED = 4"
+鉁?Enum names are properly aligned
+鉁?Equals signs are properly aligned
+
+--- Names and equals aligned ---
+Testing enum formatting...
+Input:
+enum Status {
+ACTIVE=1,
+INACTIVE = 2,
+PENDING= 3,
+SUSPENDED =4
+}
+
+--- Formatted Output ---
+enum Status {
+ ACTIVE    = 1,
+ INACTIVE  = 2,
+ PENDING   = 3,
+ SUSPENDED = 4
+}
+
+--- Enum field alignment check ---
+" ACTIVE    = 1,"
+" INACTIVE  = 2,"
+" PENDING   = 3,"
+" SUSPENDED = 4"
+鉁?Enum names are properly aligned
+鉁?Equals signs are properly aligned
+
+--- All aligned (default) ---
+Testing enum formatting...
+Input:
+enum Status {
+ACTIVE=1,
+INACTIVE = 2,
+PENDING= 3,
+SUSPENDED =4
+}
+
+--- Formatted Output ---
+enum Status {
+ ACTIVE    = 1,
+ INACTIVE  = 2,
+ PENDING   = 3,
+ SUSPENDED = 4
+}
+
+--- Enum field alignment check ---
+" ACTIVE    = 1,"
+" INACTIVE  = 2,"
+" PENDING   = 3,"
+" SUSPENDED = 4"
+鉁?Enum names are properly aligned
+鉁?Equals signs are properly aligned
+
+Enum formatting tests completed!
+
+
+===== Running: tests/test-enum-annotations-combinations.js =====
+[test-enum-annotations-combinations] Running tests...
+  鉁?enum name/equals/comments aligned
+  鉁?enum values padded and comments aligned
+  鉁?enum trailing comma modes respected
+All tests passed.
+
+
+===== Running: tests/test-struct-annotations-combinations.js =====
+[test-struct-annotations-combinations] Running tests...
+Test failed: AssertionError [ERR_ASSERTION]: comment columns should align
+
+63 !== 64
+
+    at test_struct_annotations_align_all_on (E:\workspaces\trae\thrift-support\tests\test-struct-annotations-combinations.js:146:10)
+    at main (E:\workspaces\trae\thrift-support\tests\test-struct-annotations-combinations.js:317:5)
+    at Object.<anonymous> (E:\workspaces\trae\thrift-support\tests\test-struct-annotations-combinations.js:338:3)
+    at Module._compile (node:internal/modules/cjs/loader:1688:14)
+    at Object..js (node:internal/modules/cjs/loader:1820:10)
+    at Module.load (node:internal/modules/cjs/loader:1423:32)
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1246:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 63,
+  expected: 64,
+  operator: 'strictEqual'
+}
+Test failed: tests/test-struct-annotations-combinations.js (exit 1)
+
+
+===== Running: tests/test-struct-defaults-alignment.js =====
+Testing struct default values alignment configuration...
+
+============================================================
+Test 1: Default configuration (alignStructDefaults = false)
+============================================================
+Original code:
+struct User {
+    1: required string name
+    2: optional i32 age = 25
+    3: required bool isActive
+    4: optional string email = "default@example.com"
+    5: required double score = 0.0
+    6: optional Status status = Status.ACTIVE
+}
+
+Expected: Default values should NOT be aligned
+
+Formatted code:
+struct User {
+    1: required string name
+    2: optional i32    age = 25
+    3: required bool   isActive
+    4: optional string email = "default@example.com"
+    5: required double score = 0.0
+    6: optional Status status = Status.ACTIVE
+}
+
+Alignment analysis:
+Line 1: NO DEFAULT 
+  "    1: required string name"
+Line 2: HAS DEFAULT (= at pos 26)
+  "    2: optional i32    age = 25"
+Line 3: NO DEFAULT 
+  "    3: required bool   isActive"
+Line 4: HAS DEFAULT (= at pos 28)
+  "    4: optional string email = "default@example.com""
+Line 5: HAS DEFAULT (= at pos 28)
+  "    5: required double score = 0.0"
+Line 6: HAS DEFAULT (= at pos 29)
+  "    6: optional Status status = Status.ACTIVE"
+
+============================================================
+Test 2: Enabled configuration (alignStructDefaults = true)
+============================================================
+Original code:
+struct User {
+    1: required string name
+    2: optional i32 age = 25
+    3: required bool isActive
+    4: optional string email = "default@example.com"
+    5: required double score = 0.0
+    6: optional Status status = Status.ACTIVE
+}
+
+Expected: Default values SHOULD be aligned
+
+Formatted code:
+struct User {
+    1: required string name
+    2: optional i32    age      = 25
+    3: required bool   isActive
+    4: optional string email    = "default@example.com"
+    5: required double score    = 0.0
+    6: optional Status status   = Status.ACTIVE
+}
+
+Alignment analysis:
+Default value alignment: ALIGNED
+Equals positions: [31, 31, 31, 31]
+Line 1: NO DEFAULT 
+  "    1: required string name"
+Line 2: HAS DEFAULT (= at pos 31)
+  "    2: optional i32    age      = 25"
+Line 3: NO DEFAULT 
+  "    3: required bool   isActive"
+Line 4: HAS DEFAULT (= at pos 31)
+  "    4: optional string email    = "default@example.com""
+Line 5: HAS DEFAULT (= at pos 31)
+  "    5: required double score    = 0.0"
+Line 6: HAS DEFAULT (= at pos 31)
+  "    6: optional Status status   = Status.ACTIVE"
+
+============================================================
+Test 3: Mixed scenario with annotations and defaults
+============================================================
+Original code:
+struct ComplexUser {
+    1: required string name (go.tag='json:"name"')
+    2: optional i32 age = 25
+    3: required bool isActive (go.tag='json:"active"')
+    4: optional string email = "default@example.com" (go.tag='json:"email"')
+    5: required double score = 0.0
+}
+
+Expected: Annotations should align, but default values should NOT align
+
+Formatted code:
+struct ComplexUser {
+    1: required string name                             (go.tag='json:"name"')
+    2: optional i32    age = 25
+    3: required bool   isActive                         (go.tag='json:"active"')
+    4: optional string email = "default@example.com"    (go.tag='json:"email"')
+    5: required double score = 0.0
+}
+
+============================================================
+Struct default values alignment tests completed!
+============================================================
+
+
+===== Running: tests/test-example-struct-blank-line.js =====
+Testing User struct blank line preservation...
+Input User struct:
+struct User {
+  1: required UserId     id,                        // 鐢ㄦ埛鍞竴鏍囪瘑
+  
+  2: required string    name (go.tag='json:"name"'),                       // 鐢ㄦ埛濮撳悕
+  3: optional Email email,                          // 閭鍦板潃
+  4: optional i32 age,                              // 骞撮緞
+  5: optional Status status = Status.ACTIVE,       // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺?  6: optional list<string> tags,                    // 鐢ㄦ埛鏍囩鍒楄〃
+  7: optional map<string, string> metadata,        // 鐢ㄦ埛鍏冩暟鎹?  8: optional bool isVerified = false,             // 鏄惁宸查獙璇侊紝榛樿鏈獙璇?  9: optional double score = 0.0,                  // 鐢ㄦ埛璇勫垎锛岄粯璁?.0
+  10: optional binary avatar                        // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹?}
+---
+Formatted output:
+struct User {
+  1: required UserId id, // 鐢ㄦ埛鍞竴鏍囪瘑
+
+  2:  required string             name       (go.tag='json:"name"'), // 鐢ㄦ埛濮撳悕
+  3:  optional Email              email,                             // 閭鍦板潃
+  4:  optional i32                age,                               // 骞撮緞
+  5:  optional Status             status = Status.ACTIVE,            // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺?  6:  optional list<string>       tags,                              // 鐢ㄦ埛鏍囩鍒楄〃
+  7:  optional map<string,string> metadata,                          // 鐢ㄦ埛鍏冩暟鎹?  8:  optional bool               isVerified = false,                // 鏄惁宸查獙璇侊紝榛樿鏈獙璇?  9:  optional double             score = 0.0,                       // 鐢ㄦ埛璇勫垎锛岄粯璁?.0
+  10: optional binary             avatar                             // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹?}
+---
+Input blank lines: 1
+Output blank lines: 1
+Input blank line positions: [2]
+Output blank line positions: [2]
+鉁?User struct blank line preservation test PASSED
+
+
+===== Running: tests/test-edge-cases.js =====
+馃И 娴嬭瘯杈圭晫鎯呭喌...
+==================================================
+鉂?鏍煎紡鍖栧櫒鍔犺浇澶辫触: Cannot find module './out/formatter.js'
+Require stack:
+- E:\workspaces\trae\thrift-support\tests\test-edge-cases.js
+
+馃幆 杈圭晫鎯呭喌娴嬭瘯瀹屾垚
+濡傛灉鎵€鏈夋祴璇曠敤渚嬮兘閫氳繃锛岃鏄庤礋缂╄繘闂宸蹭慨澶?
+
+===== Running: tests/test-const-alignment.js =====
+Original code:
+// Constants
+const i32 MAX_USERS = 10000
+const string DEFAULT_NAMESPACE = "com.example"
+const list<string> SUPPORTED_LANGUAGES = ["java", "python", "cpp", "javascript"]
+const map<string, i32> ERROR_CODES = {
+    "NOT_FOUND": 404,
+    "VALIDATION_ERROR": 400,
+    "INTERNAL_ERROR": 500
+}
+const set<string> VALID_STATUSES = {
+    "ACTIVE",
+    "INACTIVE",
+    "PENDING"
+}
+
+struct User {
+    1: required string name
+    2: optional i32 age
+}
+
+==================================================
+
+Formatted code:
+// Constants
+const i32          MAX_USERS           = 10000
+const string       DEFAULT_NAMESPACE   = "com.example"
+const list<string> SUPPORTED_LANGUAGES = ["java", "python", "cpp", "javascript"]
+    const map<string, i32> ERROR_CODES = {
+    "NOT_FOUND": 404,
+    "VALIDATION_ERROR": 400,
+    "INTERNAL_ERROR": 500
+}
+const set<string>  VALID_STATUSES      = {
+    "ACTIVE",
+    "INACTIVE",
+    "PENDING"
+}
+
+struct User {
+    1: required string name
+    2: optional i32 age
+}
+
+==================================================
+Const lines alignment check:
+Line 1: "const i32          MAX_USERS           = 10000"
+Line 2: "const string       DEFAULT_NAMESPACE   = "com.example""
+Line 3: "const list<string> SUPPORTED_LANGUAGES = ["java", "python", "cpp", "javascript"]"
+
+Alignment analysis:
+Type positions: [ 6, 6, 6 ]
+Name positions: [ 19, 19, 19 ]
+Equal positions: [ 38, 38, 38 ]
+
+Alignment results:
+Types aligned: true
+Names aligned: true
+Equals aligned: true
+
+Multiline value indentation check:
+Multiline 1: "    "NOT_FOUND": 404," (4 spaces)
+Multiline 2: "    "VALIDATION_ERROR": 400," (4 spaces)
+Multiline 3: "    "INTERNAL_ERROR": 500" (4 spaces)
+Multiline 4: "    "ACTIVE"," (4 spaces)
+Multiline 5: "    "INACTIVE"," (4 spaces)
+Multiline 6: "    "PENDING"" (4 spaces)
+
+Const base indent: 0 spaces
+Multiline values properly indented: true
+
+鉁?Const alignment and indentation test PASSED!
+
+
+===== Running: tests/test-const-formatting.js =====
+
+=== Test 1: Const comment alignment ===
+const i32    A   = 1   // a
+const string BBB = 'x' // bb
+const i64    CC  = 3   // ccc
+Comment columns: [ 23, 23, 23 ]
+鉁?Comments aligned
+
+=== Test 2: Multiline collection item comment alignment ===
+const map<string,i32> M = {
+    "a": 1,  // first
+    "bb": 2, // second
+    "ccc": 3 // third
+}
+Item comment columns: [ 13, 13, 13 ]
+鉁?Item comments aligned
+
+=== Test 3: collectionStyle = preserve keeps inline ===
+const list<string> SUPPORTED_LANGUAGES = ["java", "python", "cpp"]
+鉁?Preserved as single line
+
+=== Test 4: collectionStyle = multiline expands inline ===
+const list<string> SUPPORTED_LANGUAGES = [
+    "java",
+    "python",
+    "cpp"
+]
+鉁?Expanded to multiline with proper structure
+
+=== Test 5: Multiline list const indentation (regression) ===
+const list<string> SUPPORTED_LANGUAGES = [ // 鏀寔鐨勭紪绋嬭瑷€鍒楄〃
+    "java",
+    "python",
+    "cpp",
+    "javascript"
+]
+鉁?Multiline list const is properly indented
+
+=== Test 6: collectionStyle = auto keeps short inline ===
+鉁?Auto mode preserves short inline
+
+=== Test 7: collectionStyle = auto expands when long (including comment) ===
+鉁?Auto mode expands when exceeding maxLineLength
+
+=== Test 8: collectionStyle = auto boundary condition ===
+鉁?Auto mode does not expand when equals maxLineLength
+
+Const formatting tests completed.
+
+
+===== Running: tests/test-main-file-regression.js =====
+
+--- Running main.thrift regression with trailingComma = preserve ---
+No space before comma check (global): PASS
+sharedData line ends with comma: PASS
+status line ends with comma: PASS
+
+--- Running main.thrift regression with trailingComma = add ---
+No space before comma check (global): PASS
+sharedData line ends with comma: PASS
+status line ends with comma: PASS
+
+--- Running main.thrift regression with trailingComma = remove ---
+No comma on sharedData line: PASS
+No comma on status line: PASS
+No trailing spaces (sharedData): PASS
+No trailing spaces (status): PASS
+
+Main.thrift regression checks passed.
+
+
+===== Running: tests/test-range-context.js =====
+[test-range-context] Running tests...
+  鉁?align type/name/annotations when enabled
+  鉁?annotations not aligned when disabled
+  鉁?legacy key alignStructAnnotations remains supported
+All tests passed.
+
+
+===== Running: tests/test-complex-types.js =====
+Testing complex types formatting...
+Input code:
+struct TestStruct {
+    1: required list < string > names,
+    2: optional map< string , i32 > values  ,
+    3: i32 count
+}
+
+Formatted code:
+struct TestStruct {
+    1: required list<string>    names,
+    2: optional map<string,i32> values,
+    3: i32             count
+}
+
+Checking formatting:
+- list<string> (no spaces): 鉁?- map<string,i32> (no spaces): 鉁?
+鉁?Complex types formatted correctly
+
+
+===== Running: tests/test-trailing-comma.js =====
+Testing trailing comma functionality...
+
+--- Preserve mode - keep existing commas ---
+Input:
+struct User {
+    1: string name,
+    2: i32 age
+}
+
+Output:
+struct User {
+    1: string name,
+    2: i32 age
+}
+
+Trailing comma check: PASS
+Description: Should keep comma after name, no comma after age
+
+--- Preserve mode - keep no commas ---
+Input:
+struct User {
+    1: string name
+    2: i32 age
+}
+
+Output:
+struct User {
+    1: string name
+    2: i32 age
+}
+
+Trailing comma check: PASS
+Description: Should keep no commas
+
+--- Add mode - add missing commas ---
+Input:
+struct User {
+    1: string name
+    2: i32 age
+}
+
+Output:
+struct User {
+    1: string name,
+    2: i32 age,
+}
+
+Trailing comma check: PASS
+Description: Should add commas to both fields
+
+--- Remove mode - remove existing commas ---
+Input:
+struct User {
+    1: string name,
+    2: i32 age,
+}
+
+Output:
+struct User {
+    1: string name
+    2: i32 age
+}
+
+Trailing comma check: PASS
+Description: Should remove all commas
+
+--- Enum preserve mode ---
+Input:
+enum Status {
+    ACTIVE = 1,
+    INACTIVE = 2
+}
+
+Output:
+enum Status {
+    ACTIVE = 1,
+    INACTIVE = 2
+}
+
+Trailing comma check: PASS
+Description: Should preserve enum comma state
+
+--- Enum add mode ---
+Input:
+enum Status {
+    ACTIVE = 1
+    INACTIVE = 2
+}
+
+Output:
+enum Status {
+    ACTIVE = 1,
+    INACTIVE = 2,
+}
+
+Trailing comma check: PASS
+Description: Should add commas to enum values
+
+--- Enum remove mode ---
+Input:
+enum Status {
+    ACTIVE = 1,
+    INACTIVE = 2,
+}
+
+Output:
+enum Status {
+    ACTIVE = 1
+    INACTIVE = 2
+}
+
+Trailing comma check: PASS
+Description: Should remove commas from enum values
+
+--- Add mode - comma tight before when annotations add padding ---
+Input:
+struct S {
+    1: string a (anno='x')
+    2: i32    b (anno='y')    
+}
+
+Output:
+struct S {
+    1: string a (anno='x'),
+    2: i32 b (anno='y'),
+}
+
+Trailing comma check: PASS
+Description: Comma should be appended immediately after content with no preceding spaces even if alignment produced trailing spaces
+
+Trailing comma tests completed!
+
+
+===== Running: tests/test-struct-blank-lines.js =====
+Struct blank lines preservation test PASSED
+
+
+===== Running: tests/test-full-file-format.js =====
+Testing full file formatting...
+User struct found at lines 26-38
+
+Original User struct:
+Line 26: "struct User {" 
+Line 27: "  1: required UserId     id,                        // 鐢ㄦ埛鍞竴鏍囪瘑" 
+Line 28: "  " (BLANK)
+Line 29: "  2: required string    name (go.tag='json:"name"'),                       // 鐢ㄦ埛濮撳悕" 
+Line 30: "  3: optional Email email,                          // 閭鍦板潃" 
+Line 31: "  4: optional i32 age,                              // 骞撮緞" 
+Line 32: "  5: optional Status status = Status.ACTIVE,       // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺? 
+Line 33: "  6: optional list<string> tags,                    // 鐢ㄦ埛鏍囩鍒楄〃" 
+Line 34: "  7: optional map<string, string> metadata,        // 鐢ㄦ埛鍏冩暟鎹? 
+Line 35: "  8: optional bool isVerified = false,             // 鏄惁宸查獙璇侊紝榛樿鏈獙璇? 
+Line 36: "  9: optional double score = 0.0,                  // 鐢ㄦ埛璇勫垎锛岄粯璁?.0" 
+Line 37: "  10: optional binary avatar                        // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹? 
+Line 38: "}" 
+
+Formatted User struct found at lines 26-38
+
+Formatted User struct:
+Line 26: "struct User {" 
+Line 27: "  1: required UserId id, // 鐢ㄦ埛鍞竴鏍囪瘑" 
+Line 28: "" (BLANK)
+Line 29: "  2:  required string             name       (go.tag='json:"name"'), // 鐢ㄦ埛濮撳悕" 
+Line 30: "  3:  optional Email              email,                             // 閭鍦板潃" 
+Line 31: "  4:  optional i32                age,                               // 骞撮緞" 
+Line 32: "  5:  optional Status             status = Status.ACTIVE,            // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺? 
+Line 33: "  6:  optional list<string>       tags,                              // 鐢ㄦ埛鏍囩鍒楄〃" 
+Line 34: "  7:  optional map<string,string> metadata,                          // 鐢ㄦ埛鍏冩暟鎹? 
+Line 35: "  8:  optional bool               isVerified = false,                // 鏄惁宸查獙璇侊紝榛樿鏈獙璇? 
+Line 36: "  9:  optional double             score = 0.0,                       // 鐢ㄦ埛璇勫垎锛岄粯璁?.0" 
+Line 37: "  10: optional binary             avatar                             // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹? 
+Line 38: "}" 
+
+Original User struct blank line positions: [3]
+Formatted User struct blank line positions: [3]
+鉁?Full file formatting preserves User struct blank lines correctly
+
+Formatted output written to: E:\workspaces\trae\thrift-support\test-files\example-formatted.thrift
+
+
+===== Running: tests/test-real-format.js =====
+鉁?Real format test executed
+
+
+===== Running: tests/test-vscode-simulation.js =====
+馃攳 Testing VS Code formatting scenarios...
+
+馃搫 Test 1: Format entire document
+==================================================
+Original User struct: lines 26-38
+Formatted User struct: lines 26-38
+Original blank positions: [3]
+Formatted blank positions: [3]
+鉁?Document formatting preserves blank lines
+
+馃摑 Test 2: Format selected range (lines 25-38)
+==================================================
+Range original blank positions: [4]
+Range formatted blank positions: [4]
+鉁?Range formatting preserves blank lines
+
+
+===== Running: tests/test-include-filename-detection.js =====
+Testing include filename detection with dots...
+
+1. Testing cursor on "shared" part of "shared.thrift"
+鉁?Successfully detected include file from "shared" part
+   Target: E:\workspaces\trae\thrift-support\test-files\shared.thrift
+
+2. Testing cursor on "." part of "shared.thrift"
+鉁?Successfully detected include file from "." part
+   Target: E:\workspaces\trae\thrift-support\test-files\shared.thrift
+
+3. Testing cursor on "thrift" part of "shared.thrift"
+鉁?Successfully detected include file from "thrift" part
+   Target: E:\workspaces\trae\thrift-support\test-files\shared.thrift
+
+馃帀 Include filename detection tests completed!
+
+
+===== Running: tests/test-example-lines-25-38.js =====
+Testing lines 25-38 blank line preservation...
+Input (lines 25-38):
+// Struct definition with various field types - 鐢ㄦ埛淇℃伅缁撴瀯浣?struct User {
+  1: required UserId     id,                        // 鐢ㄦ埛鍞竴鏍囪瘑
+  
+  2: required string    name (go.tag='json:"name"'),                       // 鐢ㄦ埛濮撳悕
+  3: optional Email email,                          // 閭鍦板潃
+  4: optional i32 age,                              // 骞撮緞
+  5: optional Status status = Status.ACTIVE,       // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺?  6: optional list<string> tags,                    // 鐢ㄦ埛鏍囩鍒楄〃
+  7: optional map<string, string> metadata,        // 鐢ㄦ埛鍏冩暟鎹?  8: optional bool isVerified = false,             // 鏄惁宸查獙璇侊紝榛樿鏈獙璇?  9: optional double score = 0.0,                  // 鐢ㄦ埛璇勫垎锛岄粯璁?.0
+  10: optional binary avatar                        // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹?}
+---
+Line by line analysis:
+Line 1: "// Struct definition with various field types - 鐢ㄦ埛淇℃伅缁撴瀯浣? 
+Line 2: "struct User {" 
+Line 3: "  1: required UserId     id,                        // 鐢ㄦ埛鍞竴鏍囪瘑" 
+Line 4: "  " (BLANK)
+Line 5: "  2: required string    name (go.tag='json:"name"'),                       // 鐢ㄦ埛濮撳悕" 
+Line 6: "  3: optional Email email,                          // 閭鍦板潃" 
+Line 7: "  4: optional i32 age,                              // 骞撮緞" 
+Line 8: "  5: optional Status status = Status.ACTIVE,       // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺? 
+Line 9: "  6: optional list<string> tags,                    // 鐢ㄦ埛鏍囩鍒楄〃" 
+Line 10: "  7: optional map<string, string> metadata,        // 鐢ㄦ埛鍏冩暟鎹? 
+Line 11: "  8: optional bool isVerified = false,             // 鏄惁宸查獙璇侊紝榛樿鏈獙璇? 
+Line 12: "  9: optional double score = 0.0,                  // 鐢ㄦ埛璇勫垎锛岄粯璁?.0" 
+Line 13: "  10: optional binary avatar                        // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹? 
+Line 14: "}" 
+---
+Formatted output:
+// Struct definition with various field types - 鐢ㄦ埛淇℃伅缁撴瀯浣?struct User {
+  1: required UserId id, // 鐢ㄦ埛鍞竴鏍囪瘑
+
+  2:  required string             name       (go.tag='json:"name"'), // 鐢ㄦ埛濮撳悕
+  3:  optional Email              email,                             // 閭鍦板潃
+  4:  optional i32                age,                               // 骞撮緞
+  5:  optional Status             status = Status.ACTIVE,            // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺?  6:  optional list<string>       tags,                              // 鐢ㄦ埛鏍囩鍒楄〃
+  7:  optional map<string,string> metadata,                          // 鐢ㄦ埛鍏冩暟鎹?  8:  optional bool               isVerified = false,                // 鏄惁宸查獙璇侊紝榛樿鏈獙璇?  9:  optional double             score = 0.0,                       // 鐢ㄦ埛璇勫垎锛岄粯璁?.0
+  10: optional binary             avatar                             // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹?}
+---
+Output line by line analysis:
+Line 1: "// Struct definition with various field types - 鐢ㄦ埛淇℃伅缁撴瀯浣? 
+Line 2: "struct User {" 
+Line 3: "  1: required UserId id, // 鐢ㄦ埛鍞竴鏍囪瘑" 
+Line 4: "" (BLANK)
+Line 5: "  2:  required string             name       (go.tag='json:"name"'), // 鐢ㄦ埛濮撳悕" 
+Line 6: "  3:  optional Email              email,                             // 閭鍦板潃" 
+Line 7: "  4:  optional i32                age,                               // 骞撮緞" 
+Line 8: "  5:  optional Status             status = Status.ACTIVE,            // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺? 
+Line 9: "  6:  optional list<string>       tags,                              // 鐢ㄦ埛鏍囩鍒楄〃" 
+Line 10: "  7:  optional map<string,string> metadata,                          // 鐢ㄦ埛鍏冩暟鎹? 
+Line 11: "  8:  optional bool               isVerified = false,                // 鏄惁宸查獙璇侊紝榛樿鏈獙璇? 
+Line 12: "  9:  optional double             score = 0.0,                       // 鐢ㄦ埛璇勫垎锛岄粯璁?.0" 
+Line 13: "  10: optional binary             avatar                             // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹? 
+Line 14: "}" 
+---
+Input blank line positions: [4]
+Output blank line positions: [4]
+鉁?Lines 25-38 blank line preservation test PASSED
+
+
+===== Running: tests/test-namespace-navigation.js =====
+鉁?Include quoted path navigation works
+鉁?No navigation when clicking include keyword
+鉁?Namespace click navigates to include line
+鉁?Type click navigates to SharedEnum definition
+
+All namespace/include navigation tests passed.
+
+
+===== Running: tests/test-indent-width.js =====
+Testing indent width functionality...
+
+--- Default indent width (4 spaces) ---
+Input:
+struct User {
+1: string name,
+2: i32 age
+}
+
+Output:
+struct User {
+    1: string name,
+    2: i32    age
+}
+
+Indent check: PASS
+
+--- Custom indent width (2 spaces) ---
+Input:
+struct User {
+1: string name,
+2: i32 age
+}
+
+Output:
+struct User {
+  1: string name,
+  2: i32    age
+}
+
+Indent check: PASS
+
+--- Custom indent width (8 spaces) ---
+Input:
+struct User {
+1: string name,
+2: i32 age
+}
+
+Output:
+struct User {
+        1: string name,
+        2: i32    age
+}
+
+Indent check: PASS
+
+Indent width tests completed!
+
+
+===== Running: tests/format-example.js =====
+--- Original (lines 104-108) ---
+104: // HTTP閿欒浠ｇ爜鏄犲皠琛?105: const map<string, i32> ERROR_CODES = {
+106:     "NOT_FOUND": 404,           // 璧勬簮鏈壘鍒?107:     "VALIDATION_ERROR": 400,    // 鏁版嵁楠岃瘉閿欒
+108:     "INTERNAL_ERROR": 500       // 鍐呴儴鏈嶅姟鍣ㄩ敊璇?
+--- Formatted (lines 104-108) ---
+104:     const map<string, i32> ERROR_CODES = {
+105:     "NOT_FOUND": 404,        // 璧勬簮鏈壘鍒?106:     "VALIDATION_ERROR": 400, // 鏁版嵁楠岃瘉閿欒
+107:     "INTERNAL_ERROR": 500    // 鍐呴儴鏈嶅姟鍣ㄩ敊璇?108: }
+
+
+===== Running: tests/test-namespace-edge-cases.js =====
+鉁?testDuplicateIncludeNavigatesToFirst
+鉁?testSimilarPrefixResolvesCorrectly
+鉁?testSingleQuotedIncludeClickable
+鉁?testClickDotDoesNotNavigate
+鉁?testGenericsTypeClick
+All edge case tests passed.
+
+1 test file(s) failed.

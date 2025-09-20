@@ -6,7 +6,7 @@
 namespace java com.example.thrift
 namespace py example.thrift
 
-include "shared.thrift"
+include "./shared.thrift"
 
 // Basic data types demonstration
 // 用户ID类型定义
@@ -26,7 +26,7 @@ enum Status {
 struct User {
   1: required UserId     id,                        // 用户唯一标识
   
-  2: required string    name,                       // 用户姓名
+  2: required string    name (go.tag='json:"name"'),                       // 用户姓名
   3: optional Email email,                          // 邮箱地址
   4: optional i32 age,                              // 年龄
   5: optional Status status = Status.ACTIVE,       // 用户状态，默认为活跃

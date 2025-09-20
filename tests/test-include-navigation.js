@@ -12,6 +12,17 @@ const vscode = {
             this.character = character;
         }
     },
+    Range: class {
+        constructor(startOrStartLine, startCharOrEnd, endLine, endChar) {
+            if (startOrStartLine instanceof vscode.Position && startCharOrEnd instanceof vscode.Position) {
+                this.start = startOrStartLine;
+                this.end = startCharOrEnd;
+            } else {
+                this.start = new vscode.Position(startOrStartLine, startCharOrEnd);
+                this.end = new vscode.Position(endLine, endChar);
+            }
+        }
+    },
     Location: class {
         constructor(uri, position) {
             this.uri = uri;
@@ -77,6 +88,19 @@ const vscode = {
                     return line.substring(range.start.character, range.end.character);
                 }
             };
+        },
+        findFiles: async (glob, exclude) => {
+            // Mock implementation: return URIs of .thrift files under tests/test-files
+            const dir = path.resolve(__dirname, '..', 'test-files');
+            let entries = [];
+            try {
+                entries = fs.readdirSync(dir);
+            } catch (e) {
+                entries = [];
+            }
+            return entries
+                .filter((f) => f.endsWith('.thrift'))
+                .map((f) => vscode.Uri.file(path.join(dir, f)));
         }
     }
 };
@@ -103,7 +127,7 @@ async function testIncludeNavigation() {
     console.log('\n1. Testing navigation from example.thrift to shared.thrift');
     
     try {
-        const examplePath = path.join(__dirname, '..', 'example.thrift');
+        const examplePath = path.join(__dirname, '..', 'test-files', 'example.thrift');
         const exampleUri = vscode.Uri.file(examplePath);
         const exampleDoc = await vscode.workspace.openTextDocument(exampleUri);
         
@@ -114,7 +138,7 @@ async function testIncludeNavigation() {
         let includeCharPos = -1;
         
         for (let i = 0; i < lines.length; i++) {
-            const match = lines[i].match(/include\s+["']([^"']+)["']/);
+            const match = lines[i].match(/include\s+["]([^"']+)["]/);
             if (match && match[1] === 'shared.thrift') {
                 includeLine = i;
                 includeCharPos = lines[i].indexOf('shared.thrift') + 5; // Middle of filename
@@ -151,7 +175,7 @@ async function testIncludeNavigation() {
     console.log('\n2. Testing cursor outside filename (should not navigate)');
     
     try {
-        const examplePath = path.join(__dirname, '..', 'example.thrift');
+        const examplePath = path.join(__dirname, '..', 'test-files', 'example.thrift');
         const exampleUri = vscode.Uri.file(examplePath);
         const exampleDoc = await vscode.workspace.openTextDocument(exampleUri);
         
