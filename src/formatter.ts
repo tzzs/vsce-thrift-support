@@ -724,7 +724,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         let maxTypeWidth = 0;
         let maxNameWidth = 0;
         let maxAnnotationWidth = 0;
-        let maxContentWidth = 0; // For comment alignment
+        let maxContentWidth = 0;
 
         const parsedFields = sortedFields.map(field => {
             // Extract field ID and required/optional parts separately
@@ -862,6 +862,9 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             return max;
         })();
 
+        // When only one field has an inline comment, avoid adding extra padding for alignment
+        const commentCount = parsedFields.reduce((acc, f) => acc + ((f && f.comment) ? 1 : 0), 0);
+
          // Use parsedFields for formatting
 
          // Format fields with alignment
@@ -939,12 +942,11 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     if (options.alignStructAnnotations) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
                         const spaces = targetAnnoStart - currentWidth + 1;
+                        // Place annotation at target start, do not pad to width here; append comma immediately if needed
+                        formattedLine += ' '.repeat(spaces) + field.annotation;
                         if (hasComma && options.trailingComma !== 'add') {
-                            const padAfterComma = Math.max(0, maxAnnotationWidth - field.annotation.length);
-                            formattedLine += ' '.repeat(spaces) + field.annotation + ',' + ' '.repeat(padAfterComma);
+                            formattedLine += ',';
                             appendedComma = true;
-                        } else {
-                            formattedLine += ' '.repeat(spaces) + field.annotation.padEnd(maxAnnotationWidth);
                         }
                     } else {
                         formattedLine += ' ' + field.annotation;
@@ -964,8 +966,9 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 if (field.comment) {
                     if (options.alignComments) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
-                        const pad = Math.max(1, maxContentWidth - currentWidth + 1);
-                        formattedLine += ' '.repeat(pad) + field.comment;
+                        const diff = maxContentWidth - currentWidth;
+                        const padSpaces = commentCount > 1 ? Math.max(1, diff + 1) : 1;
+                        formattedLine += ' '.repeat(padSpaces) + field.comment;
                     } else {
                         formattedLine += ' ' + field.comment;
                     }
@@ -985,27 +988,28 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     if (options.alignStructAnnotations) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
                         const spaces = targetAnnoStart - currentWidth + 1;
+                        // Place annotation at target start, do not pad to width here; append comma immediately if needed
+                        formattedLine += ' '.repeat(spaces) + field.annotation;
                         if (hasComma && options.trailingComma !== 'add') {
-                            const padAfterComma = Math.max(0, maxAnnotationWidth - field.annotation.length);
-                            formattedLine += ' '.repeat(spaces) + field.annotation + ',' + ' '.repeat(padAfterComma);
+                            formattedLine += ',';
                             appendedComma = true;
-                        } else {
-                            formattedLine += ' '.repeat(spaces) + field.annotation.padEnd(maxAnnotationWidth);
                         }
                     } else {
                         formattedLine += ' ' + field.annotation;
                     }
                  }
                  // Add comma before comments for non-"add" modes
-                 if (hasComma && options.trailingComma !== 'add') {
+                 if (hasComma && options.trailingComma !== 'add' && !appendedComma) {
                      formattedLine += ',';
+                     appendedComma = true;
                  }
                 // Add inline comment, aligned if enabled
                 if (field.comment) {
                     if (options.alignComments) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
-                        const pad = Math.max(1, maxContentWidth - currentWidth + 1);
-                        formattedLine += ' '.repeat(pad) + field.comment;
+                        const diff = maxContentWidth - currentWidth;
+                        const padSpaces = commentCount > 1 ? Math.max(1, diff + 1) : 1;
+                        formattedLine += ' '.repeat(padSpaces) + field.comment;
                     } else {
                         formattedLine += ' ' + field.comment;
                     }
@@ -1063,17 +1067,14 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             }
             base += valueStr;
 
-            // Preserve semicolons; for commas, only include in base for non-'add' modes so width excludes comma in 'add'
-            if (hasSemicolon) {
-                base += ';';
-            } else if (options.trailingComma !== 'add' && hasComma) {
+            // Only include comma in base for non-'add' modes; never append semicolon here (it goes at end of line)
+            if (!hasSemicolon && options.trailingComma !== 'add' && hasComma) {
                 base += ',';
             }
 
             interim.push({ base, comment: f.comment, hasComma, hasSemicolon });
             maxContentWidth = Math.max(maxContentWidth, base.length - indent.length);
         }
-
         return interim.map(({ base, comment, hasComma, hasSemicolon }) => {
             let line = base;
             if (comment) {
@@ -1084,6 +1085,10 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 } else {
                     line = base + ' ' + comment;
                 }
+            }
+            // Append semicolon at end-of-line (after comments) when present
+            if (hasSemicolon) {
+                line += ';';
             }
             // In 'add' mode, append comma at the very end (after comments) when appropriate
             if (!hasSemicolon && hasComma && options.trailingComma === 'add') {

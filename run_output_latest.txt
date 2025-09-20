@@ -281,17 +281,17 @@ Calling provideDocumentRangeFormattingEdits...
 Formatted text:
 Line 25: "// Struct definition with various field types - 鐢ㄦ埛淇℃伅缁撴瀯浣? 
 Line 26: "struct User {" 
-Line 27: "  1: required UserId id,  // 鐢ㄦ埛鍞竴鏍囪瘑" 
-Line 28: "  " (BLANK)
-Line 29: "  2:  required string             name       (go.tag='json:"name"'),  // 鐢ㄦ埛濮撳悕" 
-Line 30: "  3:  optional Email              email,                              // 閭鍦板潃" 
-Line 31: "  4:  optional i32                age,                                // 骞撮緞" 
-Line 32: "  5:  optional Status             status = Status.ACTIVE,             // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺? 
-Line 33: "  6:  optional list<string>       tags,                               // 鐢ㄦ埛鏍囩鍒楄〃" 
-Line 34: "  7:  optional map<string,string> metadata,                           // 鐢ㄦ埛鍏冩暟鎹? 
-Line 35: "  8:  optional bool               isVerified = false,                 // 鏄惁宸查獙璇侊紝榛樿鏈獙璇? 
-Line 36: "  9:  optional double             score = 0.0,                        // 鐢ㄦ埛璇勫垎锛岄粯璁?.0" 
-Line 37: "  10: optional binary             avatar                              // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹? 
+Line 27: "  1: required UserId id, // 鐢ㄦ埛鍞竴鏍囪瘑" 
+Line 28: "" (BLANK)
+Line 29: "  2:  required string             name       (go.tag='json:"name"'), // 鐢ㄦ埛濮撳悕" 
+Line 30: "  3:  optional Email              email,                             // 閭鍦板潃" 
+Line 31: "  4:  optional i32                age,                               // 骞撮緞" 
+Line 32: "  5:  optional Status             status = Status.ACTIVE,            // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺? 
+Line 33: "  6:  optional list<string>       tags,                              // 鐢ㄦ埛鏍囩鍒楄〃" 
+Line 34: "  7:  optional map<string,string> metadata,                          // 鐢ㄦ埛鍏冩暟鎹? 
+Line 35: "  8:  optional bool               isVerified = false,                // 鏄惁宸查獙璇侊紝榛樿鏈獙璇? 
+Line 36: "  9:  optional double             score = 0.0,                       // 鐢ㄦ埛璇勫垎锛岄粯璁?.0" 
+Line 37: "  10: optional binary             avatar                             // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹? 
 Line 38: "}" 
 
 Original blank line positions (relative): [4]
@@ -445,15 +445,27 @@ All tests passed.
 
 ===== Running: tests/test-struct-annotations-combinations.js =====
 [test-struct-annotations-combinations] Running tests...
-  鉁?struct annotations aligned with all defaults
-  鉁?struct annotations aligned without type/name alignment
-  鉁?struct annotations not aligned when disabled
-  鉁?struct annotations alignment stable with trailingComma=add
-  鉁?semicolon preserved and annotations aligned
-  鉁?comments not aligned when alignComments=false
-  鉁?trailingComma=remove removes commas and preserves semicolons
-  鉁?comments align when only alignComments=true
-All tests passed.
+Test failed: AssertionError [ERR_ASSERTION]: comment columns should align
+
+63 !== 64
+
+    at test_struct_annotations_align_all_on (E:\workspaces\trae\thrift-support\tests\test-struct-annotations-combinations.js:146:10)
+    at main (E:\workspaces\trae\thrift-support\tests\test-struct-annotations-combinations.js:317:5)
+    at Object.<anonymous> (E:\workspaces\trae\thrift-support\tests\test-struct-annotations-combinations.js:338:3)
+    at Module._compile (node:internal/modules/cjs/loader:1688:14)
+    at Object..js (node:internal/modules/cjs/loader:1820:10)
+    at Module.load (node:internal/modules/cjs/loader:1423:32)
+    at Function.<anonymous> (node:internal/modules/cjs/loader:1246:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 63,
+  expected: 64,
+  operator: 'strictEqual'
+}
+Test failed: tests/test-struct-annotations-combinations.js (exit 1)
 
 
 ===== Running: tests/test-struct-defaults-alignment.js =====
@@ -555,10 +567,10 @@ Expected: Annotations should align, but default values should NOT align
 
 Formatted code:
 struct ComplexUser {
-    1: required string name                             (go.tag='json:"name"')  
+    1: required string name                             (go.tag='json:"name"')
     2: optional i32    age = 25
     3: required bool   isActive                         (go.tag='json:"active"')
-    4: optional string email = "default@example.com"    (go.tag='json:"email"') 
+    4: optional string email = "default@example.com"    (go.tag='json:"email"')
     5: required double score = 0.0
 }
 
@@ -582,14 +594,14 @@ struct User {
 ---
 Formatted output:
 struct User {
-  1: required UserId id,  // 鐢ㄦ埛鍞竴鏍囪瘑
-  
-  2:  required string             name       (go.tag='json:"name"'),  // 鐢ㄦ埛濮撳悕
-  3:  optional Email              email,                              // 閭鍦板潃
-  4:  optional i32                age,                                // 骞撮緞
-  5:  optional Status             status = Status.ACTIVE,             // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺?  6:  optional list<string>       tags,                               // 鐢ㄦ埛鏍囩鍒楄〃
-  7:  optional map<string,string> metadata,                           // 鐢ㄦ埛鍏冩暟鎹?  8:  optional bool               isVerified = false,                 // 鏄惁宸查獙璇侊紝榛樿鏈獙璇?  9:  optional double             score = 0.0,                        // 鐢ㄦ埛璇勫垎锛岄粯璁?.0
-  10: optional binary             avatar                              // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹?}
+  1: required UserId id, // 鐢ㄦ埛鍞竴鏍囪瘑
+
+  2:  required string             name       (go.tag='json:"name"'), // 鐢ㄦ埛濮撳悕
+  3:  optional Email              email,                             // 閭鍦板潃
+  4:  optional i32                age,                               // 骞撮緞
+  5:  optional Status             status = Status.ACTIVE,            // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺?  6:  optional list<string>       tags,                              // 鐢ㄦ埛鏍囩鍒楄〃
+  7:  optional map<string,string> metadata,                          // 鐢ㄦ埛鍏冩暟鎹?  8:  optional bool               isVerified = false,                // 鏄惁宸查獙璇侊紝榛樿鏈獙璇?  9:  optional double             score = 0.0,                       // 鐢ㄦ埛璇勫垎锛岄粯璁?.0
+  10: optional binary             avatar                             // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹?}
 ---
 Input blank lines: 1
 Output blank lines: 1
@@ -738,39 +750,13 @@ Const formatting tests completed.
 
 --- Running main.thrift regression with trailingComma = preserve ---
 No space before comma check (global): PASS
-sharedData line ends with comma: FAIL
+sharedData line ends with comma: PASS
 status line ends with comma: PASS
-
-Formatted Output:
-include "../test-files/shared.thrift"
-
-struct MainStruct {
-    
-    1: required shared.SharedStruct sharedData (go.tag='json:"sharedData"'),  // 鍏变韩鏁版嵁
-    2: optional shared.SharedEnum   status (go.tag='json:"status"'),
-}
-
-service MainService {
-    void processData(1: MainStruct data)
-}
 
 --- Running main.thrift regression with trailingComma = add ---
 No space before comma check (global): PASS
-sharedData line ends with comma: FAIL
+sharedData line ends with comma: PASS
 status line ends with comma: PASS
-
-Formatted Output:
-include "../test-files/shared.thrift"
-
-struct MainStruct {
-    
-    1: required shared.SharedStruct sharedData (go.tag='json:"sharedData"')  // 鍏变韩鏁版嵁,
-    2: optional shared.SharedEnum   status (go.tag='json:"status"'),
-}
-
-service MainService {
-    void processData(1: MainStruct data)
-}
 
 --- Running main.thrift regression with trailingComma = remove ---
 No comma on sharedData line: PASS
@@ -778,8 +764,7 @@ No comma on status line: PASS
 No trailing spaces (sharedData): PASS
 No trailing spaces (status): PASS
 
-2 regression check(s) failed.
-Test failed: tests/test-main-file-regression.js (exit 1)
+Main.thrift regression checks passed.
 
 
 ===== Running: tests/test-range-context.js =====
@@ -972,17 +957,17 @@ Formatted User struct found at lines 26-38
 
 Formatted User struct:
 Line 26: "struct User {" 
-Line 27: "  1: required UserId id,  // 鐢ㄦ埛鍞竴鏍囪瘑" 
-Line 28: "  " (BLANK)
-Line 29: "  2:  required string             name       (go.tag='json:"name"'),  // 鐢ㄦ埛濮撳悕" 
-Line 30: "  3:  optional Email              email,                              // 閭鍦板潃" 
-Line 31: "  4:  optional i32                age,                                // 骞撮緞" 
-Line 32: "  5:  optional Status             status = Status.ACTIVE,             // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺? 
-Line 33: "  6:  optional list<string>       tags,                               // 鐢ㄦ埛鏍囩鍒楄〃" 
-Line 34: "  7:  optional map<string,string> metadata,                           // 鐢ㄦ埛鍏冩暟鎹? 
-Line 35: "  8:  optional bool               isVerified = false,                 // 鏄惁宸查獙璇侊紝榛樿鏈獙璇? 
-Line 36: "  9:  optional double             score = 0.0,                        // 鐢ㄦ埛璇勫垎锛岄粯璁?.0" 
-Line 37: "  10: optional binary             avatar                              // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹? 
+Line 27: "  1: required UserId id, // 鐢ㄦ埛鍞竴鏍囪瘑" 
+Line 28: "" (BLANK)
+Line 29: "  2:  required string             name       (go.tag='json:"name"'), // 鐢ㄦ埛濮撳悕" 
+Line 30: "  3:  optional Email              email,                             // 閭鍦板潃" 
+Line 31: "  4:  optional i32                age,                               // 骞撮緞" 
+Line 32: "  5:  optional Status             status = Status.ACTIVE,            // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺? 
+Line 33: "  6:  optional list<string>       tags,                              // 鐢ㄦ埛鏍囩鍒楄〃" 
+Line 34: "  7:  optional map<string,string> metadata,                          // 鐢ㄦ埛鍏冩暟鎹? 
+Line 35: "  8:  optional bool               isVerified = false,                // 鏄惁宸查獙璇侊紝榛樿鏈獙璇? 
+Line 36: "  9:  optional double             score = 0.0,                       // 鐢ㄦ埛璇勫垎锛岄粯璁?.0" 
+Line 37: "  10: optional binary             avatar                             // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹? 
 Line 38: "}" 
 
 Original User struct blank line positions: [3]
@@ -1019,13 +1004,15 @@ Testing include filename detection with dots...
 
 1. Testing cursor on "shared" part of "shared.thrift"
 鉁?Successfully detected include file from "shared" part
-   Target: E:\workspaces\trae\thrift-support\tests\test-include.thrift
+   Target: E:\workspaces\trae\thrift-support\test-files\shared.thrift
 
 2. Testing cursor on "." part of "shared.thrift"
-鉂?Failed to detect include file from "." part
+鉁?Successfully detected include file from "." part
+   Target: E:\workspaces\trae\thrift-support\test-files\shared.thrift
 
 3. Testing cursor on "thrift" part of "shared.thrift"
-鉂?Failed to detect include file from "thrift" part
+鉁?Successfully detected include file from "thrift" part
+   Target: E:\workspaces\trae\thrift-support\test-files\shared.thrift
 
 馃帀 Include filename detection tests completed!
 
@@ -1061,29 +1048,29 @@ Line 14: "}"
 ---
 Formatted output:
 // Struct definition with various field types - 鐢ㄦ埛淇℃伅缁撴瀯浣?struct User {
-  1: required UserId id,  // 鐢ㄦ埛鍞竴鏍囪瘑
-  
-  2:  required string             name       (go.tag='json:"name"'),  // 鐢ㄦ埛濮撳悕
-  3:  optional Email              email,                              // 閭鍦板潃
-  4:  optional i32                age,                                // 骞撮緞
-  5:  optional Status             status = Status.ACTIVE,             // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺?  6:  optional list<string>       tags,                               // 鐢ㄦ埛鏍囩鍒楄〃
-  7:  optional map<string,string> metadata,                           // 鐢ㄦ埛鍏冩暟鎹?  8:  optional bool               isVerified = false,                 // 鏄惁宸查獙璇侊紝榛樿鏈獙璇?  9:  optional double             score = 0.0,                        // 鐢ㄦ埛璇勫垎锛岄粯璁?.0
-  10: optional binary             avatar                              // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹?}
+  1: required UserId id, // 鐢ㄦ埛鍞竴鏍囪瘑
+
+  2:  required string             name       (go.tag='json:"name"'), // 鐢ㄦ埛濮撳悕
+  3:  optional Email              email,                             // 閭鍦板潃
+  4:  optional i32                age,                               // 骞撮緞
+  5:  optional Status             status = Status.ACTIVE,            // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺?  6:  optional list<string>       tags,                              // 鐢ㄦ埛鏍囩鍒楄〃
+  7:  optional map<string,string> metadata,                          // 鐢ㄦ埛鍏冩暟鎹?  8:  optional bool               isVerified = false,                // 鏄惁宸查獙璇侊紝榛樿鏈獙璇?  9:  optional double             score = 0.0,                       // 鐢ㄦ埛璇勫垎锛岄粯璁?.0
+  10: optional binary             avatar                             // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹?}
 ---
 Output line by line analysis:
 Line 1: "// Struct definition with various field types - 鐢ㄦ埛淇℃伅缁撴瀯浣? 
 Line 2: "struct User {" 
-Line 3: "  1: required UserId id,  // 鐢ㄦ埛鍞竴鏍囪瘑" 
-Line 4: "  " (BLANK)
-Line 5: "  2:  required string             name       (go.tag='json:"name"'),  // 鐢ㄦ埛濮撳悕" 
-Line 6: "  3:  optional Email              email,                              // 閭鍦板潃" 
-Line 7: "  4:  optional i32                age,                                // 骞撮緞" 
-Line 8: "  5:  optional Status             status = Status.ACTIVE,             // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺? 
-Line 9: "  6:  optional list<string>       tags,                               // 鐢ㄦ埛鏍囩鍒楄〃" 
-Line 10: "  7:  optional map<string,string> metadata,                           // 鐢ㄦ埛鍏冩暟鎹? 
-Line 11: "  8:  optional bool               isVerified = false,                 // 鏄惁宸查獙璇侊紝榛樿鏈獙璇? 
-Line 12: "  9:  optional double             score = 0.0,                        // 鐢ㄦ埛璇勫垎锛岄粯璁?.0" 
-Line 13: "  10: optional binary             avatar                              // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹? 
+Line 3: "  1: required UserId id, // 鐢ㄦ埛鍞竴鏍囪瘑" 
+Line 4: "" (BLANK)
+Line 5: "  2:  required string             name       (go.tag='json:"name"'), // 鐢ㄦ埛濮撳悕" 
+Line 6: "  3:  optional Email              email,                             // 閭鍦板潃" 
+Line 7: "  4:  optional i32                age,                               // 骞撮緞" 
+Line 8: "  5:  optional Status             status = Status.ACTIVE,            // 鐢ㄦ埛鐘舵€侊紝榛樿涓烘椿璺? 
+Line 9: "  6:  optional list<string>       tags,                              // 鐢ㄦ埛鏍囩鍒楄〃" 
+Line 10: "  7:  optional map<string,string> metadata,                          // 鐢ㄦ埛鍏冩暟鎹? 
+Line 11: "  8:  optional bool               isVerified = false,                // 鏄惁宸查獙璇侊紝榛樿鏈獙璇? 
+Line 12: "  9:  optional double             score = 0.0,                       // 鐢ㄦ埛璇勫垎锛岄粯璁?.0" 
+Line 13: "  10: optional binary             avatar                             // 鐢ㄦ埛澶村儚浜岃繘鍒舵暟鎹? 
 Line 14: "}" 
 ---
 Input blank line positions: [4]

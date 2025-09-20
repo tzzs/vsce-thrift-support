@@ -16,16 +16,16 @@ typedef string Email
 
 // Enum definition - 用户状态枚举
 enum Status {
-  ACTIVE    = 1,  // 活跃状态
-  INACTIVE  = 2,  // 非活跃状态
-  PENDING   = 3,  // 待审核状态
-  SUSPENDED = 4   // 暂停状态
+  ACTIVE    = 1, // 活跃状态
+  INACTIVE  = 2, // 非活跃状态
+  PENDING   = 3, // 待审核状态
+  SUSPENDED = 4  // 暂停状态
 }
 
 // Struct definition with various field types - 用户信息结构体
 struct User {
-  1: required UserId id,  // 用户唯一标识
-  
+  1: required UserId id, // 用户唯一标识
+
   2:  required string             name       (go.tag='json:"name"'),  // 用户姓名
   3:  optional Email              email,                              // 邮箱地址
   4:  optional i32                age,                                // 年龄
@@ -64,33 +64,33 @@ service UserService {
    * Create a new user
    */
   User createUser(1: User user) throws (1: ValidationException validationError),
-  
+
   /**
    * Get user by ID
    */
   User getUser(1: UserId userId) throws (1: UserNotFoundException notFound),
-  
+
   /**
    * Update user information
    */
   void updateUser(1: UserId userId, 2: User user)
   throws (1: UserNotFoundException notFound, 2: ValidationException validationError),
-  
+
   /**
    * Delete user
    */
   oneway void deleteUser(1: UserId userId),
-  
+
   /**
    * Search users by criteria
    */
   list<User> searchUsers(1: SearchCriteria criteria, 2: i32 limit = 10, 3: i32 offset = 0),
-  
+
   /**
    * Get user count
    */
   i64 getUserCount(),
-  
+
   /**
    * Batch get users
    */

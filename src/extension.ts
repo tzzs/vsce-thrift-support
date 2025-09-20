@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ThriftFormattingProvider } from './formatter';
 import { ThriftDefinitionProvider } from './definitionProvider';
+import { ThriftHoverProvider } from './hoverProvider';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Thrift Support extension is now active!');
@@ -18,6 +19,12 @@ export function activate(context: vscode.ExtensionContext) {
     const definitionProvider = new ThriftDefinitionProvider();
     context.subscriptions.push(
         vscode.languages.registerDefinitionProvider('thrift', definitionProvider)
+    );
+
+    // Register hover provider for showing symbol documentation on hover
+    const hoverProvider = new ThriftHoverProvider();
+    context.subscriptions.push(
+        vscode.languages.registerHoverProvider('thrift', hoverProvider)
     );
 
     // Register commands
