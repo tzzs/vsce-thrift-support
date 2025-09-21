@@ -1,10 +1,12 @@
 import * as vscode from 'vscode';
-import type { ExtensionContext } from 'vscode';
 import { ThriftFormattingProvider } from './formatter';
 import { ThriftDefinitionProvider } from './definitionProvider';
 import { ThriftHoverProvider } from './hoverProvider';
+import { registerDiagnostics } from './diagnostics';
+import { ThriftRenameProvider } from './renameProvider';
+import { ThriftRefactorCodeActionProvider } from './codeActions';
 
-export function activate(context: ExtensionContext) {
+export function activate(context: vscode.ExtensionContext) {
     console.log('Thrift Support extension is now active!');
 
     // Register formatting provider
@@ -28,7 +30,28 @@ export function activate(context: ExtensionContext) {
         vscode.languages.registerHoverProvider('thrift', hoverProvider)
     );
 
-    // Register commands
+    // Register diagnostics (syntax/type/duplicate id/unknown type)
+    registerDiagnostics(context);
+
+    // Register rename provider
+    context.subscriptions.push(
+        vscode.languages.registerRenameProvider('thrift', new ThriftRenameProvider())
+    );
+
+    // Register code actions provider (extract/move type)
+    context.subscriptions.push(
+        vscode.languages.registerCodeActionsProvider(
+            'thrift',
+            new ThriftRefactorCodeActionProvider(),
+            { providedCodeActionKinds: [
+                vscode.CodeActionKind.Refactor,
+                vscode.CodeActionKind.RefactorExtract,
+                vscode.CodeActionKind.RefactorMove
+            ]}
+        )
+    );
+
+    // Register formatting commands
     context.subscriptions.push(
         vscode.commands.registerCommand('thrift.format.document', async () => {
             const editor = vscode.window.activeTextEditor;
@@ -44,6 +67,116 @@ export function activate(context: ExtensionContext) {
             if (editor && editor.document.languageId === 'thrift') {
                 await vscode.commands.executeCommand('editor.action.formatSelection');
             }
+        })
+    );
+
+    // Refactor: extract type definition
+    context.subscriptions.push(
+        vscode.commands.registerCommand('thrift.refactor.extractType', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || editor.document.languageId !== 'thrift') return;
+            const doc = editor.document;
+            const sel = editor.selection;
+            const fullLine = doc.lineAt(sel.active.line).text;
+            const selectedText = doc.getText(sel) || undefined;
+
+            // Try to infer type from current line if no selection
+            let typeText = selectedText && selectedText.trim().length > 0 ? selectedText.trim() : undefined;
+            if (!typeText) {
+                // match field: 1: required list<string> items,
+                const m = fullLine.match(/^(\s*)\d+\s*:\s*(?:required|optional)?\s*([^\s,;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/);
+                if (m) typeText = m[2];
+            }
+            if (!typeText) return;
+
+            const newTypeName = await vscode.window.showInputBox({ prompt: 'New type name', value: 'ExtractedType' });
+            if (!newTypeName) return;
+
+            const edit = new vscode.WorkspaceEdit();
+
+            // Insert typedef at a suitable location: after last include/namespace or at top
+            const text = doc.getText();
+            const lines = text.split('\n');
+            let insertLine = 0;
+            for (let i = 0; i < lines.length; i++) {
+                if (/^\s*(include\s+['"].+['"]|namespace\s+)/.test(lines[i])) {
+                    insertLine = i + 1;
+                }
+            }
+            const typedefLine = `typedef ${typeText} ${newTypeName}`;
+            edit.insert(doc.uri, new vscode.Position(insertLine, 0), typedefLine + '\n\n');
+
+            // Replace original type text at current line if present in the line
+            const typeIdx = fullLine.indexOf(typeText);
+            if (typeIdx >= 0) {
+                edit.replace(
+                    doc.uri,
+                    new vscode.Range(sel.active.line, typeIdx, sel.active.line, typeIdx + typeText.length),
+                    newTypeName
+                );
+            } else if (selectedText) {
+                // Replace selection
+                edit.replace(doc.uri, new vscode.Range(sel.start, sel.end), newTypeName);
+            }
+
+            await vscode.workspace.applyEdit(edit);
+        })
+    );
+
+    // Refactor: move type to another file
+    context.subscriptions.push(
+        vscode.commands.registerCommand('thrift.refactor.moveType', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || editor.document.languageId !== 'thrift') return;
+            const doc = editor.document;
+            const pos = editor.selection.active;
+            const lineText = doc.lineAt(pos.line).text;
+
+            // Detect a type block start
+            const defMatch = lineText.match(/^\s*(struct|union|exception|enum|service|typedef)\s+([A-Za-z_][A-Za-z0-9_]*)/);
+            if (!defMatch) return;
+            const kind = defMatch[1];
+            const typeName = defMatch[2];
+
+            // Capture block range (simple brace matching for block kinds)
+            let startLine = pos.line;
+            let endLine = pos.line;
+            if (kind === 'typedef') {
+                // Single line
+                endLine = pos.line;
+            } else {
+                // Find matching closing brace
+                let depth = 0;
+                for (let i = pos.line; i < doc.lineCount; i++) {
+                    const t = doc.lineAt(i).text;
+                    if (t.includes('{')) { if (depth === 0) startLine = i; depth++; }
+                    if (t.includes('}')) { depth--; if (depth === 0) { endLine = i; break; } }
+                }
+            }
+
+            const typeBlock = doc.getText(new vscode.Range(startLine, 0, endLine, doc.lineAt(endLine).text.length));
+
+            const defaultFileName = `${typeName}.thrift`;
+            const targetName = await vscode.window.showInputBox({ prompt: 'Target .thrift file name', value: defaultFileName });
+            if (!targetName) return;
+
+            const folder = vscode.Uri.file(require('path').dirname(doc.uri.fsPath));
+            const targetUri = vscode.Uri.file(require('path').join(folder.fsPath, targetName));
+
+            const edit = new vscode.WorkspaceEdit();
+            // Ensure include line exists
+            const includeLine = `include "${targetName}"`;
+            const docText = doc.getText();
+            if (!new RegExp(`^\\s*include\\s+[\"\']${targetName}[\"\']`, 'm').test(docText)) {
+                edit.insert(doc.uri, new vscode.Position(0, 0), includeLine + '\n');
+            }
+            // Remove original block
+            edit.delete(doc.uri, new vscode.Range(startLine, 0, endLine + 1, 0));
+            // Create new file and insert block
+            edit.createFile(targetUri, { overwrite: true });
+            edit.insert(targetUri, new vscode.Position(0, 0), typeBlock + '\n');
+
+            await vscode.workspace.applyEdit(edit);
         })
     );
 }
