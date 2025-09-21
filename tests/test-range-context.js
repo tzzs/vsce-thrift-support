@@ -13,7 +13,7 @@ const vscode = {
               trailingComma: "preserve",
               alignTypes: true,
               alignFieldNames: true,
-              alignStructEquals: false,
+
               alignAnnotations: true,
               alignComments: true,
               alignEnumNames: true,
@@ -151,7 +151,7 @@ function testAlignAnnotationsDisabled() {
             trailingComma: "preserve",
             alignTypes: true,
             alignFieldNames: true,
-            alignStructEquals: false,
+
             alignAnnotations: false,
             alignComments: true,
             alignEnumNames: true,
@@ -208,7 +208,7 @@ function testAlignAnnotationsDisabled() {
                 trailingComma: "preserve",
                 alignTypes: true,
                 alignFieldNames: true,
-                alignStructEquals: false,
+
                 alignStructAnnotations: false, // legacy key
                 alignComments: true,
                 alignEnumNames: true,

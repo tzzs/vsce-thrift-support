@@ -11,7 +11,7 @@ const vscode = {
           trailingComma: 'preserve',
           alignTypes: true,
           alignFieldNames: true,
-          alignStructEquals: true,
+
           alignAnnotations: true,
           alignComments: true,
           alignEnumNames: true,

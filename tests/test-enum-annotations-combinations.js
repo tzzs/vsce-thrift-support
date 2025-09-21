@@ -13,7 +13,7 @@ const vscode = {
               trailingComma: "preserve",
               alignTypes: true,
               alignFieldNames: true,
-              alignStructEquals: false,
+              
               alignAnnotations: true,
               alignComments: true,
               alignEnumNames: true,
@@ -90,7 +90,7 @@ function withConfig(overrides, fn) {
             trailingComma: "preserve",
             alignTypes: true,
             alignFieldNames: true,
-            alignStructEquals: false,
+            
             alignAnnotations: true,
             alignComments: true,
             alignEnumNames: true,
