@@ -97,6 +97,25 @@ thrift-support/
 
 以上选项共同决定“最大内容宽度”和各列的目标对齐位置，详细实现与宽度计算请参考 <mcfile name="formatter.ts" path="src/formatter.ts"></mcfile>。
 
+### 语言规范同步（IDL 0.23）与实现更新
+- 背景：自 Apache Thrift IDL 0.23 起，uuid 被纳入内建基础类型（BaseType）。
+- 代码同步点：
+  - <mcfile name="diagnostics.ts" path="src/diagnostics.ts"></mcfile>
+    - 基本类型集合包含 `uuid`
+    - 改进字段解析：剥离类型后缀注解、跨行注释剥离，避免在注释中做括号/语法检查
+    - 以健壮解析提取字段类型与名称，支持嵌套容器与 required/optional 标志
+  - <mcfile name="definitionProvider.ts" path="src/definitionProvider.ts"></mcfile>
+    - `isPrimitiveType` 集合包含 `uuid`，防止误将其当作用户类型做“跳转到定义”
+  - <mcfile name="thrift.tmLanguage.json" path="syntaxes/thrift.tmLanguage.json"></mcfile>
+    - `storage.type.primitive.thrift` 的匹配正则包含 `uuid`，确保语法高亮正确
+- 测试建议：
+  - 在 <mcfolder name="test-files" path="test-files/"></mcfolder> 添加/复用示例：
+    - struct/const/typedef 中直接使用 `uuid` 作为字段或常量类型
+    - 交叉验证 `diagnostics` 不再报“未知类型”
+    - 验证 `Go to Definition` 在 `uuid` 上不进行跳转（因其为基元类型）
+    - 语法高亮对 `uuid` 呈现与其它基元一致的着色
+  - 运行：`npm run test` / `npm run test:all`；必要时补充端到端用例
+
 ### 测试与新增用例说明
 主要测试脚本位于 <mcfile name="tests" path="tests/"></mcfile> 目录，格式化相关的组合测试集中在 <mcfile name="test-struct-annotations-combinations.js" path="tests/test-struct-annotations-combinations.js"></mcfile>。
 

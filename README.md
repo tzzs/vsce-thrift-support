@@ -16,7 +16,7 @@
 
 ### 语法高亮
 - 完整的 Thrift 语法支持，包括关键字、数据类型、字符串、注释和数字字面量
-- 支持所有 Thrift 原生类型和容器类型
+- 支持所有 Thrift 原生类型（包含 uuid）和容器类型
 - 智能的语法着色，提升代码可读性
 
 ### 代码格式化
@@ -85,6 +85,11 @@
 - 对齐总开关（alignAssignments）：开启后统一控制结构体字段等号和枚举等号/枚举值的对齐；未显式设置时，各类对齐遵循各自默认（结构体等号对齐默认关闭，枚举等号/枚举值默认开启）。
 - 结构体默认值对齐（alignStructDefaults）：仅控制字段默认值的等号对齐，独立于 alignAssignments，不随总开关联动。
 
+## 规范对齐
+
+- 与 Apache Thrift IDL 0.23 对齐：将 uuid 视为内建基础类型，并在语法高亮、诊断与定义跳转中生效。
+- 参考文档：Apache Thrift — IDL（Interface Definition Language）：https://thrift.apache.org/docs/idl
+
 ## 📝 格式化示例
 
 ### 格式化前：
@@ -149,6 +154,7 @@ struct User {
 
 ## 🔗 相关链接
 
+- **Apache Thrift — IDL 文档**：https://thrift.apache.org/docs/idl
 - **GitHub 仓库**：[https://github.com/tzzs/vsce-thrift-support](https://github.com/tzzs/vsce-thrift-support)
 - **问题反馈**：[GitHub Issues](https://github.com/tzzs/vsce-thrift-support/issues)
 - **功能请求**：[GitHub Discussions](https://github.com/tzzs/vsce-thrift-support/discussions)
