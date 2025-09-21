@@ -102,6 +102,11 @@ function run() {
   issues = analyzeThriftText(svcExtUnknown);
   assert.ok(findByCode(issues, 'service.extends.unknown').length === 1, 'extends unknown should be flagged');
 
+  // 12) '=' inside field annotations must NOT be treated as a default value
+  const annotEq = `struct U {\n  1: required string name (go.tag='json:\"name\"'),\n}`;
+  issues = analyzeThriftText(annotEq);
+  assert.ok(findByCode(issues, 'value.typeMismatch').length === 0, "Equals inside annotations shouldn't create a default value error");
+
   console.log('All diagnostics tests passed.');
 }
 

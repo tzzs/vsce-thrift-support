@@ -201,31 +201,87 @@ function isKnownType(typeName: string, definedTypes: Set<string>): boolean {
 
 // Extract default value for a field line (comment-stripped)
 function extractDefaultValue(codeLine: string): string | null {
-    const eq = codeLine.indexOf('=');
-    if (eq === -1) return null;
-    // capture until top-level comma or end
-    let i = eq + 1;
-    let depthAngle = 0, depthBracket = 0, depthBrace = 0;
-    let inS = false, inD = false;
-    let buf = '';
-    while (i < codeLine.length) {
+    // Find '=' at top level (not inside quotes or any brackets/parentheses)
+    let depthAngle = 0, depthBracket = 0, depthBrace = 0, depthParen = 0;
+    let inS = false, inD = false, escaped = false;
+    let eq = -1;
+    for (let i = 0; i < codeLine.length; i++) {
         const ch = codeLine[i];
-        if (!inS && !inD) {
-            if (ch === '<') depthAngle++;
-            else if (ch === '>') depthAngle = Math.max(0, depthAngle - 1);
-            else if (ch === '[') depthBracket++;
-            else if (ch === ']') depthBracket = Math.max(0, depthBracket - 1);
-            else if (ch === '{') depthBrace++;
-            else if (ch === '}') depthBrace = Math.max(0, depthBrace - 1);
-            else if (ch === '"') { inD = true; buf += ch; i++; continue; }
-            else if (ch === "'") { inS = true; buf += ch; i++; continue; }
-            else if (ch === ',' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0) {
-                break;
-            }
-        } else {
-            if (inD && ch === '"') inD = false;
-            if (inS && ch === "'") inS = false;
+        if (inS) {
+            if (!escaped && ch === '\\') { escaped = true; continue; }
+            if (!escaped && ch === '\'') inS = false;
+            escaped = false;
+            continue;
         }
+        if (inD) {
+            if (!escaped && ch === '\\') { escaped = true; continue; }
+            if (!escaped && ch === '"') inD = false;
+            escaped = false;
+            continue;
+        }
+        if (ch === '\'') { inS = true; continue; }
+        if (ch === '"') { inD = true; continue; }
+        if (ch === '<') depthAngle++;
+        else if (ch === '>') depthAngle = Math.max(0, depthAngle - 1);
+        else if (ch === '[') depthBracket++;
+        else if (ch === ']') depthBracket = Math.max(0, depthBracket - 1);
+        else if (ch === '{') depthBrace++;
+        else if (ch === '}') depthBrace = Math.max(0, depthBrace - 1);
+        else if (ch === '(') depthParen++;
+        else if (ch === ')') depthParen = Math.max(0, depthParen - 1);
+        else if (ch === '=' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
+            eq = i;
+            break;
+        }
+    }
+    if (eq === -1) return null;
+
+    // Capture value until a top-level comma/semicolon or annotation start '(' is reached
+    let i = eq + 1;
+    depthAngle = depthBracket = depthBrace = depthParen = 0;
+    inS = inD = false; escaped = false;
+    let buf = '';
+    const n = codeLine.length;
+    while (i < n) {
+        const ch = codeLine[i];
+        if (inS) {
+            buf += ch;
+            if (!escaped && ch === '\\') { escaped = true; i++; continue; }
+            if (!escaped && ch === '\'') inS = false;
+            escaped = false;
+            i++;
+            continue;
+        }
+        if (inD) {
+            buf += ch;
+            if (!escaped && ch === '\\') { escaped = true; i++; continue; }
+            if (!escaped && ch === '"') inD = false;
+            escaped = false;
+            i++;
+            continue;
+        }
+        if (ch === '\'') { inS = true; buf += ch; i++; continue; }
+        if (ch === '"') { inD = true; buf += ch; i++; continue; }
+
+        if (ch === '<') depthAngle++;
+        else if (ch === '>') depthAngle = Math.max(0, depthAngle - 1);
+        else if (ch === '[') depthBracket++;
+        else if (ch === ']') depthBracket = Math.max(0, depthBracket - 1);
+        else if (ch === '{') depthBrace++;
+        else if (ch === '}') depthBrace = Math.max(0, depthBrace - 1);
+        else if (ch === '(' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
+            // Annotation section begins; default value ends before annotations
+            break;
+        } else if (ch === '(') {
+            depthParen++;
+        } else if (ch === ')') {
+            depthParen = Math.max(0, depthParen - 1);
+        }
+
+        if ((ch === ',' || ch === ';') && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
+            break;
+        }
+
         buf += ch;
         i++;
     }
