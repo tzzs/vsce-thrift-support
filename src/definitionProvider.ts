@@ -266,7 +266,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
 
     private isPrimitiveType(word: string): boolean {
         const primitiveTypes = [
-            'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary',
+            'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid',
             'list', 'set', 'map', 'void'
         ];
         return primitiveTypes.includes(word);
