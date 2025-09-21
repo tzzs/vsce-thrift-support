@@ -30,6 +30,11 @@
 - **包含文件解析**：支持跟踪 `include` 语句
 - **工作区搜索**：在整个工作区中查找定义
 
+### 代码重构
+- **标识符重命名（F2）**：跨文件更新引用，内置冲突检测
+- **抽取类型（typedef）**：从选区或当前字段推断类型并生成 `typedef`
+- **移动类型到文件**：将 `struct/enum/service/typedef` 等移动到新的 `.thrift` 文件并自动插入 `include`
+
 ## 📦 安装
 
 1. 打开 VSCode
@@ -51,6 +56,13 @@
 ### 代码导航
 - **跳转到定义**：`F12` 或 `Ctrl+点击` 类型名
 - **查看定义**：`Alt+F12`
+
+### 重命名与重构
+- **重命名符号**：选中标识符按 `F2`，或右键菜单选择 `Rename Symbol`
+- **命令面板**：
+  - `Thrift: Extract type (typedef)`
+  - `Thrift: Move type to file...`
+- **灯泡菜单（Quick Fix/Refactor）**：在合适位置会出现与重构相关的 Code Action
 
 ### 配置选项
 

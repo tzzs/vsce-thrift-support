@@ -3,7 +3,7 @@ import { ThriftFormattingProvider } from './formatter';
 import { ThriftDefinitionProvider } from './definitionProvider';
 import { ThriftHoverProvider } from './hoverProvider';
 import { registerDiagnostics } from './diagnostics';
-import { ThriftRenameProvider } from './renameProvider';
+import { ThriftRenameProvider } from './refactor';
 import { ThriftRefactorCodeActionProvider } from './codeActions';
 
 export function activate(context: vscode.ExtensionContext) {

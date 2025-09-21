@@ -24,7 +24,7 @@ Module.prototype.require = function (id) {
   return originalRequire.apply(this, arguments);
 };
 
-const { ThriftRenameProvider } = require('../out/renameProvider');
+const { ThriftRenameProvider } = require('../out/refactor');
 Module.prototype.require = originalRequire;
 
 function createMockDocument(content) {

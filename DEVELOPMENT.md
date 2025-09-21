@@ -26,27 +26,34 @@ thrift-support/
 ├── src/
 │   ├── extension.ts            # 扩展入口，注册能力与命令
 │   ├── formatter.ts            # 格式化核心逻辑
-│   └── definitionProvider.ts   # 跳转到定义/引用解析
+│   ├── definitionProvider.ts   # 跳转到定义/引用解析
+│   ├── codeActions.ts          # 提供抽取类型/移动类型等重构 Code Actions
+│   └── refactor.ts             # 重命名（RenameProvider），与重构命令关联
 ├── syntaxes/
 │   └── thrift.tmLanguage.json  # 语法高亮的 TextMate 语法
 ├── language-configuration.json # 语言括号/注释等配置
-├── tests/                      # 测试脚本
+├── tests/                      # 测试脚本（包括 test-rename-provider.js / test-code-actions-provider.js）
 └── test-files/                 # 示例与测试用 Thrift 文件
 ```
 
 ### 模块划分
-- 扩展入口（Extension）— <mcfile name="extension.ts" path="src/extension.ts"></mcfile> ([src/extension.ts](src/extension.ts))
+- 扩展入口（Extension）— <mcfile name="extension.ts" path="src/extension.ts"></mcfile>
   - 激活时机：onLanguage:thrift
-  - 注册命令与提供者（格式化、跳转到定义）
+  - 注册命令与提供者（格式化、跳转到定义、重命名、Code Actions）
+  - 暴露/绑定重构命令：`thrift.refactor.extractType`、`thrift.refactor.moveType`
   - 读取并响应配置变更
 
-- 格式化器（Formatter）— <mcfile name="formatter.ts" path="src/formatter.ts"></mcfile> ([src/formatter.ts](src/formatter.ts))
+- 格式化器（Formatter）— <mcfile name="formatter.ts" path="src/formatter.ts"></mcfile>
   - 负责文档/选区格式化、对齐策略、缩进与行长控制
   - 受配置项影响（如 alignTypes/alignFieldNames/alignComments/trailingComma/indentSize/maxLineLength/collectionStyle 等）
 
-- 定义提供器（Definition Provider）— <mcfile name="definitionProvider.ts" path="src/definitionProvider.ts"></mcfile> ([src/definitionProvider.ts](src/definitionProvider.ts))
+- 定义提供器（Definition Provider）— <mcfile name="definitionProvider.ts" path="src/definitionProvider.ts"></mcfile>
   - 解析 include 关系与跨文件符号定位
   - 支持工作区范围的跳转到定义
+
+- 重命名与重构（Refactor）— <mcfile name="refactor.ts" path="src/refactor.ts"></mcfile>, <mcfile name="codeActions.ts" path="src/codeActions.ts"></mcfile>
+  - `refactor.ts` 提供 RenameProvider：统一实现标识符重命名（F2）
+  - `codeActions.ts` 提供重构 Code Actions：抽取类型、移动类型等，并与注册的命令协作
 
 - 语法与语言配置— <mcfile name="thrift.tmLanguage.json" path="syntaxes/thrift.tmLanguage.json"></mcfile>、<mcfile name="language-configuration.json" path="language-configuration.json"></mcfile>（[syntaxes/thrift.tmLanguage.json](syntaxes/thrift.tmLanguage.json)、[language-configuration.json](language-configuration.json)）
   - 提供高亮、括号配对、注释等语言层支持
