@@ -4,9 +4,14 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     // Precompiled regexes reused in hot paths and referenced by helpers
     private reStructField = /^\s*\d+:\s*(?:required|optional)?\s*.+$/;
     private reEnumField = /^\s*\w+\s*=\s*\d+/;
-    private reSpaceLt = /\s*</g;
+    private reSpaceBeforeLt = /\s+</g;
+    private reSpaceAfterLt = /<\s+/g;
+    // Remove spaces around '>'
+    private reSpaceBeforeGt = /\s+>/g;
     private reSpaceGt = />\s*/g;
     private reSpaceComma = /\s*,\s*/g;
+    // Detect a service method signature line (optionally oneway, return type with optional generics, name, params, optional throws)
+    private reServiceMethod = /^\s*(oneway\s+)?[A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]*>)?\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)(\s*throws\s*\([^)]*\))?\s*[;,]?$/;
 
     provideDocumentFormattingEdits(
         document: vscode.TextDocument,
@@ -241,6 +246,13 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 // No-op here to avoid double flush
             }
 
+            // Typedef: normalize generics spacing
+            if (/^\s*typedef\b/.test(line)) {
+                const normalized = this.normalizeGenericsInSignature(line);
+                formattedLines.push(this.getIndent(indentLevel, options) + normalized);
+                continue;
+            }
+
             // Handle struct/union/exception/service definitions
             if (this.isStructStart(line)) {
                 // If inline single-line block like: struct EmptyStruct {}
@@ -266,7 +278,14 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     inStruct = false;
                     continue;
                 }
-
+            
+                // Normalize generics spacing for service method signatures (including throws)
+                if (this.reServiceMethod.test(line)) {
+                    const normalized = this.normalizeGenericsInSignature(line);
+                    formattedLines.push(this.getIndent(indentLevel, options) + normalized);
+                    continue;
+                }
+            
                 if (this.isStructField(line)) {
                     const fieldInfo = this.parseStructField(line);
                     if (fieldInfo) {
@@ -619,8 +638,12 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         const defaultValue = fieldMatch[3];
         
         // Clean up the type by removing extra spaces around < > and commas
-        type = type.replace(this.reSpaceLt, '<').replace(this.reSpaceGt, '>');
-        type = type.replace(this.reSpaceComma, ',');
+        type = type
+            .replace(this.reSpaceBeforeLt, '<')
+            .replace(this.reSpaceAfterLt, '<')
+            .replace(this.reSpaceBeforeGt, '>')
+            .replace(this.reSpaceGt, '>')
+            .replace(this.reSpaceComma, ',');
         
         // Build suffix with default value and trailing comma
         let suffix = '';
@@ -695,7 +718,12 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         }
 
         // Normalize generic spacing in type
-        type = type.replace(this.reSpaceLt, '<').replace(this.reSpaceGt, '>').replace(this.reSpaceComma, ',');
+        type = type
+            .replace(this.reSpaceBeforeLt, '<')
+            .replace(this.reSpaceAfterLt, '<')
+            .replace(this.reSpaceBeforeGt, '>')
+            .replace(this.reSpaceGt, '>')
+            .replace(this.reSpaceComma, ',');
 
         return {
             line: header,
@@ -744,7 +772,12 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             // Use the already parsed and cleaned type from field.type
             let type = field.type;
             // Clean up type formatting - remove spaces around < > and ,
-            type = type.replace(this.reSpaceLt, '<').replace(this.reSpaceGt, '>').replace(this.reSpaceComma, ',');
+            type = type
+                .replace(this.reSpaceBeforeLt, '<')
+                .replace(this.reSpaceAfterLt, '<')
+                .replace(this.reSpaceBeforeGt, '>')
+                .replace(this.reSpaceGt, '>')
+                .replace(this.reSpaceComma, ',');
             
             const name = field.name;
             const suffix = field.suffix;
@@ -1161,8 +1194,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     if (endIdx >= 0) {
                         line = line.slice(0, startIdx) + line.slice(endIdx + 2);
                     } else {
-                        line = line.slice(0, startIdx);
                         inBlockComment = true;
+                        line = line.slice(0, startIdx);
                     }
                 }
 
@@ -1212,4 +1245,83 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             return { indentLevel: 0, inStruct: false, inEnum: false };
         }
     }
+
+    // Normalize generics spacing within a typedef or service method signature line.
+    // This preserves parameter commas/spaces and only normalizes inside '<...>' regions.
+    private normalizeGenericsInSignature(text: string): string {
+        if (!text) return text;
+        // Preserve inline trailing comment
+        let code = text;
+        let comment = '';
+        const cm = code.match(/^(.*?)(\/\/.*)$/);
+        if (cm) {
+            code = cm[1].trimEnd();
+            comment = cm[2];
+        }
+        let res: string[] = [];
+        let depthAngle = 0;
+        let inS = false, inD = false;
+        const n = code.length;
+        for (let i = 0; i < n; i++) {
+            const ch = code[i];
+            // Handle inside quotes first (support escapes)
+            if (inD) {
+                if (ch === '\\' && i + 1 < n) { res.push(ch); res.push(code[++i]); continue; }
+                res.push(ch);
+                if (ch === '"') { inD = false; }
+                continue;
+            }
+            if (inS) {
+                if (ch === '\\' && i + 1 < n) { res.push(ch); res.push(code[++i]); continue; }
+                res.push(ch);
+                if (ch === "'") { inS = false; }
+                continue;
+            }
+
+            if (ch === '"') { inD = true; res.push(ch); continue; }
+            if (ch === "'") { inS = true; res.push(ch); continue; }
+            if (ch === '<') {
+                // remove spaces before '<'
+                while (res.length > 0 && res[res.length - 1] === ' ') res.pop();
+                res.push('<');
+                depthAngle++;
+                // skip spaces after '<'
+                while (i + 1 < n && code[i + 1] === ' ') i++;
+                continue;
+            }
+            if (ch === ',' && depthAngle > 0) {
+                // remove spaces before comma within generics
+                while (res.length > 0 && res[res.length - 1] === ' ') res.pop();
+                res.push(',');
+                // skip spaces after comma within generics
+                while (i + 1 < n && code[i + 1] === ' ') i++;
+                continue;
+            }
+            if (ch === '>') {
+                if (depthAngle > 0) {
+                    // remove spaces before '>' within generics
+                    while (res.length > 0 && res[res.length - 1] === ' ') res.pop();
+                    res.push('>');
+                    depthAngle = Math.max(0, depthAngle - 1);
+                    // skip spaces after '>' only if next non-space is ',', '>' or ')'
+                    let k = i + 1;
+                    while (k < n && code[k] === ' ') k++;
+                    if (k < n) {
+                        const next = code[k];
+                        if (next === ',' || next === '>' || next === ')') {
+                            i = k - 1; // skip spaces
+                        }
+                    } else {
+                        i = k - 1;
+                    }
+                    continue;
+                }
+            }
+            res.push(ch);
+        }
+        const normalized = res.join('');
+        return comment ? `${normalized} ${comment}` : normalized;
+    }
+
+    // ... existing code ...
 }
