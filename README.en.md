@@ -16,7 +16,7 @@ A VSCode extension that provides complete support for Apache Thrift files, inclu
 
 ### Syntax Highlighting
 - Full Thrift syntax coverage: keywords, data types, strings, comments, numeric literals
-- Supports all primitive and container types
+- Supports all primitive and container types (including `uuid`)
 - Smart token coloring for better readability
 
 ### Code Formatting
@@ -105,6 +105,15 @@ struct User {
 }
 ```
 
+## 📐 Language Spec Alignment (IDL 0.23)
+
+- Starting from Apache Thrift IDL 0.23, `uuid` is treated as a built-in base type in this extension.
+- Alignment touches the following components:
+  - Diagnostics: `uuid` is recognized as a primitive type
+  - Definition Provider: `uuid` is excluded from user-defined symbol navigation
+  - Syntax Highlighting: `uuid` is included in the primitive type regex
+- Reference: Apache Thrift IDL — https://thrift.apache.org/docs/idl
+
 ## 🐛 Issues
 
 If you encounter issues or have feature requests:
@@ -146,3 +155,4 @@ See [CHANGELOG.md](CHANGELOG.md) locally or the GitHub Releases page for the com
 - Discussions: https://github.com/tzzs/vsce-thrift-support/discussions
 - CI Status: https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml
 - Changelog: https://github.com/tzzs/vsce-thrift-support/blob/master/CHANGELOG.md
+- Apache Thrift IDL: https://thrift.apache.org/docs/idl
