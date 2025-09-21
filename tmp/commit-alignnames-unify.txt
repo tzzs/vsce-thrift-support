@@ -1,0 +1,7 @@
+refactor(formatter): unify name alignment config under `alignNames`
+
+- Use `alignNames` as the single source of truth to control both struct-field and enum-member name alignment
+- Remove reading of fine-grained keys `alignFieldNames`/`alignEnumNames` from configuration (they were never exposed in schema)
+- Update schema description in package.json to clearly state the unified control and that fine-grained keys are not exposed
+
+Context: Keeps configuration surface simple and consistent with the documented settings. Backward-compat code paths remain for legacy options in internal tests, but end-user settings are unified under `thrift.format.alignNames`.

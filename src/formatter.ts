@@ -1,7 +1,13 @@
 import * as vscode from 'vscode';
 
 export class ThriftFormattingProvider implements vscode.DocumentFormattingEditProvider, vscode.DocumentRangeFormattingEditProvider {
-    
+    // Precompiled regexes reused in hot paths and referenced by helpers
+    private reStructField = /^\s*\d+:\s*(?:required|optional)?\s*.+$/;
+    private reEnumField = /^\s*\w+\s*=\s*\d+/;
+    private reSpaceLt = /\s*</g;
+    private reSpaceGt = />\s*/g;
+    private reSpaceComma = /\s*,\s*/g;
+
     provideDocumentFormattingEdits(
         document: vscode.TextDocument,
         options: vscode.FormattingOptions,
@@ -563,14 +569,23 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     }
 
     private isStructField(line: string): boolean {
+        // Quick pre-check: first non-space must be a digit
+        const t = line.trimStart();
+        const c = t.charCodeAt(0);
+        if (!(c >= 48 && c <= 57)) { return false; }
         // Match field definitions like: 1: required string name, or 1: string name,
         // Also match complex types like: 1: required list<string> names,
-        return /^\s*\d+:\s*(required|optional)?\s*[\w<>,\s]+\s+\w+/.test(line);
+        return this.reStructField.test(line);
     }
 
     private isEnumField(line: string): boolean {
+        // Quick pre-check: first non-space must be a letter or underscore
+        const t = line.trimStart();
+        const cc = t.charCodeAt(0);
+        const isLetter = (cc >= 65 && cc <= 90) || (cc >= 97 && cc <= 122) || cc === 95; // A-Z a-z _
+        if (!isLetter) { return false; }
         // Match enum field definitions like: ACTIVE = 1, or INACTIVE = 2,
-        return /^\s*\w+\s*=\s*\d+/.test(line);
+        return this.reEnumField.test(line);
     }
 
     private parseStructField(line: string): {line: string, type: string, name: string, suffix: string, comment: string, annotation?: string} | null {
@@ -616,8 +631,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         const defaultValue = fieldMatch[3];
         
         // Clean up the type by removing extra spaces around < > and commas
-        type = type.replace(/\s*<\s*/g, '<').replace(/\s*>\s*/g, '>');
-        type = type.replace(/\s*,\s*/g, ',');
+        type = type.replace(this.reSpaceLt, '<').replace(this.reSpaceGt, '>');
+        type = type.replace(this.reSpaceComma, ',');
         
         // Build suffix with default value and trailing comma
         let suffix = '';
@@ -692,7 +707,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         }
 
         // Normalize generic spacing in type
-        type = type.replace(/\s*<\s*/g, '<').replace(/\s*>\s*/g, '>').replace(/\s*,\s*/g, ',');
+        type = type.replace(this.reSpaceLt, '<').replace(this.reSpaceGt, '>').replace(this.reSpaceComma, ',');
 
         return {
             line: header,
@@ -741,7 +756,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             // Use the already parsed and cleaned type from field.type
             let type = field.type;
             // Clean up type formatting - remove spaces around < > and ,
-            type = type.replace(/\s*<\s*/g, '<').replace(/\s*>\s*/g, '>').replace(/\s*,\s*/g, ',');
+            type = type.replace(this.reSpaceLt, '<').replace(this.reSpaceGt, '>').replace(this.reSpaceComma, ',');
             
             const name = field.name;
             const suffix = field.suffix;
