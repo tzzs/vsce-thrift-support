@@ -155,6 +155,7 @@ struct User {
 ## 🔗 相关链接
 
 - **Apache Thrift — IDL 文档**：https://thrift.apache.org/docs/idl
+- **Thrift 类型系统**：https://thrift.apache.org/docs/types
 - **GitHub 仓库**：[https://github.com/tzzs/vsce-thrift-support](https://github.com/tzzs/vsce-thrift-support)
 - **问题反馈**：[GitHub Issues](https://github.com/tzzs/vsce-thrift-support/issues)
 - **功能请求**：[GitHub Discussions](https://github.com/tzzs/vsce-thrift-support/discussions)

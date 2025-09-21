@@ -156,3 +156,4 @@ See [CHANGELOG.md](CHANGELOG.md) locally or the GitHub Releases page for the com
 - CI Status: https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml
 - Changelog: https://github.com/tzzs/vsce-thrift-support/blob/master/CHANGELOG.md
 - Apache Thrift IDL: https://thrift.apache.org/docs/idl
+- Thrift Type system: https://thrift.apache.org/docs/types
