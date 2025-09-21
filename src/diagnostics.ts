@@ -11,11 +11,46 @@ const PRIMITIVES = new Set<string>([
     'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid'
 ]);
 
+// New helpers for value/type validation
+const INTEGER_TYPES = new Set<string>(['byte', 'i8', 'i16', 'i32', 'i64']);
+const UUID_REGEX = /^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$/;
+
+function isIntegerLiteral(text: string): boolean {
+    const t = text.trim();
+    return /^-?\d+$/.test(t) || /^-?0x[0-9a-fA-F]+$/.test(t);
+}
+
+function isFloatLiteral(text: string): boolean {
+    const t = text.trim();
+    return /^-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(t);
+}
+
+function isQuotedString(text: string): boolean {
+    const t = text.trim();
+    if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+        return t.length >= 2;
+    }
+    return false;
+}
+
 function parseContainerType(typeText: string): boolean {
-    const t = typeText.replace(/\s+/g, '');
-    if (/^list<.+>$/.test(t)) return true;
-    if (/^set<.+>$/.test(t)) return true;
-    if (/^map<[^,]+,[^>]+>$/.test(t)) return true;
+    const noSpace = typeText.replace(/\s+/g, '');
+    // list<T>
+    if (/^list<.*>$/.test(noSpace)) {
+        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
+        return inner.trim().length > 0;
+    }
+    // set<T>
+    if (/^set<.*>$/.test(noSpace)) {
+        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
+        return inner.trim().length > 0;
+    }
+    // map<K,V> (ensure exactly two top-level parts)
+    if (/^map<.*>$/.test(noSpace)) {
+        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
+        const parts = splitTopLevelAngles(inner);
+        return parts.length === 2;
+    }
     return false;
 }
 
@@ -47,8 +82,13 @@ function stripTypeAnnotations(typeText: string): string {
 // Remove comments from a single line while tracking multi-line block comment state
 function stripCommentsFromLine(rawLine: string, state: { inBlock: boolean }): string {
     let out = '';
-    for (let i = 0; i < rawLine.length; ) {
-        if (!state.inBlock && rawLine[i] === '/' && i + 1 < rawLine.length && rawLine[i + 1] === '*') {
+    let inS = false, inD = false, escaped = false;
+    for (let i = 0; i < rawLine.length;) {
+        const ch = rawLine[i];
+        const next = i + 1 < rawLine.length ? rawLine[i + 1] : '';
+
+        // Enter/exit block comment when not inside a string
+        if (!inS && !inD && !state.inBlock && ch === '/' && next === '*') {
             state.inBlock = true;
             i += 2;
             continue;
@@ -64,11 +104,35 @@ function stripCommentsFromLine(rawLine: string, state: { inBlock: boolean }): st
                 continue;
             }
         }
-        if (!state.inBlock && rawLine[i] === '/' && i + 1 < rawLine.length && rawLine[i + 1] === '/') {
-            // line comment start -> ignore rest
-            break;
+
+        // Handle string state and escapes
+        if ((ch === '"' && !inS && !escaped) || (ch === "'" && !inD && !escaped)) {
+            if (ch === '"') inD = !inD; else inS = !inS;
+            out += ch;
+            i++;
+            continue;
         }
-        out += rawLine[i++];
+        if ((inS || inD) && ch === '\\' && !escaped) {
+            // preserve escape and the next character verbatim
+            out += ch;
+            i++;
+            escaped = true;
+            continue;
+        }
+        if (escaped) {
+            out += ch;
+            i++;
+            escaped = false;
+            continue;
+        }
+
+        // Line comment start only if not inside a string
+        if (!inS && !inD && ch === '/' && next === '/') {
+            break; // ignore rest of the line
+        }
+
+        out += ch;
+        i++;
     }
     return out;
 }
@@ -135,6 +199,85 @@ function isKnownType(typeName: string, definedTypes: Set<string>): boolean {
     return false;
 }
 
+// Extract default value for a field line (comment-stripped)
+function extractDefaultValue(codeLine: string): string | null {
+    const eq = codeLine.indexOf('=');
+    if (eq === -1) return null;
+    // capture until top-level comma or end
+    let i = eq + 1;
+    let depthAngle = 0, depthBracket = 0, depthBrace = 0;
+    let inS = false, inD = false;
+    let buf = '';
+    while (i < codeLine.length) {
+        const ch = codeLine[i];
+        if (!inS && !inD) {
+            if (ch === '<') depthAngle++;
+            else if (ch === '>') depthAngle = Math.max(0, depthAngle - 1);
+            else if (ch === '[') depthBracket++;
+            else if (ch === ']') depthBracket = Math.max(0, depthBracket - 1);
+            else if (ch === '{') depthBrace++;
+            else if (ch === '}') depthBrace = Math.max(0, depthBrace - 1);
+            else if (ch === '"') { inD = true; buf += ch; i++; continue; }
+            else if (ch === "'") { inS = true; buf += ch; i++; continue; }
+            else if (ch === ',' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0) {
+                break;
+            }
+        } else {
+            if (inD && ch === '"') inD = false;
+            if (inS && ch === "'") inS = false;
+        }
+        buf += ch;
+        i++;
+    }
+    return buf.trim();
+}
+
+function valueMatchesType(valueRaw: string, typeText: string, definedTypes: Set<string>, kindMap: Map<string, string>): boolean {
+    const t = stripTypeAnnotations(typeText).trim();
+    const v = valueRaw.trim();
+
+    if (INTEGER_TYPES.has(t)) {
+        return isIntegerLiteral(v);
+    }
+    if (t === 'double') {
+        return isIntegerLiteral(v) || isFloatLiteral(v);
+    }
+    if (t === 'bool') {
+        return v === 'true' || v === 'false';
+    }
+    if (t === 'string' || t === 'binary') {
+        return isQuotedString(v);
+    }
+    if (t === 'uuid') {
+        if (!isQuotedString(v)) return false;
+        const inner = v.slice(1, -1);
+        return UUID_REGEX.test(inner);
+    }
+    if (/^list<.+>$/.test(t)) {
+        if (!(v.startsWith('[') && v.endsWith(']'))) return false;
+        const inner = v.slice(1, -1).trim();
+        if (inner.length === 0) return true; // allow empty list defaults: []
+        return true; // content validation is out of scope here
+    }
+    if (/^set<.+>$/.test(t)) {
+        if (!(v.startsWith('{') && v.endsWith('}'))) return false;
+        const inner = v.slice(1, -1).trim();
+        if (inner.length === 0) return true; // allow empty set defaults: {}
+        // heuristic: set has no ':' at top level
+        return !/:(?=(?:[^\{]*\{[^\}]*\})*[^\}]*$)/.test(v);
+    }
+    if (/^map<.+>$/.test(t)) {
+        if (!(v.startsWith('{') && v.endsWith('}'))) return false;
+        const inner = v.slice(1, -1).trim();
+        if (inner.length === 0) return true; // allow empty map defaults: {}
+        // heuristic: map has ':' at top level
+        return /:(?=(?:[^\{]*\{[^\}]*\})*[^\}]*$)/.test(v);
+    }
+
+    // For typedefs or user types: we can't fully validate value shape here; accept quoted or simple tokens
+    return true;
+}
+
 export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[] {
     const lines = text.split('\n');
     const issues: ThriftIssue[] = [];
@@ -146,41 +289,79 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
         codeLines.push(stripCommentsFromLine(raw, state));
     }
 
-    // Gather defined types in this file (from comment-stripped code)
-    const definedTypes = new Set<string>();
-    // Handle typedef separately so we collect the alias (new name), not the base type
+    // Gather defined types in this file (from comment-stripped code) and type kind map
+    const typeKind = new Map<string, string>(); // name -> kind
     const typedefDefRe = /^(\s*)typedef\s+([^\s;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/;
-    const typeDefRe = /^(\s*)(struct|union|exception|enum|service)\s+([A-Za-z_][A-Za-z0-9_]*)/;
+    const typeDefRe = /^(\s*)(struct|union|exception|enum|service)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+extends\s+([A-Za-z_][A-Za-z0-9_]*))?/;
+    const serviceExtends: Array<{ lineNo: number; parent: string; col: number }> = [];
     for (let i = 0; i < codeLines.length; i++) {
         const line = codeLines[i];
         const mTypedef = line.match(typedefDefRe);
         if (mTypedef) {
-            definedTypes.add(mTypedef[3]); // alias name
+            typeKind.set(mTypedef[3], 'typedef'); // alias name
             continue;
         }
         const mType = line.match(typeDefRe);
         if (mType) {
-            definedTypes.add(mType[3]);
+            typeKind.set(mType[3], mType[2]);
+            if (mType[2] === 'service' && mType[4]) {
+                const idx = line.indexOf('extends');
+                serviceExtends.push({ lineNo: i, parent: mType[4], col: idx >= 0 ? idx : 0 });
+            }
+        }
+    }
+    const definedTypes = new Set<string>([...typeKind.keys()]);
+
+    // Validate service extends
+    for (const ext of serviceExtends) {
+        const parentKind = typeKind.get(ext.parent);
+        if (!parentKind) {
+            issues.push({
+                message: `Unknown parent service '${ext.parent}' in extends`,
+                range: new vscode.Range(ext.lineNo, ext.col, ext.lineNo, ext.col + 7),
+                severity: vscode.DiagnosticSeverity.Error,
+                code: 'service.extends.unknown'
+            });
+        } else if (parentKind !== 'service') {
+            issues.push({
+                message: `Parent type '${ext.parent}' is not a service`,
+                range: new vscode.Range(ext.lineNo, ext.col, ext.lineNo, ext.col + 7),
+                severity: vscode.DiagnosticSeverity.Error,
+                code: 'service.extends.notService'
+            });
         }
     }
 
-    // Bracket/angle balance tracking and duplicate field id detection
+    // Bracket/angle balance tracking and context
     const stack: { ch: string; line: number; char: number }[] = [];
-    let inTypeBlock = false;
+    let braceDepth = 0;
+    const typeCtxStack: string[] = [];
+    let pendingTypeKind: string | null = null;
+    let inFieldBlock = false; // struct/union/exception only
     let currentFieldIds = new Set<number>();
 
     for (let lineNo = 0; lineNo < codeLines.length; lineNo++) {
         const rawLine = lines[lineNo];
         const line = codeLines[lineNo];
 
+        // detect start of a type declaration to attach upcoming '{'
+        const tStart = line.match(typeDefRe);
+        if (tStart) {
+            pendingTypeKind = tStart[2];
+        }
+
         for (let i = 0; i < line.length; i++) {
             const ch = line[i];
             if (ch === '{' || ch === '(' || ch === '<') {
                 stack.push({ ch, line: lineNo, char: i });
                 if (ch === '{') {
-                    if (!inTypeBlock) {
-                        inTypeBlock = true;
-                        currentFieldIds = new Set<number>();
+                    braceDepth++;
+                    if (pendingTypeKind) {
+                        typeCtxStack.push(pendingTypeKind);
+                        inFieldBlock = (pendingTypeKind === 'struct' || pendingTypeKind === 'union' || pendingTypeKind === 'exception');
+                        // reset field ids per block
+                        if (inFieldBlock) currentFieldIds = new Set<number>();
+                        pendingTypeKind = null;
                     }
                 }
             } else if (ch === '}' || ch === ')' || ch === '>') {
@@ -203,20 +384,50 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
                         });
                     }
                     if (ch === '}') {
-                        inTypeBlock = false;
+                        braceDepth = Math.max(0, braceDepth - 1);
+                        const popped = typeCtxStack.pop();
+                        if (popped && (popped === 'struct' || popped === 'union' || popped === 'exception')) {
+                            inFieldBlock = false;
+                        }
                     }
                 }
             }
         }
 
-        if (inTypeBlock) {
-            const parsed = parseFieldSignature(line);
-            if (parsed) {
-                const { id, typeText } = parsed;
+        // Inside enum block: validate explicit values
+        if (typeCtxStack[typeCtxStack.length - 1] === 'enum') {
+            const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)(?:\s*=\s*([^,]+))?/);
+            if (m) {
+                const valueRaw = (m[2] || '').trim();
+                if (valueRaw) {
+                    if (!isIntegerLiteral(valueRaw)) {
+                        issues.push({
+                            message: `Enum value must be an integer literal`,
+                            range: new vscode.Range(lineNo, m.index || 0, lineNo, (m.index || 0) + (m[0]?.length || 1)),
+                            severity: vscode.DiagnosticSeverity.Error,
+                            code: 'enum.valueNotInteger'
+                        });
+                    } else if (/^-/.test(valueRaw)) {
+                        issues.push({
+                            message: `Enum value must be non-negative`,
+                            range: new vscode.Range(lineNo, m.index || 0, lineNo, (m.index || 0) + (m[0]?.length || 1)),
+                            severity: vscode.DiagnosticSeverity.Error,
+                            code: 'enum.negativeValue'
+                        });
+                    }
+                }
+            }
+        }
+
+        // At top-level inside a struct/union/exception block: collect field issues
+        if (inFieldBlock && braceDepth > 0) {
+            const sig = parseFieldSignature(line);
+            if (sig) {
+                const { id, typeText, name } = sig;
                 if (currentFieldIds.has(id)) {
                     issues.push({
                         message: `Duplicate field id ${id}`,
-                        range: new vscode.Range(lineNo, 0, lineNo, rawLine.length),
+                        range: new vscode.Range(lineNo, 0, lineNo, line.length),
                         severity: vscode.DiagnosticSeverity.Error,
                         code: 'field.duplicateId'
                     });
@@ -224,32 +435,101 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
                     currentFieldIds.add(id);
                 }
 
-                const cleanType = stripTypeAnnotations(typeText);
-                if (!isKnownType(cleanType, definedTypes)) {
-                    const typeStart = Math.max(0, rawLine.indexOf(typeText));
+                // Validate type known-ness (including containers)
+                if (!isKnownType(typeText, definedTypes)) {
                     issues.push({
-                        message: `Unknown or invalid type '${typeText}'`,
-                        range: new vscode.Range(lineNo, typeStart, lineNo, Math.max(typeStart, typeStart + typeText.length)),
+                        message: `Unknown type '${typeText}'`,
+                        range: new vscode.Range(lineNo, 0, lineNo, line.length),
                         severity: vscode.DiagnosticSeverity.Error,
                         code: 'type.unknown'
                     });
                 }
+
+                // Validate default value type compatibility if present
+                const def = extractDefaultValue(line);
+                if (def !== null) {
+                    const ok = valueMatchesType(def, typeText, definedTypes, typeKind);
+                    if (!ok) {
+                        issues.push({
+                            message: `Default value does not match declared type`,
+                            range: new vscode.Range(lineNo, 0, lineNo, line.length),
+                            severity: vscode.DiagnosticSeverity.Error,
+                            code: 'value.typeMismatch'
+                        });
+                    }
+                }
             }
         }
 
-        // typedef validation
-        const typedefMatch = line.match(/^\s*typedef\s+([^\s;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/);
-        if (typedefMatch) {
-            const baseTypeRaw = typedefMatch[1].trim();
-            const baseType = stripTypeAnnotations(baseTypeRaw);
-            if (!isKnownType(baseType, definedTypes)) {
-                const typeStart = Math.max(0, rawLine.indexOf(baseTypeRaw));
+        // Typedef validation
+        const mTypedef = line.match(typedefDefRe);
+        if (mTypedef) {
+            const baseType = mTypedef[2].trim();
+            // The base type itself must be known (resolve containers recursively)
+            if (!isKnownType(baseType, definedTypes) && !PRIMITIVES.has(baseType)) {
                 issues.push({
-                    message: `Unknown base type '${baseTypeRaw}' in typedef`,
-                    range: new vscode.Range(lineNo, typeStart, lineNo, Math.max(typeStart, typeStart + baseTypeRaw.length)),
+                    message: `Unknown base type '${baseType}' in typedef`,
+                    range: new vscode.Range(lineNo, 0, lineNo, line.length),
                     severity: vscode.DiagnosticSeverity.Error,
                     code: 'typedef.unknownBase'
                 });
+            }
+        }
+    }
+
+    // Validate service methods and throws
+    for (let lineNo = 0; lineNo < codeLines.length; lineNo++) {
+        const line = codeLines[lineNo];
+        const m = line.match(/^\s*(oneway\s+)?([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)(\s*throws\s*\(([^)]*)\))?/);
+        if (m) {
+            const isOneway = !!m[1];
+            const returnType = m[2];
+            const throwsPart = m[6];
+
+            if (isOneway) {
+                if (returnType !== 'void') {
+                    issues.push({
+                        message: `oneway methods must return void`,
+                        range: new vscode.Range(lineNo, 0, lineNo, line.length),
+                        severity: vscode.DiagnosticSeverity.Error,
+                        code: 'service.oneway.returnNotVoid'
+                    });
+                }
+                if (throwsPart) {
+                    issues.push({
+                        message: `oneway methods cannot declare throws`,
+                        range: new vscode.Range(lineNo, 0, lineNo, line.length),
+                        severity: vscode.DiagnosticSeverity.Error,
+                        code: 'service.oneway.hasThrows'
+                    });
+                }
+            }
+
+            if (throwsPart) {
+                const exMatches = throwsPart.split(',').map(s => s.trim()).filter(Boolean);
+                for (const ex of exMatches) {
+                    const mEx = ex.match(/\d+\s*:\s*([A-Za-z_][A-Za-z0-9_\.]*)\s+[A-Za-z_][A-Za-z0-9_]*/);
+                    if (mEx) {
+                        const exType = mEx[1].trim();
+                        const base = exType.includes('.') ? exType.split('.').pop()! : exType;
+                        const kind = typeKind.get(base);
+                        if (!kind) {
+                            issues.push({
+                                message: `Unknown exception type '${exType}' in throws`,
+                                range: new vscode.Range(lineNo, 0, lineNo, line.length),
+                                severity: vscode.DiagnosticSeverity.Error,
+                                code: 'service.throws.unknown'
+                            });
+                        } else if (kind !== 'exception') {
+                            issues.push({
+                                message: `Type '${exType}' in throws is not an exception`,
+                                range: new vscode.Range(lineNo, 0, lineNo, line.length),
+                                severity: vscode.DiagnosticSeverity.Error,
+                                code: 'service.throws.notException'
+                            });
+                        }
+                    }
+                }
             }
         }
     }
@@ -269,41 +549,23 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
 
 export function registerDiagnostics(context: vscode.ExtensionContext) {
     const collection = vscode.languages.createDiagnosticCollection('thrift');
-    context.subscriptions.push(collection);
 
-    const analyzeAndPublish = (doc: vscode.TextDocument) => {
+    function analyzeDocument(doc: vscode.TextDocument) {
         if (doc.languageId !== 'thrift') return;
         const issues = analyzeThriftText(doc.getText(), doc.uri);
-        const diagnostics = issues.map(iss => {
-            const d = new vscode.Diagnostic(iss.range, iss.message, iss.severity);
-            d.source = 'thrift';
-            if (iss.code) d.code = iss.code;
-            return d;
-        });
+        const diagnostics = issues.map(i => new vscode.Diagnostic(i.range, i.message, i.severity));
         collection.set(doc.uri, diagnostics);
-    };
-
-    // Analyze already-open Thrift documents
-    vscode.workspace.textDocuments.forEach(doc => analyzeAndPublish(doc));
-
-    // Analyze the active editor document (in case it wasn't in textDocuments yet)
-    const active = vscode.window?.activeTextEditor?.document;
-    if (active) {
-        analyzeAndPublish(active);
     }
 
-    // Re-analyze on open/change and clear on close
+    // Initial pass
+    if (vscode.window.activeTextEditor) {
+        analyzeDocument(vscode.window.activeTextEditor.document);
+    }
+
     context.subscriptions.push(
-        vscode.workspace.onDidOpenTextDocument(doc => analyzeAndPublish(doc))
-    );
-    context.subscriptions.push(
-        vscode.workspace.onDidChangeTextDocument(e => analyzeAndPublish(e.document))
-    );
-    context.subscriptions.push(
-        vscode.workspace.onDidCloseTextDocument(doc => {
-            if (doc.languageId === 'thrift') {
-                collection.delete(doc.uri);
-            }
-        })
+        vscode.workspace.onDidOpenTextDocument(doc => analyzeDocument(doc)),
+        vscode.workspace.onDidChangeTextDocument(e => analyzeDocument(e.document)),
+        vscode.workspace.onDidSaveTextDocument(doc => analyzeDocument(doc)),
+        vscode.workspace.onDidCloseTextDocument(doc => collection.delete(doc.uri))
     );
 }

@@ -67,6 +67,41 @@ function run() {
   issues = analyzeThriftText(unclosedOpener);
   assert.ok(findByCode(issues, 'syntax.unclosed').length === 1, 'Unclosed opener should be flagged');
 
+  // 7) Enum value must be integer and non-negative
+  const enumBad = `enum E {\n  A = -1,\n  B = 1.1,\n  C = 2,\n}`;
+  issues = analyzeThriftText(enumBad);
+  assert.ok(findByCode(issues, 'enum.negativeValue').length === 1, 'Enum negative value should be flagged');
+  assert.ok(findByCode(issues, 'enum.valueNotInteger').length === 1, 'Enum non-integer value should be flagged');
+
+  // 8) Default value type mismatch (uuid format and others)
+  const defaults = `struct D {\n  1: uuid id = "not-a-uuid"\n  2: string s = 123\n  3: i32 n = "x"\n  4: double d = 1.23\n  5: bool b = true\n  6: uuid u2 = "123e4567-e89b-12d3-a456-426614174000"\n}`;
+  issues = analyzeThriftText(defaults);
+  assert.ok(findByCode(issues, 'value.typeMismatch').length >= 2, 'Should flag mismatched default types (uuid and others)');
+
+  // 9) Service oneway must return void and cannot have throws
+  const svcOneway = `service S {\n  oneway void ping(),\n  oneway i32 bad1(),\n  oneway void bad2() throws (1: exception E ex)\n}\nexception E {\n  1: string msg\n}`;
+  issues = analyzeThriftText(svcOneway);
+  assert.ok(findByCode(issues, 'service.oneway.returnNotVoid').length === 1, 'oneway non-void should be flagged');
+  assert.ok(findByCode(issues, 'service.oneway.hasThrows').length === 1, 'oneway throws should be flagged');
+
+  // 10) Service throws unknown and not-exception types
+  const svcThrows = `exception X { 1: string m }\nstruct Y { 1: string m }\nservice S2 {\n  void f() throws (1: X ex, 2: Y notEx)\n}`;
+  issues = analyzeThriftText(svcThrows);
+  assert.ok(findByCode(issues, 'service.throws.notException').length === 1, 'throws non-exception should be flagged');
+
+  const svcThrowsUnknown = `service S3 {\n  void f() throws (1: UnknownEx ex)\n}`;
+  issues = analyzeThriftText(svcThrowsUnknown);
+  assert.ok(findByCode(issues, 'service.throws.unknown').length === 1, 'throws unknown type should be flagged');
+
+  // 11) Service extends checks
+  const svcExt = `service P {}\nstruct Z {}\nservice C extends P {}\nservice C2 extends Z {}`;
+  issues = analyzeThriftText(svcExt);
+  assert.ok(findByCode(issues, 'service.extends.notService').length === 1, 'extends non-service should be flagged');
+
+  const svcExtUnknown = `service C3 extends Unknown {}\n`;
+  issues = analyzeThriftText(svcExtUnknown);
+  assert.ok(findByCode(issues, 'service.extends.unknown').length === 1, 'extends unknown should be flagged');
+
   console.log('All diagnostics tests passed.');
 }
 
