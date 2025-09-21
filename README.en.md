@@ -32,6 +32,11 @@ A VSCode extension that provides complete support for Apache Thrift files, inclu
 - Include resolution: follow `include` statements across files
 - Workspace search: find definitions across the workspace
 
+### Code Refactoring
+- Identifier rename (F2): updates references across files with basic conflict checks
+- Extract type (typedef): infer type from selection or current field and generate a `typedef`
+- Move type to file: move `struct/enum/service/typedef` into a new `.thrift` file and auto-insert an `include`
+
 ## 📦 Installation
 
 1. Open VSCode
@@ -51,6 +56,13 @@ A VSCode extension that provides complete support for Apache Thrift files, inclu
 ### Code Navigation
 - Go to Definition: `F12` or `Ctrl+Click` on type names
 - Peek Definition: `Alt+F12`
+
+### Rename & Refactor
+- Rename symbol: select an identifier and press `F2`, or choose `Rename Symbol` from the context menu
+- Command Palette:
+  - `Thrift: Extract type (typedef)`
+  - `Thrift: Move type to file...`
+- Quick Fix / Refactor (light bulb): refactor-related Code Actions will appear when applicable
 
 ### Configuration
 
