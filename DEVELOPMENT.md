@@ -116,6 +116,10 @@ thrift-support/
     - 语法高亮对 `uuid` 呈现与其它基元一致的着色
   - 运行：`npm run test` / `npm run test:all`；必要时补充端到端用例
 
+## 参考规范与示例
+- Apache Thrift IDL 文档: https://thrift.apache.org/docs/idl
+- 官方测试 IDL 示例（ThriftTest.thrift）: https://raw.githubusercontent.com/apache/thrift/master/test/ThriftTest.thrift
+
 ### 测试与新增用例说明
 主要测试脚本位于 <mcfile name="tests" path="tests/"></mcfile> 目录，格式化相关的组合测试集中在 <mcfile name="test-struct-annotations-combinations.js" path="tests/test-struct-annotations-combinations.js"></mcfile>。
 
