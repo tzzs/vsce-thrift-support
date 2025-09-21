@@ -1,16 +1,17 @@
 import * as vscode from 'vscode';
+import type { ExtensionContext } from 'vscode';
 import { ThriftFormattingProvider } from './formatter';
 import { ThriftDefinitionProvider } from './definitionProvider';
 import { ThriftHoverProvider } from './hoverProvider';
 
-export function activate(context: vscode.ExtensionContext) {
+export function activate(context: ExtensionContext) {
     console.log('Thrift Support extension is now active!');
 
     // Register formatting provider
     const formattingProvider = new ThriftFormattingProvider();
     context.subscriptions.push(
         vscode.languages.registerDocumentFormattingEditProvider('thrift', formattingProvider)
-    );
+    ); 
     context.subscriptions.push(
         vscode.languages.registerDocumentRangeFormattingEditProvider('thrift', formattingProvider)
     );

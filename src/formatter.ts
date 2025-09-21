@@ -55,7 +55,6 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         // Global master switch for assignments alignment (option B)
         const alignAssignments = getOpt('alignAssignments', undefined);
         // Read per-kind (keep undefined when not set, to allow fallback to alignAssignments and preserve defaults)
-        const cfgAlignStructEquals = getOpt('alignStructEquals', undefined);
         const cfgAlignStructDefaults = getOpt('alignStructDefaults', undefined);
         const cfgAlignEnumEquals = getOpt('alignEnumEquals', undefined);
         const cfgAlignEnumValues = getOpt('alignEnumValues', undefined);
@@ -66,11 +65,6 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             : getOpt('alignStructAnnotations', true);
 
         // explicit per-kind > global alignAssignments > kind default (struct=false, enum=true)
-        const resolvedAlignStructEquals = (typeof cfgAlignStructEquals !== 'undefined')
-            ? cfgAlignStructEquals
-            : (typeof alignAssignments === 'boolean')
-            ? alignAssignments
-            : false;
         const resolvedAlignStructDefaults = (typeof cfgAlignStructDefaults !== 'undefined')
             ? cfgAlignStructDefaults
             : false; // Default to false for struct default values
@@ -90,10 +84,9 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             alignTypes: getOpt('alignTypes', true),
             // unify by alignNames only
             alignFieldNames: alignNames,
-            alignStructEquals: resolvedAlignStructEquals,
             alignStructDefaults: resolvedAlignStructDefaults,
             // Use unified annotations setting (fallback to legacy)
-            alignStructAnnotations: resolvedAlignAnnotations,
+            alignAnnotations: resolvedAlignAnnotations,
             alignComments: getOpt('alignComments', true),
             // unify by alignNames only
             alignEnumNames: alignNames,
@@ -115,11 +108,6 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     }
 
     private formatThriftCode(text: string, options: any): string {
-
-        // Backward compatibility for callers that don't pass the new option
-        if (typeof options.alignStructEquals === 'undefined') {
-            options.alignStructEquals = options.alignFieldNames;
-        }
 
         const lines = text.split('\n');
         const formattedLines: string[] = [];
@@ -734,7 +722,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         });
         
         // Always process fields for trailing comma handling, even if alignment is disabled
-        const needsAlignment = options.alignTypes || options.alignFieldNames || options.alignComments || options.alignStructAnnotations;
+        const needsAlignment = options.alignTypes || options.alignFieldNames || options.alignComments || options.alignAnnotations;
         
         if (!needsAlignment && options.trailingComma === 'preserve') {
             return sortedFields.map(f => this.getIndent(indentLevel, options) + f.line);
@@ -766,7 +754,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             maxFieldIdWidth = Math.max(maxFieldIdWidth, fieldId.length);
             maxTypeWidth = Math.max(maxTypeWidth, type.length);
             maxNameWidth = Math.max(maxNameWidth, name.length);
-            if (options.alignStructAnnotations) {
+            if (options.alignAnnotations) {
                 maxAnnotationWidth = Math.max(maxAnnotationWidth, annotation.length);
             }
             
@@ -799,9 +787,12 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             
             if (options.alignFieldNames) {
                 if (field.suffix) {
-                    // If there's a default value
-                    if (options.alignStructEquals) {
-                        contentWidth += maxNameWidth + field.suffix.length;
+                    // Use alignStructDefaults only when there's a default value ('=')
+                    const hasDefaultValue = field.suffix.includes('=');
+                    if (hasDefaultValue && options.alignStructDefaults) {
+                        // normalize equals spacing for width
+                        const normalized = field.suffix.replace(/\s*=\s*/, ' = ');
+                        contentWidth += maxNameWidth + normalized.length;
                     } else {
                         contentWidth += field.name.length + field.suffix.length;
                     }
@@ -816,7 +807,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             }
             
             // Add annotation width if enabled
-            if (options.alignStructAnnotations && field.annotation) {
+            if (options.alignAnnotations && field.annotation) {
                 contentWidth += 1; // space before annotation
                 contentWidth += maxAnnotationWidth;
             } else if (field.annotation) {
@@ -835,7 +826,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         
         // Pre-compute the target column where annotations should start when alignment is enabled
         const targetAnnoStart = (() => {
-            if (!options.alignStructAnnotations) return 0;
+            if (!options.alignAnnotations) return 0;
             let max = 0;
             parsedFields.forEach(f => {
                 if (!f || !f.annotation) return;
@@ -854,10 +845,11 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                         if (/\,\s*$/.test(s)) {
                             s = s.replace(/,\s*$/, '');
                         }
-                        if (s.includes('=')) {
+                        const hasDefault = s.includes('=');
+                        if (hasDefault) {
                             s = s.replace(/\s*=\s*/, ' = ');
                         }
-                        if (options.alignStructEquals) {
+                        if (hasDefault && options.alignStructDefaults) {
                             w += maxNameWidth + s.length;
                         } else {
                             w += f.name.length + s.length;
@@ -946,12 +938,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                              formattedLine += field.name;
                          }
                      } else {
-                         // For non-default values (like annotations), use alignStructEquals
-                         if (options.alignStructEquals) {
-                             formattedLine += field.name.padEnd(maxNameWidth);
-                         } else {
-                             formattedLine += field.name;
-                         }
+                         // No default value: do not pad to equals column
+                         formattedLine += field.name;
                      }
                      formattedLine += cleanSuffix;
                  } else {
@@ -960,7 +948,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                  }
                  // Add annotation aligned if enabled
                  if (field.annotation) {
-                    if (options.alignStructAnnotations) {
+                    if (options.alignAnnotations) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
                         const spaces = targetAnnoStart - currentWidth + 1;
                         // Place annotation at target start, do not pad to width here; append comma immediately if needed
@@ -988,7 +976,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     if (options.alignComments) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
                         const diff = maxContentWidth - currentWidth;
-                        const basePad = (options.alignStructAnnotations && hasComma && options.trailingComma !== 'add')
+                        const basePad = (options.alignAnnotations && hasComma && options.trailingComma !== 'add')
                             ? Math.max(1, diff)
                             : Math.max(1, diff + 1);
                         const padSpaces = commentCount > 1 ? basePad : 1;
@@ -1009,7 +997,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                  }
                  // Add annotation
                  if (field.annotation) {
-                    if (options.alignStructAnnotations) {
+                    if (options.alignAnnotations) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
                         const spaces = targetAnnoStart - currentWidth + 1;
                         // Place annotation at target start, do not pad to width here; append comma immediately if needed
@@ -1032,7 +1020,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     if (options.alignComments) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
                         const diff = maxContentWidth - currentWidth;
-                        const basePad = (options.alignStructAnnotations && hasComma && options.trailingComma !== 'add')
+                        const basePad = (options.alignAnnotations && hasComma && options.trailingComma !== 'add')
                             ? Math.max(1, diff)
                             : Math.max(1, diff + 1);
                         const padSpaces = commentCount > 1 ? basePad : 1;
@@ -1047,8 +1035,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 }
              }
 
-            return formattedLine;
-        });
+             return formattedLine;
+         });
     }
 
     private formatEnumFields(
