@@ -1,23 +1,5 @@
 # Changelog | 更新日志
 
-## [0.4.4](https://github.com/tzzs/vsce-thrift-support/compare/v0.4.0...v0.4.4) (2025-09-22)
-
-### 中文版本
-#### 错误修复
-* **diagnostics：** 忽略字段注解中的 '='，避免被误识别为默认值，修复误报的类型不匹配诊断。
-* **diagnostics：** 放宽 set<T> 默认值字面量校验，同时接受 `[]` 与 `{}`，并基于顶层括号进行元素分隔校验；新增回归测试覆盖。
-
-#### 文档
-* 更新 README（中/英）新增“代码诊断”章节，描述现有诊断能力与近期改进。
-
-### English Version
-#### Bug Fixes
-* **diagnostics:** Ignore '=' inside field annotations when extracting default values to prevent false positives.
-* **diagnostics:** Relax set<T> default literal validation to accept both `[]` and `{}` with bracket-aware element checks; add regression tests.
-
-#### Docs
-* Update README (EN/ZH) with a new “Diagnostics” section reflecting current capabilities and recent improvements.
-
 ## [0.4.0](https://github.com/tzzs/vsce-thrift-support/compare/v0.3.0...v0.4.0) (2025-09-20)
 
 ### 中文版本
