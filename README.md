@@ -57,6 +57,27 @@
 - **跳转到定义**：`F12` 或 `Ctrl+点击` 类型名
 - **查看定义**：`Alt+F12`
 
+### 代码诊断
+- 语法括号配对与未闭合检查（syntax.unmatchedCloser / syntax.unclosed）
+- 类型校验：未知类型与 typedef 基类（type.unknown / typedef.unknownBase）
+- 容器内部类型校验：校验 list/map/set 的内层类型是否已定义
+- 枚举取值约束：必须为非负整数（enum.negativeValue / enum.valueNotInteger）
+- 默认值类型校验：包括基础类型与 uuid 字符串格式校验（value.typeMismatch）
+- 服务约束：
+  - oneway 必须返回 void，且不能声明 throws（service.oneway.returnNotVoid / service.oneway.hasThrows）
+  - throws 的类型必须为已知异常类型（service.throws.unknown / service.throws.notException）
+  - extends 的父类型必须为 service（service.extends.unknown / service.extends.notService）
+- 默认值解析健壮性改进：
+  - 忽略字段注解中的 '='，避免被误识别为默认值起始
+  - set<T> 默认值同时接受 `[]` 或 `{}` 包裹，并依据顶层括号进行元素分隔校验
+
+说明：诊断在编辑与保存时即时更新，可在 VSCode “问题”面板查看并定位。
+
+### 代码重构
+- **标识符重命名（F2）**：跨文件更新引用，内置冲突检测
+- **抽取类型（typedef）**：从选区或当前字段推断类型并生成 `typedef`
+- **移动类型到文件**：将 `struct/enum/service/typedef` 等移动到新的 `.thrift` 文件并自动插入 `include`
+
 ### 重命名与重构
 - **重命名符号**：选中标识符按 `F2`，或右键菜单选择 `Rename Symbol`
 - **命令面板**：

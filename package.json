@@ -1,8 +1,8 @@
 {
   "name": "thrift-support",
   "displayName": "Thrift Support",
-  "description": "Apache Thrift language support: syntax highlighting, formatter, and code navigation",
-  "version": "0.4.2",
+  "description": "Apache Thrift language support: syntax highlighting, formatter, diagnostics, navigation, and refactoring",
+  "version": "0.4.4",
   "publisher": "tanzz",
   "icon": "icon.png",
   "repository": {
@@ -27,11 +27,14 @@
     "formatter",
     "format",
     "code formatting",
+    "diagnostics",
     "code navigation",
     "go to definition",
     "definition",
     "include",
-    "include navigation"
+    "include navigation",
+    "refactoring",
+    "rename"
   ],
   "activationEvents": [
     "onLanguage:thrift"

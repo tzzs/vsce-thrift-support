@@ -54,56 +54,29 @@ A VSCode extension that provides complete support for Apache Thrift files, inclu
   - `Thrift: Format Selection`
 
 ### Code Navigation
-- Go to Definition: `F12` or `Ctrl+Click` on type names
+- Go to Definition: `F12` or `Ctrl+Click`
 - Peek Definition: `Alt+F12`
 
-### Rename & Refactor
-- Rename symbol: select an identifier and press `F2`, or choose `Rename Symbol` from the context menu
-- Command Palette:
-  - `Thrift: Extract type (typedef)`
-  - `Thrift: Move type to file...`
-- Quick Fix / Refactor (light bulb): refactor-related Code Actions will appear when applicable
+### Diagnostics
+- Syntax pairing and unclosed checks (syntax.unmatchedCloser / syntax.unclosed)
+- Type checks: unknown types and typedef base (type.unknown / typedef.unknownBase)
+- Container inner type checks: validate inner types of list/map/set
+- Enum constraints: values must be non-negative integers (enum.negativeValue / enum.valueNotInteger)
+- Default value type checks: including base types and UUID string format (value.typeMismatch)
+- Service constraints:
+  - oneway must return void and must not declare throws (service.oneway.returnNotVoid / service.oneway.hasThrows)
+  - throws must reference known exception types (service.throws.unknown / service.throws.notException)
+  - extends must target a service type (service.extends.unknown / service.extends.notService)
+- Robust default value extraction improvements:
+  - Ignore '=' inside field annotations so it won’t be treated as the start of a default value
+  - set<T> default values accept either `[]` or `{}` with bracket-aware element checks
 
-### Configuration
+Note: Diagnostics update in real-time during editing and on save. You can review them in VSCode’s “Problems” panel.
 
-In VSCode settings, you can configure:
-
-```json
-{
-  "thrift.format.trailingComma": "preserve", // "preserve" | "add" | "remove"
-  "thrift.format.alignTypes": true,
-  "thrift.format.alignNames": true,
-  "thrift.format.alignAssignments": true,
-  "thrift.format.alignAnnotations": true,
-  "thrift.format.alignComments": true,
-  "thrift.format.indentSize": 4,
-  "thrift.format.maxLineLength": 100,
-  "thrift.format.collectionStyle": "preserve" // "preserve" | "multiline" | "auto"
-}
-```
-
-- Global master switch (alignAssignments): when enabled, it governs alignment of '=' and values for struct fields and enum members; when not explicitly set, each kind falls back to its own default (struct equals alignment defaults to off, enum equals/values default to on).
-- Struct default value alignment (alignStructDefaults): controls alignment of '=' for default values only, independent of alignAssignments (does not follow the master switch).
-
-## 📝 Formatting Example
-
-### Before:
-```thrift
-struct User{
-1:required string name
-2:optional i32 age,
-3: string email // user email
-}
-```
-
-### After:
-```thrift
-struct User {
-    1:   required string name,
-    2:   optional i32    age,
-    3:   string          email  // user email
-}
-```
+### Code Refactoring
+- Identifier rename (F2): cross-file reference updates with basic conflict checks
+- Extract type (typedef): infer type from selection/current field and generate a `typedef`
+- Move type to file: move `struct/enum/service/typedef` into a new `.thrift` file and auto-insert an `include`
 
 ## 📐 Language Spec Alignment (IDL 0.23)
 
