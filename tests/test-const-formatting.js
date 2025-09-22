@@ -39,7 +39,7 @@ Module.prototype.require = function(id) {
 };
 
 // Import the formatter
-const { ThriftFormattingProvider } = require('../out/formatter.js');
+const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
 
 // Restore original require after import
 Module.prototype.require = originalRequire;

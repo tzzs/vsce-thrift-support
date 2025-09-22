@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
-import { ThriftFormattingProvider } from './formatter';
+import { ThriftFormattingProvider } from './formattingProvider';
 import { ThriftDefinitionProvider } from './definitionProvider';
 import { ThriftHoverProvider } from './hoverProvider';
 import { registerDiagnostics } from './diagnostics';
-import { ThriftRenameProvider } from './refactor';
-import { ThriftRefactorCodeActionProvider } from './codeActions';
+import { ThriftRenameProvider } from './renameProvider';
+import { ThriftRefactorCodeActionProvider } from './codeActionsProvider';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Thrift Support extension is now active!');

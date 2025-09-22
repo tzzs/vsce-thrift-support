@@ -48,7 +48,7 @@ Module._load = function (request, parent, isMain) {
   return originalLoad(request, parent, isMain);
 };
 
-const { ThriftFormattingProvider } = require("../out/formatter");
+const { ThriftFormattingProvider } = require("../out/formattingProvider.js");
 
 class MockDocument {
   constructor(text) { this._text = text; }

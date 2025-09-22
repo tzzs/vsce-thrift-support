@@ -49,7 +49,7 @@ Module.prototype.require = function(id) {
     return originalRequire.apply(this, arguments);
 };
 
-const { ThriftFormattingProvider } = require('../out/formatter');
+const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
 
 // Restore original require
 Module.prototype.require = originalRequire;

@@ -34,7 +34,7 @@ Module.prototype.require = function (id) {
   return originalRequire.apply(this, arguments);
 };
 
-const { ThriftRefactorCodeActionProvider } = require('../out/codeActions');
+const { ThriftRefactorCodeActionProvider } = require('../out/codeActionsProvider.js');
 Module.prototype.require = originalRequire;
 
 function createDoc(languageId = 'thrift', text = 'struct Foo {\n 1: i32 id\n}') {
@@ -44,16 +44,18 @@ function createDoc(languageId = 'thrift', text = 'struct Foo {\n 1: i32 id\n}') 
     getText: () => text,
     lineCount: lines.length,
     lineAt: (line) => ({ text: lines[line] || '' }),
+    // Avoid triggering workspace search in provider
+    getWordRangeAtPosition: () => null,
   };
 }
 
-function run() {
+async function run() {
   console.log('\nRunning code action provider tests...');
   const provider = new ThriftRefactorCodeActionProvider();
 
   const doc = createDoc('thrift');
   const range = new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(0, 6));
-  const actions = provider.provideCodeActions(doc, range, { only: undefined }, undefined) || [];
+  const actions = (await provider.provideCodeActions(doc, range, { only: undefined }, undefined)) || [];
 
   assert.ok(Array.isArray(actions), 'Expected an array of code actions');
   assert.strictEqual(actions.length, 2, 'Should return two code actions');
@@ -69,7 +71,7 @@ function run() {
 
   // Non-thrift docs should return undefined
   const otherDoc = createDoc('json');
-  const none = provider.provideCodeActions(otherDoc, range, { only: undefined }, undefined);
+  const none = await provider.provideCodeActions(otherDoc, range, { only: undefined }, undefined);
   assert.strictEqual(none, undefined, 'Non-thrift documents should not provide code actions');
 
   console.log('Code action provider tests passed.');

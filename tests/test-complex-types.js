@@ -64,7 +64,7 @@ function testComplexTypesFormatting() {
     console.log('Testing complex types formatting...');
     
     try {
-        const { ThriftFormattingProvider } = require('../out/formatter.js');
+        const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
         const formatter = new ThriftFormattingProvider();
         
         const testCode = `struct TestStruct {

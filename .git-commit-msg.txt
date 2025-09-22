@@ -1,0 +1,7 @@
+fix(diagnostics): ignore '=' in field annotations when extracting default values
+
+- Treat '=' within (...) as annotation, not a default assignment
+- Stop default capture at top-level comma/semicolon or before annotations
+- Add regression test: annotation '=' does not produce value.typeMismatch
+
+Fixes false-positive on test-files/debug-formatted.thrift:29

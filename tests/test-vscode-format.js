@@ -55,7 +55,7 @@ Module._load = function (request, parent, isMain) {
 };
 
 // Import the formatter provider (compiled output)
-const { ThriftFormattingProvider } = require('../out/formatter');
+const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
 
 (async function run() {
   const provider = new ThriftFormattingProvider();

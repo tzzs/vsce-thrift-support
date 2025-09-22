@@ -32,3 +32,4 @@ if (failed > 0) {
 } else {
   console.log('\nAll test files passed.');
 }
+
