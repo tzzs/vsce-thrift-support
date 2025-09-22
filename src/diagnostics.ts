@@ -316,11 +316,17 @@ function valueMatchesType(valueRaw: string, typeText: string, definedTypes: Set<
         return true; // content validation is out of scope here
     }
     if (/^set<.+>$/.test(t)) {
-        if (!(v.startsWith('{') && v.endsWith('}'))) return false;
+        // Accept both {} and [] as set literals (be lenient for common authoring styles)
+        const isBrace = v.startsWith('{') && v.endsWith('}');
+        const isBracket = v.startsWith('[') && v.endsWith(']');
+        if (!isBrace && !isBracket) return false;
         const inner = v.slice(1, -1).trim();
-        if (inner.length === 0) return true; // allow empty set defaults: {}
+        if (inner.length === 0) return true; // allow empty set defaults: {} or []
         // heuristic: set has no ':' at top level
-        return !/:(?=(?:[^\{]*\{[^\}]*\})*[^\}]*$)/.test(v);
+        const colonTopLevel = isBrace
+            ? /:(?=(?:[^\{]*\{[^\}]*\})*[^\}]*$)/.test(v)
+            : /:(?=(?:[^\[]*\[[^\]]*\])*[^\]]*$)/.test(v);
+        return !colonTopLevel;
     }
     if (/^map<.+>$/.test(t)) {
         if (!(v.startsWith('{') && v.endsWith('}'))) return false;

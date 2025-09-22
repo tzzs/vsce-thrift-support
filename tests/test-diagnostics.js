@@ -107,6 +107,15 @@ function run() {
   issues = analyzeThriftText(annotEq);
   assert.ok(findByCode(issues, 'value.typeMismatch').length === 0, "Equals inside annotations shouldn't create a default value error");
 
+  // 13) set<T> default value using [] should be accepted (lenient)
+  const setDefaultBracket = [
+    'struct OptionalSetDefaultTest {',
+    '  1: optional set<string> with_default = [ "test" ]',
+    '}'
+  ].join('\n');
+  issues = analyzeThriftText(setDefaultBracket);
+  assert.strictEqual(findByCode(issues, 'value.typeMismatch').length, 0, 'should not flag type mismatch for set defaults with []');
+
   console.log('All diagnostics tests passed.');
 }
 
