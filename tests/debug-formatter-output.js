@@ -106,7 +106,7 @@ function debugFormatterOutput() {
     console.log('Testing formatter output...');
     
     try {
-        const { ThriftFormattingProvider } = require('../out/formatter.js');
+        const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
         const formatter = new ThriftFormattingProvider();
         
         const testCode = `struct TestStruct {

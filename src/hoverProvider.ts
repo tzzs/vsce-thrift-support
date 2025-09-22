@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { ThriftDefinitionProvider } from './definitionProvider';
+import * as path from 'path';
 
 export class ThriftHoverProvider implements vscode.HoverProvider {
     async provideHover(
@@ -13,6 +14,15 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             const def = await defProvider.provideDefinition(document, position, token);
             const loc = this.normalizeDefinition(def);
             if (!loc) {
+                return undefined;
+            }
+
+            // Only allow hover for definitions in current document or explicitly included files
+            const allowed = new Set<string>();
+            allowed.add(document.uri.fsPath);
+            const includes = await this.getIncludedFiles(document);
+            for (const u of includes) {allowed.add(u.fsPath);}
+            if (!allowed.has(loc.uri.fsPath)) {
                 return undefined;
             }
 
@@ -46,9 +56,9 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
     }
 
     private normalizeDefinition(def: vscode.Definition | undefined): vscode.Location | undefined {
-        if (!def) return undefined;
+        if (!def) {return undefined;}
         if (Array.isArray(def)) {
-            if (def.length === 0) return undefined;
+            if (def.length === 0) {return undefined;}
             // Recursively normalize the first entry
             return this.normalizeDefinition(def[0] as any);
         }
@@ -63,10 +73,38 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
         return undefined;
     }
 
+    private async getIncludedFiles(document: vscode.TextDocument): Promise<vscode.Uri[]> {
+        const text = document.getText();
+        const lines = text.split('\n');
+        const includedFiles: vscode.Uri[] = [];
+        const documentDir = path.dirname(document.uri.fsPath);
+
+        for (const line of lines) {
+            const trimmedLine = line.trim();
+            const includeMatch = trimmedLine.match(/^include\s+["']([^"']+)["']/);
+            if (includeMatch) {
+                const includePath = includeMatch[1];
+                let fullPath: string;
+                if (path.isAbsolute(includePath)) {
+                    fullPath = includePath;
+                } else {
+                    fullPath = path.resolve(documentDir, includePath);
+                }
+                try {
+                    const uri = vscode.Uri.file(fullPath);
+                    includedFiles.push(uri);
+                } catch {
+                    // ignore invalid include
+                }
+            }
+        }
+        return includedFiles;
+    }
+
     private extractLeadingDocComments(lines: string[], defLineIndex: number): string[] {
         const results: string[] = [];
         let i = defLineIndex - 1;
-        if (i < 0) return results;
+        if (i < 0) {return results;}
 
         const trim = (s: string) => s.replace(/\s+$/,'');
 
@@ -76,7 +114,7 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             blanks++;
             i--;
         }
-        if (i < 0) return results;
+        if (i < 0) {return results;}
 
         // Handle block comments ending right above the definition (possibly after one blank line)
         if (/\*\//.test(lines[i])) {
@@ -124,8 +162,8 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             out.push(line);
         }
         // Trim trailing/leading empty lines
-        while (out.length && out[0].trim() === '') out.shift();
-        while (out.length && out[out.length - 1].trim() === '') out.pop();
+        while (out.length && out[0].trim() === '') {out.shift();}
+        while (out.length && out[out.length - 1].trim() === '') {out.pop();}
         return out;
     }
 }

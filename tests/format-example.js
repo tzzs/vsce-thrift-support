@@ -1,6 +1,6 @@
 // Debug script to format the example.thrift file and print lines around 109-113
 
-// Mock minimal vscode API used by out/formatter.js
+// Mock minimal vscode API used by out/formattingProvider.js
 const path = require('path');
 const fs = require('fs');
 
@@ -50,7 +50,7 @@ Module._load = function(request, parent, isMain) {
   return originalLoad.apply(this, arguments);
 };
 
-const { ThriftFormattingProvider } = require(path.resolve(__dirname, '../out/formatter.js'));
+const { ThriftFormattingProvider } = require(path.resolve(__dirname, '../out/formattingProvider.js'));
 
 function run() {
   const filePath = path.resolve(__dirname, '../test-files/example.thrift');

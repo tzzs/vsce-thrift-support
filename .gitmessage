@@ -1,23 +1,40 @@
-# <type>(<scope>): <subject>
-# 空一行后可写 body（详细描述），再空一行可写 footer（关联 issue、BREAKING CHANGE 等）
+# Conventional Commits 提交模板
+# 规范: https://www.conventionalcommits.org/en/v1.0.0/#summary
 #
-# type 必须是以下之一：
-#   feat      新功能 (会触发 minor 版本升级)
-#   fix       修复 Bug (会触发 patch 版本升级)
-#   docs      文档更新 (不会触发版本升级)
-#   style     代码风格 (空格/格式/分号之类，不是 CSS)
-#   refactor  重构 (非新增功能、非修复 bug)
-#   perf      性能优化 (会触发 patch 版本升级)
-#   test      测试代码 (不会触发版本升级)
-#   build     构建相关 (依赖、打包)
+# 基本格式：
+#   <type>(<scope>)!: <description>
+#
+# 关键规则：
+# - type 必填；scope 可选；如有破坏性变更，可在 type 或 scope 后添加感叹号 !，或在 footer 中使用 BREAKING CHANGE: 进行说明
+# - 冒号后必须有一个空格；<description> 为简短摘要
+# - <description> 与 body（可选）之间空一行；body 与 footer（可选）之间再空一行
+#
+# 语义化版本关系（规范仅对以下两类有隐含语义，其他类型无内建语义）：
+# - feat: 新功能（对应 SemVer 的 MINOR）
+# - fix: 缺陷修复（对应 SemVer 的 PATCH）
+# - 任意类型包含 BREAKING CHANGE: 视为 MAJOR
+#
+# 常用类型（非强制清单，除 feat/fix 外无内建语义）：
+#   docs      文档
+#   style     代码风格（空格/格式/分号等，非 CSS）
+#   refactor  重构（非新增功能、非修复缺陷）
+#   perf      性能优化
+#   test      测试相关
+#   build     构建系统或依赖
 #   ci        CI 配置
-#   chore     杂项 (不会触发版本升级)
-#   revert    回滚提交
+#   chore     杂项
+#   revert    回滚
 #
-# scope 可选，用于说明影响范围，例如 auth、ui、api 等
+# 示例一（普通变更）：
+#   feat(formatter): 支持 alignStructDefaults 独立开关
 #
-# footer 示例：
-#   BREAKING CHANGE: xxx
-#   Closes #123
-
-feat(auth): 新增xx支持
+#   详细说明……
+#
+#   Refs: #123
+#
+# 示例二（破坏性变更，使用 ! 与 BREAKING CHANGE footer 二选一或同时）：
+#   feat(formatter)!: 调整默认对齐策略
+#
+#   详细说明……
+#
+#   BREAKING CHANGE: 默认对齐逻辑与旧版本不兼容

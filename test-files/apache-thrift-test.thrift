@@ -20,6 +20,7 @@
  * Please see doc/old-thrift-license.txt in the Thrift distribution for
  * details.
  */
+// source: https://raw.githubusercontent.com/apache/thrift/master/test/ThriftTest.thrift
 
 namespace c_glib TTest
 namespace cpp thrift.test

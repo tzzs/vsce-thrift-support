@@ -15,7 +15,7 @@ const vscode = {
                             alignTypes: true,
                             alignNames: true,
                             alignAssignments: true,
-                            alignStructEquals: true,
+
                             alignStructDefaults: false, // This is the key test - defaults should not align
                             alignAnnotations: true,
                             alignComments: true,
@@ -49,7 +49,7 @@ Module.prototype.require = function(id) {
     return originalRequire.apply(this, arguments);
 };
 
-const { ThriftFormattingProvider } = require('../out/formatter');
+const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
 
 // Restore original require
 Module.prototype.require = originalRequire;
@@ -129,7 +129,7 @@ function testEnabledConfiguration() {
                         alignTypes: true,
                         alignNames: true,
                         alignAssignments: true,
-                        alignStructEquals: true,
+
                         alignStructDefaults: true, // Enable alignment for this test
                         alignAnnotations: true,
                         alignComments: true,

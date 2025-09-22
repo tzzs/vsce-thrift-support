@@ -17,7 +17,7 @@ Module._load = function(request, parent, isMain) {
   return originalLoad.apply(this, arguments);
 };
 
-const formatter_module = require('../out/formatter');
+const formatter_module = require('../out/formattingProvider.js');
 const { ThriftFormattingProvider } = formatter_module;
 
 async function runUserScenario() {

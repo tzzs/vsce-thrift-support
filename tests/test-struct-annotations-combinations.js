@@ -13,7 +13,7 @@ const vscode = {
               trailingComma: "preserve",
               alignTypes: true,
               alignFieldNames: true,
-              alignStructEquals: false,
+
               alignAnnotations: true,
               alignComments: true,
               alignEnumNames: true,
@@ -48,7 +48,7 @@ Module._load = function (request, parent, isMain) {
   return originalLoad(request, parent, isMain);
 };
 
-const { ThriftFormattingProvider } = require("../out/formatter");
+const { ThriftFormattingProvider } = require("../out/formattingProvider.js");
 
 class MockDocument {
   constructor(text) { this._text = text; }
@@ -90,7 +90,7 @@ function withConfig(overrides, fn) {
             trailingComma: "preserve",
             alignTypes: true,
             alignFieldNames: true,
-            alignStructEquals: false,
+
             alignAnnotations: true,
             alignComments: true,
             alignEnumNames: true,
@@ -147,7 +147,7 @@ function test_struct_annotations_align_all_on() {
 }
 
 function test_struct_annotations_align_no_type_no_name() {
-  withConfig({ alignTypes: false, alignFieldNames: false, alignStructEquals: false }, () => {
+  withConfig({ alignTypes: false, alignFieldNames: false }, () => {
     const input = buildInputWithVariants();
     const out = runRangeFormat(input, 1, 5);
     const lines = out.split("\n");
@@ -267,7 +267,7 @@ function test_struct_annotations_trailing_comma_remove_and_semicolon_preserve() 
 
 function test_struct_comment_alignment_only_comments_true() {
   // Only enable comment alignment; disable other alignments to observe its isolated effect
-  withConfig({ alignComments: true, alignStructAnnotations: false, alignAnnotations: false, alignTypes: false, alignFieldNames: false }, () => {
+  withConfig({ alignComments: true, alignAnnotations: false, alignTypes: false, alignFieldNames: false }, () => {
     const input = [
       "struct S4 {",
       "    1: required string a (anno='x') // first",
@@ -294,7 +294,7 @@ function test_struct_comment_alignment_only_comments_true() {
 
 function test_struct_comments_not_aligned_when_disabled() {
   // Disable other alignments that might equalize base widths
-  withConfig({ alignComments: false, alignStructAnnotations: false, alignAnnotations: false, alignTypes: false, alignFieldNames: false }, () => {
+  withConfig({ alignComments: false, alignAnnotations: false, alignTypes: false, alignFieldNames: false }, () => {
     const input = buildInputWithVariants();
     const out = runRangeFormat(input, 1, 5);
     const lines = out.split("\n");
@@ -326,10 +326,10 @@ function test_struct_comments_not_aligned_when_disabled() {
     console.log("  ✓ semicolon preserved and annotations aligned");
     test_struct_comments_not_aligned_when_disabled();
     console.log("  ✓ comments not aligned when alignComments=false");
-+   test_struct_annotations_trailing_comma_remove_and_semicolon_preserve();
-+   console.log("  ✓ trailingComma=remove removes commas and preserves semicolons");
-+   test_struct_comment_alignment_only_comments_true();
-+   console.log("  ✓ comments align when only alignComments=true");
+     test_struct_annotations_trailing_comma_remove_and_semicolon_preserve();
+     console.log("  ✓ trailingComma=remove removes commas and preserves semicolons");
+     test_struct_comment_alignment_only_comments_true();
+     console.log("  ✓ comments align when only alignComments=true");
      console.log("All tests passed.");
   } catch (e) {
     console.error("Test failed:", e);

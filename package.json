@@ -1,8 +1,8 @@
 {
   "name": "thrift-support",
   "displayName": "Thrift Support",
-  "description": "Apache Thrift language support: syntax highlighting, formatter, and code navigation",
-  "version": "0.4.0",
+  "description": "Apache Thrift language support: syntax highlighting, formatter, diagnostics, navigation, and refactoring",
+  "version": "0.4.7",
   "publisher": "tanzz",
   "icon": "icon.png",
   "repository": {
@@ -27,11 +27,14 @@
     "formatter",
     "format",
     "code formatting",
+    "diagnostics",
     "code navigation",
     "go to definition",
     "definition",
     "include",
-    "include navigation"
+    "include navigation",
+    "refactoring",
+    "rename"
   ],
   "activationEvents": [
     "onLanguage:thrift"
@@ -92,17 +95,17 @@
         "thrift.format.alignNames": {
           "type": "boolean",
           "default": true,
-          "description": "Align names for struct fields and enum members (unified control for field and enum names)"
+          "description": "Align names for struct fields and enum members (unified control for field and enum names). Fine-grained keys like alignFieldNames/alignEnumNames are not exposed; they are internally tied to this switch for simplicity."
         },
         "thrift.format.alignAssignments": {
           "type": "boolean",
           "default": true,
-          "description": "Master switch to align '=' signs and values for both struct fields and enum members. When set, it overrides per-kind equals/values alignment; if not set explicitly, struct and enum fall back to their own defaults."
+          "description": "Master switch to align '=' signs and values for both struct fields and enum members. When set, it overrides per-kind equals/values alignment; if not set explicitly, struct and enum fall back to their own defaults. Note: This does not affect struct default value alignment; use 'thrift.format.alignStructDefaults' for that."
         },
         "thrift.format.alignStructDefaults": {
           "type": "boolean",
           "default": false,
-          "description": "Align '=' signs for struct field default values (e.g., 'field = defaultValue'). This is separate from alignStructEquals which controls general struct field assignments."
+          "description": "Align '=' signs for struct field default values (e.g., 'field = defaultValue'). Independent from the global 'thrift.format.alignAssignments' switch; this option exclusively controls default value alignment for struct fields."
         },
         "thrift.format.alignAnnotations": {
           "type": "boolean",
@@ -158,7 +161,7 @@
   },
   "devDependencies": {
     "@types/node": "16.x",
-    "@types/vscode": "^1.74.0",
+    "@types/vscode": "1.74.0",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
     "@vscode/vsce": "^3.6.0",

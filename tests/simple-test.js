@@ -19,7 +19,7 @@ Module._load = function(request, parent, isMain) {
   return originalLoad.apply(this, arguments);
 };
 
-const { ThriftFormattingProvider } = require('../out/formatter');
+const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
 
 function resetRequireCache(moduleName) {
   Object.keys(require.cache).forEach((key) => {
@@ -28,7 +28,7 @@ function resetRequireCache(moduleName) {
 }
 
 async function run() {
-  resetRequireCache('out/formatter');
+  resetRequireCache('out/formattingProvider.js');
 
   const provider = new ThriftFormattingProvider();
 

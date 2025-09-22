@@ -33,7 +33,7 @@ function debugParsing() {
     console.log('Debug parsing...');
     
     try {
-        const { ThriftFormattingProvider } = require('../out/formatter.js');
+        const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
         const formatter = new ThriftFormattingProvider();
         
         const testLines = [

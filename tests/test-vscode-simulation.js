@@ -14,7 +14,7 @@ const vscode = {
               trailingComma: 'preserve',
               alignTypes: true,
               alignFieldNames: true,
-              alignStructEquals: true,
+
               alignAnnotations: true,
               alignComments: true,
               alignEnumNames: true,
@@ -57,7 +57,7 @@ Module.prototype.require = function (id) {
   return originalRequire.apply(this, arguments);
 };
 
-const { ThriftFormattingProvider } = require('../out/formatter');
+const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
 Module.prototype.require = originalRequire;
 
 function createMockDocument(content) {

@@ -62,7 +62,7 @@ Module.prototype.require = function(id) {
 
 try {
     // 导入格式化器
-    const { ThriftFormattingProvider } = require('./out/formatter.js');
+    const { ThriftFormattingProvider } = require('./out/formattingProvider.js');
     
     // 恢复原始require
     Module.prototype.require = originalRequire;

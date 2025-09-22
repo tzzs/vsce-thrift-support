@@ -26,27 +26,34 @@ thrift-support/
 ├── src/
 │   ├── extension.ts            # 扩展入口，注册能力与命令
 │   ├── formatter.ts            # 格式化核心逻辑
-│   └── definitionProvider.ts   # 跳转到定义/引用解析
+│   ├── definitionProvider.ts   # 跳转到定义/引用解析
+│   ├── codeActions.ts          # 提供抽取类型/移动类型等重构 Code Actions
+│   └── refactor.ts             # 重命名（RenameProvider），与重构命令关联
 ├── syntaxes/
 │   └── thrift.tmLanguage.json  # 语法高亮的 TextMate 语法
 ├── language-configuration.json # 语言括号/注释等配置
-├── tests/                      # 测试脚本
+├── tests/                      # 测试脚本（包括 test-rename-provider.js / test-code-actions-provider.js）
 └── test-files/                 # 示例与测试用 Thrift 文件
 ```
 
 ### 模块划分
-- 扩展入口（Extension）— <mcfile name="extension.ts" path="src/extension.ts"></mcfile> ([src/extension.ts](src/extension.ts))
+- 扩展入口（Extension）— <mcfile name="extension.ts" path="src/extension.ts"></mcfile>
   - 激活时机：onLanguage:thrift
-  - 注册命令与提供者（格式化、跳转到定义）
+  - 注册命令与提供者（格式化、跳转到定义、重命名、Code Actions）
+  - 暴露/绑定重构命令：`thrift.refactor.extractType`、`thrift.refactor.moveType`
   - 读取并响应配置变更
 
-- 格式化器（Formatter）— <mcfile name="formatter.ts" path="src/formatter.ts"></mcfile> ([src/formatter.ts](src/formatter.ts))
+- 格式化器（Formatter）— <mcfile name="formatter.ts" path="src/formatter.ts"></mcfile>
   - 负责文档/选区格式化、对齐策略、缩进与行长控制
   - 受配置项影响（如 alignTypes/alignFieldNames/alignComments/trailingComma/indentSize/maxLineLength/collectionStyle 等）
 
-- 定义提供器（Definition Provider）— <mcfile name="definitionProvider.ts" path="src/definitionProvider.ts"></mcfile> ([src/definitionProvider.ts](src/definitionProvider.ts))
+- 定义提供器（Definition Provider）— <mcfile name="definitionProvider.ts" path="src/definitionProvider.ts"></mcfile>
   - 解析 include 关系与跨文件符号定位
   - 支持工作区范围的跳转到定义
+
+- 重命名与重构（Refactor）— <mcfile name="refactor.ts" path="src/refactor.ts"></mcfile>, <mcfile name="codeActions.ts" path="src/codeActions.ts"></mcfile>
+  - `refactor.ts` 提供 RenameProvider：统一实现标识符重命名（F2）
+  - `codeActions.ts` 提供重构 Code Actions：抽取类型、移动类型等，并与注册的命令协作
 
 - 语法与语言配置— <mcfile name="thrift.tmLanguage.json" path="syntaxes/thrift.tmLanguage.json"></mcfile>、<mcfile name="language-configuration.json" path="language-configuration.json"></mcfile>（[syntaxes/thrift.tmLanguage.json](syntaxes/thrift.tmLanguage.json)、[language-configuration.json](language-configuration.json)）
   - 提供高亮、括号配对、注释等语言层支持
@@ -70,18 +77,48 @@ thrift-support/
 核心逻辑集中在 <mcfile name="formatter.ts" path="src/formatter.ts"></mcfile> 中。
 
 - 对齐选项：
-  - alignTypes / alignFieldNames / alignStructEquals：控制类型、字段名与等号的列对齐。
+  - alignTypes / alignFieldNames（外部配置键为 alignNames）：控制类型与字段名的列对齐。
+  - 等号/值对齐（Assignments）：由总开关 alignAssignments 统筹；开启时对齐 struct 字段等号与 enum 等号/枚举值；未显式设置时使用各自默认（struct 等号默认关闭、enum 等号/值默认开启）。
+  - alignStructDefaults：仅控制 struct 字段“默认值”的等号对齐，独立于 alignAssignments（不随总开关联动）。
   - alignComments：控制“行尾内联注释”的列对齐（例如 // comment）。当其为 false 时不会主动为注释添加对齐填充；但若其它内容（如类型/字段名/注解）恰好等宽，注释列可能“看起来对齐”，这是偶然一致而非 formatter 强制对齐所致。
-  - alignAnnotations 与 alignStructAnnotations（兼容键）：
+  - alignAnnotations（主键）与 alignStructAnnotations（兼容别名，已弃用）：
     - 若 alignAnnotations 显式设置，则优先生效；
     - 否则回退到 alignStructAnnotations 的值（默认 true）；
     - 用于控制结构体字段上的圆括号注解（如 (key='value')）是否对齐。
+    
+    alignAnnotations (primary) and alignStructAnnotations (legacy alias, deprecated):
+    - alignAnnotations takes precedence when explicitly set;
+    - otherwise falls back to alignStructAnnotations (default true);
+    - controls alignment of parentheses annotations on struct fields, e.g. (key='value').
 - 尾随逗号（trailingComma）：支持 add | remove | preserve。
   - 规则与分号协同：当行以分号 ; 结束时，视为语句终止，formatter 会尊重分号，不会再强行追加或替换为逗号。
 - 其它常见项：
   - indentSize、maxLineLength、collectionStyle（preserve/inline/multiLine）等。
 
 以上选项共同决定“最大内容宽度”和各列的目标对齐位置，详细实现与宽度计算请参考 <mcfile name="formatter.ts" path="src/formatter.ts"></mcfile>。
+
+### 语言规范同步（IDL 0.23）与实现更新
+- 背景：自 Apache Thrift IDL 0.23 起，uuid 被纳入内建基础类型（BaseType）。
+- 代码同步点：
+  - <mcfile name="diagnostics.ts" path="src/diagnostics.ts"></mcfile>
+    - 基本类型集合包含 `uuid`
+    - 改进字段解析：剥离类型后缀注解、跨行注释剥离，避免在注释中做括号/语法检查
+    - 以健壮解析提取字段类型与名称，支持嵌套容器与 required/optional 标志
+  - <mcfile name="definitionProvider.ts" path="src/definitionProvider.ts"></mcfile>
+    - `isPrimitiveType` 集合包含 `uuid`，防止误将其当作用户类型做“跳转到定义”
+  - <mcfile name="thrift.tmLanguage.json" path="syntaxes/thrift.tmLanguage.json"></mcfile>
+    - `storage.type.primitive.thrift` 的匹配正则包含 `uuid`，确保语法高亮正确
+- 测试建议：
+  - 在 <mcfolder name="test-files" path="test-files/"></mcfolder> 添加/复用示例：
+    - struct/const/typedef 中直接使用 `uuid` 作为字段或常量类型
+    - 交叉验证 `diagnostics` 不再报“未知类型”
+    - 验证 `Go to Definition` 在 `uuid` 上不进行跳转（因其为基元类型）
+    - 语法高亮对 `uuid` 呈现与其它基元一致的着色
+  - 运行：`npm run test` / `npm run test:all`；必要时补充端到端用例
+
+## 参考规范与示例
+- Apache Thrift IDL 文档: https://thrift.apache.org/docs/idl
+- 官方测试 IDL 示例（ThriftTest.thrift）: https://raw.githubusercontent.com/apache/thrift/master/test/ThriftTest.thrift
 
 ### 测试与新增用例说明
 主要测试脚本位于 <mcfile name="tests" path="tests/"></mcfile> 目录，格式化相关的组合测试集中在 <mcfile name="test-struct-annotations-combinations.js" path="tests/test-struct-annotations-combinations.js"></mcfile>。

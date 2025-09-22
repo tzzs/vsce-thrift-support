@@ -1,7 +1,18 @@
 import * as vscode from 'vscode';
 
 export class ThriftFormattingProvider implements vscode.DocumentFormattingEditProvider, vscode.DocumentRangeFormattingEditProvider {
-    
+    // Precompiled regexes reused in hot paths and referenced by helpers
+    private reStructField = /^\s*\d+:\s*(?:required|optional)?\s*.+$/;
+    private reEnumField = /^\s*\w+\s*=\s*\d+/;
+    private reSpaceBeforeLt = /\s+</g;
+    private reSpaceAfterLt = /<\s+/g;
+    // Remove spaces around '>'
+    private reSpaceBeforeGt = /\s+>/g;
+    private reSpaceGt = />\s*/g;
+    private reSpaceComma = /\s*,\s*/g;
+    // Detect a service method signature line (optionally oneway, return type with optional generics, name, params, optional throws)
+    private reServiceMethod = /^\s*(oneway\s+)?[A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]*>)?\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)(\s*throws\s*\([^)]*\))?\s*[;,]?$/;
+
     provideDocumentFormattingEdits(
         document: vscode.TextDocument,
         options: vscode.FormattingOptions,
@@ -41,11 +52,14 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         if (!(range.start.line === 0 && range.start.character === 0)) {
             initialContext = this.computeInitialContext(document, range.start);
         }
-        const alignNames = getOpt('alignNames', true);
+        // Unified control with backward-compatible fallback to fine-grained legacy keys
+        const cfgAlignNames = getOpt('alignNames', undefined);
+        const alignNames = (typeof cfgAlignNames !== 'undefined')
+            ? cfgAlignNames
+            : (getOpt('alignFieldNames', undefined) ?? getOpt('alignEnumNames', undefined) ?? true);
         // Global master switch for assignments alignment (option B)
         const alignAssignments = getOpt('alignAssignments', undefined);
         // Read per-kind (keep undefined when not set, to allow fallback to alignAssignments and preserve defaults)
-        const cfgAlignStructEquals = getOpt('alignStructEquals', undefined);
         const cfgAlignStructDefaults = getOpt('alignStructDefaults', undefined);
         const cfgAlignEnumEquals = getOpt('alignEnumEquals', undefined);
         const cfgAlignEnumValues = getOpt('alignEnumValues', undefined);
@@ -56,11 +70,6 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             : getOpt('alignStructAnnotations', true);
 
         // explicit per-kind > global alignAssignments > kind default (struct=false, enum=true)
-        const resolvedAlignStructEquals = (typeof cfgAlignStructEquals !== 'undefined')
-            ? cfgAlignStructEquals
-            : (typeof alignAssignments === 'boolean')
-            ? alignAssignments
-            : false;
         const resolvedAlignStructDefaults = (typeof cfgAlignStructDefaults !== 'undefined')
             ? cfgAlignStructDefaults
             : false; // Default to false for struct default values
@@ -78,13 +87,14 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         const fmtOptions = {
             trailingComma: getOpt('trailingComma', 'preserve'),
             alignTypes: getOpt('alignTypes', true),
-            alignFieldNames: getOpt('alignFieldNames', alignNames),
-            alignStructEquals: resolvedAlignStructEquals,
+            // unify by alignNames only
+            alignFieldNames: alignNames,
             alignStructDefaults: resolvedAlignStructDefaults,
             // Use unified annotations setting (fallback to legacy)
-            alignStructAnnotations: resolvedAlignAnnotations,
+            alignAnnotations: resolvedAlignAnnotations,
             alignComments: getOpt('alignComments', true),
-            alignEnumNames: getOpt('alignEnumNames', alignNames),
+            // unify by alignNames only
+            alignEnumNames: alignNames,
             alignEnumEquals: resolvedAlignEnumEquals,
             alignEnumValues: resolvedAlignEnumValues,
             indentSize: getOpt('indentSize', 4),
@@ -103,11 +113,6 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     }
 
     private formatThriftCode(text: string, options: any): string {
-
-        // Backward compatibility for callers that don't pass the new option
-        if (typeof options.alignStructEquals === 'undefined') {
-            options.alignStructEquals = options.alignFieldNames;
-        }
 
         const lines = text.split('\n');
         const formattedLines: string[] = [];
@@ -241,6 +246,13 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 // No-op here to avoid double flush
             }
 
+            // Typedef: normalize generics spacing
+            if (/^\s*typedef\b/.test(line)) {
+                const normalized = this.normalizeGenericsInSignature(line);
+                formattedLines.push(this.getIndent(indentLevel, options) + normalized);
+                continue;
+            }
+
             // Handle struct/union/exception/service definitions
             if (this.isStructStart(line)) {
                 // If inline single-line block like: struct EmptyStruct {}
@@ -266,7 +278,14 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     inStruct = false;
                     continue;
                 }
-
+            
+                // Normalize generics spacing for service method signatures (including throws)
+                if (this.reServiceMethod.test(line)) {
+                    const normalized = this.normalizeGenericsInSignature(line);
+                    formattedLines.push(this.getIndent(indentLevel, options) + normalized);
+                    continue;
+                }
+            
                 if (this.isStructField(line)) {
                     const fieldInfo = this.parseStructField(line);
                     if (fieldInfo) {
@@ -557,14 +576,23 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     }
 
     private isStructField(line: string): boolean {
+        // Quick pre-check: first non-space must be a digit
+        const t = line.trimStart();
+        const c = t.charCodeAt(0);
+        if (!(c >= 48 && c <= 57)) { return false; }
         // Match field definitions like: 1: required string name, or 1: string name,
         // Also match complex types like: 1: required list<string> names,
-        return /^\s*\d+:\s*(required|optional)?\s*[\w<>,\s]+\s+\w+/.test(line);
+        return this.reStructField.test(line);
     }
 
     private isEnumField(line: string): boolean {
+        // Quick pre-check: first non-space must be a letter or underscore
+        const t = line.trimStart();
+        const cc = t.charCodeAt(0);
+        const isLetter = (cc >= 65 && cc <= 90) || (cc >= 97 && cc <= 122) || cc === 95; // A-Z a-z _
+        if (!isLetter) { return false; }
         // Match enum field definitions like: ACTIVE = 1, or INACTIVE = 2,
-        return /^\s*\w+\s*=\s*\d+/.test(line);
+        return this.reEnumField.test(line);
     }
 
     private parseStructField(line: string): {line: string, type: string, name: string, suffix: string, comment: string, annotation?: string} | null {
@@ -610,8 +638,12 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         const defaultValue = fieldMatch[3];
         
         // Clean up the type by removing extra spaces around < > and commas
-        type = type.replace(/\s*<\s*/g, '<').replace(/\s*>\s*/g, '>');
-        type = type.replace(/\s*,\s*/g, ',');
+        type = type
+            .replace(this.reSpaceBeforeLt, '<')
+            .replace(this.reSpaceAfterLt, '<')
+            .replace(this.reSpaceBeforeGt, '>')
+            .replace(this.reSpaceGt, '>')
+            .replace(this.reSpaceComma, ',');
         
         // Build suffix with default value and trailing comma
         let suffix = '';
@@ -686,7 +718,12 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         }
 
         // Normalize generic spacing in type
-        type = type.replace(/\s*<\s*/g, '<').replace(/\s*>\s*/g, '>').replace(/\s*,\s*/g, ',');
+        type = type
+            .replace(this.reSpaceBeforeLt, '<')
+            .replace(this.reSpaceAfterLt, '<')
+            .replace(this.reSpaceBeforeGt, '>')
+            .replace(this.reSpaceGt, '>')
+            .replace(this.reSpaceComma, ',');
 
         return {
             line: header,
@@ -713,7 +750,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         });
         
         // Always process fields for trailing comma handling, even if alignment is disabled
-        const needsAlignment = options.alignTypes || options.alignFieldNames || options.alignComments || options.alignStructAnnotations;
+        const needsAlignment = options.alignTypes || options.alignFieldNames || options.alignComments || options.alignAnnotations;
         
         if (!needsAlignment && options.trailingComma === 'preserve') {
             return sortedFields.map(f => this.getIndent(indentLevel, options) + f.line);
@@ -735,7 +772,12 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             // Use the already parsed and cleaned type from field.type
             let type = field.type;
             // Clean up type formatting - remove spaces around < > and ,
-            type = type.replace(/\s*<\s*/g, '<').replace(/\s*>\s*/g, '>').replace(/\s*,\s*/g, ',');
+            type = type
+                .replace(this.reSpaceBeforeLt, '<')
+                .replace(this.reSpaceAfterLt, '<')
+                .replace(this.reSpaceBeforeGt, '>')
+                .replace(this.reSpaceGt, '>')
+                .replace(this.reSpaceComma, ',');
             
             const name = field.name;
             const suffix = field.suffix;
@@ -745,7 +787,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             maxFieldIdWidth = Math.max(maxFieldIdWidth, fieldId.length);
             maxTypeWidth = Math.max(maxTypeWidth, type.length);
             maxNameWidth = Math.max(maxNameWidth, name.length);
-            if (options.alignStructAnnotations) {
+            if (options.alignAnnotations) {
                 maxAnnotationWidth = Math.max(maxAnnotationWidth, annotation.length);
             }
             
@@ -778,9 +820,12 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             
             if (options.alignFieldNames) {
                 if (field.suffix) {
-                    // If there's a default value
-                    if (options.alignStructEquals) {
-                        contentWidth += maxNameWidth + field.suffix.length;
+                    // Use alignStructDefaults only when there's a default value ('=')
+                    const hasDefaultValue = field.suffix.includes('=');
+                    if (hasDefaultValue && options.alignStructDefaults) {
+                        // normalize equals spacing for width
+                        const normalized = field.suffix.replace(/\s*=\s*/, ' = ');
+                        contentWidth += maxNameWidth + normalized.length;
                     } else {
                         contentWidth += field.name.length + field.suffix.length;
                     }
@@ -795,7 +840,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             }
             
             // Add annotation width if enabled
-            if (options.alignStructAnnotations && field.annotation) {
+            if (options.alignAnnotations && field.annotation) {
                 contentWidth += 1; // space before annotation
                 contentWidth += maxAnnotationWidth;
             } else if (field.annotation) {
@@ -814,10 +859,10 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         
         // Pre-compute the target column where annotations should start when alignment is enabled
         const targetAnnoStart = (() => {
-            if (!options.alignStructAnnotations) return 0;
+            if (!options.alignAnnotations) {return 0;}
             let max = 0;
             parsedFields.forEach(f => {
-                if (!f || !f.annotation) return;
+                if (!f || !f.annotation) {return;}
                 let w = 0;
                 // id and colon+space
                 w += maxFieldIdWidth + 2;
@@ -833,10 +878,11 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                         if (/\,\s*$/.test(s)) {
                             s = s.replace(/,\s*$/, '');
                         }
-                        if (s.includes('=')) {
+                        const hasDefault = s.includes('=');
+                        if (hasDefault) {
                             s = s.replace(/\s*=\s*/, ' = ');
                         }
-                        if (options.alignStructEquals) {
+                        if (hasDefault && options.alignStructDefaults) {
                             w += maxNameWidth + s.length;
                         } else {
                             w += f.name.length + s.length;
@@ -857,7 +903,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                         w += s.length;
                     }
                 }
-                if (w > max) max = w;
+                if (w > max) {max = w;}
             });
             return max;
         })();
@@ -925,12 +971,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                              formattedLine += field.name;
                          }
                      } else {
-                         // For non-default values (like annotations), use alignStructEquals
-                         if (options.alignStructEquals) {
-                             formattedLine += field.name.padEnd(maxNameWidth);
-                         } else {
-                             formattedLine += field.name;
-                         }
+                         // No default value: do not pad to equals column
+                         formattedLine += field.name;
                      }
                      formattedLine += cleanSuffix;
                  } else {
@@ -939,7 +981,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                  }
                  // Add annotation aligned if enabled
                  if (field.annotation) {
-                    if (options.alignStructAnnotations) {
+                    if (options.alignAnnotations) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
                         const spaces = targetAnnoStart - currentWidth + 1;
                         // Place annotation at target start, do not pad to width here; append comma immediately if needed
@@ -967,7 +1009,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     if (options.alignComments) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
                         const diff = maxContentWidth - currentWidth;
-                        const basePad = (options.alignStructAnnotations && hasComma && options.trailingComma !== 'add')
+                        const basePad = (options.alignAnnotations && hasComma && options.trailingComma !== 'add')
                             ? Math.max(1, diff)
                             : Math.max(1, diff + 1);
                         const padSpaces = commentCount > 1 ? basePad : 1;
@@ -988,7 +1030,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                  }
                  // Add annotation
                  if (field.annotation) {
-                    if (options.alignStructAnnotations) {
+                    if (options.alignAnnotations) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
                         const spaces = targetAnnoStart - currentWidth + 1;
                         // Place annotation at target start, do not pad to width here; append comma immediately if needed
@@ -1011,7 +1053,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     if (options.alignComments) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
                         const diff = maxContentWidth - currentWidth;
-                        const basePad = (options.alignStructAnnotations && hasComma && options.trailingComma !== 'add')
+                        const basePad = (options.alignAnnotations && hasComma && options.trailingComma !== 'add')
                             ? Math.max(1, diff)
                             : Math.max(1, diff + 1);
                         const padSpaces = commentCount > 1 ? basePad : 1;
@@ -1026,8 +1068,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 }
              }
 
-            return formattedLine;
-        });
+             return formattedLine;
+         });
     }
 
     private formatEnumFields(
@@ -1152,8 +1194,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                     if (endIdx >= 0) {
                         line = line.slice(0, startIdx) + line.slice(endIdx + 2);
                     } else {
-                        line = line.slice(0, startIdx);
                         inBlockComment = true;
+                        line = line.slice(0, startIdx);
                     }
                 }
 
@@ -1203,4 +1245,83 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             return { indentLevel: 0, inStruct: false, inEnum: false };
         }
     }
+
+    // Normalize generics spacing within a typedef or service method signature line.
+    // This preserves parameter commas/spaces and only normalizes inside '<...>' regions.
+    private normalizeGenericsInSignature(text: string): string {
+        if (!text) {return text;}
+        // Preserve inline trailing comment
+        let code = text;
+        let comment = '';
+        const cm = code.match(/^(.*?)(\/\/.*)$/);
+        if (cm) {
+            code = cm[1].trimEnd();
+            comment = cm[2];
+        }
+        let res: string[] = [];
+        let depthAngle = 0;
+        let inS = false, inD = false;
+        const n = code.length;
+        for (let i = 0; i < n; i++) {
+            const ch = code[i];
+            // Handle inside quotes first (support escapes)
+            if (inD) {
+                if (ch === '\\' && i + 1 < n) { res.push(ch); res.push(code[++i]); continue; }
+                res.push(ch);
+                if (ch === '"') { inD = false; }
+                continue;
+            }
+            if (inS) {
+                if (ch === '\\' && i + 1 < n) { res.push(ch); res.push(code[++i]); continue; }
+                res.push(ch);
+                if (ch === "'") { inS = false; }
+                continue;
+            }
+
+            if (ch === '"') { inD = true; res.push(ch); continue; }
+            if (ch === "'") { inS = true; res.push(ch); continue; }
+            if (ch === '<') {
+                // remove spaces before '<'
+                while (res.length > 0 && res[res.length - 1] === ' ') {res.pop();}
+                res.push('<');
+                depthAngle++;
+                // skip spaces after '<'
+                while (i + 1 < n && code[i + 1] === ' ') {i++;}
+                continue;
+            }
+            if (ch === ',' && depthAngle > 0) {
+                // remove spaces before comma within generics
+                while (res.length > 0 && res[res.length - 1] === ' ') {res.pop();}
+                res.push(',');
+                // skip spaces after comma within generics
+                while (i + 1 < n && code[i + 1] === ' ') {i++;}
+                continue;
+            }
+            if (ch === '>') {
+                if (depthAngle > 0) {
+                    // remove spaces before '>' within generics
+                    while (res.length > 0 && res[res.length - 1] === ' ') {res.pop();}
+                    res.push('>');
+                    depthAngle = Math.max(0, depthAngle - 1);
+                    // skip spaces after '>' only if next non-space is ',', '>' or ')'
+                    let k = i + 1;
+                    while (k < n && code[k] === ' ') {k++;}
+                    if (k < n) {
+                        const next = code[k];
+                        if (next === ',' || next === '>' || next === ')') {
+                            i = k - 1; // skip spaces
+                        }
+                    } else {
+                        i = k - 1;
+                    }
+                    continue;
+                }
+            }
+            res.push(ch);
+        }
+        const normalized = res.join('');
+        return comment ? `${normalized} ${comment}` : normalized;
+    }
+
+    // ... existing code ...
 }

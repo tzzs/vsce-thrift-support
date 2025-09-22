@@ -13,7 +13,7 @@ const vscode = {
               trailingComma: "preserve",
               alignTypes: true,
               alignFieldNames: true,
-              alignStructEquals: false,
+              
               alignAnnotations: true,
               alignComments: true,
               alignEnumNames: true,
@@ -48,7 +48,7 @@ Module._load = function (request, parent, isMain) {
   return originalLoad(request, parent, isMain);
 };
 
-const { ThriftFormattingProvider } = require("../out/formatter");
+const { ThriftFormattingProvider } = require("../out/formattingProvider.js");
 
 class MockDocument {
   constructor(text) { this._text = text; }
@@ -90,7 +90,7 @@ function withConfig(overrides, fn) {
             trailingComma: "preserve",
             alignTypes: true,
             alignFieldNames: true,
-            alignStructEquals: false,
+            
             alignAnnotations: true,
             alignComments: true,
             alignEnumNames: true,

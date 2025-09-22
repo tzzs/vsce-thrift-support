@@ -26,36 +26,36 @@ enum Status {
 struct User {
   1: required UserId id, // 用户唯一标识
 
-  2:  required string             name       (go.tag='json:"name"'),  // 用户姓名
-  3:  optional Email              email,                              // 邮箱地址
-  4:  optional i32                age,                                // 年龄
-  5:  optional Status             status = Status.ACTIVE,             // 用户状态，默认为活跃
-  6:  optional list<string>       tags,                               // 用户标签列表
-  7:  optional map<string,string> metadata,                           // 用户元数据
-  8:  optional bool               isVerified = false,                 // 是否已验证，默认未验证
-  9:  optional double             score = 0.0,                        // 用户评分，默认0.0
-  10: optional binary             avatar                              // 用户头像二进制数据
+  2:  required string             name (go.tag='json:"name"'), // 用户姓名
+  3:  optional Email              email,                       // 邮箱地址
+  4:  optional i32                age,                         // 年龄
+  5:  optional Status             status = Status.ACTIVE,      // 用户状态，默认为活跃
+  6:  optional list<string>       tags,                        // 用户标签列表
+  7:  optional map<string,string> metadata,                    // 用户元数据
+  8:  optional bool               isVerified = false,          // 是否已验证，默认未验证
+  9:  optional double             score = 0.0,                 // 用户评分，默认0.0
+  10: optional binary             avatar                        // 用户头像二进制数据
 }
 
 // Union definition - 搜索条件联合体
 union SearchCriteria {
-  1: string       name,   // 按姓名搜索
-  2: Email        email,  // 按邮箱搜索
-  3: UserId       id,     // 按用户ID搜索
+  1: string       name,  // 按姓名搜索
+  2: Email        email, // 按邮箱搜索
+  3: UserId       id,    // 按用户ID搜索
   4: list<string> tags    // 按标签列表搜索
 }
 
 // Exception definition - 异常定义
 // 用户未找到异常
 exception UserNotFoundException {
-  1: required string message,        // 错误消息
+  1: required string message,       // 错误消息
   2: optional i32    errorCode = 404 // 错误代码，默认404
 }
 
 // 数据验证异常
 exception ValidationException {
-  1: required string             message,      // 错误消息
-  2: required map<string,string> fieldErrors   // 字段错误映射
+  1: required string             message,   // 错误消息
+  2: required map<string,string> fieldErrors // 字段错误映射
 }
 
 // Service definition

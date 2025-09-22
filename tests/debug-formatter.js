@@ -13,7 +13,7 @@ const mockOptions = {
 };
 
 // 读取编译后的格式化器
-const FormatterModule = require('./out/formatter.js');
+const FormatterModule = require('./out/formattingProvider.js');
 const ThriftFormattingProvider = FormatterModule.ThriftFormattingProvider;
 
 // 创建格式化器实例

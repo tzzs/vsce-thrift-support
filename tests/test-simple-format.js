@@ -64,7 +64,7 @@ function testSimpleFormatting() {
     console.log('Testing simple formatting...');
     
     try {
-        const { ThriftFormattingProvider } = require('../out/formatter.js');
+        const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
         const formatter = new ThriftFormattingProvider();
         
         const testCode = `struct TestStruct {
