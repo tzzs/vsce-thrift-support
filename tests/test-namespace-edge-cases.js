@@ -85,6 +85,7 @@ async function testDuplicateIncludeNavigatesToFirst() {
   const nsStart = doc.lineAt(line).text.indexOf('shared');
   const pos = new Position(line, nsStart + 1); // on namespace
   const loc = await provider.provideDefinition(doc, pos, {});
+  console.log('[DEBUG] loc.uri.fsPath =', loc && loc.uri && loc.uri.fsPath, ' line=', loc && loc.range && loc.range.start && loc.range.start.line);
   assert(loc, 'Expected navigation from namespace');
   assert.strictEqual(path.basename(loc.uri.fsPath), 'main-edge.thrift', 'Should navigate within same file');
   assert.strictEqual(loc.range.start.line, 0, 'Should navigate to first include line (include "shared.thrift")');

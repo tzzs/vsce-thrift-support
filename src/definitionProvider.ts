@@ -19,8 +19,10 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         if (!wordRange) {
             return undefined;
         }
-
-        const word = document.getText(wordRange);
+        // Derive the word from the current line text to be robust in non-IDE test shims
+        const line = document.lineAt(position.line);
+        const lineText = line.text;
+        const word = lineText.substring(wordRange.start.character, wordRange.end.character);
         
         // Skip primitive types
         if (this.isPrimitiveType(word)) {
@@ -28,8 +30,6 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         }
 
         // Check if we need to look for a namespaced type by scanning the entire line
-        const line = document.lineAt(position.line);
-        const lineText = line.text;
         const wordStart = wordRange.start.character;
         const wordEnd = wordRange.end.character;
         
@@ -41,6 +41,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         const nsRegex = /([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)/g;
         let match: RegExpExecArray | null;
         let matchedNamespaced = false;
+        let nsStartIdx = -1;
         while ((match = nsRegex.exec(lineText)) !== null) {
             const nsStart = match.index;
             const nsEnd = nsStart + match[0].length;
@@ -50,7 +51,16 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                 searchTypeName = match[2];
                 isNamespaceClick = word === targetNamespace; // clicked on namespace part
                 matchedNamespaced = true;
+                nsStartIdx = nsStart;
                 break;
+            }
+        }
+
+        // If clicked exactly on the dot between namespace and type, do not navigate
+        if (matchedNamespaced && nsStartIdx >= 0) {
+            const dotIndex = nsStartIdx + targetNamespace.length; // position of the dot
+            if (position.character === dotIndex) {
+                return undefined;
             }
         }
 
