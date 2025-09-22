@@ -181,7 +181,45 @@ npm run test:const
 
 建议流程：功能分支开发 → 合并到 master → 等待/审阅 release-please 生成的 Release PR → 合并 Release PR → 触发 publish 自动发布。
 
-## 提交与分支规范
+## 变更日志规范与发布流程
+
+### 如何撰写 CHANGELOG（强烈建议使用模板）
+- 模板文件：参见仓库根目录的 [changelog_template.md](./changelog_template.md)。
+- 结构要求：双语（中文/English）并使用固定分节：
+  - 中文版本：新功能 / 错误修复 / 性能优化（必要时可加“其他”）
+  - English Version: Features / Bug Fixes / Performance Improvements
+- 书写规则：
+  - 要点一行式；保持简洁、可读；必要时附上提交链接或 PR 链接。
+  - 与既有条目保持一致的语气与措辞，尽量沿用“动词开头”的风格（如：Add/Fix/Improve）。
+  - 链接稳定性：保留 compare 链接与提交链接的现有格式，避免破坏历史引用。
+- 写作时机：
+  - 日常开发阶段优先坚持 Conventional Commits（feat/fix/docs/chore/refactor/perf 等）；
+  - 如需“策划式/双语化”说明，建议在 release-please 创建的 Release PR 中直接编辑 CHANGELOG.md，再合并。
+
+### 发布流程 Checklist
+1) 确保本地环境一致（Node 22.18.0），安装依赖并通过所有检查：
+   - npm run lint
+   - npm run build
+   - npm test 或 npm run test:all
+2) 更新变更日志（如需人工补充）：
+   - 参照 [changelog_template.md](./changelog_template.md) 的双语结构与一行式要点
+   - 确认 compare 链接、提交链接与版本号无误
+3) 提交并推送：
+   - 遵循 Conventional Commits（例如：docs(changelog): update 0.x.y entry with bilingual sections）
+4) 等待 release-please 生成/更新 Release PR：
+   - 在该 PR 中再次审阅 CHANGELOG（可继续微调用语/结构）
+   - 合并 Release PR 后将自动创建 Tag 与 GitHub Release
+5) 发布流水线（publish.yml）将自动构建并发布到 VS Marketplace 与 Open VSX。
+
+### 快速命令（本地辅助）
+```bash
+# Lint / Build / Test（发布前自检）
+npm run lint && npm run build && npm test
+
+# 生成 VSIX（本地验证产物）
+npm run package
+```
+
 - 提交信息遵循 Conventional Commits（feat/fix/docs/chore/refactor/perf 等），以便 release-please 正确生成版本与变更日志。
 - 默认分支为 master（release-please.yml 已配置 default-branch: master）。
 
