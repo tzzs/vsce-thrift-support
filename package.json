@@ -2,7 +2,7 @@
   "name": "thrift-support",
   "displayName": "Thrift Support",
   "description": "Apache Thrift language support: syntax highlighting, formatter, diagnostics, navigation, and refactoring",
-  "version": "0.4.7",
+  "version": "0.5.0",
   "publisher": "tanzz",
   "icon": "icon.png",
   "repository": {
