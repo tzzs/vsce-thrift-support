@@ -138,7 +138,7 @@ function stripCommentsFromLine(rawLine: string, state: { inBlock: boolean }): st
 }
 
 // Parse a struct/union/exception field line to extract id, type and name robustly
-function parseFieldSignature(codeLine: string): { id: number; typeText: string; name: string } | null {
+function parseFieldSignature(codeLine: string): { id: number; typeText: string; name: string; typeStart: number; typeEnd: number } | null {
     const headerRe = /^(\s*)(\d+)\s*:\s*(?:required|optional)?\s*/;
     const m = headerRe.exec(codeLine);
     if (!m) return null;
@@ -152,6 +152,7 @@ function parseFieldSignature(codeLine: string): { id: number; typeText: string; 
     let paren = 0;
     // skip leading spaces
     while (i < n && /\s/.test(codeLine[i])) i++;
+    const typeStart = i;
     while (i < n) {
         const ch = codeLine[i];
         if (ch === '<') angle++;
@@ -175,6 +176,7 @@ function parseFieldSignature(codeLine: string): { id: number; typeText: string; 
         typeBuf += ch;
         i++;
     }
+    const typeEnd = i; // exclusive
 
     // now parse field name
     while (i < n && /\s/.test(codeLine[i])) i++;
@@ -182,7 +184,7 @@ function parseFieldSignature(codeLine: string): { id: number; typeText: string; 
     if (!nameM) return null;
     const name = nameM[1];
 
-    return { id, typeText: typeBuf.trim(), name };
+    return { id, typeText: typeBuf.trim(), name, typeStart, typeEnd };
 }
 
 function isKnownType(typeName: string, definedTypes: Set<string>): boolean {
@@ -485,7 +487,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
         if (inFieldBlock && braceDepth > 0) {
             const sig = parseFieldSignature(line);
             if (sig) {
-                const { id, typeText, name } = sig;
+                const { id, typeText, name, typeStart, typeEnd } = sig;
                 if (currentFieldIds.has(id)) {
                     issues.push({
                         message: `Duplicate field id ${id}`,
@@ -501,7 +503,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
                 if (!isKnownType(typeText, definedTypes)) {
                     issues.push({
                         message: `Unknown type '${typeText}'`,
-                        range: new vscode.Range(lineNo, 0, lineNo, line.length),
+                        range: new vscode.Range(lineNo, typeStart, lineNo, typeEnd),
                         severity: vscode.DiagnosticSeverity.Error,
                         code: 'type.unknown'
                     });
@@ -529,9 +531,14 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
             const baseType = mTypedef[2].trim();
             // The base type itself must be known (resolve containers recursively)
             if (!isKnownType(baseType, definedTypes) && !PRIMITIVES.has(baseType)) {
+                // compute base type range within the line: after 'typedef' keyword and spaces
+                const afterTypedef = line.indexOf('typedef') + 'typedef'.length;
+                let baseStart = afterTypedef;
+                while (baseStart < line.length && /\s/.test(line[baseStart])) baseStart++;
+                const baseEnd = baseStart + (mTypedef[2] ? mTypedef[2].length : 0);
                 issues.push({
                     message: `Unknown base type '${baseType}' in typedef`,
-                    range: new vscode.Range(lineNo, 0, lineNo, line.length),
+                    range: new vscode.Range(lineNo, Math.max(0, baseStart), lineNo, Math.max(baseStart, baseEnd)),
                     severity: vscode.DiagnosticSeverity.Error,
                     code: 'typedef.unknownBase'
                 });
