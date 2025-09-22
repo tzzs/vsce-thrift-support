@@ -34,20 +34,28 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
 
         // 1) QuickFix: insert include for namespaced reference Foo.Bar when missing
         const nsRegex = /\b([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\b/g;
-        let m: RegExpExecArray | null;
         const includeSet = this.collectExistingIncludes(document);
         const createdNs = new Set<string>();
-        while ((m = nsRegex.exec(lineText)) !== null) {
+        const nsMatches = Array.from(lineText.matchAll(nsRegex));
+        for (const m of nsMatches) {
             const ns = m[1];
             const fileName = `${ns}.thrift`;
             if (!includeSet.has(fileName) && !createdNs.has(ns)) {
-                const fix = new vscode.CodeAction(`Insert include "${fileName}"`, vscode.CodeActionKind.QuickFix);
-                fix.edit = new vscode.WorkspaceEdit();
-                const insertLine = this.computeIncludeInsertLine(document);
-                fix.edit.insert(document.uri, new vscode.Position(insertLine, 0), `include "${fileName}"\n`);
-                fix.isPreferred = true;
-                actions.push(fix);
-                createdNs.add(ns);
+                try {
+                    // Only propose when the target include file actually exists in the workspace
+                    const files = await vscode.workspace.findFiles(`**/${fileName}`, undefined, 1, token);
+                    if (files && files.length > 0) {
+                        const fix = new vscode.CodeAction(`Insert include "${fileName}"`, vscode.CodeActionKind.QuickFix);
+                        fix.edit = new vscode.WorkspaceEdit();
+                        const insertLine = this.computeIncludeInsertLine(document);
+                        fix.edit.insert(document.uri, new vscode.Position(insertLine, 0), `include "${fileName}"\n`);
+                        fix.isPreferred = true;
+                        actions.push(fix);
+                        createdNs.add(ns);
+                    }
+                } catch {
+                    // ignore search errors
+                }
             }
         }
 
