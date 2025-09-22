@@ -15,7 +15,7 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
         context: vscode.CodeActionContext,
         token: vscode.CancellationToken
     ): Promise<vscode.CodeAction[] | undefined> {
-        if (document.languageId !== 'thrift') return;
+        if (document.languageId !== 'thrift') {return;}
 
         const actions: vscode.CodeAction[] = [];
 
@@ -96,7 +96,7 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
         const lines = text.split('\n');
         for (const l of lines) {
             const mm = l.trim().match(/^include\s+["']([^"']+)["']/);
-            if (mm) set.add(mm[1]);
+            if (mm) {set.add(mm[1]);}
         }
         return set;
     }

@@ -859,10 +859,10 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         
         // Pre-compute the target column where annotations should start when alignment is enabled
         const targetAnnoStart = (() => {
-            if (!options.alignAnnotations) return 0;
+            if (!options.alignAnnotations) {return 0;}
             let max = 0;
             parsedFields.forEach(f => {
-                if (!f || !f.annotation) return;
+                if (!f || !f.annotation) {return;}
                 let w = 0;
                 // id and colon+space
                 w += maxFieldIdWidth + 2;
@@ -903,7 +903,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                         w += s.length;
                     }
                 }
-                if (w > max) max = w;
+                if (w > max) {max = w;}
             });
             return max;
         })();
@@ -1249,7 +1249,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     // Normalize generics spacing within a typedef or service method signature line.
     // This preserves parameter commas/spaces and only normalizes inside '<...>' regions.
     private normalizeGenericsInSignature(text: string): string {
-        if (!text) return text;
+        if (!text) {return text;}
         // Preserve inline trailing comment
         let code = text;
         let comment = '';
@@ -1282,30 +1282,30 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             if (ch === "'") { inS = true; res.push(ch); continue; }
             if (ch === '<') {
                 // remove spaces before '<'
-                while (res.length > 0 && res[res.length - 1] === ' ') res.pop();
+                while (res.length > 0 && res[res.length - 1] === ' ') {res.pop();}
                 res.push('<');
                 depthAngle++;
                 // skip spaces after '<'
-                while (i + 1 < n && code[i + 1] === ' ') i++;
+                while (i + 1 < n && code[i + 1] === ' ') {i++;}
                 continue;
             }
             if (ch === ',' && depthAngle > 0) {
                 // remove spaces before comma within generics
-                while (res.length > 0 && res[res.length - 1] === ' ') res.pop();
+                while (res.length > 0 && res[res.length - 1] === ' ') {res.pop();}
                 res.push(',');
                 // skip spaces after comma within generics
-                while (i + 1 < n && code[i + 1] === ' ') i++;
+                while (i + 1 < n && code[i + 1] === ' ') {i++;}
                 continue;
             }
             if (ch === '>') {
                 if (depthAngle > 0) {
                     // remove spaces before '>' within generics
-                    while (res.length > 0 && res[res.length - 1] === ' ') res.pop();
+                    while (res.length > 0 && res[res.length - 1] === ' ') {res.pop();}
                     res.push('>');
                     depthAngle = Math.max(0, depthAngle - 1);
                     // skip spaces after '>' only if next non-space is ',', '>' or ')'
                     let k = i + 1;
-                    while (k < n && code[k] === ' ') k++;
+                    while (k < n && code[k] === ' ') {k++;}
                     if (k < n) {
                         const next = code[k];
                         if (next === ',' || next === '>' || next === ')') {

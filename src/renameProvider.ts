@@ -12,9 +12,9 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
 
     async provideRenameEdits(document: vscode.TextDocument, position: vscode.Position, newName: string, token: vscode.CancellationToken): Promise<vscode.WorkspaceEdit | undefined> {
         const wordRange = this.getWordRange(document, position);
-        if (!wordRange) return undefined;
+        if (!wordRange) {return undefined;}
         const oldName = document.getText(wordRange);
-        if (!oldName || oldName === newName) return undefined;
+        if (!oldName || oldName === newName) {return undefined;}
 
         const edit = new vscode.WorkspaceEdit();
         const text = document.getText();
@@ -33,7 +33,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
                     newName
                 );
                 // prevent infinite loop on zero-length
-                if (match.index === re.lastIndex) re.lastIndex++;
+                if (match.index === re.lastIndex) {re.lastIndex++;}
             }
         }
         return edit;

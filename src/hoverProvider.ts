@@ -21,7 +21,7 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             const allowed = new Set<string>();
             allowed.add(document.uri.fsPath);
             const includes = await this.getIncludedFiles(document);
-            for (const u of includes) allowed.add(u.fsPath);
+            for (const u of includes) {allowed.add(u.fsPath);}
             if (!allowed.has(loc.uri.fsPath)) {
                 return undefined;
             }
@@ -56,9 +56,9 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
     }
 
     private normalizeDefinition(def: vscode.Definition | undefined): vscode.Location | undefined {
-        if (!def) return undefined;
+        if (!def) {return undefined;}
         if (Array.isArray(def)) {
-            if (def.length === 0) return undefined;
+            if (def.length === 0) {return undefined;}
             // Recursively normalize the first entry
             return this.normalizeDefinition(def[0] as any);
         }
@@ -104,7 +104,7 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
     private extractLeadingDocComments(lines: string[], defLineIndex: number): string[] {
         const results: string[] = [];
         let i = defLineIndex - 1;
-        if (i < 0) return results;
+        if (i < 0) {return results;}
 
         const trim = (s: string) => s.replace(/\s+$/,'');
 
@@ -114,7 +114,7 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             blanks++;
             i--;
         }
-        if (i < 0) return results;
+        if (i < 0) {return results;}
 
         // Handle block comments ending right above the definition (possibly after one blank line)
         if (/\*\//.test(lines[i])) {
@@ -162,8 +162,8 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             out.push(line);
         }
         // Trim trailing/leading empty lines
-        while (out.length && out[0].trim() === '') out.shift();
-        while (out.length && out[out.length - 1].trim() === '') out.pop();
+        while (out.length && out[0].trim() === '') {out.shift();}
+        while (out.length && out[out.length - 1].trim() === '') {out.pop();}
         return out;
     }
 }
