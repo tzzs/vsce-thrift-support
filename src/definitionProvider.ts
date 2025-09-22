@@ -67,7 +67,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         // If clicked on the namespace itself, try to navigate to the include line for that namespace
         if (matchedNamespaced && isNamespaceClick && targetNamespace) {
             const includeLoc = await this.findIncludeForNamespace(document, targetNamespace);
-            if (includeLoc) return includeLoc;
+            if (includeLoc) {return includeLoc;}
             // No include for the namespace: do not fallback; return undefined
             return undefined;
         }
