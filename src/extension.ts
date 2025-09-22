@@ -38,7 +38,7 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.languages.registerRenameProvider('thrift', new ThriftRenameProvider())
     );
 
-    // Register code actions provider (extract/move type)
+    // Register code actions provider (extract/move type + quick fixes)
     context.subscriptions.push(
         vscode.languages.registerCodeActionsProvider(
             'thrift',
@@ -46,7 +46,8 @@ export function activate(context: vscode.ExtensionContext) {
             { providedCodeActionKinds: [
                 vscode.CodeActionKind.Refactor,
                 vscode.CodeActionKind.RefactorExtract,
-                vscode.CodeActionKind.RefactorMove
+                vscode.CodeActionKind.RefactorMove,
+                vscode.CodeActionKind.QuickFix,
             ]}
         )
     );
@@ -109,14 +110,12 @@ export function activate(context: vscode.ExtensionContext) {
             // Replace original type text at current line if present in the line
             const typeIdx = fullLine.indexOf(typeText);
             if (typeIdx >= 0) {
+                const lineNo = sel.active.line;
                 edit.replace(
                     doc.uri,
-                    new vscode.Range(sel.active.line, typeIdx, sel.active.line, typeIdx + typeText.length),
+                    new vscode.Range(lineNo, typeIdx, lineNo, typeIdx + typeText.length),
                     newTypeName
                 );
-            } else if (selectedText) {
-                // Replace selection
-                edit.replace(doc.uri, new vscode.Range(sel.start, sel.end), newTypeName);
             }
 
             await vscode.workspace.applyEdit(edit);
@@ -129,22 +128,35 @@ export function activate(context: vscode.ExtensionContext) {
             const editor = vscode.window.activeTextEditor;
             if (!editor || editor.document.languageId !== 'thrift') return;
             const doc = editor.document;
-            const pos = editor.selection.active;
-            const lineText = doc.lineAt(pos.line).text;
+            const sel = editor.selection;
+            const pos = sel.active;
 
-            // Detect a type block start
-            const defMatch = lineText.match(/^\s*(struct|union|exception|enum|service|typedef)\s+([A-Za-z_][A-Za-z0-9_]*)/);
-            if (!defMatch) return;
-            const kind = defMatch[1];
-            const typeName = defMatch[2];
+            // Heuristic: find the enclosing type block (struct/enum/service/typedef)
+            let startLine = 0;
+            let endLine = doc.lineCount - 1;
+            for (let i = pos.line; i >= 0; i--) {
+                const t = doc.lineAt(i).text;
+                if (/^\s*(struct|enum|service|typedef)\s+[A-Za-z_][A-Za-z0-9_]*/.test(t)) {
+                    startLine = i;
+                    break;
+                }
+            }
+            for (let i = pos.line; i < doc.lineCount; i++) {
+                const t = doc.lineAt(i).text;
+                if (t.includes('{')) { startLine = Math.min(startLine, i); break; }
+            }
+            for (let i = pos.line; i < doc.lineCount; i++) {
+                const t = doc.lineAt(i).text;
+                if (t.includes('}')) { endLine = i; break; }
+            }
 
-            // Capture block range (simple brace matching for block kinds)
-            let startLine = pos.line;
-            let endLine = pos.line;
-            if (kind === 'typedef') {
-                // Single line
-                endLine = pos.line;
-            } else {
+            const typeDeclLine = doc.lineAt(startLine).text;
+            const m = typeDeclLine.match(/^\s*(struct|enum|service|typedef)\s+([A-Za-z_][A-Za-z0-9_]*)/);
+            if (!m) return;
+            const typeName = m[2];
+
+            // Find matching closing brace if not found yet
+            if (endLine < startLine) {
                 // Find matching closing brace
                 let depth = 0;
                 for (let i = pos.line; i < doc.lineCount; i++) {

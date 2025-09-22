@@ -42,38 +42,27 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         let match: RegExpExecArray | null;
         let matchedNamespaced = false;
         while ((match = nsRegex.exec(lineText)) !== null) {
-            const ns = match[1];
-            const type = match[2];
             const nsStart = match.index;
-            const nsEnd = nsStart + ns.length;
-            const dotPos = nsEnd; // '.' position
-            const typeStart = dotPos + 1;
-            const typeEnd = typeStart + type.length;
-
-            if (position.character >= nsStart && position.character < nsEnd) {
-                // Clicked on namespace part
-                targetNamespace = ns;
-                isNamespaceClick = true;
-                matchedNamespaced = true;
-                break;
-            } else if (position.character >= typeStart && position.character < typeEnd) {
-                // Clicked on type part
-                targetNamespace = ns;
-                searchTypeName = type;
+            const nsEnd = nsStart + match[0].length;
+            if (wordStart >= nsStart && wordEnd <= nsEnd) {
+                // Cursor is within namespace.type
+                targetNamespace = match[1];
+                searchTypeName = match[2];
+                isNamespaceClick = word === targetNamespace; // clicked on namespace part
                 matchedNamespaced = true;
                 break;
             }
         }
 
-        // If user clicked on namespace part, try to find the include statement
-        if (matchedNamespaced && isNamespaceClick) {
-            const includeLocation = await this.findIncludeForNamespace(document, targetNamespace);
-            if (includeLocation) {
-                return includeLocation;
-            }
+        // If clicked on the namespace itself, try to navigate to the include line for that namespace
+        if (matchedNamespaced && isNamespaceClick && targetNamespace) {
+            const includeLoc = await this.findIncludeForNamespace(document, targetNamespace);
+            if (includeLoc) return includeLoc;
+            // No include for the namespace: do not fallback; return undefined
+            return undefined;
         }
 
-        // Search for type definition in current document
+        // Search in current document
         const currentDocDefinition = await this.findDefinitionInDocument(document, searchTypeName);
         if (currentDocDefinition) {
             return currentDocDefinition;
@@ -103,10 +92,18 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
             }
         }
 
-        // Search in all thrift files in workspace
-        const workspaceDefinition = await this.findDefinitionInWorkspace(searchTypeName);
-        if (workspaceDefinition) {
-            return workspaceDefinition;
+        // If namespaced type is used but corresponding include is missing, do NOT fallback to workspace
+        if (targetNamespace) {
+            const includeLoc = await this.findIncludeForNamespace(document, targetNamespace);
+            if (!includeLoc) {
+                return undefined;
+            }
+        }
+
+        // Search in all thrift files in workspace, return multiple candidates if any
+        const workspaceDefinitions = await this.findDefinitionInWorkspace(searchTypeName);
+        if (workspaceDefinitions && workspaceDefinitions.length > 0) {
+            return workspaceDefinitions; // VS Code will present multiple results to the user
         }
 
         return undefined;
@@ -332,23 +329,21 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         return includedFiles;
     }
 
-    private async findDefinitionInWorkspace(typeName: string): Promise<vscode.Location | undefined> {
-        // Search for .thrift files in workspace
-        const thriftFiles = await vscode.workspace.findFiles('**/*.thrift', '**/node_modules/**');
-        
-        for (const file of thriftFiles) {
+    private async findDefinitionInWorkspace(typeName: string): Promise<vscode.Location[]> {
+        const locations: vscode.Location[] = [];
+        const files = await vscode.workspace.findFiles('**/*.thrift');
+        for (const file of files) {
             try {
-                const document = await vscode.workspace.openTextDocument(file);
-                const definition = await this.findDefinitionInDocument(document, typeName);
-                if (definition) {
-                    return definition;
+                const doc = await vscode.workspace.openTextDocument(file);
+                const def = await this.findDefinitionInDocument(doc, typeName);
+                if (def) {
+                    locations.push(def);
                 }
             } catch (error) {
-                // File might not be accessible
+                // ignore file open errors
                 continue;
             }
         }
-
-        return undefined;
+        return locations;
     }
 }
