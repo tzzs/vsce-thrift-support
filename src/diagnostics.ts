@@ -75,9 +75,77 @@ function splitTopLevelAngles(typeInner: string): string[] {
 }
 
 // Strip Thrift type annotations like `(python.immutable = "")` that can appear after types
+// Robustly handle escaped quotes and parentheses inside annotation string values.
 function stripTypeAnnotations(typeText: string): string {
-    // Remove any parenthesized annotation segments (not nested in Thrift)
-    return typeText.replace(/\([^()]*\)/g, '').trim();
+    let out = '';
+    let inSingle = false;
+    let inDouble = false;
+    let escaped = false;
+    let parenDepth = 0;
+
+    for (let i = 0; i < typeText.length; i++) {
+        const ch = typeText[i];
+
+        // Track string state and escapes
+        if (parenDepth > 0) {
+            // Inside annotation parentheses: we still need to correctly handle
+            // quotes and escapes so that parentheses inside quoted strings do not
+            // affect parenDepth.
+            if (!escaped && ch === '\\') {
+                escaped = true;
+                continue; // skip content inside annotations
+            }
+            if (!escaped) {
+                if (ch === '"' && !inSingle) {
+                    inDouble = !inDouble;
+                    continue; // skip content inside annotations
+                }
+                if (ch === '\'' && !inDouble) {
+                    inSingle = !inSingle;
+                    continue; // skip content inside annotations
+                }
+            } else {
+                // consume escaped character
+                escaped = false;
+                continue; // skip content inside annotations
+            }
+        }
+
+        // Only consider parentheses when not inside a quoted string
+        if (!inSingle && !inDouble) {
+            if (ch === '(') {
+                parenDepth++;
+                continue; // start skipping annotation content
+            }
+            if (ch === ')') {
+                if (parenDepth > 0) {
+                    parenDepth--;
+                    continue; // end skipping annotation content
+                }
+            }
+        }
+
+        // Outside annotation parentheses: emit characters normally
+        if (parenDepth === 0) {
+            // Maintain string/escape state even though types rarely contain quotes
+            if (!escaped && ch === '\\') {
+                escaped = true;
+                out += ch;
+                continue;
+            }
+            if (!escaped) {
+                if (ch === '"' && !inSingle) { inDouble = !inDouble; }
+                else if (ch === '\'' && !inDouble) { inSingle = !inSingle; }
+                out += ch;
+            } else {
+                out += ch;
+                escaped = false;
+            }
+        }
+        // If parenDepth > 0, we skip annotation content entirely
+    }
+
+    return out.trim();
 }
 
 // Remove comments from a single line while tracking multi-line block comment state
@@ -526,8 +594,28 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
             pendingTypeKind = tStart[2];
         }
 
+        // Track quotes to avoid counting brackets inside string literals
+        let inS = false, inD = false, escaped = false;
         for (let i = 0; i < line.length; i++) {
             const ch = line[i];
+
+            // Handle string literal state
+            if (inS) {
+                if (!escaped && ch === '\\') { escaped = true; continue; }
+                if (!escaped && ch === '\'') { inS = false; }
+                escaped = false;
+                continue;
+            }
+            if (inD) {
+                if (!escaped && ch === '\\') { escaped = true; continue; }
+                if (!escaped && ch === '"') { inD = false; }
+                escaped = false;
+                continue;
+            }
+            if (ch === '\'') { inS = true; continue; }
+            if (ch === '"') { inD = true; continue; }
+
+            // Only count brackets when not inside a string
             if (ch === '{' || ch === '(' || ch === '<') {
                 stack.push({ ch, line: lineNo, char: i });
                 if (ch === '{') {
@@ -541,6 +629,14 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
                     }
                 }
             } else if (ch === '}' || ch === ')' || ch === '>') {
+                if (ch === '>') {
+                    // Only match '>' when the stack top is '<'; otherwise ignore
+                    const top = stack[stack.length - 1];
+                    if (top && top.ch === '<') {
+                        stack.pop();
+                    }
+                    continue;
+                }
                 const open = stack.pop();
                 if (!open) {
                     issues.push({
@@ -550,7 +646,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
                         code: 'syntax.unmatchedCloser'
                     });
                 } else {
-                    const pair: Record<string, string> = { '}': '{', ')': '(', '>': '<' };
+                    const pair: Record<string, string> = { '}': '{', ')': '(' };
                     if (open.ch !== pair[ch]) {
                         issues.push({
                             message: `Mismatched '${open.ch}' and '${ch}'`,

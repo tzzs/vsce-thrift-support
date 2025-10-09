@@ -27,7 +27,7 @@ struct User {
   1: required UserId     id,                        // 用户唯一标识
   
   2: required string    name (go.tag='json:"name"'),                       // 用户姓名
-  3: optional Email email,                          // 邮箱地址
+  3: optional Email email (go.tag="xx:\"len($)>0\""),                          // 邮箱地址
   4: optional i32 age,                              // 年龄
   5: optional Status status = Status.ACTIVE,       // 用户状态，默认为活跃
   6: optional list<string> tags,                    // 用户标签列表

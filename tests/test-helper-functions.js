@@ -69,6 +69,18 @@ function run() {
     assert.ok(issues.filter(i => i.code === 'value.typeMismatch').length === 0, 'Type annotations should be stripped from default values');
   };
 
+  // Test 2b: Type annotation with escaped quotes and parentheses inside value
+  const testTypeAnnotationEscapes = () => {
+    const text = `typedef string Email
+struct User {
+  3: optional Email email (go.tag="xx:\"len($)>0\""), // 注解中含转义引号与括号
+}`;
+    const issues = diagnosticsModule.analyzeThriftText(text);
+    // 应能正常解析字段，不因注解中的转义与括号产生语法或类型问题
+    const unexpected = issues.filter(i => i.code === 'type.unknown' || i.code === 'syntax.unclosed' || i.code === 'syntax.unmatchedCloser');
+    assert.ok(unexpected.length === 0, 'Escaped quotes and parentheses inside annotations should not break parsing');
+  };
+
   // Test 3: Container type parsing
   const testContainerTypeParsing = () => {
     // Valid container types
@@ -213,6 +225,7 @@ function run() {
   // Run all tests
   testCommentStripping();
   testTypeAnnotationStripping();
+  testTypeAnnotationEscapes();
   testContainerTypeParsing();
   testValueTypeMatching();
   testContainerDefaults();
