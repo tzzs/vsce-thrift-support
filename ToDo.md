@@ -123,10 +123,4 @@
   - 迁移到 LSP、引入增量索引与缓存
   - Inlay Hints、更多诊断规则与重构
   - 与 thrift 编译器的 Task/Problems 集成
-
-如果你愿意，我可以先从 P0 中的两个点落地：
-- 自动补全（类型名、关键字、include 路径、枚举值）
-- 文档符号（DocumentSymbol）与工作区符号（WorkspaceSymbol）
-
-这样你会立刻在编辑/跳转体验上感知明显提升。需要我现在开工实现吗？
         
