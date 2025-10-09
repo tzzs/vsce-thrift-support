@@ -1,7 +1,7 @@
 {
   "name": "thrift-support",
   "displayName": "Thrift Support",
-  "description": "Apache Thrift language support: syntax highlighting, formatter, diagnostics, navigation, and refactoring",
+  "description": "Apache Thrift IDL support: syntax highlighting, formatting, diagnostics, navigation, completion, and rename",
   "version": "0.5.2",
   "publisher": "tanzz",
   "icon": "icon.png",
@@ -14,6 +14,7 @@
   },
   "categories": [
     "Programming Languages",
+    "Linters",
     "Formatters"
   ],
   "keywords": [
@@ -34,7 +35,19 @@
     "include",
     "include navigation",
     "refactoring",
-    "rename"
+    "rename",
+    "namespace",
+    "namespaces",
+    "service",
+    "extends",
+    "throws",
+    "oneway",
+    "workspace symbols",
+    "document symbols",
+    "completion",
+    "hover",
+    "references",
+    "folding"
   ],
   "activationEvents": [
     "onLanguage:thrift"
