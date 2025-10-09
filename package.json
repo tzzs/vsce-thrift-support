@@ -2,7 +2,7 @@
   "name": "thrift-support",
   "displayName": "Thrift Support",
   "description": "Apache Thrift language support: syntax highlighting, formatter, diagnostics, navigation, and refactoring",
-  "version": "0.5.0",
+  "version": "0.5.2",
   "publisher": "tanzz",
   "icon": "icon.png",
   "repository": {
@@ -164,7 +164,7 @@
     "@types/vscode": "1.74.0",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
-    "@vscode/vsce": "^3.6.0",
+    "@vscode/vsce": "^3.6.2",
     "eslint": "^8.28.0",
     "nyc": "^15.1.0",
     "rimraf": "^3.0.2",
