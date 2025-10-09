@@ -1,5 +1,17 @@
 # Changelog | 更新日志
 
+## [0.6.0](https://github.com/tzzs/vsce-thrift-support/compare/v0.5.0...v0.6.0) (2025-10-09)
+
+
+### Features
+
+* **docs,diagnostics:** add development guide and enhance error detection ([ffbe6d3](https://github.com/tzzs/vsce-thrift-support/commit/ffbe6d3707a1deb20b7af5d285a060a2522eedaa))
+
+
+### Bug Fixes
+
+* **diagnostics:** support namespaced service extends in regex ([bc42d89](https://github.com/tzzs/vsce-thrift-support/commit/bc42d8974f911ac9b8b813420f1c867983403702))
+
 ## [0.5.0](https://github.com/tzzs/vsce-thrift-support/compare/v0.4.0...v0.5.0) (2025-09-22)
 
 ### 中文版本
