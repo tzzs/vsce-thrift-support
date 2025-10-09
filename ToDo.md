@@ -1,5 +1,36 @@
 下面给你一个“能力对照与差距清单”，基于我们当前扩展的实现现状，指出通用语言插件（VSCode 生态中常见的高质量语言扩展）通常还会具备的功能与我们可补齐的方向。
 
+（更新于 2025-10-09）现状与路线图同步
+
+已完成（基础能力已在主分支提供）
+- 自动补全（基础关键字、常见方法名）
+- 文档符号（DocumentSymbolProvider）
+- 工作区符号（WorkspaceSymbolProvider）
+- 全部引用（ReferencesProvider）
+- 折叠与选区扩展（FoldingRange / SelectionRange）
+- 诊断改进：注解“语义不透明”策略生效；字符串字面量内不计数括号；仅当栈顶为 `<` 时匹配 `>`；所有诊断与边界测试通过
+- 文档：新增 `docs/annotation-policy.md`，明确注解策略与行为
+
+待增强与新增（优先级建议）
+- CompletionProvider 强化：类型名/用户类型/枚举值/include 路径/常见注解键
+- Signature Help（缺失）：服务方法签名、容器类型参数、注解键提示
+- Snippets（缺失）：struct/enum/service/typedef/const/include 常用骨架
+- Inlay Hints（缺失）：字段编号、默认值、typedef 还原基类型等
+- DocumentHighlight（缺失）：同名标识符文档内高亮
+- Document/Workspace Symbol 提升：图标与层级结构、跨文件索引与性能
+- References 提升：上下文过滤与预览面板、语义准确性
+- Quick Fix（缺失）：创建缺失类型、插入缺失 include、从引用处生成枚举成员
+- 格式化增强：Organize Includes（排序/去重/规范化路径）、按字段 ID 排序（可选）、格式预览/差异预览命令
+- 重构增强：抽取/内联 typedef、跨文件引用变更的预览与批量安全更新
+- 架构与性能：LSP 化与增量索引/缓存；多根工作区与 monorepo 适配
+- 与 Thrift 工具链集成：一键调用编译器生成 Stub；Problems 面板收集编译/生成告警
+- 测试与 CI：UI 端到端（补全、F12、Outline、Refs）、性能基准、大仓库压力测试、规则库单测
+
+建议的近期路线图（按优先级分组）
+- P0：CompletionProvider 强化；Document/Workspace Symbol 提升；References 与 Folding/Selection 完善
+- P1：Quick Fix、Snippets、Semantic Tokens（语义高亮）
+- P2：LSP 化、Inlay Hints、更多诊断与重构、与编译器的任务/Problems 集成
+
 现状速览（我们已具备）
 - 定义跳转与跨文件 include 解析：<mcfile name="definitionProvider.ts" path="src/definitionProvider.ts"></mcfile>
 - 重命名（跨文件）：<mcfile name="renameProvider.ts" path="src/renameProvider.ts"></mcfile>
