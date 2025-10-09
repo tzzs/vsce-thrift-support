@@ -5,6 +5,12 @@ import { ThriftHoverProvider } from './hoverProvider';
 import { registerDiagnostics } from './diagnostics';
 import { ThriftRenameProvider } from './renameProvider';
 import { ThriftRefactorCodeActionProvider } from './codeActionsProvider';
+import { registerCompletionProvider } from './completionProvider';
+import { registerDocumentSymbolProvider } from './documentSymbolProvider';
+import { registerWorkspaceSymbolProvider } from './workspaceSymbolProvider';
+import { registerReferencesProvider } from './referencesProvider';
+import { registerFoldingRangeProvider } from './foldingRangeProvider';
+import { registerSelectionRangeProvider } from './selectionRangeProvider';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Thrift Support extension is now active!');
@@ -32,6 +38,24 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register diagnostics (syntax/type/duplicate id/unknown type)
     registerDiagnostics(context);
+
+    // Register completion provider for auto-completion
+    registerCompletionProvider(context);
+
+    // Register document symbol provider for outline view
+    registerDocumentSymbolProvider(context);
+
+    // Register workspace symbol provider for global symbol search
+    registerWorkspaceSymbolProvider(context);
+
+    // Register references provider for "Find All References"
+    registerReferencesProvider(context);
+
+    // Register folding range provider for code folding
+    registerFoldingRangeProvider(context);
+
+    // Register selection range provider for smart selection
+    registerSelectionRangeProvider(context);
 
     // Register rename provider
     context.subscriptions.push(

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 
 export type ThriftIssue = {
     message: string;
@@ -8,7 +9,7 @@ export type ThriftIssue = {
 };
 
 const PRIMITIVES = new Set<string>([
-    'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid'
+    'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid', 'slist'
 ]);
 
 // New helpers for value/type validation
@@ -74,9 +75,77 @@ function splitTopLevelAngles(typeInner: string): string[] {
 }
 
 // Strip Thrift type annotations like `(python.immutable = "")` that can appear after types
+// Robustly handle escaped quotes and parentheses inside annotation string values.
 function stripTypeAnnotations(typeText: string): string {
-    // Remove any parenthesized annotation segments (not nested in Thrift)
-    return typeText.replace(/\([^()]*\)/g, '').trim();
+    let out = '';
+    let inSingle = false;
+    let inDouble = false;
+    let escaped = false;
+    let parenDepth = 0;
+
+    for (let i = 0; i < typeText.length; i++) {
+        const ch = typeText[i];
+
+        // Track string state and escapes
+        if (parenDepth > 0) {
+            // Inside annotation parentheses: we still need to correctly handle
+            // quotes and escapes so that parentheses inside quoted strings do not
+            // affect parenDepth.
+            if (!escaped && ch === '\\') {
+                escaped = true;
+                continue; // skip content inside annotations
+            }
+            if (!escaped) {
+                if (ch === '"' && !inSingle) {
+                    inDouble = !inDouble;
+                    continue; // skip content inside annotations
+                }
+                if (ch === '\'' && !inDouble) {
+                    inSingle = !inSingle;
+                    continue; // skip content inside annotations
+                }
+            } else {
+                // consume escaped character
+                escaped = false;
+                continue; // skip content inside annotations
+            }
+        }
+
+        // Only consider parentheses when not inside a quoted string
+        if (!inSingle && !inDouble) {
+            if (ch === '(') {
+                parenDepth++;
+                continue; // start skipping annotation content
+            }
+            if (ch === ')') {
+                if (parenDepth > 0) {
+                    parenDepth--;
+                    continue; // end skipping annotation content
+                }
+            }
+        }
+
+        // Outside annotation parentheses: emit characters normally
+        if (parenDepth === 0) {
+            // Maintain string/escape state even though types rarely contain quotes
+            if (!escaped && ch === '\\') {
+                escaped = true;
+                out += ch;
+                continue;
+            }
+            if (!escaped) {
+                if (ch === '"' && !inSingle) { inDouble = !inDouble; }
+                else if (ch === '\'' && !inDouble) { inSingle = !inSingle; }
+                out += ch;
+            } else {
+                out += ch;
+                escaped = false;
+            }
+        }
+        // If parenDepth > 0, we skip annotation content entirely
+    }
+
+    return out.trim();
 }
 
 // Remove comments from a single line while tracking multi-line block comment state
@@ -342,7 +411,97 @@ function valueMatchesType(valueRaw: string, typeText: string, definedTypes: Set<
     return true;
 }
 
-export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[] {
+// Parse types from a Thrift file content and return a map of type names to their kinds
+function parseTypesFromContent(content: string): Map<string, string> {
+    const typeKind = new Map<string, string>();
+    const lines = content.split('\n');
+
+    // Strip comments for each line with block-comment awareness
+    const codeLines: string[] = [];
+    const state = { inBlock: false };
+    for (const raw of lines) {
+        codeLines.push(stripCommentsFromLine(raw, state));
+    }
+
+    const typedefDefRe = /^(\s*)typedef\s+([^\s;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/;
+    const typeDefRe = /^(\s*)(struct|union|exception|enum|senum|service)\s+([A-Za-z_][A-Za-z0-9_]*)/;
+
+    for (let i = 0; i < codeLines.length; i++) {
+        const line = codeLines[i];
+        const mTypedef = line.match(typedefDefRe);
+        if (mTypedef) {
+            typeKind.set(mTypedef[3], 'typedef');
+            continue;
+        }
+        const mType = line.match(typeDefRe);
+        if (mType) {
+            typeKind.set(mType[3], mType[2]);
+        }
+    }
+
+    return typeKind;
+}
+
+// Get included file paths from a Thrift document
+async function getIncludedFiles(document: vscode.TextDocument): Promise<vscode.Uri[]> {
+    const text = document.getText();
+    const lines = text.split('\n');
+    const includedFiles: vscode.Uri[] = [];
+    const documentDir = path.dirname(document.uri.fsPath);
+
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+
+        // Match include statements: include "filename.thrift"
+        const includeMatch = trimmedLine.match(/^include\s+["']([^"']+)["']/);
+        if (includeMatch) {
+            const includePath = includeMatch[1];
+            let fullPath: string;
+
+            if (path.isAbsolute(includePath)) {
+                fullPath = includePath;
+            } else {
+                fullPath = path.resolve(documentDir, includePath);
+            }
+
+            try {
+                const uri = vscode.Uri.file(fullPath);
+                includedFiles.push(uri);
+            } catch (error) {
+                // Invalid path, skip
+            }
+        }
+    }
+
+    return includedFiles;
+}
+
+// Collect types from all included files
+async function collectIncludedTypes(document: vscode.TextDocument): Promise<Map<string, string>> {
+    const includedTypes = new Map<string, string>();
+    const includedFiles = await getIncludedFiles(document);
+
+    for (const includedFile of includedFiles) {
+        try {
+            const includedDocument = await vscode.workspace.openTextDocument(includedFile);
+            const types = parseTypesFromContent(includedDocument.getText());
+
+            // Add types from this included file
+            for (const [name, kind] of types) {
+                if (!includedTypes.has(name)) {
+                    includedTypes.set(name, kind);
+                }
+            }
+        } catch (error) {
+            // File might not exist or be accessible, skip
+            continue;
+        }
+    }
+
+    return includedTypes;
+}
+
+export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?: Map<string, string>): ThriftIssue[] {
     const lines = text.split('\n');
     const issues: ThriftIssue[] = [];
 
@@ -356,7 +515,8 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
     // Gather defined types in this file (from comment-stripped code) and type kind map
     const typeKind = new Map<string, string>(); // name -> kind
     const typedefDefRe = /^(\s*)typedef\s+([^\s;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/;
-    const typeDefRe = /^(\s*)(struct|union|exception|enum|service)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+extends\s+([A-Za-z_][A-Za-z0-9_]*))?/;
+    // 支持 service 扩展父服务为命名空间形式（如 shared.SharedService 或 multi.segment.Name）
+    const typeDefRe = /^(\s*)(struct|union|exception|enum|senum|service)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+extends\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*))?/;
     const serviceExtends: Array<{ lineNo: number; parent: string; col: number }> = [];
     for (let i = 0; i < codeLines.length; i++) {
         const line = codeLines[i];
@@ -374,11 +534,32 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
             }
         }
     }
+
+    // Merge with included types if provided
+    if (includedTypes) {
+        for (const [name, kind] of includedTypes) {
+            if (!typeKind.has(name)) {
+                typeKind.set(name, kind);
+            }
+        }
+    }
+
     const definedTypes = new Set<string>([...typeKind.keys()]);
 
     // Validate service extends
     for (const ext of serviceExtends) {
-        const parentKind = typeKind.get(ext.parent);
+        let parentName = ext.parent;
+        let parentKind = typeKind.get(parentName);
+
+        // Handle namespaced types (e.g., shared.SharedService)
+        if (!parentKind && parentName.includes('.')) {
+            const baseName = parentName.split('.').pop();
+            if (baseName) {
+                parentKind = typeKind.get(baseName);
+                parentName = baseName;
+            }
+        }
+
         if (!parentKind) {
             issues.push({
                 message: `Unknown parent service '${ext.parent}' in extends`,
@@ -414,8 +595,28 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
             pendingTypeKind = tStart[2];
         }
 
+        // Track quotes to avoid counting brackets inside string literals
+        let inS = false, inD = false, escaped = false;
         for (let i = 0; i < line.length; i++) {
             const ch = line[i];
+
+            // Handle string literal state
+            if (inS) {
+                if (!escaped && ch === '\\') { escaped = true; continue; }
+                if (!escaped && ch === '\'') { inS = false; }
+                escaped = false;
+                continue;
+            }
+            if (inD) {
+                if (!escaped && ch === '\\') { escaped = true; continue; }
+                if (!escaped && ch === '"') { inD = false; }
+                escaped = false;
+                continue;
+            }
+            if (ch === '\'') { inS = true; continue; }
+            if (ch === '"') { inD = true; continue; }
+
+            // Only count brackets when not inside a string
             if (ch === '{' || ch === '(' || ch === '<') {
                 stack.push({ ch, line: lineNo, char: i });
                 if (ch === '{') {
@@ -429,6 +630,14 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
                     }
                 }
             } else if (ch === '}' || ch === ')' || ch === '>') {
+                if (ch === '>') {
+                    // Only match '>' when the stack top is '<'; otherwise ignore
+                    const top = stack[stack.length - 1];
+                    if (top && top.ch === '<') {
+                        stack.pop();
+                    }
+                    continue;
+                }
                 const open = stack.pop();
                 if (!open) {
                     issues.push({
@@ -438,7 +647,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
                         code: 'syntax.unmatchedCloser'
                     });
                 } else {
-                    const pair: Record<string, string> = { '}': '{', ')': '(', '>': '<' };
+                    const pair: Record<string, string> = { '}': '{', ')': '(' };
                     if (open.ch !== pair[ch]) {
                         issues.push({
                             message: `Mismatched '${open.ch}' and '${ch}'`,
@@ -460,7 +669,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
 
         // Inside enum block: validate explicit values
         if (typeCtxStack[typeCtxStack.length - 1] === 'enum') {
-            const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)(?:\s*=\s*([^,]+))?/);
+            const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)(?:\s*=\s*([^,;]+))?/);
             if (m) {
                 const valueRaw = (m[2] || '').trim();
                 if (valueRaw) {
@@ -619,9 +828,12 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
 export function registerDiagnostics(context: vscode.ExtensionContext) {
     const collection = vscode.languages.createDiagnosticCollection('thrift');
 
-    function analyzeDocument(doc: vscode.TextDocument) {
+    async function analyzeDocument(doc: vscode.TextDocument) {
         if (doc.languageId !== 'thrift') {return;}
-        const issues = analyzeThriftText(doc.getText(), doc.uri);
+
+        // Collect types from included files
+        const includedTypes = await collectIncludedTypes(doc);
+        const issues = analyzeThriftText(doc.getText(), doc.uri, includedTypes);
         const diagnostics = issues.map(i => new vscode.Diagnostic(i.range, i.message, i.severity));
         collection.set(doc.uri, diagnostics);
     }

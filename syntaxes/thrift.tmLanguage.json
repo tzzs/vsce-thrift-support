@@ -49,11 +49,11 @@
       "patterns": [
         {
           "name": "keyword.control.thrift",
-          "match": "\\b(namespace|include|cpp_include|php_include|py_module|perl_package|ruby_namespace|smalltalk_category|smalltalk_prefix|java_package|cocoa_prefix|csharp_namespace|delphi_namespace|cpp_namespace|d_namespace|xsd_all|xsd_optional|xsd_nillable|xsd_namespace|xsd_attrs)\\b"
+          "match": "\\b(namespace|include|cpp_include|php_include|py_module|perl_package|ruby_namespace|smalltalk_category|smalltalk_prefix|java_package|cocoa_prefix|csharp_namespace|delphi_namespace|cpp_namespace|d_namespace|c_glib|netstd|st|xsd_all|xsd_optional|xsd_nillable|xsd_namespace|xsd_attrs)\\b"
         },
         {
           "name": "keyword.other.thrift",
-          "match": "\\b(const|typedef|enum|struct|union|exception|extends|service|oneway|void|throws|optional|required)\\b"
+          "match": "\\b(const|typedef|enum|senum|struct|union|exception|extends|service|oneway|void|throws|optional|required)\\b"
         },
         {
           "name": "storage.modifier.thrift",
@@ -65,7 +65,7 @@
       "patterns": [
         {
           "name": "storage.type.primitive.thrift",
-          "match": "\\b(bool|byte|i8|i16|i32|i64|double|string|binary|uuid)\\b"
+          "match": "\\b(bool|byte|i8|i16|i32|i64|double|string|binary|uuid|slist)\\b"
         },
         {
           "name": "storage.type.container.thrift",

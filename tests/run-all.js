@@ -13,6 +13,13 @@ const tests = [
   'tests/test-diagnostics.js',
   'tests/test-rename-provider.js',
   'tests/test-code-actions-provider.js',
+  // New tests for P0 priority features
+  'tests/test-completion-provider.js',
+  'tests/test-document-symbol-provider.js',
+  'tests/test-workspace-symbol-provider.js',
+  'tests/test-references-provider.js',
+  'tests/test-folding-range-provider.js',
+  'tests/test-selection-range-provider.js',
 ];
 
 let failed = 0;

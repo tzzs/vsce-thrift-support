@@ -27,7 +27,7 @@ struct User {
   1: required UserId     id,                        // 用户唯一标识
   
   2: required string    name (go.tag='json:"name"'),                       // 用户姓名
-  3: optional Email email,                          // 邮箱地址
+  3: optional Email email (go.tag="xx:\"len($)>0\""),                          // 邮箱地址
   4: optional i32 age,                              // 年龄
   5: optional Status status = Status.ACTIVE,       // 用户状态，默认为活跃
   6: optional list<string> tags,                    // 用户标签列表
@@ -59,7 +59,7 @@ exception ValidationException {
 }
 
 // Service definition
-service UserService {
+service UserService extends shared.SharedService {
   /**
    * Create a new user
    */
@@ -106,4 +106,9 @@ const map<string, i32> ERROR_CODES = {
     "NOT_FOUND": 404,           // 资源未找到
     "VALIDATION_ERROR": 400,    // 数据验证错误
     "INTERNAL_ERROR": 500       // 内部服务器错误
+}
+
+enum Status {
+  Init = 1; // 测试
+  End = 20; // 初始化
 }
