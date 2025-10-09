@@ -59,7 +59,7 @@ exception ValidationException {
 }
 
 // Service definition
-service UserService {
+service UserService extends shared.SharedService {
   /**
    * Create a new user
    */
@@ -106,4 +106,9 @@ const map<string, i32> ERROR_CODES = {
     "NOT_FOUND": 404,           // 资源未找到
     "VALIDATION_ERROR": 400,    // 数据验证错误
     "INTERNAL_ERROR": 500       // 内部服务器错误
+}
+
+enum Status {
+  Init = 1; // 测试
+  End = 20; // 初始化
 }

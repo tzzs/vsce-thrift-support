@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 
 export type ThriftIssue = {
     message: string;
@@ -8,7 +9,7 @@ export type ThriftIssue = {
 };
 
 const PRIMITIVES = new Set<string>([
-    'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid'
+    'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid', 'slist'
 ]);
 
 // New helpers for value/type validation
@@ -342,7 +343,97 @@ function valueMatchesType(valueRaw: string, typeText: string, definedTypes: Set<
     return true;
 }
 
-export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[] {
+// Parse types from a Thrift file content and return a map of type names to their kinds
+function parseTypesFromContent(content: string): Map<string, string> {
+    const typeKind = new Map<string, string>();
+    const lines = content.split('\n');
+
+    // Strip comments for each line with block-comment awareness
+    const codeLines: string[] = [];
+    const state = { inBlock: false };
+    for (const raw of lines) {
+        codeLines.push(stripCommentsFromLine(raw, state));
+    }
+
+    const typedefDefRe = /^(\s*)typedef\s+([^\s;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/;
+    const typeDefRe = /^(\s*)(struct|union|exception|enum|senum|service)\s+([A-Za-z_][A-Za-z0-9_]*)/;
+
+    for (let i = 0; i < codeLines.length; i++) {
+        const line = codeLines[i];
+        const mTypedef = line.match(typedefDefRe);
+        if (mTypedef) {
+            typeKind.set(mTypedef[3], 'typedef');
+            continue;
+        }
+        const mType = line.match(typeDefRe);
+        if (mType) {
+            typeKind.set(mType[3], mType[2]);
+        }
+    }
+
+    return typeKind;
+}
+
+// Get included file paths from a Thrift document
+async function getIncludedFiles(document: vscode.TextDocument): Promise<vscode.Uri[]> {
+    const text = document.getText();
+    const lines = text.split('\n');
+    const includedFiles: vscode.Uri[] = [];
+    const documentDir = path.dirname(document.uri.fsPath);
+
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+
+        // Match include statements: include "filename.thrift"
+        const includeMatch = trimmedLine.match(/^include\s+["']([^"']+)["']/);
+        if (includeMatch) {
+            const includePath = includeMatch[1];
+            let fullPath: string;
+
+            if (path.isAbsolute(includePath)) {
+                fullPath = includePath;
+            } else {
+                fullPath = path.resolve(documentDir, includePath);
+            }
+
+            try {
+                const uri = vscode.Uri.file(fullPath);
+                includedFiles.push(uri);
+            } catch (error) {
+                // Invalid path, skip
+            }
+        }
+    }
+
+    return includedFiles;
+}
+
+// Collect types from all included files
+async function collectIncludedTypes(document: vscode.TextDocument): Promise<Map<string, string>> {
+    const includedTypes = new Map<string, string>();
+    const includedFiles = await getIncludedFiles(document);
+
+    for (const includedFile of includedFiles) {
+        try {
+            const includedDocument = await vscode.workspace.openTextDocument(includedFile);
+            const types = parseTypesFromContent(includedDocument.getText());
+
+            // Add types from this included file
+            for (const [name, kind] of types) {
+                if (!includedTypes.has(name)) {
+                    includedTypes.set(name, kind);
+                }
+            }
+        } catch (error) {
+            // File might not exist or be accessible, skip
+            continue;
+        }
+    }
+
+    return includedTypes;
+}
+
+export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?: Map<string, string>): ThriftIssue[] {
     const lines = text.split('\n');
     const issues: ThriftIssue[] = [];
 
@@ -356,7 +447,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
     // Gather defined types in this file (from comment-stripped code) and type kind map
     const typeKind = new Map<string, string>(); // name -> kind
     const typedefDefRe = /^(\s*)typedef\s+([^\s;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/;
-    const typeDefRe = /^(\s*)(struct|union|exception|enum|service)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+extends\s+([A-Za-z_][A-Za-z0-9_]*))?/;
+    const typeDefRe = /^(\s*)(struct|union|exception|enum|senum|service)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+extends\s+([A-Za-z_][A-Za-z0-9_]*))?/;
     const serviceExtends: Array<{ lineNo: number; parent: string; col: number }> = [];
     for (let i = 0; i < codeLines.length; i++) {
         const line = codeLines[i];
@@ -374,11 +465,32 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
             }
         }
     }
+
+    // Merge with included types if provided
+    if (includedTypes) {
+        for (const [name, kind] of includedTypes) {
+            if (!typeKind.has(name)) {
+                typeKind.set(name, kind);
+            }
+        }
+    }
+
     const definedTypes = new Set<string>([...typeKind.keys()]);
 
     // Validate service extends
     for (const ext of serviceExtends) {
-        const parentKind = typeKind.get(ext.parent);
+        let parentName = ext.parent;
+        let parentKind = typeKind.get(parentName);
+
+        // Handle namespaced types (e.g., shared.SharedService)
+        if (!parentKind && parentName.includes('.')) {
+            const baseName = parentName.split('.').pop();
+            if (baseName) {
+                parentKind = typeKind.get(baseName);
+                parentName = baseName;
+            }
+        }
+
         if (!parentKind) {
             issues.push({
                 message: `Unknown parent service '${ext.parent}' in extends`,
@@ -460,7 +572,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
 
         // Inside enum block: validate explicit values
         if (typeCtxStack[typeCtxStack.length - 1] === 'enum') {
-            const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)(?:\s*=\s*([^,]+))?/);
+            const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)(?:\s*=\s*([^,;]+))?/);
             if (m) {
                 const valueRaw = (m[2] || '').trim();
                 if (valueRaw) {
@@ -619,9 +731,12 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri): ThriftIssue[]
 export function registerDiagnostics(context: vscode.ExtensionContext) {
     const collection = vscode.languages.createDiagnosticCollection('thrift');
 
-    function analyzeDocument(doc: vscode.TextDocument) {
+    async function analyzeDocument(doc: vscode.TextDocument) {
         if (doc.languageId !== 'thrift') {return;}
-        const issues = analyzeThriftText(doc.getText(), doc.uri);
+
+        // Collect types from included files
+        const includedTypes = await collectIncludedTypes(doc);
+        const issues = analyzeThriftText(doc.getText(), doc.uri, includedTypes);
         const diagnostics = issues.map(i => new vscode.Diagnostic(i.range, i.message, i.severity));
         collection.set(doc.uri, diagnostics);
     }
