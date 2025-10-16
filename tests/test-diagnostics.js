@@ -67,10 +67,10 @@ function run() {
   issues = analyzeThriftText(unclosedOpener);
   assert.ok(findByCode(issues, 'syntax.unclosed').length === 1, 'Unclosed opener should be flagged');
 
-  // 7) Enum value must be integer and non-negative
+  // 7) Enum value must be integer (negative values now allowed)
   const enumBad = `enum E {\n  A = -1,\n  B = 1.1,\n  C = 2,\n}`;
   issues = analyzeThriftText(enumBad);
-  assert.ok(findByCode(issues, 'enum.negativeValue').length === 1, 'Enum negative value should be flagged');
+  assert.ok(findByCode(issues, 'enum.negativeValue').length === 0, 'Enum negative values should now be allowed');
   assert.ok(findByCode(issues, 'enum.valueNotInteger').length === 1, 'Enum non-integer value should be flagged');
 
   // 8) Default value type mismatch (uuid format and others)
