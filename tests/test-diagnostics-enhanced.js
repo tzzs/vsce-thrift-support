@@ -118,18 +118,35 @@ function run() {
   issues = analyzeThriftText(setBracketDefault);
   assert.ok(findByCode(issues, 'value.typeMismatch').length === 0, 'Set defaults with [] should be accepted (lenient)');
 
-  // Test 11: Enhanced enum value validation
+  // Test 11: Enhanced enum value validation - now supports negative values
   const enumValidation = `enum Status {
     ACTIVE = 0,
     INACTIVE = 1,
     PENDING = 2,
-    INVALID_NEG = -1,
+    VALID_NEG = -1,
+    VALID_NEG2 = -100,
     INVALID_FLOAT = 1.5,
     INVALID_HEX = 0xFF
   }`;
   issues = analyzeThriftText(enumValidation);
-  assert.ok(findByCode(issues, 'enum.negativeValue').length === 1, 'Negative enum values should be flagged');
-  assert.ok(findByCode(issues, 'enum.valueNotInteger').length === 1, 'Float enum values should be flagged');
+  console.log('Test 11 - Issues found:', issues.map(i => i.code));
+  assert.ok(findByCode(issues, 'enum.negativeValue').length === 0, 'Negative enum values should now be allowed');
+  assert.ok(findByCode(issues, 'enum.valueNotInteger').length === 2, 'Float and hex enum values should be flagged');
+  console.log('Test 11 passed: Negative enum values are now allowed, float/hex values are flagged');
+
+  // Test 11b: Additional enum tests with various negative values
+  const enumWithNegatives = `enum ErrorCode {
+    SUCCESS = 0,
+    ERROR_GENERAL = -1,
+    ERROR_INVALID_PARAM = -2,
+    ERROR_TIMEOUT = -100,
+    ERROR_NETWORK = -1000,
+    MIN_INT32 = -2147483648,
+    MAX_INT32 = 2147483647
+  }`;
+  issues = analyzeThriftText(enumWithNegatives);
+  assert.ok(findByCode(issues, 'enum.negativeValue').length === 0, 'All negative enum values should be allowed');
+  assert.ok(findByCode(issues, 'enum.valueNotInteger').length === 0, 'All values should be valid integers');
 
   // Test 12: Service method validation - oneway restrictions
   const onewayService = `service TestService {

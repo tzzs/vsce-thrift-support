@@ -18,7 +18,8 @@ const uuidRegex = /^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$/;
 
 function isIntegerLiteral(text: string): boolean {
     const t = text.trim();
-    return /^-?\d+$/.test(t) || /^-?0x[0-9a-fA-F]+$/.test(t);
+    // 只匹配纯整数，不匹配浮点数
+    return /^-?\d+$/.test(t) && !/^-?\d+\.\d+$/.test(t);
 }
 
 function isFloatLiteral(text: string): boolean {
@@ -680,14 +681,8 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
                             severity: vscode.DiagnosticSeverity.Error,
                             code: 'enum.valueNotInteger'
                         });
-                    } else if (/^-/.test(valueRaw)) {
-                        issues.push({
-                            message: `Enum value must be non-negative`,
-                            range: new vscode.Range(lineNo, m.index || 0, lineNo, (m.index || 0) + (m[0]?.length || 1)),
-                            severity: vscode.DiagnosticSeverity.Error,
-                            code: 'enum.negativeValue'
-                        });
                     }
+                    // 移除负数限制，允许负整数作为enum值
                 }
             }
         }
