@@ -1,5 +1,13 @@
 # Changelog | 更新日志
 
+## [0.6.1](https://github.com/tzzs/vsce-thrift-support/compare/v0.6.0...v0.6.1) (2025-10-16)
+
+
+### Bug Fixes
+
+* **diagnostics:** fix enum value validation to support negative integ… ([484b170](https://github.com/tzzs/vsce-thrift-support/commit/484b170f5d3568f2d29b3db5f900d55320bbce3d))
+* **diagnostics:** fix enum value validation to support negative integers and reject floats/hex ([9f36b2a](https://github.com/tzzs/vsce-thrift-support/commit/9f36b2ab94af60075fb0db486a301d18114eec6d))
+
 ## [0.6.0](https://github.com/tzzs/vsce-thrift-support/compare/v0.5.0...v0.6.0) (2025-10-09)
 
 
