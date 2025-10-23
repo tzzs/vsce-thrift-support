@@ -43,10 +43,10 @@
             },
             {
               "name": "string.quoted.double.thrift",
-              "match": '"([^"\\\\]|\\\\.)*"'
+              "match": "\\\"([^\\\"\\\\]|\\\\.)*\\\""
             },
             {
-              "name": "string.quoted.single.thrift", 
+              "name": "string.quoted.single.thrift",
               "match": "'([^'\\\\]|\\\\.)*'"
             },
             {
