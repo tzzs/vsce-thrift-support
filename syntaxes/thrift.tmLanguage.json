@@ -3,6 +3,11 @@
   "name": "Thrift",
   "patterns": [
     { "include": "#comments" },
+    { "include": "#struct-definitions" },
+    { "include": "#service-definitions" },
+    { "include": "#enum-definitions" },
+    { "include": "#exception-definitions" },
+    { "include": "#union-definitions" },
     { "include": "#annotations" },
     { "include": "#keywords" },
     { "include": "#types" },
@@ -210,6 +215,208 @@
         {
           "name": "keyword.operator.thrift",
           "match": "[{}\\[\\]():;,=<>]"
+        }
+      ]
+    },
+    "struct-definitions": {
+      "patterns": [
+        {
+          "name": "meta.struct.thrift",
+          "begin": "\\b(struct)\\s+([A-Z][a-zA-Z0-9_]*)\\s*\\{",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.thrift" },
+            "2": { "name": "entity.name.type.thrift" }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": { "name": "keyword.operator.thrift" }
+          },
+          "patterns": [
+            {
+              "include": "#comments"
+            },
+            {
+              "include": "#field-definitions"
+            },
+            {
+              "include": "#annotations"
+            }
+          ]
+        }
+      ]
+    },
+    "service-definitions": {
+      "patterns": [
+        {
+          "name": "meta.service.thrift",
+          "begin": "\\b(service)\\s+([A-Z][a-zA-Z0-9_]*)\\s*(?:(extends)\\s+([A-Z][a-zA-Z0-9_]*))?\\s*\\{",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.thrift" },
+            "2": { "name": "entity.name.type.thrift" },
+            "3": { "name": "keyword.control.thrift" },
+            "4": { "name": "entity.name.type.thrift" }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": { "name": "keyword.operator.thrift" }
+          },
+          "patterns": [
+            {
+              "include": "#comments"
+            },
+            {
+              "include": "#method-definitions"
+            },
+            {
+              "include": "#annotations"
+            }
+          ]
+        }
+      ]
+    },
+    "enum-definitions": {
+      "patterns": [
+        {
+          "name": "meta.enum.thrift",
+          "begin": "\\b(enum)\\s+([A-Z][a-zA-Z0-9_]*)\\s*\\{",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.thrift" },
+            "2": { "name": "entity.name.type.thrift" }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": { "name": "keyword.operator.thrift" }
+          },
+          "patterns": [
+            {
+              "include": "#comments"
+            },
+            {
+              "name": "meta.enum.field.thrift",
+              "match": "\\s*([A-Z_][A-Z0-9_]*)\\s*(=)\\s*([0-9]+)\\s*(,)?",
+              "captures": {
+                "1": { "name": "constant.other.enum.thrift" },
+                "2": { "name": "keyword.operator.thrift" },
+                "3": { "name": "constant.numeric.thrift" },
+                "4": { "name": "keyword.operator.thrift" }
+              }
+            },
+            {
+              "include": "#annotations"
+            }
+          ]
+        }
+      ]
+    },
+    "exception-definitions": {
+      "patterns": [
+        {
+          "name": "meta.exception.thrift",
+          "begin": "\\b(exception)\\s+([A-Z][a-zA-Z0-9_]*)\\s*\\{",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.thrift" },
+            "2": { "name": "entity.name.type.thrift" }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": { "name": "keyword.operator.thrift" }
+          },
+          "patterns": [
+            {
+              "include": "#comments"
+            },
+            {
+              "include": "#field-definitions"
+            },
+            {
+              "include": "#annotations"
+            }
+          ]
+        }
+      ]
+    },
+    "union-definitions": {
+      "patterns": [
+        {
+          "name": "meta.union.thrift",
+          "begin": "\\b(union)\\s+([A-Z][a-zA-Z0-9_]*)\\s*\\{",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.thrift" },
+            "2": { "name": "entity.name.type.thrift" }
+          },
+          "end": "\\}",
+          "endCaptures": {
+            "0": { "name": "keyword.operator.thrift" }
+          },
+          "patterns": [
+            {
+              "include": "#comments"
+            },
+            {
+              "include": "#field-definitions"
+            },
+            {
+              "include": "#annotations"
+            }
+          ]
+        }
+      ]
+    },
+    "field-definitions": {
+      "patterns": [
+        {
+          "name": "meta.field.thrift",
+          "match": "\\s*([0-9]+)\\s*:\\s*(required|optional)?\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-z_][a-zA-Z0-9_]*)",
+          "captures": {
+            "1": { "name": "constant.numeric.thrift" },
+            "2": { "name": "keyword.control.thrift" },
+            "3": { "name": "support.type.thrift" },
+            "4": { "name": "variable.other.thrift" }
+          }
+        }
+      ]
+    },
+    "method-definitions": {
+      "patterns": [
+        {
+          "name": "meta.method.thrift",
+          "begin": "\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
+          "beginCaptures": {
+            "1": { "name": "entity.name.function.thrift" }
+          },
+          "end": "\\)",
+          "endCaptures": {
+            "0": { "name": "keyword.operator.thrift" }
+          },
+          "patterns": [
+            {
+              "include": "#method-parameters"
+            }
+          ]
+        },
+        {
+          "name": "meta.method.returns.thrift",
+          "match": "\\s*(throws)\\s*\\(",
+          "captures": {
+            "1": { "name": "keyword.control.thrift" }
+          }
+        }
+      ]
+    },
+    "method-parameters": {
+      "patterns": [
+        {
+          "name": "meta.parameter.thrift",
+          "match": "\\s*([0-9]+)\\s*:\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-z_][a-zA-Z0-9_]*)\\s*(,)?",
+          "captures": {
+            "1": { "name": "constant.numeric.thrift" },
+            "2": { "name": "support.type.thrift" },
+            "3": { "name": "variable.other.thrift" },
+            "4": { "name": "keyword.operator.thrift" }
+          }
+        },
+        {
+          "include": "#comments"
         }
       ]
     }
