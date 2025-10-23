@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import { parseAnnotations, extractAnnotationsFromField } from './annotationParser';
+import { AnnotationNode } from './astTypes';
 
 export class ThriftFormattingProvider implements vscode.DocumentFormattingEditProvider, vscode.DocumentRangeFormattingEditProvider {
     // Precompiled regexes reused in hot paths and referenced by helpers
@@ -120,7 +122,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             ? options.initialContext.indentLevel : 0;
         let inStruct = !!(options && options.initialContext && options.initialContext.inStruct);
         let inEnum = !!(options && options.initialContext && options.initialContext.inEnum);
-        let structFields: Array<{line: string, type: string, name: string, suffix: string, comment: string, annotation?: string}> = [];
+        let structFields: Array<{line: string, type: string, name: string, suffix: string, comment: string, annotation?: string, annotationNodes?: AnnotationNode[]}> = [];
         let enumFields: Array<{line: string, name: string, value: string, suffix: string, comment: string}> = [];
         let constFields: Array<{line: string, type: string, name: string, value: string, comment: string}> = [];
         let inConstBlock = false;
@@ -595,7 +597,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         return this.reEnumField.test(line);
     }
 
-    private parseStructField(line: string): {line: string, type: string, name: string, suffix: string, comment: string, annotation?: string} | null {
+    private parseStructField(line: string): {line: string, type: string, name: string, suffix: string, comment: string, annotation?: string, annotationNodes?: AnnotationNode[]} | null {
         // Parse field: 1: required string name = defaultValue, // comment
         
         // First, extract the prefix (field number and optional required/optional)
@@ -622,11 +624,17 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         }
         
         // Extract inline annotation parentheses at the end: ( ... ) possibly with spaces
+        // Use the new annotation parser to properly parse annotations
         let annotation = '';
+        let annotationNodes: AnnotationNode[] = [];
         const annMatch = remainder.match(/^(.*?)(\(.*\))\s*$/);
         if (annMatch) {
             remainder = annMatch[1].trim();
             annotation = annMatch[2];
+            
+            // Parse the annotation using our new parser
+            const parseResult = parseAnnotations(annotation);
+            annotationNodes = parseResult.annotations;
         }
         
         // Parse the main content: type fieldname [= defaultvalue]
@@ -660,7 +668,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             name: name,
             suffix: suffix,
             comment: comment,
-            annotation: annotation
+            annotation: annotation,
+            annotationNodes: annotationNodes
         };
     }
 
@@ -735,7 +744,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     }
 
     private formatStructFields(
-        fields: Array<{line: string, type: string, name: string, suffix: string, comment: string, annotation?: string}>,
+        fields: Array<{line: string, type: string, name: string, suffix: string, comment: string, annotation?: string, annotationNodes?: AnnotationNode[]}>,
         options: any,
         indentLevel: number
     ): string[] {
