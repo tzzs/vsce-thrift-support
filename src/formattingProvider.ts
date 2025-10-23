@@ -2,6 +2,19 @@ import * as vscode from 'vscode';
 import { parseAnnotations, extractAnnotationsFromField } from './annotationParser';
 import { AnnotationNode } from './astTypes';
 
+/**
+ * Parsed field information for formatting
+ */
+interface ParsedField {
+    fieldId: string;
+    qualifier: string;
+    type: string;
+    name: string;
+    suffix: string;
+    comment: string;
+    annotation?: string;
+}
+
 export class ThriftFormattingProvider implements vscode.DocumentFormattingEditProvider, vscode.DocumentRangeFormattingEditProvider {
     // Precompiled regexes reused in hot paths and referenced by helpers
     private reStructField = /^\s*\d+:\s*(?:required|optional)?\s*.+$/;
@@ -1111,7 +1124,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
      */
     private formatMultiLineStructField(
         field: ParsedField,
-        options: FormattingOptions,
+        options: vscode.FormattingOptions,
         indentLevel: number,
         maxFieldIdWidth: number,
         maxTypeWidth: number,
@@ -1209,7 +1222,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
      */
     private formatSingleLineStructField(
         field: ParsedField,
-        options: FormattingOptions,
+        options: vscode.FormattingOptions,
         indentLevel: number,
         maxFieldIdWidth: number,
         maxTypeWidth: number,
