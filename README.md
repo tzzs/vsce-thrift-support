@@ -35,6 +35,15 @@
 - **抽取类型（typedef）**：从选区或当前字段推断类型并生成 `typedef`
 - **移动类型到文件**：将 `struct/enum/service/typedef` 等移动到新的 `.thrift` 文件并自动插入 `include`
 
+### 高级特性
+- **流式传输（stream）**：支持实验性的流式传输语法
+- **数据收集（sink）**：支持实验性的数据收集语法
+- **交互模式（interaction）**：支持实验性的交互模式语法
+
+## 📖 高级特性文档
+
+查看[高级特性文档](docs/advanced-features.md)了解流式传输、交互模式等实验性语法的使用方法。
+
 ## 📦 安装
 
 1. 打开 VSCode

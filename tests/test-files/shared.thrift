@@ -1,9 +1,10 @@
 namespace java com.example.shared
 
 enum Priority {
-  LOW = 1,
+  LOW = -1,
   MEDIUM = 2,
-  HIGH = 3
+  HIGH = 3,
+  NEW
 }
 
 struct Address {

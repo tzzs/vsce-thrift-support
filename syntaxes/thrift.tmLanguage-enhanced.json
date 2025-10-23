@@ -10,6 +10,9 @@
       "include": "#keywords"
     },
     {
+      "include": "#advanced-features"
+    },
+    {
       "include": "#types"
     },
     {
@@ -23,6 +26,9 @@
     },
     {
       "include": "#operators"
+    },
+    {
+      "include": "#annotations"
     }
   ],
   "repository": {
@@ -58,6 +64,55 @@
         {
           "name": "storage.modifier.thrift",
           "match": "\\b(async|oneway|stream|sink|interaction|performs|reference)\\b"
+        }
+      ]
+    },
+    "advanced-features": {
+      "patterns": [
+        {
+          "name": "keyword.control.stream.thrift",
+          "match": "\\bstream\\b",
+          "captures": {
+            "0": {
+              "name": "keyword.control.stream.thrift"
+            }
+          }
+        },
+        {
+          "name": "keyword.control.sink.thrift",
+          "match": "\\bsink\\b",
+          "captures": {
+            "0": {
+              "name": "keyword.control.sink.thrift"
+            }
+          }
+        },
+        {
+          "name": "keyword.control.interaction.thrift",
+          "match": "\\binteraction\\b",
+          "captures": {
+            "0": {
+              "name": "keyword.control.interaction.thrift"
+            }
+          }
+        },
+        {
+          "name": "keyword.control.performs.thrift",
+          "match": "\\bperforms\\b",
+          "captures": {
+            "0": {
+              "name": "keyword.control.performs.thrift"
+            }
+          }
+        },
+        {
+          "name": "storage.type.reference.thrift",
+          "match": "\\breference\\s*<([^>]+)>\\b",
+          "captures": {
+            "1": {
+              "name": "storage.type.user.thrift"
+            }
+          }
         }
       ]
     },
@@ -136,6 +191,19 @@
         {
           "name": "keyword.operator.thrift",
           "match": "[=<>!&|+\\-*/%^~?:;,{}()\\[\\]]"
+        }
+      ]
+    },
+    "annotations": {
+      "patterns": [
+        {
+          "name": "storage.modifier.annotation.thrift",
+          "match": "@[a-zA-Z_][a-zA-Z0-9_]*",
+          "captures": {
+            "0": {
+              "name": "storage.modifier.annotation.thrift"
+            }
+          }
         }
       ]
     }

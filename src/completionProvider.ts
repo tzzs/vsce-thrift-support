@@ -7,7 +7,9 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         'smalltalk_category', 'smalltalk_prefix', 'java_package', 'cocoa_prefix', 'csharp_namespace',
         'delphi_namespace', 'cpp_namespace', 'd_namespace', 'c_glib', 'netstd', 'st', 'xsd_all', 'xsd_optional',
         'xsd_nillable', 'xsd_namespace', 'xsd_attrs', 'const', 'typedef', 'enum', 'senum', 'struct', 'union',
-        'exception', 'extends', 'service', 'oneway', 'void', 'throws', 'optional', 'required', 'async'
+        'exception', 'extends', 'service', 'oneway', 'void', 'throws', 'optional', 'required', 'async',
+        // 高级特性关键字
+        'stream', 'sink', 'interaction', 'performs', 'reference'
     ];
 
     private primitives = [
