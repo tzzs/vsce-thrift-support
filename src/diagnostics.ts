@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { parseAnnotations } from './annotationParser';
 
 export type ThriftIssue = {
     message: string;
@@ -77,12 +78,16 @@ function splitTopLevelAngles(typeInner: string): string[] {
 
 // Strip Thrift type annotations like `(python.immutable = "")` that can appear after types
 // Robustly handle escaped quotes and parentheses inside annotation string values.
-function stripTypeAnnotations(typeText: string): string {
+// Returns both the stripped type and extracted annotation nodes.
+function stripTypeAnnotations(typeText: string): { strippedType: string; annotationNodes?: import('./astTypes').AnnotationNode[] } {
     let out = '';
     let inSingle = false;
     let inDouble = false;
     let escaped = false;
     let parenDepth = 0;
+    const annotationNodes: import('./astTypes').AnnotationNode[] = [];
+    let currentAnnotationStart = -1;
+    let annotationContent = '';
 
     for (let i = 0; i < typeText.length; i++) {
         const ch = typeText[i];
@@ -116,11 +121,26 @@ function stripTypeAnnotations(typeText: string): string {
         if (!inSingle && !inDouble) {
             if (ch === '(') {
                 parenDepth++;
+                if (parenDepth === 1) {
+                    currentAnnotationStart = i;
+                    annotationContent = '';
+                } else if (parenDepth > 1) {
+                    annotationContent += ch;
+                }
                 continue; // start skipping annotation content
             }
             if (ch === ')') {
                 if (parenDepth > 0) {
                     parenDepth--;
+                    if (parenDepth === 0 && currentAnnotationStart >= 0) {
+                        // Complete annotation found, parse it
+                        const { annotations } = parseAnnotations(annotationContent);
+                        annotationNodes.push(...annotations);
+                        currentAnnotationStart = -1;
+                        annotationContent = '';
+                    } else if (parenDepth > 0) {
+                        annotationContent += ch;
+                    }
                     continue; // end skipping annotation content
                 }
             }
@@ -146,7 +166,10 @@ function stripTypeAnnotations(typeText: string): string {
         // If parenDepth > 0, we skip annotation content entirely
     }
 
-    return out.trim();
+    return {
+        strippedType: out.trim(),
+        annotationNodes: annotationNodes.length > 0 ? annotationNodes : undefined
+    };
 }
 
 // Remove comments from a single line while tracking multi-line block comment state
@@ -208,7 +231,7 @@ function stripCommentsFromLine(rawLine: string, state: { inBlock: boolean }): st
 }
 
 // Parse a struct/union/exception field line to extract id, type and name robustly
-function parseFieldSignature(codeLine: string): { id: number; typeText: string; name: string; typeStart: number; typeEnd: number } | null {
+function parseFieldSignature(codeLine: string): { id: number; typeText: string; name: string; typeStart: number; typeEnd: number; annotationNodes?: import('./astTypes').AnnotationNode[] } | null {
     const headerRe = /^(\s*)(\d+)\s*:\s*(?:required|optional)?\s*/;
     const m = headerRe.exec(codeLine);
     if (!m) {return null;}
@@ -254,12 +277,15 @@ function parseFieldSignature(codeLine: string): { id: number; typeText: string; 
     if (!nameM) {return null;}
     const name = nameM[1];
 
-    return { id, typeText: typeBuf.trim(), name, typeStart, typeEnd };
+    // Extract annotation nodes from the type text
+    const { strippedType, annotationNodes } = stripTypeAnnotations(typeBuf.trim());
+    
+    return { id, typeText: strippedType, name, typeStart, typeEnd, annotationNodes };
 }
 
 function isKnownType(typeName: string, definedTypes: Set<string>): boolean {
     if (!typeName) {return false;}
-    const t = stripTypeAnnotations(typeName).trim();
+    const { strippedType: t } = stripTypeAnnotations(typeName);
     if (PRIMITIVES.has(t)) {return true;}
     if (definedTypes.has(t)) {return true;}
     if (/^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/.test(t)) {return true;} // namespace.Type
@@ -361,7 +387,7 @@ function extractDefaultValue(codeLine: string): string | null {
 }
 
 function valueMatchesType(valueRaw: string, typeText: string, definedTypes: Set<string>, kindMap: Map<string, string>): boolean {
-    const t = stripTypeAnnotations(typeText).trim();
+    const { strippedType: t } = stripTypeAnnotations(typeText);
     const v = valueRaw.trim();
 
     if (integerTypes.has(t)) {
@@ -691,7 +717,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
         if (inFieldBlock && braceDepth > 0) {
             const sig = parseFieldSignature(line);
             if (sig) {
-                const { id, typeText, name, typeStart, typeEnd } = sig;
+                const { id, typeText, name, typeStart, typeEnd, annotationNodes } = sig;
                 if (currentFieldIds.has(id)) {
                     issues.push({
                         message: `Duplicate field id ${id}`,
