@@ -64,7 +64,7 @@
             },
             {
               "name": "keyword.other.annotation.thrift",
-              "match": "\\b(accessor|json_name|cpp.name|java.name|py.name|js.name|go.name|php.name|rb.name|csharp.name|swift.name|rust.name|scala.name|kotlin.name|dart.name|lua.name|perl.name|rust.name|haskell.name|elixir.name|clojure.name|erlang.name|nim.name|zig.name|v.name|odin.name|crystal.name|d.name|groovy.name|julia.name|r.name|matlab.name|fortran.name|pascal.name|ada.name|objc.name|asm.name|llvm.name|wasm.name|spir.name|hlsl.name|glsl.name|msl.name|cuda.name|opencl.name|vulkan.name|metal.name|opengl.name|directx.name|vulkan.name|metal.name|opengl.name|directx.name)\\b"
+              "match": "\\b(accessor|json_name|cpp.name|java.name|py.name|js.name|go.name|php.name|rb.name|csharp.name|swift.name|rust.name|scala.name|kotlin.name|dart.name|lua.name|perl.name|rust.name|haskell.name|elixir.name|clojure.name|erlang.name|nim.name|zig.name|v.name|odin.name|crystal.name|d.name|groovy.name|julia.name|r.name|matlab.name|fortran.name|pascal.name|ada.name|objc.name|asm.name|llvm.name|wasm.name|spir.name|hlsl.name|glsl.name|msl.name|cuda.name|opencl.name|vulkan.name|metal.name|opengl.name|directx.name|cpp.virtual|java.annotations|cpp.include|cpp.type|cpp.ref_type|cpp.container_type|cpp.getter|cpp.setter|cpp.field|cpp.methods|cpp.allocator|cpp.copy|cpp.equals|cpp.hash|cpp.to_string|cpp.ostream|cpp.istream|cpp.serializable|cpp.bean|cpp.final|cpp.exception|cpp.enum|cpp.union|cpp.struct|cpp.service|cpp.const|cpp.typedef|cpp.namespace|cpp.include|cpp.package|cpp.header|cpp.out|cpp.ref|cpp.unique_ptr|cpp.shared_ptr|cpp.weak_ptr|cpp.optional|cpp.required|cpp.default_value|cpp.adapter|cpp.name|cpp.marshal|cpp.size|cpp.reserved|cpp.deprecated|cpp.experimental|cpp.internal|cpp.private|cpp.protected|cpp.public|cpp.static|cpp.const|cpp.virtual|cpp.abstract|cpp.interface|cpp.template|cpp.generic|cpp.specialization|cpp.overload|cpp.override|cpp.final|cpp.sealed|cpp.immutable|cpp.mutable|cpp.thread_safe|cpp.not_thread_safe|cpp.guarded_by|cpp.acquired_after|cpp.acquired_before|cpp.return_pointer|cpp.return_reference|cpp.return_value|cpp.param|cpp.throws|cpp.nothrow|cpp.noexcept|cpp.deprecated|cpp.fallthrough|cpp.nodiscard|cpp.maybe_unused|cpp.likely|cpp.unlikely|cpp.assume|cpp.assert|cpp.static_assert|cpp.constexpr|cpp.consteval|cpp.constinit|cpp.inline|cpp.no_inline|cpp.force_inline|cpp.weak|cpp.strong|cpp.used|cpp.unused|cpp.retain|cpp.release|cpp.bridge|cpp.callback|cpp.event|cpp.property|cpp.indexer|cpp.operator|cpp.conversion|cpp.iterator|cpp.range|cpp.container|cpp.algorithm|cpp.functional|cpp.thread|cpp.mutex|cpp.lock|cpp.condition_variable|cpp.atomic|cpp.memory|cpp.smart_ptr|cpp.string|cpp.vector|cpp.list|cpp.deque|cpp.set|cpp.map|cpp.unordered_set|cpp.unordered_map|cpp.array|cpp.tuple|cpp.pair|cpp.optional|cpp.variant|cpp.any|cpp.function|cpp.bind|cpp.ref|cpp.reference_wrapper|cpp.memory_resource|cpp.polymorphic_allocator|cpp.allocator|cpp.deleter|cpp.cloner|cpp.comparator|cpp.hasher|cpp.equal_to|cpp.less|cpp.greater|cpp.plus|cpp.minus|cpp.multiplies|cpp.divides|cpp.modulus|cpp.negate|cpp.logical_and|cpp.logical_or|cpp.logical_not|cpp.bit_and|cpp.bit_or|cpp.bit_xor|cpp.bit_not|cpp.shift_left|cpp.shift_right|cpp.unary_plus|cpp.unary_minus|cpp.dereference|cpp.address_of|cpp.subscript|cpp.call|cpp.comma|cpp.ternary|cpp.cast|cpp.const_cast|cpp.static_cast|cpp.dynamic_cast|cpp.reinterpret_cast|cpp.new|cpp.delete|cpp.new_array|cpp.delete_array|cpp.malloc|cpp.free|cpp.calloc|cpp.realloc|cpp.memcpy|cpp.memmove|cpp.memset|cpp.memcmp|cpp.strcpy|cpp.strncpy|cpp.strcat|cpp.strncat|cpp.strcmp|cpp.strncmp|cpp.strlen|cpp.strchr|cpp.strrchr|cpp.strstr|cpp.strtok|cpp.sprintf|cpp.sscanf|cpp.fprintf|cpp.fscanf|cpp.printf|cpp.scanf|cpp.cout|cpp.cin|cpp.cerr|cpp.clog|cpp.endl|cpp.flush|cpp.dec|cpp.hex|cpp.oct|cpp.fixed|cpp.scientific|cpp.defaultfloat|cpp.boolalpha|cpp.noboolalpha|cpp.showbase|cpp.noshowbase|cpp.showpoint|cpp.noshowpoint|cpp.showpos|cpp.noshowpos|cpp.skipws|cpp.noskipws|cpp.uppercase|cpp.nouppercase|cpp.internal|cpp.left|cpp.right|cpp.setfill|cpp.setprecision|cpp.setw|cpp.resetiosflags|cpp.setiosflags|cpp.boolalpha|cpp.noboolalpha|cpp.showbase|cpp.noshowbase|cpp.showpoint|cpp.noshowpoint|cpp.showpos|cpp.noshowpos|cpp.skipws|cpp.noskipws|cpp.uppercase|cpp.nouppercase|cpp.unitbuf|cpp.nounitbuf|cpp.adjustfield|cpp.basefield|cpp.floatfield|cpp.errc|cpp.io_errc|cpp.stream_errc|cpp future_errc|cpp.condition_variable_any|cpp.stop_token|cpp.stop_source|cpp.jthread|cpp.barrier|cpp.latch|cpp.counting_semaphore|cpp.binary_semaphore|cpp.atomic_flag|cpp.atomic_bool|cpp.atomic_char|cpp.atomic_schar|cpp.atomic_uchar|cpp.atomic_short|cpp.atomic_ushort|cpp.atomic_int|cpp.atomic_uint|cpp.atomic_long|cpp.atomic_ulong|cpp.atomic_llong|cpp.atomic_ullong|cpp.atomic_wchar_t|cpp.atomic_char8_t|cpp.atomic_char16_t|cpp.atomic_char32_t|cpp.atomic_int8_t|cpp.atomic_uint8_t|cpp.atomic_int16_t|cpp.atomic_uint16_t|cpp.atomic_int32_t|cpp.atomic_uint32_t|cpp.atomic_int64_t|cpp.atomic_uint64_t|cpp.atomic_int_least8_t|cpp.atomic_uint_least8_t|cpp.atomic_int_least16_t|cpp.atomic_uint_least16_t|cpp.atomic_int_least32_t|cpp.atomic_uint_least32_t|cpp.atomic_int_least64_t|cpp.atomic_uint_least64_t|cpp.atomic_int_fast8_t|cpp.atomic_uint_fast8_t|cpp.atomic_int_fast16_t|cpp.atomic_uint_fast16_t|cpp.atomic_int_fast32_t|cpp.atomic_uint_fast32_t|cpp.atomic_int_fast64_t|cpp.atomic_uint_fast64_t|cpp.atomic_intptr_t|cpp.atomic_uintptr_t|cpp.atomic_size_t|cpp.atomic_ptrdiff_t|cpp.atomic_intmax_t|cpp.atomic_uintmax_t)\\b"
             },
             {
               "include": "#nested_parens"
@@ -90,7 +90,7 @@
       "patterns": [
         {
           "name": "keyword.control.thrift",
-          "match": "\\b(include|cpp_include|namespace|typedef|struct|union|exception|enum|service|const|required|optional|throws|extends|void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid|map|list|set|oneway|async|reference)\\b"
+          "match": "\\b(include|cpp_include|namespace|typedef|struct|union|exception|enum|service|const|required|optional|throws|extends|void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid|slist|senum|map|list|set|oneway|async|reference)\\b"
         },
         {
           "name": "keyword.other.thrift",
@@ -98,7 +98,7 @@
         },
         {
           "name": "storage.modifier.thrift",
-          "match": "\\b(async|oneway|stream|sink|interaction|performs|reference)\\b"
+          "match": "\\b(async|oneway|stream|sink|interaction|performs|reference|required|optional)\\b"
         }
       ]
     },
@@ -106,7 +106,7 @@
       "patterns": [
         {
           "name": "support.type.thrift",
-          "match": "\\b(void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid)\\b"
+          "match": "\\b(void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid|slist|senum)\\b"
         },
         {
           "name": "support.type.container.thrift",
