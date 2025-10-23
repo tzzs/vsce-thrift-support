@@ -63,6 +63,10 @@
               "match": "\\b(true|false)\\b"
             },
             {
+              "name": "keyword.other.annotation.thrift",
+              "match": "\\b(accessor|json_name|cpp.name|java.name|py.name|js.name|go.name|php.name|rb.name|csharp.name|swift.name|rust.name|scala.name|kotlin.name|dart.name|lua.name|perl.name|rust.name|haskell.name|elixir.name|clojure.name|erlang.name|nim.name|zig.name|v.name|odin.name|crystal.name|d.name|groovy.name|julia.name|r.name|matlab.name|fortran.name|pascal.name|ada.name|objc.name|asm.name|llvm.name|wasm.name|spir.name|hlsl.name|glsl.name|msl.name|cuda.name|opencl.name|vulkan.name|metal.name|opengl.name|directx.name|vulkan.name|metal.name|opengl.name|directx.name)\\b"
+            },
+            {
               "include": "#nested_parens"
             }
           ]
@@ -86,11 +90,11 @@
       "patterns": [
         {
           "name": "keyword.control.thrift",
-          "match": "\\b(include|namespace|typedef|struct|union|exception|enum|service|const|required|optional|throws|extends|void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid|map|list|set|oneway|async|reference)\\b"
+          "match": "\\b(include|cpp_include|namespace|typedef|struct|union|exception|enum|service|const|required|optional|throws|extends|void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid|map|list|set|oneway|async|reference)\\b"
         },
         {
           "name": "keyword.other.thrift",
-          "match": "\\b(stream|sink|interaction|performs)\\b"
+          "match": "\\b(stream|sink|interaction|performs|c_glib|cpp|delphi|haxe|go|java|js|lua|netstd|perl|php|py|py\\.twisted|rb|st|xsd|BEGIN|END|__CLASS__|__DIR__|__FILE__|__FUNCTION__|__LINE__|__METHOD__|__NAMESPACE__|abstract|alias|and|args|as|assert|begin|break|case|catch|class|clone|continue|declare|def|default|delete|do|dynamic|else|elsif|ensure|except|exec|finally|for|foreach|function|global|if|implements|import|in|inline|instanceof|interface|is|lambda|module|native|new|next|not|or|package|private|protected|public|raise|redo|rescue|retry|return|self|sizeof|static|super|switch|synchronized|then|this|throw|transient|try|undef|unless|until|use|var|virtual|volatile|when|while|with|xor|yield)\\b"
         },
         {
           "name": "storage.modifier.thrift",
@@ -107,6 +111,42 @@
         {
           "name": "support.type.container.thrift",
           "match": "\\b(map|list|set)\\b"
+        },
+        {
+          "name": "support.type.nested.thrift",
+          "begin": "\\b(map|list|set)\\s*<",
+          "beginCaptures": {
+            "1": { "name": "support.type.container.thrift" }
+          },
+          "end": ">",
+          "patterns": [
+            {
+              "include": "#types"
+            },
+            {
+              "include": "#nested-types"
+            }
+          ]
+        }
+      ]
+    },
+    "nested-types": {
+      "patterns": [
+        {
+          "name": "support.type.nested.thrift",
+          "begin": "\\b(map|list|set)\\s*<",
+          "beginCaptures": {
+            "1": { "name": "support.type.container.thrift" }
+          },
+          "end": ">",
+          "patterns": [
+            {
+              "include": "#types"
+            },
+            {
+              "include": "#nested-types"
+            }
+          ]
         }
       ]
     },
@@ -379,6 +419,13 @@
     "method-definitions": {
       "patterns": [
         {
+          "name": "meta.method.return-type.thrift",
+          "match": "\\s*\\b(void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid|stream|sink|map|list|set)\\b\\s*<?",
+          "captures": {
+            "1": { "name": "support.type.thrift" }
+          }
+        },
+        {
           "name": "meta.method.thrift",
           "begin": "\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
           "beginCaptures": {
@@ -391,6 +438,12 @@
           "patterns": [
             {
               "include": "#method-parameters"
+            },
+            {
+              "include": "#types"
+            },
+            {
+              "include": "#keywords"
             }
           ]
         },
