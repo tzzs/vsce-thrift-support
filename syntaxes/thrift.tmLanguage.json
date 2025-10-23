@@ -1,47 +1,79 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Thrift",
-  "scopeName": "source.thrift",
   "patterns": [
-    {
-      "include": "#comments"
-    },
-    {
-      "include": "#keywords"
-    },
-    {
-      "include": "#types"
-    },
-    {
-      "include": "#strings"
-    },
-    {
-      "include": "#numbers"
-    },
-    {
-      "include": "#identifiers"
-    },
-    {
-      "include": "#operators"
-    }
+    { "include": "#comments" },
+    { "include": "#annotations" },
+    { "include": "#keywords" },
+    { "include": "#types" },
+    { "include": "#constants" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#identifiers" },
+    { "include": "#operators" }
   ],
   "repository": {
     "comments": {
       "patterns": [
         {
           "name": "comment.line.double-slash.thrift",
-          "begin": "//",
-          "end": "$"
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.line.number-sign.thrift", 
+          "match": "#.*$"
         },
         {
           "name": "comment.block.thrift",
           "begin": "/\\*",
           "end": "\\*/"
-        },
+        }
+      ]
+    },
+    "annotations": {
+      "patterns": [
         {
-          "name": "comment.line.hash.thrift",
-          "begin": "#",
-          "end": "$"
+          "name": "meta.annotation.thrift",
+          "begin": "\\(",
+          "end": "\\)",
+          "patterns": [
+            {
+              "name": "entity.name.tag.thrift",
+              "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*(=)"
+            },
+            {
+              "name": "string.quoted.double.thrift",
+              "match": '"([^"\\\\]|\\\\.)*"'
+            },
+            {
+              "name": "string.quoted.single.thrift", 
+              "match": "'([^'\\\\]|\\\\.)*'"
+            },
+            {
+              "name": "constant.numeric.thrift",
+              "match": "\\b[0-9]+\\b"
+            },
+            {
+              "name": "constant.language.thrift",
+              "match": "\\b(true|false)\\b"
+            },
+            {
+              "include": "#nested_parens"
+            }
+          ]
+        }
+      ]
+    },
+    "nested_parens": {
+      "patterns": [
+        {
+          "begin": "\\(",
+          "end": "\\)",
+          "patterns": [
+            {
+              "include": "#annotations"
+            }
+          ]
         }
       ]
     },
@@ -49,11 +81,11 @@
       "patterns": [
         {
           "name": "keyword.control.thrift",
-          "match": "\\b(namespace|include|cpp_include|php_include|py_module|perl_package|ruby_namespace|smalltalk_category|smalltalk_prefix|java_package|cocoa_prefix|csharp_namespace|delphi_namespace|cpp_namespace|d_namespace|c_glib|netstd|st|xsd_all|xsd_optional|xsd_nillable|xsd_namespace|xsd_attrs)\\b"
+          "match": "\\b(include|namespace|typedef|struct|union|exception|enum|service|const|required|optional|throws|extends|void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid|map|list|set|oneway|async|reference)\\b"
         },
         {
           "name": "keyword.other.thrift",
-          "match": "\\b(const|typedef|enum|senum|struct|union|exception|extends|service|oneway|void|throws|optional|required)\\b"
+          "match": "\\b(stream|sink|interaction|performs)\\b"
         },
         {
           "name": "storage.modifier.thrift",
@@ -64,16 +96,58 @@
     "types": {
       "patterns": [
         {
-          "name": "storage.type.primitive.thrift",
-          "match": "\\b(bool|byte|i8|i16|i32|i64|double|string|binary|uuid|slist)\\b"
+          "name": "support.type.thrift",
+          "match": "\\b(void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid)\\b"
         },
         {
-          "name": "storage.type.container.thrift",
-          "match": "\\b(list|set|map)\\b"
+          "name": "support.type.container.thrift",
+          "match": "\\b(map|list|set)\\b"
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.numeric.thrift",
+          "match": "\\b[0-9]+\\b"
         },
         {
-          "name": "storage.type.user.thrift",
-          "match": "\\b[A-Z][a-zA-Z0-9_]*\\b"
+          "name": "constant.numeric.hex.thrift",
+          "match": "\\b0x[0-9A-Fa-f]+\\b"
+        },
+        {
+          "name": "constant.numeric.float.thrift",
+          "match": "\\b[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?\\b"
+        },
+        {
+          "name": "constant.language.boolean.thrift",
+          "match": "\\b(true|false)\\b"
+        },
+        {
+          "name": "constant.other.list.thrift",
+          "begin": "\\[",
+          "end": "\\]",
+          "patterns": [
+            {
+              "include": "#constants"
+            },
+            {
+              "include": "#comments"
+            }
+          ]
+        },
+        {
+          "name": "constant.other.map.thrift",
+          "begin": "\\{",
+          "end": "\\}",
+          "patterns": [
+            {
+              "include": "#constants"
+            },
+            {
+              "include": "#comments"
+            }
+          ]
         }
       ]
     },
@@ -106,28 +180,28 @@
     "numbers": {
       "patterns": [
         {
-          "name": "constant.numeric.hex.thrift",
-          "match": "\\b0[xX][0-9a-fA-F]+\\b"
-        },
-        {
-          "name": "constant.numeric.octal.thrift",
-          "match": "\\b0[0-7]+\\b"
-        },
-        {
-          "name": "constant.numeric.decimal.thrift",
-          "match": "\\b[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?\\b"
-        },
-        {
           "name": "constant.numeric.integer.thrift",
           "match": "\\b[0-9]+\\b"
+        },
+        {
+          "name": "constant.numeric.hex.thrift",
+          "match": "\\b0x[0-9A-Fa-f]+\\b"
+        },
+        {
+          "name": "constant.numeric.float.thrift",
+          "match": "\\b[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?\\b"
         }
       ]
     },
     "identifiers": {
       "patterns": [
         {
-          "name": "variable.other.thrift",
-          "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
+          "name": "entity.name.type.thrift",
+          "match": "\\b[A-Z][a-zA-Z0-9_]*\\b"
+        },
+        {
+          "name": "entity.name.function.thrift",
+          "match": "\\b[a-z_][a-zA-Z0-9_]*\\b"
         }
       ]
     },
@@ -135,9 +209,10 @@
       "patterns": [
         {
           "name": "keyword.operator.thrift",
-          "match": "[=<>!&|+\\-*/%^~?:;,{}()\\[\\]]"
+          "match": "[{}\\[\\]():;,=<>]"
         }
       ]
     }
-  }
+  },
+  "scopeName": "source.thrift"
 }
