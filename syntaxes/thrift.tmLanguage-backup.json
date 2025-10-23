@@ -7,10 +7,10 @@
       "include": "#comments"
     },
     {
-      "include": "#keywords"
+      "include": "#annotations"
     },
     {
-      "include": "#advanced-features"
+      "include": "#keywords"
     },
     {
       "include": "#types"
@@ -26,9 +26,6 @@
     },
     {
       "include": "#operators"
-    },
-    {
-      "include": "#annotations"
     }
   ],
   "repository": {
@@ -36,18 +33,16 @@
       "patterns": [
         {
           "name": "comment.line.double-slash.thrift",
-          "begin": "//",
-          "end": "$"
+          "match": "//.*$"
+        },
+        {
+          "name": "comment.line.number-sign.thrift",
+          "match": "#.*$"
         },
         {
           "name": "comment.block.thrift",
           "begin": "/\\*",
           "end": "\\*/"
-        },
-        {
-          "name": "comment.line.hash.thrift",
-          "begin": "#",
-          "end": "$"
         }
       ]
     },
@@ -62,57 +57,105 @@
           "match": "\\b(const|typedef|enum|senum|struct|union|exception|extends|service|oneway|void|throws|optional|required)\\b"
         },
         {
+          "name": "keyword.other.thrift",
+          "match": "\\b(stream|sink|interaction|performs)\\b"
+        },
+        {
           "name": "storage.modifier.thrift",
           "match": "\\b(async|oneway|stream|sink|interaction|performs|reference)\\b"
         }
       ]
     },
-    "advanced-features": {
+    "annotations": {
       "patterns": [
         {
-          "name": "keyword.control.stream.thrift",
-          "match": "\\bstream\\b",
-          "captures": {
-            "0": {
-              "name": "keyword.control.stream.thrift"
+          "name": "meta.annotation.thrift",
+          "begin": "\\(",
+          "end": "\\)",
+          "patterns": [
+            {
+              "name": "entity.name.tag.thrift",
+              "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*(=)"
+            },
+            {
+              "name": "string.quoted.double.thrift",
+              "match": "\"([^\"\\\\]|\\\\.)*\""
+            },
+            {
+              "name": "string.quoted.single.thrift",
+              "match": "'([^'\\\\]|\\\\.)*'"
+            },
+            {
+              "name": "constant.numeric.thrift",
+              "match": "\\b[0-9]+\\b"
+            },
+            {
+              "name": "constant.language.thrift",
+              "match": "\\b(true|false)\\b"
+            },
+            {
+              "include": "#nested_parens"
             }
-          }
+          ]
+        }
+      ]
+    },
+    "nested_parens": {
+      "patterns": [
+        {
+          "begin": "\\(",
+          "end": "\\)",
+          "patterns": [
+            {
+              "include": "#annotations"
+            }
+          ]
+        }
+      ]
+    },
+    "constants": {
+      "patterns": [
+        {
+          "name": "constant.numeric.thrift",
+          "match": "\\b[0-9]+\\b"
         },
         {
-          "name": "keyword.control.sink.thrift",
-          "match": "\\bsink\\b",
-          "captures": {
-            "0": {
-              "name": "keyword.control.sink.thrift"
-            }
-          }
+          "name": "constant.numeric.hex.thrift",
+          "match": "\\b0x[0-9A-Fa-f]+\\b"
         },
         {
-          "name": "keyword.control.interaction.thrift",
-          "match": "\\binteraction\\b",
-          "captures": {
-            "0": {
-              "name": "keyword.control.interaction.thrift"
-            }
-          }
+          "name": "constant.numeric.float.thrift",
+          "match": "\\b[0-9]+\\.[0-9]+([eE][+-]?[0-9]+)?\\b"
         },
         {
-          "name": "keyword.control.performs.thrift",
-          "match": "\\bperforms\\b",
-          "captures": {
-            "0": {
-              "name": "keyword.control.performs.thrift"
-            }
-          }
+          "name": "constant.language.boolean.thrift",
+          "match": "\\b(true|false)\\b"
         },
         {
-          "name": "storage.type.reference.thrift",
-          "match": "\\breference\\s*<([^>]+)>\\b",
-          "captures": {
-            "1": {
-              "name": "storage.type.user.thrift"
+          "name": "constant.other.list.thrift",
+          "begin": "\\[",
+          "end": "\\]",
+          "patterns": [
+            {
+              "include": "#constants"
+            },
+            {
+              "include": "#comments"
             }
-          }
+          ]
+        },
+        {
+          "name": "constant.other.map.thrift",
+          "begin": "\\{",
+          "end": "\\}",
+          "patterns": [
+            {
+              "include": "#constants"
+            },
+            {
+              "include": "#comments"
+            }
+          ]
         }
       ]
     },
@@ -191,19 +234,6 @@
         {
           "name": "keyword.operator.thrift",
           "match": "[=<>!&|+\\-*/%^~?:;,{}()\\[\\]]"
-        }
-      ]
-    },
-    "annotations": {
-      "patterns": [
-        {
-          "name": "storage.modifier.annotation.thrift",
-          "match": "@[a-zA-Z_][a-zA-Z0-9_]*",
-          "captures": {
-            "0": {
-              "name": "storage.modifier.annotation.thrift"
-            }
-          }
         }
       ]
     }

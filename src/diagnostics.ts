@@ -703,6 +703,20 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
                     currentFieldIds.add(id);
                 }
 
+                // Union semantic validation: check if field has default value
+                const currentType = typeCtxStack[typeCtxStack.length - 1];
+                if (currentType === 'union') {
+                    const def = extractDefaultValue(line);
+                    if (def !== null) {
+                        issues.push({
+                            message: `Union fields cannot have default values`,
+                            range: new vscode.Range(lineNo, 0, lineNo, line.length),
+                            severity: vscode.DiagnosticSeverity.Error,
+                            code: 'union.defaultNotAllowed'
+                        });
+                    }
+                }
+
                 // Validate type known-ness (including containers)
                 if (!isKnownType(typeText, definedTypes)) {
                     issues.push({
@@ -713,9 +727,9 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
                     });
                 }
 
-                // Validate default value type compatibility if present
+                // Validate default value type compatibility if present (skip for union)
                 const def = extractDefaultValue(line);
-                if (def !== null) {
+                if (def !== null && currentType !== 'union') {
                     const ok = valueMatchesType(def, typeText, definedTypes, typeKind);
                     if (!ok) {
                         issues.push({
@@ -753,7 +767,8 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
     // Validate service methods and throws
     for (let lineNo = 0; lineNo < codeLines.length; lineNo++) {
         const line = codeLines[lineNo];
-        const m = line.match(/^\s*(oneway\s+)?([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)(\s*throws\s*\(([^)]*)\))?/);
+        // 支持 stream<T> 和 sink<Req,Resp> 语法的服务方法解析
+        const m = line.match(/^\s*(oneway\s+)?([A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)(\s*throws\s*\(([^)]*)\))?/);
         if (m) {
             const isOneway = !!m[1];
             const returnType = m[2];
