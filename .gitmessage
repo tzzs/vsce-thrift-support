@@ -1,40 +1,40 @@
-# Conventional Commits 提交模板
-# 规范: https://www.conventionalcommits.org/en/v1.0.0/#summary
+# Conventional Commits Template
+# Specification: https://www.conventionalcommits.org/en/v1.0.0/#summary
 #
-# 基本格式：
+# Basic format:
 #   <type>(<scope>)!: <description>
 #
-# 关键规则：
-# - type 必填；scope 可选；如有破坏性变更，可在 type 或 scope 后添加感叹号 !，或在 footer 中使用 BREAKING CHANGE: 进行说明
-# - 冒号后必须有一个空格；<description> 为简短摘要
-# - <description> 与 body（可选）之间空一行；body 与 footer（可选）之间再空一行
+# Key rules:
+# - type is required; scope is optional; if there is a breaking change, you can add an exclamation mark ! after type or scope, or use BREAKING CHANGE: in the footer for explanation
+# - There must be a space after the colon; <description> is a brief summary
+# - Leave one blank line between <description> and body (optional); leave another blank line between body and footer (optional)
 #
-# 语义化版本关系（规范仅对以下两类有隐含语义，其他类型无内建语义）：
-# - feat: 新功能（对应 SemVer 的 MINOR）
-# - fix: 缺陷修复（对应 SemVer 的 PATCH）
-# - 任意类型包含 BREAKING CHANGE: 视为 MAJOR
+# Semantic versioning relationship (the specification only has implicit semantics for the following two categories, other types have no built-in semantics):
+# - feat: New feature (corresponds to SemVer MINOR)
+# - fix: Bug fix (corresponds to SemVer PATCH)
+# - Any type containing BREAKING CHANGE: is considered MAJOR
 #
-# 常用类型（非强制清单，除 feat/fix 外无内建语义）：
-#   docs      文档
-#   style     代码风格（空格/格式/分号等，非 CSS）
-#   refactor  重构（非新增功能、非修复缺陷）
-#   perf      性能优化
-#   test      测试相关
-#   build     构建系统或依赖
-#   ci        CI 配置
-#   chore     杂项
-#   revert    回滚
+# Common types (non-mandatory list, no built-in semantics except feat/fix):
+#   docs      Documentation
+#   style     Code style (spaces/formatting/semicolons, etc., not CSS)
+#   refactor  Refactoring (neither new features nor bug fixes)
+#   perf      Performance optimization
+#   test      Test related
+#   build     Build system or dependencies
+#   ci        CI configuration
+#   chore     Miscellaneous
+#   revert    Rollback
 #
-# 示例一（普通变更）：
-#   feat(formatter): 支持 alignStructDefaults 独立开关
+# Example 1 (regular change):
+#   feat(formatter): Support alignStructDefaults independent switch
 #
-#   详细说明……
+#   Detailed description...
 #
 #   Refs: #123
 #
-# 示例二（破坏性变更，使用 ! 与 BREAKING CHANGE footer 二选一或同时）：
-#   feat(formatter)!: 调整默认对齐策略
+# Example 2 (breaking change, using ! and BREAKING CHANGE footer either or both):
+#   feat(formatter)!: Adjust default alignment strategy
 #
-#   详细说明……
+#   Detailed description...
 #
-#   BREAKING CHANGE: 默认对齐逻辑与旧版本不兼容
+#   BREAKING CHANGE: The default alignment logic is incompatible with older versions
