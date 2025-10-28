@@ -23,7 +23,7 @@ require.cache[require.resolve('vscode')] = {
 };
 
 // Now import the formatting provider
-const { ThriftFormattingProvider } = require('./out/formattingProvider');
+const { ThriftFormattingProvider } = require('../out/formattingProvider');
 
 function testFormatting() {
     const provider = new ThriftFormattingProvider();

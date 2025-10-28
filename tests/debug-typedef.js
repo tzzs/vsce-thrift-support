@@ -20,7 +20,7 @@ Module.prototype.require = function (id) {
   return originalRequire.apply(this, arguments);
 };
 
-const { analyzeThriftText } = require('./out/diagnostics');
+const { analyzeThriftText } = require('../out/diagnostics');
 Module.prototype.require = originalRequire;
 
 const text = `typedef string ValidTypedef

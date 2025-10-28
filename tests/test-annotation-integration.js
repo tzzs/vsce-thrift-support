@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Load the actual annotation parser from the source
-const { parseAnnotations, extractAnnotationsFromField } = require('./out/annotationParser');
+const { parseAnnotations, extractAnnotationsFromField } = require('../out/annotationParser');
 
 console.log("Testing annotation integration with field parsing...");
 

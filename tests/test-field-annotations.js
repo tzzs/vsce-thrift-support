@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Load the actual field parser from the source
-const { parseStructField } = require('./out/formattingProvider');
+const { parseStructField } = require('../out/formattingProvider');
 
 console.log("Testing field annotation parsing integration...");
 

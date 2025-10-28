@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Load the actual annotation parser from the source
-const { parseAnnotations } = require('./out/annotationParser');
+const { parseAnnotations } = require('../out/annotationParser');
 
 console.log("Testing annotation nodes with real Thrift content...");
 

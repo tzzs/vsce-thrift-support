@@ -32,4 +32,5 @@ service TestService {
 typedef list<map<string, i32>> (python.immutable = "") AnnotatedNested
 struct AnnotatedExample {
   1: list<set<string>> (cpp.type = "std::vector<std::set<std::string>>") annotated_field
+  2: map<string, list<Example>> test
 }

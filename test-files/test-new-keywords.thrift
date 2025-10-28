@@ -34,11 +34,11 @@ service TestService {
     performs TestInteraction getInteraction()
 }
 
-# Struct with reference
+# Struct with optional field
 struct TestStruct {
     1: required string name,
     2: optional i32 age,
-    3: reference string description
+    3: optional string description
 }
 
 # Reserved keywords that should be highlighted

@@ -50,7 +50,7 @@ require.cache[require.resolve('vscode')] = {
 };
 
 // Now require the formatting provider
-const { ThriftFormattingProvider } = require('./out/formattingProvider');
+const { ThriftFormattingProvider } = require('../out/formattingProvider');
 
 // Read the test file
 const testContent = fs.readFileSync('test-files/annotation-edge-cases.thrift', 'utf8');
