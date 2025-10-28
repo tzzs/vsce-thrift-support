@@ -474,7 +474,7 @@ function parseTypesFromContent(content: string): Map<string, string> {
         codeLines.push(stripCommentsFromLine(raw, state));
     }
 
-    const typedefDefRe = /^(\s*)typedef\s+([A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]*(?:<[^>]*>[^>]*)*>[^>]*)*)\s+([A-Za-z_][A-Za-z0-9_]*)/;
+    const typedefDefRe = /^(\s*)typedef\s+(.+?)\s+([A-Za-z_][A-Za-z0-9_]*)/;
     const typeDefRe = /^(\s*)(struct|union|exception|enum|senum|service)\s+([A-Za-z_][A-Za-z0-9_]*)/;
 
     for (let i = 0; i < codeLines.length; i++) {
@@ -565,7 +565,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
 
     // Gather defined types in this file (from comment-stripped code) and type kind map
     const typeKind = new Map<string, string>(); // name -> kind
-    const typedefDefRe = /^(\s*)typedef\s+([A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]*(?:<[^>]*>[^>]*)*>[^>]*)*)\s+([A-Za-z_][A-Za-z0-9_]*)/;
+    const typedefDefRe = /^(\s*)typedef\s+(.+?)\s+([A-Za-z_][A-Za-z0-9_]*)/;
     // 支持 service 扩展父服务为命名空间形式（如 shared.SharedService 或 multi.segment.Name）
     const typeDefRe = /^(\s*)(struct|union|exception|enum|senum|service)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+extends\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*))?/;
     const serviceExtends: Array<{ lineNo: number; parent: string; col: number }> = [];
