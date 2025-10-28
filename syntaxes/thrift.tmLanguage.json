@@ -3,6 +3,7 @@
   "name": "Thrift",
   "patterns": [
     { "include": "#comments" },
+    { "include": "#typedef-definitions" },
     { "include": "#struct-definitions" },
     { "include": "#service-definitions" },
     { "include": "#enum-definitions" },
@@ -93,6 +94,10 @@
           "match": "\\b(include|cpp_include|namespace|typedef|struct|union|exception|enum|service|const|required|optional|throws|extends|void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid|slist|senum|map|list|set|oneway|async|reference)\\b"
         },
         {
+          "name": "keyword.control.thrift",
+          "match": "\\b(cpp_include|cpp_namespace|php_namespace|java_package|py_module|perl_package|ruby_namespace|csharp_namespace|go_package|swift_prefix)\\b"
+        },
+        {
           "name": "keyword.other.thrift",
           "match": "\\b(stream|sink|interaction|performs|c_glib|cpp|delphi|haxe|go|java|js|lua|netstd|perl|php|py|py\\.twisted|rb|st|xsd|BEGIN|END|__CLASS__|__DIR__|__FILE__|__FUNCTION__|__LINE__|__METHOD__|__NAMESPACE__|abstract|alias|and|args|as|assert|begin|break|case|catch|class|clone|continue|declare|def|default|delete|do|dynamic|else|elsif|ensure|except|exec|finally|for|foreach|function|global|if|implements|import|in|inline|instanceof|interface|is|lambda|module|native|new|next|not|or|package|private|protected|public|raise|redo|rescue|retry|return|self|sizeof|static|super|switch|synchronized|then|this|throw|transient|try|undef|unless|until|use|var|virtual|volatile|when|while|with|xor|yield)\\b"
         },
@@ -113,7 +118,10 @@
           "match": "\\b(map|list|set)\\b"
         },
         {
-          "name": "support.type.nested.thrift",
+          "name": "entity.name.type.thrift",
+          "match": "\\b[A-Z][a-zA-Z0-9_]*\\b"
+        },
+        {
           "begin": "\\b(map|list|set)\\s*<",
           "beginCaptures": {
             "1": { "name": "support.type.container.thrift" }
@@ -125,6 +133,9 @@
             },
             {
               "include": "#nested-types"
+            },
+            {
+              "include": "#comments"
             }
           ]
         }
@@ -133,7 +144,6 @@
     "nested-types": {
       "patterns": [
         {
-          "name": "support.type.nested.thrift",
           "begin": "\\b(map|list|set)\\s*<",
           "beginCaptures": {
             "1": { "name": "support.type.container.thrift" }
@@ -145,6 +155,9 @@
             },
             {
               "include": "#nested-types"
+            },
+            {
+              "include": "#comments"
             }
           ]
         }
@@ -402,17 +415,58 @@
         }
       ]
     },
+    "typedef-definitions": {
+      "patterns": [
+        {
+          "name": "meta.typedef.thrift",
+          "begin": "\\b(typedef)\\s+",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.thrift" }
+          },
+          "end": "([A-Z][a-zA-Z0-9_]*)\\s*(.*)$",
+          "endCaptures": {
+            "1": { "name": "entity.name.type.thrift" },
+            "2": { "name": "meta.annotation.thrift" }
+          },
+          "patterns": [
+            {
+              "include": "#types"
+            },
+            {
+              "include": "#nested-types"
+            },
+            {
+              "include": "#comments"
+            }
+          ]
+        }
+      ]
+    },
     "field-definitions": {
       "patterns": [
         {
           "name": "meta.field.thrift",
-          "match": "\\s*([0-9]+)\\s*:\\s*(required|optional)?\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-z_][a-zA-Z0-9_]*)",
-          "captures": {
+          "begin": "\\s*([0-9]+)\\s*:\\s*(required|optional)?\\s*",
+          "beginCaptures": {
             "1": { "name": "constant.numeric.thrift" },
-            "2": { "name": "keyword.control.thrift" },
-            "3": { "name": "support.type.thrift" },
-            "4": { "name": "variable.other.thrift" }
-          }
+            "2": { "name": "keyword.control.thrift" }
+          },
+          "end": "([a-zA-Z_][a-zA-Z0-9_]*)\\s*(,)?",
+          "endCaptures": {
+            "1": { "name": "variable.other.thrift" },
+            "2": { "name": "keyword.operator.thrift" }
+          },
+          "patterns": [
+            {
+              "include": "#types"
+            },
+            {
+              "include": "#nested-types"
+            },
+            {
+              "include": "#comments"
+            }
+          ]
         }
       ]
     },
@@ -420,17 +474,16 @@
       "patterns": [
         {
           "name": "meta.method.return-type.thrift",
-          "match": "\\s*\\b(void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid|stream|sink|map|list|set)\\b\\s*<?",
+          "match": "^\\s*(oneway\\s+)?(void|[a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
           "captures": {
-            "1": { "name": "support.type.thrift" }
+            "1": { "name": "keyword.control.thrift" },
+            "2": { "name": "support.type.thrift" },
+            "3": { "name": "entity.name.function.thrift" }
           }
         },
         {
           "name": "meta.method.thrift",
-          "begin": "\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
-          "beginCaptures": {
-            "1": { "name": "entity.name.function.thrift" }
-          },
+          "begin": "\\s*",
           "end": "\\)",
           "endCaptures": {
             "0": { "name": "keyword.operator.thrift" }
@@ -444,15 +497,15 @@
             },
             {
               "include": "#keywords"
+            },
+            {
+              "name": "meta.method.returns.thrift",
+              "match": "\\s*(throws)\\s*\\(",
+              "captures": {
+                "1": { "name": "keyword.control.thrift" }
+              }
             }
           ]
-        },
-        {
-          "name": "meta.method.returns.thrift",
-          "match": "\\s*(throws)\\s*\\(",
-          "captures": {
-            "1": { "name": "keyword.control.thrift" }
-          }
         }
       ]
     },
@@ -460,13 +513,20 @@
       "patterns": [
         {
           "name": "meta.parameter.thrift",
-          "match": "\\s*([0-9]+)\\s*:\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-z_][a-zA-Z0-9_]*)\\s*(,)?",
-          "captures": {
-            "1": { "name": "constant.numeric.thrift" },
-            "2": { "name": "support.type.thrift" },
-            "3": { "name": "variable.other.thrift" },
-            "4": { "name": "keyword.operator.thrift" }
-          }
+          "begin": "\\s*([0-9]+)\\s*:\\s*",
+          "beginCaptures": {
+            "1": { "name": "constant.numeric.thrift" }
+          },
+          "end": "([a-zA-Z_][a-zA-Z0-9_]*)\\s*(,)?",
+          "endCaptures": {
+            "1": { "name": "variable.other.thrift" },
+            "2": { "name": "keyword.operator.thrift" }
+          },
+          "patterns": [
+            {
+              "include": "#types"
+            }
+          ]
         },
         {
           "include": "#comments"
