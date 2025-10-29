@@ -41,6 +41,12 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
             if (trimmed.startsWith('/*')) {
                 inBlockComment = true;
                 blockCommentStart = i;
+                // Check if the comment ends on the same line
+                if (trimmed.includes('*/') && trimmed.indexOf('*/') > trimmed.indexOf('/*')) {
+                    ranges.push(new vscode.FoldingRange(i, i));
+                    inBlockComment = false;
+                    blockCommentStart = -1;
+                }
                 continue;
             }
 
@@ -49,7 +55,58 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
                 continue;
             }
 
-            // Handle braces and parentheses for code blocks
+            // Handle multi-line lists/arrays in const definitions
+            if (trimmed.includes('[') && !trimmed.includes(']')) {
+                const listEnd = this.findMatchingBracket(lines, i, '[', ']');
+                if (listEnd > i) {
+                    ranges.push(new vscode.FoldingRange(i, listEnd - 1));
+                    // Skip processing this line further to avoid conflicts with brace handling
+                    continue;
+                }
+            }
+
+            // Handle multi-line maps/objects in const definitions
+            if (trimmed.includes('{') && !trimmed.includes('}') && trimmed.startsWith('const ') && !this.isTypeBlock(lines, i)) {
+                const mapEnd = this.findMatchingBracket(lines, i, '{', '}');
+                if (mapEnd > i) {
+                    // For const maps, the folding range should start from the line before "const" (which is the empty line) 
+                    // and end at the line before the closing brace
+                    // Find the empty line before the const declaration
+                    let mapStart = i;
+                    if (i > 0 && lines[i-1].trim() === '') {
+                        mapStart = i - 1;
+                    }
+                    
+                    // For maps, we want to end the folding range at the second-to-last non-empty line
+                    // (the last element), not the closing brace line
+                    let mapEndLine = mapEnd - 1;
+                    let lastNonEmptyLine = -1;
+                    let secondToLastNonEmptyLine = -1;
+                    
+                    // Find the last two non-empty lines before the closing brace
+                    for (let k = mapEnd - 1; k > i; k--) {
+                        if (lines[k].trim() !== '') {
+                            if (lastNonEmptyLine === -1) {
+                                lastNonEmptyLine = k;
+                            } else {
+                                secondToLastNonEmptyLine = k;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Use the second-to-last non-empty line as the end of the folding range
+                    if (secondToLastNonEmptyLine !== -1) {
+                        mapEndLine = secondToLastNonEmptyLine;
+                    }
+                    
+                    ranges.push(new vscode.FoldingRange(mapStart, mapEndLine));
+                    // Skip processing this line further to avoid conflicts with brace handling
+                    continue;
+                }
+            }
+
+            // Handle braces and parentheses for code blocks (after const handling)
             for (let j = 0; j < line.length; j++) {
                 const char = line[j];
                 const nextChar = j + 1 < line.length ? line[j + 1] : '';
@@ -61,7 +118,8 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
                 } else if (char === '}') {
                     const openBrace = braceStack.pop();
                     if (openBrace) {
-                        ranges.push(new vscode.FoldingRange(openBrace.line, i));
+                        // For all blocks, folding range should not include the closing brace line
+                        ranges.push(new vscode.FoldingRange(openBrace.line, i - 1));
                     }
                 }
 
@@ -74,22 +132,6 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
                     }
                 }
             }
-
-            // Handle multi-line lists/arrays in const definitions
-            if (trimmed.includes('[') && !trimmed.includes(']')) {
-                const listEnd = this.findMatchingBracket(lines, i, '[', ']');
-                if (listEnd > i) {
-                    ranges.push(new vscode.FoldingRange(i, listEnd));
-                }
-            }
-
-            // Handle multi-line maps/objects in const definitions
-            if (trimmed.includes('{') && !trimmed.includes('}') && !this.isTypeBlock(lines, i)) {
-                const mapEnd = this.findMatchingBracket(lines, i, '{', '}');
-                if (mapEnd > i) {
-                    ranges.push(new vscode.FoldingRange(i, mapEnd));
-                }
-            }
         }
 
         return ranges;
@@ -97,18 +139,18 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
 
     private identifyBlockType(lines: string[], lineIndex: number, charIndex: number): string {
         const line = lines[lineIndex];
-        const beforeBrace = line.substring(0, charIndex);
+        const beforeBrace = line.substring(0, charIndex).trim();
 
         // Check for specific Thrift constructs
-        if (beforeBrace.match(/(struct|union|exception|enum|senum|service)\s+\w+\s*$/)) {
+        if (beforeBrace.match(/^(struct|union|exception|enum|senum|service)\s+\w+/)) {
             return 'type';
         }
 
-        if (beforeBrace.match(/(function|method)\s+\w+\s*$/)) {
+        if (beforeBrace.match(/^(function|method)\s+\w+/)) {
             return 'function';
         }
 
-        if (beforeBrace.match(/throws\s*$/)) {
+        if (beforeBrace === 'throws') {
             return 'throws';
         }
 

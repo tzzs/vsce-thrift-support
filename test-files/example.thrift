@@ -48,7 +48,7 @@ union SearchCriteria {
 // Exception definition - 异常定义
 // 用户未找到异常
 exception UserNotFoundException {
-  1: required string message,                       // 错误消息
+  1: required string message = '',                       // 错误消息
   2: optional i32 errorCode = 404                  // 错误代码，默认404
 }
 

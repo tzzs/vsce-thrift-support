@@ -20,6 +20,8 @@ const tests = [
   'tests/test-references-provider.js',
   'tests/test-folding-range-provider.js',
   'tests/test-selection-range-provider.js',
+  // Test for escape sequence fix
+  'tests/test-escape-sequence-fix.js'
 ];
 
 let failed = 0;

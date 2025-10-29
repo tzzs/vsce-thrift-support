@@ -33,6 +33,13 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             // Extract the definition line and preceding doc comments
             const defLine = lines[defLineIndex] ?? '';
             const docLines = this.extractLeadingDocComments(lines, defLineIndex);
+            
+            // Also extract inline comments from the definition line
+            const inlineComment = this.extractInlineComment(defLine);
+            if (inlineComment) {
+                docLines.push(''); // Add blank line before inline comment
+                docLines.push(inlineComment);
+            }
 
             if (!defLine.trim() && docLines.length === 0) {
                 return undefined;
@@ -146,7 +153,56 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             return results;
         }
 
+        // Handle triple-slash comments (///)
+        if (/^\s*\/\/\//.test(lines[i])) {
+            const group: string[] = [];
+            while (i >= 0 && /^\s*\/\/\//.test(lines[i])) {
+                group.push(lines[i]);
+                i--;
+            }
+            group.reverse();
+            const cleaned = group.map(s => s.replace(/^\s*\/\/\//, '').trim());
+            results.push(...cleaned);
+            return results;
+        }
+
         return results;
+    }
+
+    private getNamespaceInfo(word: string, text: string): string | undefined {
+        // 检查是否是 namespace 定义
+        const namespaceMatch = text.match(new RegExp(`^\\s*namespace\\s+${word}\\s+([A-Za-z_][A-Za-z0-9_]*)`, 'm'));
+        if (namespaceMatch) {
+            const namespaceValue = namespaceMatch[1];
+            const language = word;
+            return this.generateNamespaceHoverInfo(language, namespaceValue);
+        }
+        
+        return undefined;
+    }
+
+    private generateNamespaceHoverInfo(language: string, namespace: string): string {
+        const languageMap: { [key: string]: { name: string; example: string } } = {
+            'java_package': { name: 'Java Package', example: `package ${namespace};` },
+            'cpp': { name: 'C++ Namespace', example: `namespace ${namespace} { ... }` },
+            'cpp_namespace': { name: 'C++ Namespace', example: `namespace ${namespace} { ... }` },
+            'csharp_namespace': { name: 'C# Namespace', example: `namespace ${namespace};` },
+            'py': { name: 'Python Module', example: `import ${namespace}` },
+            'go': { name: 'Go Package', example: `package ${namespace}` },
+            'js': { name: 'JavaScript Module', example: `import { ... } from '${namespace}'` },
+            'rb': { name: 'Ruby Module', example: `module ${namespace} ... end` },
+            'rust': { name: 'Rust Crate/Module', example: `mod ${namespace};` },
+            'scala': { name: 'Scala Package', example: `package ${namespace}` },
+            'swift': { name: 'Swift Module', example: `import ${namespace}` },
+            'php': { name: 'PHP Namespace', example: `namespace ${namespace};` }
+        };
+        
+        const info = languageMap[language];
+        if (info) {
+            return `**${info.name}**: ${namespace}\n\nGenerated code: \`${info.example}\``;
+        }
+        
+        return `**Namespace**: ${language} ${namespace}`;
     }
 
     private cleanBlockComment(blockLines: string[]): string[] {
@@ -165,5 +221,14 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
         while (out.length && out[0].trim() === '') {out.shift();}
         while (out.length && out[out.length - 1].trim() === '') {out.pop();}
         return out;
+    }
+
+    private extractInlineComment(line: string): string | undefined {
+        // Extract inline comments (//) from the end of a line
+        const commentMatch = line.match(/\s*\/\/\s*(.+)$/);
+        if (commentMatch) {
+            return commentMatch[1].trim();
+        }
+        return undefined;
     }
 }

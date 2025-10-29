@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ThriftFormattingProvider } from './formattingProvider';
 import { ThriftDefinitionProvider } from './definitionProvider';
 import { ThriftHoverProvider } from './hoverProvider';
+import { ThriftSignatureHelpProvider } from './signatureHelpProvider';
 import { registerDiagnostics } from './diagnostics';
 import { ThriftRenameProvider } from './renameProvider';
 import { ThriftRefactorCodeActionProvider } from './codeActionsProvider';
@@ -34,6 +35,12 @@ export function activate(context: vscode.ExtensionContext) {
     const hoverProvider = new ThriftHoverProvider();
     context.subscriptions.push(
         vscode.languages.registerHoverProvider('thrift', hoverProvider)
+    );
+
+    // Register signature help provider for function parameter hints
+    const signatureHelpProvider = new ThriftSignatureHelpProvider();
+    context.subscriptions.push(
+        vscode.languages.registerSignatureHelpProvider('thrift', signatureHelpProvider, '(', ',')
     );
 
     // Register diagnostics (syntax/type/duplicate id/unknown type)

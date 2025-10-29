@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { parseAnnotations } from './annotationParser';
 
 export type ThriftIssue = {
     message: string;
@@ -39,21 +40,45 @@ function parseContainerType(typeText: string): boolean {
     const noSpace = typeText.replace(/\s+/g, '');
     // list<T>
     if (/^list<.*>$/.test(noSpace)) {
-        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
+        const inner = extractAngleContent(typeText);
         return inner.trim().length > 0;
     }
     // set<T>
     if (/^set<.*>$/.test(noSpace)) {
-        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
+        const inner = extractAngleContent(typeText);
         return inner.trim().length > 0;
     }
     // map<K,V> (ensure exactly two top-level parts)
     if (/^map<.*>$/.test(noSpace)) {
-        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
+        const inner = extractAngleContent(typeText);
         const parts = splitTopLevelAngles(inner);
         return parts.length === 2;
     }
     return false;
+}
+
+// Extract content between matching angle brackets, handling nested brackets
+function extractAngleContent(typeText: string): string {
+    let start = -1;
+    let depth = 0;
+    
+    for (let i = 0; i < typeText.length; i++) {
+        const ch = typeText[i];
+        if (ch === '<') {
+            if (depth === 0) {
+                start = i + 1;
+            }
+            depth++;
+        } else if (ch === '>') {
+            depth--;
+            if (depth === 0 && start !== -1) {
+                return typeText.slice(start, i);
+            }
+        }
+    }
+    
+    // Fallback: if no matching brackets found, return empty string
+    return '';
 }
 
 function splitTopLevelAngles(typeInner: string): string[] {
@@ -77,12 +102,16 @@ function splitTopLevelAngles(typeInner: string): string[] {
 
 // Strip Thrift type annotations like `(python.immutable = "")` that can appear after types
 // Robustly handle escaped quotes and parentheses inside annotation string values.
-function stripTypeAnnotations(typeText: string): string {
+// Returns both the stripped type and extracted annotation nodes.
+function stripTypeAnnotations(typeText: string): { strippedType: string; annotationNodes?: import('./astTypes').AnnotationNode[] } {
     let out = '';
     let inSingle = false;
     let inDouble = false;
     let escaped = false;
     let parenDepth = 0;
+    const annotationNodes: import('./astTypes').AnnotationNode[] = [];
+    let currentAnnotationStart = -1;
+    let annotationContent = '';
 
     for (let i = 0; i < typeText.length; i++) {
         const ch = typeText[i];
@@ -116,11 +145,26 @@ function stripTypeAnnotations(typeText: string): string {
         if (!inSingle && !inDouble) {
             if (ch === '(') {
                 parenDepth++;
+                if (parenDepth === 1) {
+                    currentAnnotationStart = i;
+                    annotationContent = '';
+                } else if (parenDepth > 1) {
+                    annotationContent += ch;
+                }
                 continue; // start skipping annotation content
             }
             if (ch === ')') {
                 if (parenDepth > 0) {
                     parenDepth--;
+                    if (parenDepth === 0 && currentAnnotationStart >= 0) {
+                        // Complete annotation found, parse it
+                        const { annotations } = parseAnnotations(annotationContent);
+                        annotationNodes.push(...annotations);
+                        currentAnnotationStart = -1;
+                        annotationContent = '';
+                    } else if (parenDepth > 0) {
+                        annotationContent += ch;
+                    }
                     continue; // end skipping annotation content
                 }
             }
@@ -146,7 +190,10 @@ function stripTypeAnnotations(typeText: string): string {
         // If parenDepth > 0, we skip annotation content entirely
     }
 
-    return out.trim();
+    return {
+        strippedType: out.trim(),
+        annotationNodes: annotationNodes.length > 0 ? annotationNodes : undefined
+    };
 }
 
 // Remove comments from a single line while tracking multi-line block comment state
@@ -208,7 +255,7 @@ function stripCommentsFromLine(rawLine: string, state: { inBlock: boolean }): st
 }
 
 // Parse a struct/union/exception field line to extract id, type and name robustly
-function parseFieldSignature(codeLine: string): { id: number; typeText: string; name: string; typeStart: number; typeEnd: number } | null {
+function parseFieldSignature(codeLine: string): { id: number; typeText: string; name: string; typeStart: number; typeEnd: number; annotationNodes?: import('./astTypes').AnnotationNode[] } | null {
     const headerRe = /^(\s*)(\d+)\s*:\s*(?:required|optional)?\s*/;
     const m = headerRe.exec(codeLine);
     if (!m) {return null;}
@@ -254,12 +301,15 @@ function parseFieldSignature(codeLine: string): { id: number; typeText: string; 
     if (!nameM) {return null;}
     const name = nameM[1];
 
-    return { id, typeText: typeBuf.trim(), name, typeStart, typeEnd };
+    // Extract annotation nodes from the type text
+    const { strippedType, annotationNodes } = stripTypeAnnotations(typeBuf.trim());
+    
+    return { id, typeText: strippedType, name, typeStart, typeEnd, annotationNodes };
 }
 
 function isKnownType(typeName: string, definedTypes: Set<string>): boolean {
     if (!typeName) {return false;}
-    const t = stripTypeAnnotations(typeName).trim();
+    const { strippedType: t } = stripTypeAnnotations(typeName);
     if (PRIMITIVES.has(t)) {return true;}
     if (definedTypes.has(t)) {return true;}
     if (/^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/.test(t)) {return true;} // namespace.Type
@@ -361,7 +411,7 @@ function extractDefaultValue(codeLine: string): string | null {
 }
 
 function valueMatchesType(valueRaw: string, typeText: string, definedTypes: Set<string>, kindMap: Map<string, string>): boolean {
-    const t = stripTypeAnnotations(typeText).trim();
+    const { strippedType: t } = stripTypeAnnotations(typeText);
     const v = valueRaw.trim();
 
     if (integerTypes.has(t)) {
@@ -424,7 +474,7 @@ function parseTypesFromContent(content: string): Map<string, string> {
         codeLines.push(stripCommentsFromLine(raw, state));
     }
 
-    const typedefDefRe = /^(\s*)typedef\s+([^\s;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/;
+    const typedefDefRe = /^(\s*)typedef\s+(.+?)\s+([A-Za-z_][A-Za-z0-9_]*)/;
     const typeDefRe = /^(\s*)(struct|union|exception|enum|senum|service)\s+([A-Za-z_][A-Za-z0-9_]*)/;
 
     for (let i = 0; i < codeLines.length; i++) {
@@ -515,7 +565,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
 
     // Gather defined types in this file (from comment-stripped code) and type kind map
     const typeKind = new Map<string, string>(); // name -> kind
-    const typedefDefRe = /^(\s*)typedef\s+([^\s;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/;
+    const typedefDefRe = /^(\s*)typedef\s+(.+?)\s+([A-Za-z_][A-Za-z0-9_]*)/;
     // 支持 service 扩展父服务为命名空间形式（如 shared.SharedService 或 multi.segment.Name）
     const typeDefRe = /^(\s*)(struct|union|exception|enum|senum|service)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+extends\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*))?/;
     const serviceExtends: Array<{ lineNo: number; parent: string; col: number }> = [];
@@ -691,7 +741,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
         if (inFieldBlock && braceDepth > 0) {
             const sig = parseFieldSignature(line);
             if (sig) {
-                const { id, typeText, name, typeStart, typeEnd } = sig;
+                const { id, typeText, name, typeStart, typeEnd, annotationNodes } = sig;
                 if (currentFieldIds.has(id)) {
                     issues.push({
                         message: `Duplicate field id ${id}`,
@@ -701,6 +751,20 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
                     });
                 } else {
                     currentFieldIds.add(id);
+                }
+
+                // Union semantic validation: check if field has default value
+                const currentType = typeCtxStack[typeCtxStack.length - 1];
+                if (currentType === 'union') {
+                    const def = extractDefaultValue(line);
+                    if (def !== null) {
+                        issues.push({
+                            message: `Union fields cannot have default values`,
+                            range: new vscode.Range(lineNo, 0, lineNo, line.length),
+                            severity: vscode.DiagnosticSeverity.Error,
+                            code: 'union.defaultNotAllowed'
+                        });
+                    }
                 }
 
                 // Validate type known-ness (including containers)
@@ -713,9 +777,9 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
                     });
                 }
 
-                // Validate default value type compatibility if present
+                // Validate default value type compatibility if present (skip for union)
                 const def = extractDefaultValue(line);
-                if (def !== null) {
+                if (def !== null && currentType !== 'union') {
                     const ok = valueMatchesType(def, typeText, definedTypes, typeKind);
                     if (!ok) {
                         issues.push({
@@ -753,7 +817,8 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
     // Validate service methods and throws
     for (let lineNo = 0; lineNo < codeLines.length; lineNo++) {
         const line = codeLines[lineNo];
-        const m = line.match(/^\s*(oneway\s+)?([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)(\s*throws\s*\(([^)]*)\))?/);
+        // 支持 stream<T> 和 sink<Req,Resp> 语法的服务方法解析
+        const m = line.match(/^\s*(oneway\s+)?([A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)(\s*throws\s*\(([^)]*)\))?/);
         if (m) {
             const isOneway = !!m[1];
             const returnType = m[2];

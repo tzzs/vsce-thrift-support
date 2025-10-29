@@ -7,7 +7,9 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         'smalltalk_category', 'smalltalk_prefix', 'java_package', 'cocoa_prefix', 'csharp_namespace',
         'delphi_namespace', 'cpp_namespace', 'd_namespace', 'c_glib', 'netstd', 'st', 'xsd_all', 'xsd_optional',
         'xsd_nillable', 'xsd_namespace', 'xsd_attrs', 'const', 'typedef', 'enum', 'senum', 'struct', 'union',
-        'exception', 'extends', 'service', 'oneway', 'void', 'throws', 'optional', 'required', 'async'
+        'exception', 'extends', 'service', 'oneway', 'void', 'throws', 'optional', 'required', 'async',
+        // 高级特性关键字
+        'stream', 'sink', 'interaction', 'performs', 'reference'
     ];
 
     private primitives = [
@@ -90,6 +92,40 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         return paths;
     }
 
+    // 解析常量定义
+    private parseConstants(text: string): string[] {
+        const constants: string[] = [];
+        const lines = text.split('\n');
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            // 匹配 const 定义：const TYPE NAME = VALUE
+            const constMatch = trimmed.match(/^\s*const\s+\w+\s+([A-Za-z_][A-Za-z0-9_]*)/);
+            if (constMatch && constMatch[1]) {
+                constants.push(constMatch[1]);
+            }
+        }
+
+        return constants;
+    }
+
+    // 解析服务定义
+    private parseServices(text: string): string[] {
+        const services: string[] = [];
+        const lines = text.split('\n');
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            // 匹配 service 定义
+            const serviceMatch = trimmed.match(/^\s*service\s+([A-Za-z_][A-Za-z0-9_]*)/);
+            if (serviceMatch && serviceMatch[1]) {
+                services.push(serviceMatch[1]);
+            }
+        }
+
+        return services;
+    }
+
     // 获取当前上下文
     private getContext(text: string, position: number): { line: string; lineStart: number; prefix: string } {
         const beforeCursor = text.substring(0, position);
@@ -119,6 +155,8 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         const userTypes = this.parseUserTypes(text);
         const enumValues = this.parseEnumValues(text);
         const includePaths = this.parseIncludePaths(text);
+        const constants = this.parseConstants(text);
+        const services = this.parseServices(text);
 
         // 根据上下文提供不同类型的补全
         const line = currentContext.line;
@@ -161,14 +199,48 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
 
         // 2. 如果在 namespace 语句中，提供命名空间关键字补全
         if (/^\s*namespace\s+\w*$/.test(line)) {
-            const namespaceKeywords = ['c_glib', 'cpp', 'cpp_namespace', 'csharp_namespace', 'd_namespace',
-                'delphi_namespace', 'go', 'java_package', 'js', 'lua', 'netstd', 'perl', 'php', 'py', 'py.twisted',
-                'rb', 'rust', 'scala', 'smalltalk_category', 'smalltalk_prefix', 'st', 'swift', 'xsd'];
+            const namespaceKeywords = [
+                { keyword: 'c_glib', description: 'C GLib namespace' },
+                { keyword: 'cpp', description: 'C++ namespace' },
+                { keyword: 'cpp_namespace', description: 'C++ namespace (explicit)' },
+                { keyword: 'csharp_namespace', description: 'C# namespace' },
+                { keyword: 'd_namespace', description: 'D namespace' },
+                { keyword: 'delphi_namespace', description: 'Delphi namespace' },
+                { keyword: 'go', description: 'Go package' },
+                { keyword: 'java_package', description: 'Java package' },
+                { keyword: 'js', description: 'JavaScript module' },
+                { keyword: 'lua', description: 'Lua module' },
+                { keyword: 'netstd', description: '.NET Standard namespace' },
+                { keyword: 'perl', description: 'Perl package' },
+                { keyword: 'php', description: 'PHP namespace' },
+                { keyword: 'py', description: 'Python module' },
+                { keyword: 'py.twisted', description: 'Python Twisted module' },
+                { keyword: 'rb', description: 'Ruby module' },
+                { keyword: 'rust', description: 'Rust crate/module' },
+                { keyword: 'scala', description: 'Scala package' },
+                { keyword: 'smalltalk_category', description: 'Smalltalk category' },
+                { keyword: 'smalltalk_prefix', description: 'Smalltalk prefix' },
+                { keyword: 'st', description: 'Smalltalk namespace' },
+                { keyword: 'swift', description: 'Swift module' },
+                { keyword: 'xsd', description: 'XML Schema namespace' }
+            ];
 
-            namespaceKeywords.forEach(keyword => {
-                const item = new vscode.CompletionItem(keyword, vscode.CompletionItemKind.Keyword);
-                item.detail = 'Namespace language';
-                completions.push(item);
+            // 获取当前文件中的已有命名空间，避免重复
+            const existingNamespaces = this.parseExistingNamespaces(text);
+            
+            namespaceKeywords.forEach(({ keyword, description }) => {
+                if (!existingNamespaces.has(keyword)) {
+                    const item = new vscode.CompletionItem(keyword, vscode.CompletionItemKind.Keyword);
+                    item.detail = description;
+                    
+                    // 为常见语言提供智能建议
+                    if (['java_package', 'cpp', 'py', 'go'].includes(keyword)) {
+                        item.documentation = this.generateNamespaceExample(keyword);
+                        item.preselect = true; // 高亮显示常用语言
+                    }
+                    
+                    completions.push(item);
+                }
             });
         }
 
@@ -238,6 +310,31 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
             commonMethods.forEach(method => {
                 const item = new vscode.CompletionItem(method, vscode.CompletionItemKind.Method);
                 item.detail = 'Common method name';
+                completions.push(item);
+            });
+        }
+
+        // 7. 常量补全（在需要常量值的地方）
+        if (this.isInConstantValueContext(line, position.character)) {
+            constants.forEach(constant => {
+                const item = new vscode.CompletionItem(constant, vscode.CompletionItemKind.Constant);
+                item.detail = 'Constant';
+                completions.push(item);
+            });
+        }
+
+        // 8. 服务类型补全（在需要服务类型的地方）
+        if (this.isInServiceTypeContext(line, position.character)) {
+            services.forEach(service => {
+                const item = new vscode.CompletionItem(service, vscode.CompletionItemKind.Interface);
+                item.detail = 'Service';
+                completions.push(item);
+            });
+            
+            // 同时包含用户定义的类型
+            userTypes.forEach(type => {
+                const item = new vscode.CompletionItem(type, vscode.CompletionItemKind.Class);
+                item.detail = 'User-defined type';
                 completions.push(item);
             });
         }
@@ -314,6 +411,51 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         return inService && braceDepth > 0;
     }
 
+    private isInConstantValueContext(line: string, character: number): boolean {
+        // 检测是否在常量值位置（= 后面，或者在需要常量值的地方）
+        const beforeCursor = line.substring(0, character);
+        // 匹配 const 定义中的值位置：const TYPE NAME = 
+        // 或者在字段默认值中：field: type = 
+        return /^\s*const\s+\w+\s+\w+\s*=\s*$/.test(beforeCursor) || 
+               /^\s*\d+\s*:\s*(?:required|optional)?\s*\w+\s+\w+\s*=\s*$/.test(beforeCursor);
+    }
+
+    private isInServiceTypeContext(line: string, character: number): boolean {
+        // 检测是否在需要服务类型的上下文中
+        // 例如在 extends 子句中：service MyService extends 
+        const beforeCursor = line.substring(0, character);
+        return /^\s*service\s+\w+\s+extends\s*$/.test(beforeCursor);
+    }
+
+    private parseExistingNamespaces(text: string): Set<string> {
+        const existing = new Set<string>();
+        const lines = text.split('\n');
+        
+        for (const line of lines) {
+            const match = line.match(/^\s*namespace\s+([A-Za-z_][A-Za-z0-9_]*)/);
+            if (match) {
+                existing.add(match[1]);
+            }
+        }
+        
+        return existing;
+    }
+
+    private generateNamespaceExample(language: string): string {
+        const examples: { [key: string]: string } = {
+            'java_package': `Example: java_package com.example.myapp
+Generates: package com.example.myapp;`,
+            'cpp': `Example: cpp com.example
+Generates: namespace com { namespace example { ... } }`,
+            'py': `Example: py myapp.module
+Generates: from myapp import module`,
+            'go': `Example: go github.com/user/project
+Generates: package project`
+        };
+        
+        return examples[language] || '';
+    }
+
     private async provideIncludePathCompletions(
         document: vscode.TextDocument,
         prefix: string
@@ -322,29 +464,59 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         const documentDir = path.dirname(document.uri.fsPath);
 
         try {
-            // 获取当前目录下的 .thrift 文件
+            // 支持相对路径和绝对路径
+            const searchPath = prefix.startsWith('/') ? prefix : path.resolve(documentDir, prefix);
+            const searchDir = prefix.endsWith('/') ? searchPath : path.dirname(searchPath);
+            const filePrefix = path.basename(prefix);
+
+            // 获取指定目录下的 .thrift 文件
+            const pattern = path.join(searchDir, '*.thrift');
             const files = await vscode.workspace.findFiles(
-                new vscode.RelativePattern(documentDir, '*.thrift'),
+                new vscode.RelativePattern(searchDir, '*.thrift'),
                 '**/node_modules/**'
             );
 
+            // 添加匹配的 thrift 文件
             files.forEach(file => {
+                const relativePath = path.relative(documentDir, file.fsPath);
                 const fileName = path.basename(file.fsPath);
-                if (fileName !== path.basename(document.uri.fsPath)) { // 排除自身
-                    const item = new vscode.CompletionItem(fileName, vscode.CompletionItemKind.File);
+                
+                // 只显示匹配前缀的文件
+                if (fileName.startsWith(filePrefix) && fileName !== path.basename(document.uri.fsPath)) {
+                    const displayPath = prefix.includes('/') ? relativePath : fileName;
+                    const item = new vscode.CompletionItem(displayPath, vscode.CompletionItemKind.File);
                     item.detail = 'Thrift include file';
-                    item.insertText = fileName;
+                    item.insertText = displayPath;
                     completions.push(item);
                 }
             });
 
-            // 添加常见的相对路径选项
-            const commonPaths = ['./', '../'];
-            commonPaths.forEach(p => {
-                const item = new vscode.CompletionItem(p, vscode.CompletionItemKind.Folder);
-                item.detail = 'Relative path';
-                completions.push(item);
-            });
+            // 添加子目录选项
+            try {
+                const dirs = await vscode.workspace.fs.readDirectory(vscode.Uri.file(searchDir));
+                dirs.forEach(([name, type]) => {
+                    if (type === vscode.FileType.Directory && !name.startsWith('.') && name.startsWith(filePrefix)) {
+                        const displayPath = prefix.includes('/') 
+                            ? path.join(path.relative(documentDir, searchDir), name, '')
+                            : name + '/';
+                        const item = new vscode.CompletionItem(displayPath, vscode.CompletionItemKind.Folder);
+                        item.detail = 'Directory';
+                        completions.push(item);
+                    }
+                });
+            } catch (dirError) {
+                // 目录读取失败时忽略
+            }
+
+            // 添加常见的相对路径选项（只在根目录时显示）
+            if (!prefix.includes('/')) {
+                const commonPaths = ['./', '../'];
+                commonPaths.forEach(p => {
+                    const item = new vscode.CompletionItem(p, vscode.CompletionItemKind.Folder);
+                    item.detail = 'Relative path';
+                    completions.push(item);
+                });
+            }
         } catch (error) {
             console.error('Error providing include path completions:', error);
         }

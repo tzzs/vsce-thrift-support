@@ -146,7 +146,7 @@ async function testTypeReferenceSelection() {
   2: optional string name
 }`;
   const document = createMockDocument(text);
-  const position = createMockPosition(1, 13); // On "i32"
+  const position = createMockPosition(1, 14); // On "i32"
 
   const selectionRanges = await provider.provideSelectionRanges(
     document,
