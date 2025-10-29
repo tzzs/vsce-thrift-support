@@ -101,7 +101,29 @@ function createMockDocument(text, fileName = 'test.thrift', uri = null) {
   const lines = text.split('\n');
   return {
     uri: uri || { fsPath: path.join(__dirname, 'test-files', fileName) },
-    getText: () => text,
+    getText: (range) => {
+      // If no range provided, return all text
+      if (!range) {
+        return text;
+      }
+      
+      // If range provided, return text in that range
+      const startLine = range.start.line;
+      const startChar = range.start.character;
+      const endLine = range.end.line;
+      const endChar = range.end.character;
+      
+      if (startLine === endLine) {
+        return lines[startLine].substring(startChar, endChar);
+      } else {
+        let result = lines[startLine].substring(startChar);
+        for (let i = startLine + 1; i < endLine; i++) {
+          result += '\n' + lines[i];
+        }
+        result += '\n' + lines[endLine].substring(0, endChar);
+        return result;
+      }
+    },
     lineAt: (line) => ({ text: lines[line] || '' }),
     getWordRangeAtPosition: (position) => {
       const lineText = lines[position.line] || '';

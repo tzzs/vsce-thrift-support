@@ -6,7 +6,7 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
         positions: vscode.Position[],
         token: vscode.CancellationToken
     ): vscode.ProviderResult<vscode.SelectionRange[]> {
-        const ranges: vscode.SelectionRange[] = [];
+        const result: vscode.SelectionRange[] = [];
 
         for (const position of positions) {
             if (token.isCancellationRequested) {
@@ -15,11 +15,12 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
 
             const selectionRanges = this.getSelectionRangesForPosition(document, position);
             if (selectionRanges.length > 0) {
-                ranges.push(...selectionRanges);
+                // Return the smallest range (first in the linked list)
+                result.push(selectionRanges[0]);
             }
         }
 
-        return ranges;
+        return result;
     }
 
     private getSelectionRangesForPosition(document: vscode.TextDocument, position: vscode.Position): vscode.SelectionRange[] {
@@ -54,26 +55,58 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
         const lines = text.split('\n');
         const currentLine = lines[position.line];
 
-        // Type references
-        const typeRefMatch = currentLine.match(/([A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]+>)?)/g);
-        if (typeRefMatch) {
-            for (const typeRef of typeRefMatch) {
-                const index = currentLine.indexOf(typeRef);
-                if (index >= 0 && position.character >= index && position.character <= index + typeRef.length) {
-                    const range = new vscode.Range(position.line, index, position.line, index + typeRef.length);
-                    this.addRangeIfLarger(ranges, range);
-                }
-            }
-        }
-
         // Field definitions
         const fieldMatch = currentLine.match(/^(\s*)(\d+)\s*:\s*(?:required|optional)?\s*([^\s,]+(?:\s*<[^>]+>\s*)?)\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:=\s*([^,;]+))?\s*[,;]?/);
-        if (fieldMatch) {
+        if (fieldMatch && fieldMatch[2]) { // Ensure we have a field number
+            // Extract the type from the field definition
+            const fieldType = fieldMatch[3];
+            const typeIndex = currentLine.indexOf(fieldType);
+            
+            // Check if position is within the type
+            if (typeIndex >= 0 && position.character >= typeIndex && position.character <= typeIndex + fieldType.length) {
+                const range = new vscode.Range(position.line, typeIndex, position.line, typeIndex + fieldType.length);
+                this.addRangeIfLarger(ranges, range);
+            }
+            
+            // Extract the field name from the field definition
+            const fieldName = fieldMatch[4];
+            const fieldNameIndex = currentLine.indexOf(fieldName);
+            
+            // Check if position is within the field name
+            if (fieldNameIndex >= 0 && position.character >= fieldNameIndex && position.character <= fieldNameIndex + fieldName.length) {
+                const range = new vscode.Range(position.line, fieldNameIndex, position.line, fieldNameIndex + fieldName.length);
+                this.addRangeIfLarger(ranges, range);
+            }
+            
+            // Also add the full field definition
             const fullField = fieldMatch[0];
             const index = currentLine.indexOf(fullField);
             if (index >= 0 && position.character >= index && position.character <= index + fullField.length) {
                 const range = new vscode.Range(position.line, index, position.line, index + fullField.length);
                 this.addRangeIfLarger(ranges, range);
+            }
+        }
+
+        // Type references (avoid matching struct names)
+        // Only match types that are not part of struct/enum/service definitions
+        // and not already matched by field definitions
+        if (!currentLine.match(/^\s*(struct|enum|service|union|exception)\s+/)) {
+            const typeRefMatch = currentLine.match(/([A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]+>)?)/g);
+            if (typeRefMatch) {
+                for (const typeRef of typeRefMatch) {
+                    const index = currentLine.indexOf(typeRef);
+                    if (index >= 0 && position.character >= index && position.character <= index + typeRef.length) {
+                        // Skip if this is part of a field definition that we already handled
+                        const isFieldDefinition = fieldMatch && fieldMatch[2] && 
+                            index >= currentLine.indexOf(fieldMatch[0]) && 
+                            index < currentLine.indexOf(fieldMatch[0]) + fieldMatch[0].length;
+                        
+                        if (!isFieldDefinition) {
+                            const range = new vscode.Range(position.line, index, position.line, index + typeRef.length);
+                            this.addRangeIfLarger(ranges, range);
+                        }
+                    }
+                }
             }
         }
 

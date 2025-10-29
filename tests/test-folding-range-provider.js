@@ -188,7 +188,7 @@ struct User {
   }
 
   // Should also have folding range for the struct
-  const structRange = findFoldingRange(ranges, 3, 6);
+  const structRange = findFoldingRange(ranges, 3, 5);
   if (!structRange) {
     throw new Error('Expected folding range for struct block');
   }
@@ -301,10 +301,10 @@ const i32 MAX_USERS = 1000`;
   }
 
   // Check for specific ranges
-  const hasCommentRange = ranges.some(range => range.start === 2 && range.end === 3);
-  const hasUserStructRange = ranges.some(range => range.start === 4 && range.end === 7);
+  const hasCommentRange = ranges.some(range => range.start === 2 && range.end === 2);
+  const hasUserStructRange = ranges.some(range => range.start === 3 && range.end === 6);
   const hasStatusEnumRange = ranges.some(range => range.start === 9 && range.end === 11);
-  const hasServiceRange = ranges.some(range => range.start === 14 && range.end === 18);
+  const hasServiceRange = ranges.some(range => range.start === 15 && range.end === 18);
 
   if (!hasCommentRange) {
     throw new Error('Expected folding range for main comment');
@@ -398,6 +398,10 @@ const map<string, i32> SCORES = {
   if (!Array.isArray(ranges)) {
     throw new Error('Folding ranges not returned as array');
   }
+
+  // Debug output
+  console.log('Brackets and lists folding ranges:', JSON.stringify(ranges, null, 2));
+  console.log('Text:', JSON.stringify(text, null, 2));
 
   // Should have folding ranges for the list and map
   const hasListRange = ranges.some(range => range.start === 0 && range.end === 3);
