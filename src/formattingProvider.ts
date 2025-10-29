@@ -672,13 +672,48 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             .replace(this.reSpaceComma, ',');
         
         // Build full default value (may be multiline)
-        if (defaultValue && lines.length > 1) {
-            // If we have a default value on the first line and there are more lines,
-            // collect all lines that belong to the default value
-            const rest = lines.slice(1).map(l => l.trim()).join('\n');
-            defaultValue = (defaultValue ? defaultValue.trim() + '\n' : '') + rest;
-        } else if (defaultValue) {
+        if (defaultValue) {
+            // Process single-line default value first
             defaultValue = defaultValue.trim();
+            
+            // If we have more lines, process them carefully to handle multi-line values correctly
+            if (lines.length > 1) {
+                // Count brackets for proper multi-line value detection
+                let openBrackets = 0;
+                let openBraces = 0;
+                
+                // Check if first line has open brackets or braces
+                if (defaultValue.includes('[')) openBrackets += (defaultValue.match(/\[/g) || []).length;
+                if (defaultValue.includes('{')) openBraces += (defaultValue.match(/\{/g) || []).length;
+                if (defaultValue.includes(']')) openBrackets -= (defaultValue.match(/\]/g) || []).length;
+                if (defaultValue.includes('}')) openBraces -= (defaultValue.match(/\}/g) || []).length;
+                
+                // If we have unclosed brackets or braces, we need to include more lines
+                if (openBrackets > 0 || openBraces > 0) {
+                    const restLines: string[] = [];
+                    
+                    for (let i = 1; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        restLines.push(line);
+                        
+                        // Update bracket counts
+                        if (line.includes('[')) openBrackets += (line.match(/\[/g) || []).length;
+                        if (line.includes('{')) openBraces += (line.match(/\{/g) || []).length;
+                        if (line.includes(']')) openBrackets -= (line.match(/\]/g) || []).length;
+                        if (line.includes('}')) openBraces -= (line.match(/\}/g) || []).length;
+                        
+                        // If all brackets and braces are closed, we have the complete value
+                        if (openBrackets <= 0 && openBraces <= 0) {
+                            break;
+                        }
+                    }
+                    
+                    // Join the lines with proper newline handling
+                    if (restLines.length > 0) {
+                        defaultValue = defaultValue + '\n' + restLines.join('\n');
+                    }
+                }
+            }
         }
         
         // Build suffix with default value and trailing comma
@@ -1134,20 +1169,20 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         commentCount: number
     ): string {
         const baseIndent = this.getIndent(indentLevel, options);
-        const fieldContentIndent = baseIndent + ' '.repeat(maxFieldIdWidth + 1 + maxTypeWidth + 1);
+        // Calculate indentation for multi-line values - align with the start of the value after =
+        const valueIndent = baseIndent + ' '.repeat(maxFieldIdWidth + 1 + (field.qualifier || '').length + 
+            (options.alignTypes ? maxTypeWidth : field.type.length) + 1 + field.name.length + 3); // +3 for ' = '
         
-        // Split the multi-line suffix into lines
-        const suffixLines = field.suffix!.split('\n');
+        // Extract default value from suffix
+        let defaultValue = '';
+        const suffix = field.suffix || '';
+        const equalsIndex = suffix.indexOf('=');
         
-        // Find the line with the equals sign (first line of default value)
-        const equalsLineIndex = suffixLines.findIndex(line => line.includes('='));
-        
-        if (equalsLineIndex === -1) {
-            // Fallback to single-line formatting if no equals found
-            return this.formatSingleLineStructField(field, options, indentLevel, maxFieldIdWidth, maxTypeWidth, maxNameWidth, targetAnnoStart, maxContentWidth, commentCount);
+        if (equalsIndex !== -1) {
+            defaultValue = suffix.substring(equalsIndex + 1).trim();
         }
         
-        // Build the first line (field ID, type, name, and first part of default value)
+        // Build the first line (field ID, type, name, and equals sign)
         let firstLine = baseIndent;
         
         // Add field ID with colon
@@ -1163,27 +1198,58 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         }
         firstLine += ' ';
         
-        // Add field name
-        firstLine += field.name;
+        // Add field name and equals sign
+        firstLine += field.name + ' = ';
         
-        // Add the equals sign and first part of default value
-        const equalsLine = suffixLines[equalsLineIndex];
-        const equalsMatch = equalsLine.match(/^(\s*=\s*)(.*)$/);
-        if (equalsMatch) {
-            firstLine += ' = ' + equalsMatch[2].trim();
-        } else {
-            firstLine += equalsLine.trim();
+        // Process multi-line default value
+        const resultLines = [firstLine];
+        const valueLines = defaultValue.split('\n');
+        
+        // Add the first line of the default value to the first line if it's not an opening bracket
+        if (valueLines.length > 0) {
+            const firstValueLine = valueLines[0].trim();
+            
+            // If the first value line starts with a bracket, put it on a new line for better formatting
+            if (firstValueLine.startsWith('[') || firstValueLine.startsWith('{')) {
+                // Add the opening bracket line
+                resultLines.push(valueIndent + firstValueLine);
+                
+                // Add remaining lines with proper indentation
+                for (let i = 1; i < valueLines.length - 1; i++) {
+                    const line = valueLines[i].trim();
+                    if (line) {
+                        // Add extra indentation for content inside brackets
+                        resultLines.push(valueIndent + '  ' + line);
+                    }
+                }
+                
+                // Add the last line (closing bracket) without extra indentation
+                if (valueLines.length > 1) {
+                    const lastValueLine = valueLines[valueLines.length - 1].trim();
+                    if (lastValueLine) {
+                        resultLines.push(valueIndent + lastValueLine);
+                    }
+                }
+            } else {
+                // Handle non-bracket multi-line values
+                resultLines[0] += firstValueLine; // Add first value line to the first line
+                
+                // Add remaining lines with proper indentation
+                for (let i = 1; i < valueLines.length; i++) {
+                    const line = valueLines[i].trim();
+                    if (line) {
+                        resultLines.push(valueIndent + line);
+                    }
+                }
+            }
         }
         
-        // Build subsequent lines with proper indentation
-        const resultLines = [firstLine];
-        
-        // Add remaining lines of the multi-line default value
-        for (let i = equalsLineIndex + 1; i < suffixLines.length; i++) {
-            const line = suffixLines[i];
-            if (line.trim()) {
-                resultLines.push(fieldContentIndent + line.trim());
-            }
+        // Add trailing comma if present
+        const commaMatch = suffix.match(/[,;]\s*$/);
+        if (commaMatch && resultLines.length > 0) {
+            // Add comma to the last value line
+            const lastLineIndex = resultLines.length - 1;
+            resultLines[lastLineIndex] = resultLines[lastLineIndex] + commaMatch[0];
         }
         
         // Add annotation and comment to the LAST line of the multi-line default value
@@ -1193,7 +1259,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         if (field.annotation) {
             if (options.alignAnnotations) {
                 const currentWidth = lastLine.length - baseIndent.length;
-                const spaces = targetAnnoStart - currentWidth + 1;
+                const spaces = Math.max(1, targetAnnoStart - currentWidth + 1);
                 lastLine += ' '.repeat(spaces) + field.annotation;
             } else {
                 lastLine += ' ' + field.annotation;
