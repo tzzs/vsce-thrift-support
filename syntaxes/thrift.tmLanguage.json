@@ -89,10 +89,7 @@
     },
     "keywords": {
       "patterns": [
-        {
-          "name": "keyword.control.thrift",
-          "match": "\\b(include|cpp_include|namespace|typedef|struct|union|exception|enum|service|const|required|optional|throws|extends|void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid|slist|senum|map|list|set|oneway|async|reference)\\b"
-        },
+        {          "name": "keyword.control.thrift",          "match": "\\b(include|cpp_include|namespace|typedef|struct|union|exception|enum|service|const|required|optional|throws|extends|void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid|slist|senum|map|list|set|oneway|async|reference|stream|sink)\\b"        },
         {
           "name": "keyword.control.thrift",
           "match": "\\b(cpp_include|cpp_namespace|php_namespace|java_package|py_module|perl_package|ruby_namespace|csharp_namespace|go_package|swift_prefix)\\b"
@@ -101,17 +98,14 @@
           "name": "keyword.other.thrift",
           "match": "\\b(stream|sink|interaction|performs|c_glib|cpp|delphi|haxe|go|java|js|lua|netstd|perl|php|py|py\\.twisted|rb|st|xsd|BEGIN|END|__CLASS__|__DIR__|__FILE__|__FUNCTION__|__LINE__|__METHOD__|__NAMESPACE__|abstract|alias|and|args|as|assert|begin|break|case|catch|class|clone|continue|declare|def|default|delete|do|dynamic|else|elsif|ensure|except|exec|finally|for|foreach|function|global|if|implements|import|in|inline|instanceof|interface|is|lambda|module|native|new|next|not|or|package|private|protected|public|raise|redo|rescue|retry|return|self|sizeof|static|super|switch|synchronized|then|this|throw|transient|try|undef|unless|until|use|var|virtual|volatile|when|while|with|xor|yield)\\b"
         },
-        {
-          "name": "storage.modifier.thrift",
-          "match": "\\b(async|oneway|stream|sink|interaction|performs|reference|required|optional)\\b"
-        }
+        {          "name": "storage.modifier.thrift",          "match": "\\b(async|oneway|stream|sink|interaction|performs|reference|required|optional|readonly|final|transient|volatile|native)\\b"        }
       ]
     },
     "types": {
       "patterns": [
         {
           "name": "support.type.thrift",
-          "match": "\\b(void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid|slist|senum)\\b"
+          "match": "\\b(void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid|slist|senum|stream|sink)\\b"
         },
         {
           "name": "support.type.container.thrift",
@@ -122,29 +116,52 @@
           "match": "\\b[A-Z][a-zA-Z0-9_]*\\b"
         },
         {
-          "begin": "\\b(map|list|set)\\s*<",
-          "beginCaptures": {
-            "1": { "name": "support.type.container.thrift" }
-          },
-          "end": ">",
-          "patterns": [
-            {
-              "include": "#types"
-            },
-            {
-              "include": "#nested-types"
-            },
-            {
-              "include": "#comments"
-            }
-          ]
+          "name": "entity.name.type.namespace.thrift",
+          "match": "\\b[a-zA-Z0-9_]+\\.[A-Z][a-zA-Z0-9_]*\\b"
         }
       ]
     },
     "nested-types": {
       "patterns": [
         {
-          "begin": "\\b(map|list|set)\\s*<",
+          "begin": "\\b(map)\\s*<",
+          "beginCaptures": {
+            "1": { "name": "support.type.container.thrift" }
+          },
+          "end": ">",
+          "patterns": [
+            {
+              "name": "storage.type.key.thrift",
+              "patterns": [
+                { "include": "#types" },
+                { "include": "#nested-types" },
+                {
+                  "name": "entity.name.type.namespace.thrift",
+                  "match": "[a-zA-Z0-9_]+\\.[A-Z][a-zA-Z0-9_]*"
+                }
+              ]
+            },
+            {
+              "include": "#punctuation-comma"
+            },
+            {
+              "name": "storage.type.value.thrift",
+              "patterns": [
+                { "include": "#types" },
+                { "include": "#nested-types" },
+                {
+                  "name": "entity.name.type.namespace.thrift",
+                  "match": "[a-zA-Z0-9_]+\\.[A-Z][a-zA-Z0-9_]*"
+                }
+              ]
+            },
+            {
+              "include": "#comments"
+            }
+          ]
+        },
+        {
+          "begin": "\\b(set|list)\\s*<",
           "beginCaptures": {
             "1": { "name": "support.type.container.thrift" }
           },
@@ -157,14 +174,30 @@
               "include": "#nested-types"
             },
             {
-              "name": "punctuation.separator.thrift",
-              "match": ","
+              "name": "entity.name.type.namespace.thrift",
+              "match": "[a-zA-Z0-9_]+\\.[A-Z][a-zA-Z0-9_]*"
             },
+            {
+              "include": "#comments"
+            }
+          ]
+        },
+        {
+          "begin": "\\b(senum|slist|stream|sink)\\s*<",
+          "beginCaptures": {
+            "1": { "name": "support.type.thrift" }
+          },
+          "end": ">",
+          "patterns": [
             {
               "include": "#types"
             },
             {
               "include": "#nested-types"
+            },
+            {
+              "name": "entity.name.type.namespace.thrift",
+              "match": "[a-zA-Z0-9_]+\\.[A-Z][a-zA-Z0-9_]*"
             },
             {
               "include": "#comments"
@@ -213,10 +246,37 @@
           "end": "\\}",
           "patterns": [
             {
-              "include": "#constants"
-            },
-            {
-              "include": "#strings"
+              "name": "meta.map.entry.thrift",
+              "patterns": [
+                {
+                  "name": "constant.other.key.thrift",
+                  "patterns": [
+                    { "include": "#constants" },
+                    { "include": "#strings" }
+                  ]
+                },
+                {
+                  "name": "keyword.operator.map.separator.thrift",
+                  "match": ":"
+                },
+                {
+                  "name": "constant.other.value.thrift",
+                  "patterns": [
+                    { "include": "#constants" },
+                    { "include": "#strings" },
+                    {
+                      "begin": "\\{",
+                      "end": "\\}",
+                      "patterns": [
+                        { "include": "#meta.map.entry.thrift" },
+                        { "include": "#punctuation-comma" },
+                        { "include": "#comments" }
+                      ]
+                    }
+                  ]
+                },
+                { "include": "#punctuation-comma" }
+              ]
             },
             {
               "include": "#comments"
@@ -509,15 +569,7 @@
     },
     "method-definitions": {
       "patterns": [
-        {
-          "name": "meta.method.return-type.thrift",
-          "match": "^\\s*(oneway\\s+)?(void|[a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
-          "captures": {
-            "1": { "name": "keyword.control.thrift" },
-            "2": { "name": "support.type.thrift" },
-            "3": { "name": "entity.name.function.thrift" }
-          }
-        },
+        {          "name": "meta.method.return-type.thrift",          "match": "^\\s*(oneway\\s+)?(void|[a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",          "captures": {            "1": { "name": "keyword.control.thrift" },            "2": { "name": "support.type.thrift" },            "3": { "name": "entity.name.function.thrift" }          }        },        {          "name": "meta.method.stream.thrift",          "match": "^\\s*(stream|sink)\\s+(void|[a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",          "captures": {            "1": { "name": "keyword.control.thrift" },            "2": { "name": "support.type.thrift" },            "3": { "name": "entity.name.function.thrift" }          }        },
         {
           "name": "meta.method.thrift",
           "begin": "\\s*",
