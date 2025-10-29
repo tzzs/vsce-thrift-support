@@ -5,6 +5,7 @@
 #   <type>(<scope>)!: <description>
 #
 # Key rules:
+# - Use English for commit messages
 # - type is required; scope is optional; if there is a breaking change, you can add an exclamation mark ! after type or scope, or use BREAKING CHANGE: in the footer for explanation
 # - There must be a space after the colon; <description> is a brief summary
 # - Leave one blank line between <description> and body (optional); leave another blank line between body and footer (optional)

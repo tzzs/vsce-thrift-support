@@ -17,8 +17,9 @@ const testFiles = [
   'test-diagnostics-enhanced.js',
   'test-helper-functions.js',
   'test-diagnostics-edge-cases.js',
-  'test-diagnostics-extends-namespaced.js'
-  , 'test-throws-namespaced.js'
+  'test-diagnostics-extends-namespaced.js',
+  'test-throws-namespaced.js',
+  'test-escape-sequence-fix.js'
 ];
 
 let totalTests = 0;

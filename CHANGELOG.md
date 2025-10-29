@@ -196,6 +196,16 @@
 #### Verification
 * Passed npm run build and manual verification of key segments.
 
+## 0.6.14 - 2025-10-10
+
+### 中文版本
+#### 修复
+* 修复了嵌套容器类型中逗号的语法高亮问题，确保 `map<string, list<i32>>` 等复杂嵌套结构能正确高亮显示
+
+### English Version
+#### Fixes
+* Fixed syntax highlighting for commas in nested container types, ensuring complex nested structures like `map<string, list<i32>>` are highlighted correctly
+
 ## 0.1.0 - 2025-09-13
 
 ### 中文版本
