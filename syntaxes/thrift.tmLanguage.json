@@ -157,6 +157,16 @@
               "include": "#nested-types"
             },
             {
+              "name": "punctuation.separator.thrift",
+              "match": ","
+            },
+            {
+              "include": "#types"
+            },
+            {
+              "include": "#nested-types"
+            },
+            {
               "include": "#comments"
             }
           ]
@@ -190,6 +200,9 @@
               "include": "#constants"
             },
             {
+              "include": "#strings"
+            },
+            {
               "include": "#comments"
             }
           ]
@@ -201,6 +214,9 @@
           "patterns": [
             {
               "include": "#constants"
+            },
+            {
+              "include": "#strings"
             },
             {
               "include": "#comments"
@@ -263,11 +279,19 @@
         }
       ]
     },
+    "punctuation-comma": {
+      "patterns": [
+        {
+          "name": "punctuation.separator.comma.thrift",
+          "match": ","
+        }
+      ]
+    },
     "operators": {
       "patterns": [
         {
           "name": "keyword.operator.thrift",
-          "match": "[{}\\[\\]():;,=<>]"
+          "match": "[{}\\$\\[\\]):;=<>]"
         }
       ]
     },
@@ -436,6 +460,16 @@
               "include": "#nested-types"
             },
             {
+              "name": "punctuation.separator.thrift",
+              "match": ","
+            },
+            {
+              "include": "#types"
+            },
+            {
+              "include": "#nested-types"
+            },
+            {
               "include": "#comments"
             }
           ]
@@ -462,6 +496,9 @@
             },
             {
               "include": "#nested-types"
+            },
+            {
+              "include": "#punctuation-comma"
             },
             {
               "include": "#comments"
@@ -528,6 +565,9 @@
             },
             {
               "include": "#nested-types"
+            },
+            {
+              "include": "#punctuation-comma"
             }
           ]
         },
@@ -539,3 +579,8 @@
   },
   "scopeName": "source.thrift"
 }
+
+
+
+
+
