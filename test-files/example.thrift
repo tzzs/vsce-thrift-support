@@ -108,7 +108,4 @@ const map<string, i32> ERROR_CODES = {
     "INTERNAL_ERROR": 500       // 内部服务器错误
 }
 
-enum Status {
-  Init = 1; // 测试
-  End = 20; // 初始化
-}
+
