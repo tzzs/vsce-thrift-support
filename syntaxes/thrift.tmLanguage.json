@@ -569,7 +569,7 @@
     },
     "method-definitions": {
       "patterns": [
-        {          "name": "meta.method.return-type.thrift",          "match": "^\\s*(oneway\\s+)?(void|[a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",          "captures": {            "1": { "name": "keyword.control.thrift" },            "2": { "name": "support.type.thrift" },            "3": { "name": "entity.name.function.thrift" }          }        },        {          "name": "meta.method.stream.thrift",          "match": "^\\s*(stream|sink)\\s+(void|[a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",          "captures": {            "1": { "name": "keyword.control.thrift" },            "2": { "name": "support.type.thrift" },            "3": { "name": "entity.name.function.thrift" }          }        },
+        {          "name": "meta.method.return-type.thrift",          "match": "\\s*(oneway\\s+)?(void|[a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",          "captures": {            "1": { "name": "keyword.control.thrift" },            "2": { "name": "support.type.thrift" },            "3": { "name": "entity.name.function.thrift" }          }        },        {          "name": "meta.method.stream.thrift",          "match": "\\s*(stream|sink)\\s+(void|[a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",          "captures": {            "1": { "name": "keyword.control.thrift" },            "2": { "name": "support.type.thrift" },            "3": { "name": "entity.name.function.thrift" }          }        },
         {
           "name": "meta.method.thrift",
           "begin": "\\s*",
