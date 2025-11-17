@@ -2,7 +2,7 @@
   "name": "thrift-support",
   "displayName": "Thrift Support",
   "description": "Apache Thrift language support: syntax highlighting, formatting, diagnostics, navigation, completion, and rename",
-  "version": "0.6.21",
+  "version": "0.6.22",
   "publisher": "tanzz",
   "icon": "icon.png",
   "repository": {
@@ -57,13 +57,7 @@
         "path": "./syntaxes/thrift.tmLanguage.json"
       }
     ],
-    "themes": [
-      {
-        "label": "Thrift Syntax Highlighting",
-        "uiTheme": "vs",
-        "path": "./themes/thrift-color-theme.json"
-      }
-    ],
+
     "commands": [
       {
         "command": "thrift.format.document",
