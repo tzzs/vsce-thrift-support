@@ -899,6 +899,52 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
                 });
             }
         }
+
+        // Const definition validation
+        const constDefRe = /^\s*const\s+([A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]+>)?\s+[A-Za-z_][A-Za-z0-9_]*)\s*=\s*([^;]+)/;
+        const constMatch = line.match(constDefRe);
+        if (constMatch) {
+            // Extract type and value information from const definition
+            const typeNameMatch = constMatch[1].match(/^([A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]+>)?)/);
+            if (typeNameMatch) {
+                const typeText = typeNameMatch[1].trim();
+                const def = extractDefaultValue(line);
+                
+                if (def !== null) {
+                    // For multi-line defaults, be more lenient in validation
+                    const trimmedDef = def.trim();
+                    const isListType = /^list<.+>$/.test(typeText);
+                    const isSetType = /^set<.+>$/.test(typeText);
+                    const isMapType = /^map<.+>$/.test(typeText);
+                    
+                    // Special handling for multi-line container defaults
+                    if ((isListType && trimmedDef.startsWith('[') && !trimmedDef.includes(']')) ||
+                        (isSetType && (trimmedDef.startsWith('{') || trimmedDef.startsWith('[')) && !trimmedDef.includes('}') && !trimmedDef.includes(']')) ||
+                        (isMapType && trimmedDef.startsWith('{') && !trimmedDef.includes('}'))) {
+                        // Assume multi-line default is valid without further validation
+                    } else {
+                        // Regular validation for single-line defaults
+                        const ok = valueMatchesType(def, typeText, definedTypes, typeKind);
+                        if (!ok) {
+                            // Only show warning instead of error for complex types to be more lenient
+                            const isComplexType = !PRIMITIVES.has(typeText) && 
+                                                !/^(list|set|map)<.+>$/.test(typeText) &&
+                                                !integerTypes.has(typeText);
+                            const severity = isComplexType ? 
+                                vscode.DiagnosticSeverity.Warning : 
+                                vscode.DiagnosticSeverity.Error;
+                            
+                            issues.push({
+                                message: `Default value does not match declared type`,
+                                range: new vscode.Range(lineNo, 0, lineNo, line.length),
+                                severity,
+                                code: 'value.typeMismatch'
+                            });
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Validate service methods and throws

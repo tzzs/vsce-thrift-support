@@ -3,6 +3,7 @@
   "name": "Thrift",
   "patterns": [
     { "include": "#comments" },
+    { "include": "#const-definitions" },
     { "include": "#typedef-definitions" },
     { "include": "#struct-definitions" },
     { "include": "#service-definitions" },
@@ -491,6 +492,44 @@
             },
             {
               "include": "#field-definitions"
+            },
+            {
+              "include": "#annotations"
+            }
+          ]
+        }
+      ]
+    },
+    "const-definitions": {
+      "patterns": [
+        {
+          "name": "meta.const.thrift",
+          "begin": "\\b(const)\\s+",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.thrift" }
+          },
+          "end": "([^;\\n]*)(//.*)?$",
+          "patterns": [
+            {
+              "include": "#types"
+            },
+            {
+              "include": "#nested-types"
+            },
+            {
+              "include": "#identifiers"
+            },
+            {
+              "include": "#operators"
+            },
+            {
+              "include": "#constants"
+            },
+            {
+              "include": "#strings"
+            },
+            {
+              "include": "#comments"
             },
             {
               "include": "#annotations"
