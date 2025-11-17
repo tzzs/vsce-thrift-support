@@ -545,8 +545,8 @@
             "1": { "name": "constant.numeric.thrift" },
             "2": { "name": "keyword.control.thrift" }
           },
-          "end": "\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(=\\s*[^,]*)*\\s*(,)?",
-          "endCaptures": {
+          "end": "\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(=\\s*[^,\\n#]*)?\\s*(,)?\\s*(//.*)?$",
+            "endCaptures": {
             "1": { "name": "variable.other.thrift" },
             "2": { "name": "keyword.operator.thrift" },
             "3": { "name": "keyword.operator.thrift" }
