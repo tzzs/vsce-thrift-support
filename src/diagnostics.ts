@@ -54,6 +54,11 @@ function parseContainerType(typeText: string): boolean {
         const parts = splitTopLevelAngles(inner);
         return parts.length === 2;
     }
+    // reference<T>
+    if (/^reference<.*>$/.test(noSpace)) {
+        const inner = extractAngleContent(typeText);
+        return inner.trim().length > 0;
+    }
     return false;
 }
 
