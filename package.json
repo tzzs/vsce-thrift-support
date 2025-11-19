@@ -2,7 +2,7 @@
   "name": "thrift-support",
   "displayName": "Thrift Support",
   "description": "Apache Thrift language support: syntax highlighting, formatting, diagnostics, navigation, completion, and rename",
-  "version": "0.6.23",
+  "version": "0.6.30",
   "publisher": "tanzz",
   "icon": "icon.png",
   "repository": {
@@ -10,7 +10,7 @@
     "url": "https://github.com/tzzs/vsce-thrift-support.git"
   },
   "engines": {
-    "vscode": "^1.74.0"
+    "vscode": "^1.75.0"
   },
   "categories": [
     "Programming Languages",
@@ -31,9 +31,6 @@
     "completion",
     "rename",
     "vscode extension"
-  ],
-  "activationEvents": [
-    "onLanguage:thrift"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -57,7 +54,6 @@
         "path": "./syntaxes/thrift.tmLanguage.json"
       }
     ],
-
     "commands": [
       {
         "command": "thrift.format.document",

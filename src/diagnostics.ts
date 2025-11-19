@@ -511,12 +511,12 @@ function valueMatchesType(valueRaw: string, typeText: string, definedTypes: Set<
     }
 
     // For user types (structs, unions, exceptions, enums):
-    // - For enums, accept identifiers (not quoted)
+    // - For enums, accept identifiers or EnumName.ValueName format (not quoted)
     // - For others, accept quoted strings or valid identifiers
     const kind = kindMap.get(t);
     if (kind === 'enum') {
-        // Enum values should be identifiers, not quoted
-        return /^[A-Za-z_][A-Za-z0-9_]*$/.test(v);
+        // Enum values should be identifiers or EnumName.ValueName format, not quoted
+        return /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$/.test(v);
     }
     
     // For other user types, be lenient since we can't fully validate
@@ -1018,28 +1018,208 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
     return issues;
 }
 
-export function registerDiagnostics(context: vscode.ExtensionContext) {
-    const collection = vscode.languages.createDiagnosticCollection('thrift');
+// Cache for included files: uri -> { version, types }
+// We use version to invalidate cache when file changes
+interface CacheEntry {
+    version: number;
+    types: Map<string, string>;
+}
 
-    async function analyzeDocument(doc: vscode.TextDocument) {
-        if (doc.languageId !== 'thrift') {return;}
-
-        // Collect types from included files
-        const includedTypes = await collectIncludedTypes(doc);
-        const issues = analyzeThriftText(doc.getText(), doc.uri, includedTypes);
-        const diagnostics = issues.map(i => new vscode.Diagnostic(i.range, i.message, i.severity));
-        collection.set(doc.uri, diagnostics);
+class ThriftDiagnosticsManager {
+    private collection: vscode.DiagnosticCollection;
+    private cache: Map<string, CacheEntry> = new Map();
+    private pendingValidations: Map<string, { tokenSource: vscode.CancellationTokenSource, timeout: NodeJS.Timeout }> = new Map();
+    
+    constructor(context: vscode.ExtensionContext) {
+        this.collection = vscode.languages.createDiagnosticCollection('thrift');
+        context.subscriptions.push(this.collection);
+        
+        // Clear cache when files are closed to free memory, or we could keep them. 
+        // For now, let's keep them but maybe clear if memory is an issue. 
+        // Better strategy: invalidate on change/save.
     }
 
-    // Initial pass
+    public async scheduleAnalysis(doc: vscode.TextDocument, delay: number = 300) {
+        if (doc.languageId !== 'thrift') { return; }
+
+        const uriStr = doc.uri.toString();
+        
+        // Cancel any pending validation for this document
+        if (this.pendingValidations.has(uriStr)) {
+            const pending = this.pendingValidations.get(uriStr)!;
+            pending.tokenSource.cancel();
+            clearTimeout(pending.timeout);
+            this.pendingValidations.delete(uriStr);
+        }
+
+        const tokenSource = new vscode.CancellationTokenSource();
+        const timeout = setTimeout(async () => {
+            this.pendingValidations.delete(uriStr);
+            if (!tokenSource.token.isCancellationRequested) {
+                await this.analyzeDocument(doc, tokenSource.token);
+            }
+            tokenSource.dispose();
+        }, delay);
+
+        this.pendingValidations.set(uriStr, { tokenSource, timeout });
+    }
+
+    private async analyzeDocument(doc: vscode.TextDocument, token: vscode.CancellationToken) {
+        if (token.isCancellationRequested) { return; }
+
+        try {
+            // Collect types from included files with caching
+            const includedTypes = await this.collectIncludedTypes(doc, token);
+            if (token.isCancellationRequested) { return; }
+
+            const issues = analyzeThriftText(doc.getText(), doc.uri, includedTypes);
+            if (token.isCancellationRequested) { return; }
+
+            const diagnostics = issues.map(i => new vscode.Diagnostic(i.range, i.message, i.severity));
+            this.collection.set(doc.uri, diagnostics);
+        } catch (e) {
+            console.error('Error analyzing Thrift document:', e);
+        }
+    }
+
+    private async collectIncludedTypes(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<Map<string, string>> {
+        const includedTypes = new Map<string, string>();
+        const includedFiles = await getIncludedFiles(document);
+
+        for (const includedFile of includedFiles) {
+            if (token.isCancellationRequested) { break; }
+            
+            try {
+                const uriStr = includedFile.toString();
+                
+                // Check if we have a valid cache entry
+                // Note: We can't easily get the version of a file that isn't open.
+                // So for now, we'll try to open it. If it's already open, we get the doc.
+                // If not, we read from fs.
+                
+                // Optimization: If the file is open in VS Code, use its current state (including dirty changes).
+                // If not, use the file on disk.
+                
+                // To properly cache, we need a way to know if the file changed.
+                // We can rely on the extension's onDidChangeTextDocument to invalidate cache for open files.
+                // For closed files, we might assume they don't change often or we re-read.
+                // Given the "Problems fluctuating" issue, re-reading every time is the bottleneck.
+                
+                // Let's implement a simple cache that invalidates on file events.
+                let types: Map<string, string> | undefined;
+                
+                // Try to find open document first
+                const openDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === uriStr);
+                if (openDoc) {
+                    // If open, we can check version
+                    const entry = this.cache.get(uriStr);
+                    if (entry && entry.version === openDoc.version) {
+                        types = entry.types;
+                    } else {
+                        // Parse and cache
+                        types = parseTypesFromContent(openDoc.getText());
+                        this.cache.set(uriStr, { version: openDoc.version, types });
+                    }
+                } else {
+                    // File not open. We can use fs.stat to get mtime, or just cache and invalidate via watcher.
+                    // For simplicity and performance, let's just read it. 
+                    // But to fix the "duplicate scanning" we really want to avoid re-parsing if possible.
+                    // Let's use a simpler strategy: Cache it, and invalidate if we detect a change via watcher.
+                    // Since we don't have a watcher set up for all files, let's rely on VS Code's openTextDocument
+                    // which is relatively fast, but parsing is what we want to avoid.
+                    
+                    // For now, let's stick to: if cached, use it. We will invalidate cache on file events.
+                    const entry = this.cache.get(uriStr);
+                    if (entry) {
+                        types = entry.types;
+                    } else {
+                        const doc = await vscode.workspace.openTextDocument(includedFile);
+                        types = parseTypesFromContent(doc.getText());
+                        // Use doc.version or a timestamp. For closed files, version is usually 1 when opened.
+                        // We'll use a specialized version -1 for "read from disk" or similar if we tracked mtime.
+                        // But here we just opened it, so we have a version.
+                        this.cache.set(uriStr, { version: doc.version, types });
+                    }
+                }
+
+                if (types) {
+                    for (const [name, kind] of types) {
+                        if (!includedTypes.has(name)) {
+                            includedTypes.set(name, kind);
+                        }
+                    }
+                }
+            } catch (error) {
+                // File might not exist or be accessible, skip
+                continue;
+            }
+        }
+
+        return includedTypes;
+    }
+
+    public invalidateCache(uri: vscode.Uri) {
+        this.cache.delete(uri.toString());
+    }
+    
+    public clearDiagnostics(uri: vscode.Uri) {
+        this.collection.delete(uri);
+        this.pendingValidations.delete(uri.toString());
+    }
+    
+    public dispose() {
+        this.collection.dispose();
+        for (const pending of this.pendingValidations.values()) {
+            pending.tokenSource.cancel();
+            clearTimeout(pending.timeout);
+        }
+        this.pendingValidations.clear();
+    }
+}
+
+export function registerDiagnostics(context: vscode.ExtensionContext) {
+    const manager = new ThriftDiagnosticsManager(context);
+
+    // Initial pass for active editor
     if (vscode.window.activeTextEditor) {
-        analyzeDocument(vscode.window.activeTextEditor.document);
+        manager.scheduleAnalysis(vscode.window.activeTextEditor.document, 0);
     }
 
     context.subscriptions.push(
-        vscode.workspace.onDidOpenTextDocument(doc => analyzeDocument(doc)),
-        vscode.workspace.onDidChangeTextDocument(e => analyzeDocument(e.document)),
-        vscode.workspace.onDidSaveTextDocument(doc => analyzeDocument(doc)),
-        vscode.workspace.onDidCloseTextDocument(doc => collection.delete(doc.uri))
+        vscode.workspace.onDidOpenTextDocument(doc => manager.scheduleAnalysis(doc, 0)),
+        vscode.workspace.onDidChangeTextDocument(e => {
+            // Invalidate cache for this document as it changed
+            manager.invalidateCache(e.document.uri);
+            manager.scheduleAnalysis(e.document);
+        }),
+        vscode.workspace.onDidSaveTextDocument(doc => {
+            manager.invalidateCache(doc.uri);
+            manager.scheduleAnalysis(doc, 0);
+        }),
+        vscode.workspace.onDidCloseTextDocument(doc => {
+            // Optional: clear diagnostics when closed? 
+            // VS Code usually keeps them if they are generated by a collection.
+            // But for "Problems" view cleanup, it's often good to clear them if the user closes the file
+            // UNLESS it's a project-wide scanner. Here we only scan open files + includes.
+            // Let's clear to avoid stale errors.
+            manager.clearDiagnostics(doc.uri);
+        }),
+        
+        // Watch for file changes in the workspace to invalidate cache of included files
+        // that might not be open in editors.
+        vscode.workspace.createFileSystemWatcher('**/*.thrift').onDidChange(uri => {
+            manager.invalidateCache(uri);
+            // Trigger re-analysis of active document if it might include this file?
+            // That's complex to track reverse dependencies. 
+            // For now, just invalidating cache ensures next type check is fresh.
+            if (vscode.window.activeTextEditor) {
+                manager.scheduleAnalysis(vscode.window.activeTextEditor.document);
+            }
+        }),
+        vscode.workspace.createFileSystemWatcher('**/*.thrift').onDidDelete(uri => {
+            manager.invalidateCache(uri);
+        }),
+        
+        { dispose: () => manager.dispose() }
     );
 }
