@@ -97,12 +97,19 @@ service UserService {
   map<UserId, User> batchGetUsers(1: list<UserId> userIds)
 }
 
-// Constants - 常量定义
-const i32          MAX_USERS           = 10000                                   // 最大用户数限制
-const string       DEFAULT_NAMESPACE   = "com.example"                           // 默认命名空间
-const list<string> SUPPORTED_LANGUAGES = ["java", "python", "cpp", "javascript"] // 支持的编程语言列表 // HTTP错误代码映射表
-  const map<string, i32> ERROR_CODES = {
-  "NOT_FOUND": 404,        // 资源未找到
-  "VALIDATION_ERROR": 400, // 数据验证错误
-  "INTERNAL_ERROR": 500    // 内部服务器错误
-}
+// Constants with default values
+const i32 DEFAULT_PORT = 9090;
+const string DEFAULT_HOST = "localhost";
+const map<string, i32> STATUS_CODES = {
+"OK": 200,
+"ERROR": 500,
+"NOT_FOUND": 404
+};
+const list<string> SUPPORTED_VERSIONS = ["1.0", "2.0", "3.0"];
+
+// Additional test for const indentation
+const map<string, i32> TEST_ERROR_CODES = {
+"TEST_NOT_FOUND": 404,
+"TEST_VALIDATION_ERROR": 400,
+"TEST_INTERNAL_ERROR": 500
+};
