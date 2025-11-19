@@ -643,7 +643,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
 
         return {
             line,
-            type: (qualifier ? qualifier + ' ' : '') + type,
+            type: idPart + ': ' + (qualifier ? qualifier + ' ' : '') + type,
             name,
             suffix,
             comment,
@@ -795,9 +795,14 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             line += field.name;
         }
 
+        // Strip trailing comma/semicolon from suffix, then add uniform comma
         if (field.suffix) {
-            line += ' ' + field.suffix;
+            let cleanSuffix = field.suffix.trim().replace(/[,;]\s*$/, '');
+            if (cleanSuffix) {
+                line += ' ' + cleanSuffix;
+            }
         }
+        line += ',';
 
         if (field.annotation) {
             line += ' ' + field.annotation;
