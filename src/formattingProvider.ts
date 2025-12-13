@@ -1,7 +1,7 @@
-
 import * as vscode from 'vscode';
 import { ThriftFormatter } from './thriftFormatter';
-import { ThriftParser } from './thriftParser';
+import { ThriftParser } from './ast/parser'; // Changed to use AST parser
+import { ThriftParser as OldThriftParser } from './thriftParser'; // Import old parser for fallback
 import { ThriftFormattingOptions } from './interfaces';
 
 export class ThriftFormattingProvider implements vscode.DocumentFormattingEditProvider, vscode.DocumentRangeFormattingEditProvider {
@@ -106,7 +106,70 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
 
     // Compute initial context (indent level and whether inside struct/enum) from the content before the selection start
     private computeInitialContext(document: vscode.TextDocument, start: vscode.Position): { indentLevel: number; inStruct: boolean; inEnum: boolean } {
-        const parser = new ThriftParser();
+        try {
+            const before = document.getText(new vscode.Range(new vscode.Position(0, 0), start));
+            if (!before) {
+                return { indentLevel: 0, inStruct: false, inEnum: false };
+            }
+            
+            // Create a temporary document with only the text before the selection
+            const tempUri = document.uri.with({ path: document.uri.path + '.temp' });
+            const tempDoc = { getText: () => before, uri: tempUri, lineCount: start.line } as vscode.TextDocument;
+            
+            // Parse with AST parser
+            const astParser = new ThriftParser(tempDoc);
+            const ast = astParser.parse();
+            
+            // Count open structs/enums
+            let inStruct = false;
+            let inEnum = false;
+            let indentLevel = 0;
+            
+            const stack: Array<'struct' | 'enum'> = [];
+            
+            // Traverse the AST to find open blocks
+            const traverse = (node: any) => {
+                if (node.range && node.range.end.line >= start.line) {
+                    // This node ends after our position, check if it's an open block
+                    if ((node.type === 'Struct' || node.type === 'Union' || node.type === 'Exception') && 
+                        node.range.end.line > start.line) {
+                        stack.push('struct');
+                        inStruct = true;
+                    } else if (node.type === 'Enum' && node.range.end.line > start.line) {
+                        stack.push('enum');
+                        inEnum = true;
+                    }
+                }
+                
+                // Check children
+                if (node.body) {
+                    node.body.forEach(traverse);
+                } else if (node.fields) {
+                    node.fields.forEach(traverse);
+                } else if (node.members) {
+                    node.members.forEach(traverse);
+                } else if (node.functions) {
+                    node.functions.forEach(traverse);
+                }
+            };
+            
+            ast.body.forEach(traverse);
+            indentLevel = stack.length;
+
+            return {
+                indentLevel,
+                inStruct,
+                inEnum
+            };
+        } catch (e) {
+            // Fallback to old method if AST parsing fails
+            return this.computeInitialContextFallback(document, start);
+        }
+    }
+    
+    // Fallback method using the old regex-based approach
+    private computeInitialContextFallback(document: vscode.TextDocument, start: vscode.Position): { indentLevel: number; inStruct: boolean; inEnum: boolean } {
+        const parser = new OldThriftParser(); // Using the old ThriftParser from thriftParser.ts
         try {
             const before = document.getText(new vscode.Range(new vscode.Position(0, 0), start));
             if (!before) {

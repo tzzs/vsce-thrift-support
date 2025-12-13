@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import { ThriftDefinitionProvider } from './definitionProvider';
 import * as path from 'path';
+import { ThriftParser } from './ast/parser';
+import * as nodes from './ast/nodes';
 
 export class ThriftHoverProvider implements vscode.HoverProvider {
     async provideHover(

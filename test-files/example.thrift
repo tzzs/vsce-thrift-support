@@ -16,13 +16,13 @@ typedef string Email
 
 // Enum definition - 用户状态枚举
 enum Status {
-    A         = 10  # 测试A
-    B         = 20  # 测试B
-    C         = -1  # 测试C
-    ACTIVE    = 1 , // 活跃状态
-    INACTIVE  = 2 , // 非活跃状态
-    PENDING   = 3 , // 待审核状态
-    SUSPENDED = 4   // 暂停状态
+    ACTIVE    = 1, // 活跃状态
+    INACTIVE  = 2, // 非活跃状态
+    PENDING   = 3, // 待审核状态
+    SUSPENDED = 4  // 暂停状态
+    A         = 9  # 测试A
+    B         = 19 # 测试B
+    C         = -1 # 测试C
 }
 
 // Struct definition with various field types - 用户信息结构体

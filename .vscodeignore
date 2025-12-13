@@ -2,6 +2,8 @@
 .vscode-test/**
 out/test/**
 src/**
+tests/**
+test-files/**
 .gitignore
 .yarnrc
 vsc-extension-quickstart.md
@@ -11,3 +13,13 @@ vsc-extension-quickstart.md
 **/*.ts
 node_modules/**
 *.vsix
+tmp/**
+.github/**
+.lingma/**
+*.md
+docs/**
+.eslintcache
+.git-commit-msg.txt
+.gitmessage
+debug-typedef.js
+test_debug.js

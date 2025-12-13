@@ -1,0 +1,358 @@
+import * as vscode from 'vscode';
+import * as nodes from './nodes';
+
+export class ThriftParser {
+    private text: string;
+    private lines: string[];
+    private currentLine: number = 0;
+
+    constructor(document: vscode.TextDocument) {
+        this.text = document.getText();
+        this.lines = this.text.split(/\r?\n/);
+    }
+
+    public parse(): nodes.ThriftDocument {
+        const root: nodes.ThriftDocument = {
+            type: nodes.ThriftNodeType.Document,
+            range: new vscode.Range(0, 0, this.lines.length > 0 ? this.lines.length - 1 : 0,
+                this.lines.length > 0 ? this.lines[this.lines.length - 1].length : 0),
+            body: []
+        };
+
+        this.currentLine = 0;
+        while (this.currentLine < this.lines.length) {
+            const node = this.parseNextNode(root);
+            if (node) {
+                root.body.push(node);
+            } else {
+                this.currentLine++;
+            }
+        }
+
+        return root;
+    }
+
+    private parseNextNode(parent: nodes.ThriftNode): nodes.ThriftNode | null {
+        if (this.currentLine >= this.lines.length) {
+            return null;
+        }
+
+        const line = this.lines[this.currentLine];
+        const trimmed = line.trim();
+
+        // Skip empty lines and comments
+        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) {
+            this.currentLine++;
+            return null;
+        }
+
+        // Namespace
+        const namespaceMatch = trimmed.match(/^namespace\s+([a-zA-Z0-9_.]+)\s+([a-zA-Z0-9_.]+)/);
+        if (namespaceMatch) {
+            const node: nodes.Namespace = {
+                type: nodes.ThriftNodeType.Namespace,
+                range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+                parent: parent,
+                scope: namespaceMatch[1],
+                namespace: namespaceMatch[2],
+                name: namespaceMatch[2]
+            };
+            this.currentLine++;
+            return node;
+        }
+
+        // Include
+        const includeMatch = trimmed.match(/^include\s+['"](.+)['"]/);
+        if (includeMatch) {
+            const node: nodes.Include = {
+                type: nodes.ThriftNodeType.Include,
+                range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+                parent: parent,
+                path: includeMatch[1],
+                name: includeMatch[1]
+            };
+            this.currentLine++;
+            return node;
+        }
+
+        // Struct, Union, Exception
+        const structMatch = trimmed.match(/^(struct|union|exception)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+        if (structMatch) {
+            return this.parseStruct(parent, structMatch[1], structMatch[2]);
+        }
+
+        // Enum
+        const enumMatch = trimmed.match(/^enum\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+        if (enumMatch) {
+            return this.parseEnum(parent, enumMatch[1]);
+        }
+
+        // Service
+        const serviceMatch = trimmed.match(/^service\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s+extends\s+([a-zA-Z_][a-zA-Z0-9_.]*))?/);
+        if (serviceMatch) {
+            return this.parseService(parent, serviceMatch[1], serviceMatch[2]);
+        }
+
+        // Const
+        const constMatch = trimmed.match(/^const\s+([a-zA-Z0-9_<>]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=/);
+        if (constMatch) {
+            return this.parseConst(parent, constMatch[1], constMatch[2]);
+        }
+
+        // Typedef
+        const typedefMatch = trimmed.match(/^typedef\s+(.+)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+        if (typedefMatch) {
+            const node: nodes.Typedef = {
+                type: nodes.ThriftNodeType.Typedef,
+                range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+                parent: parent,
+                aliasType: typedefMatch[1],
+                name: typedefMatch[2]
+            };
+            this.currentLine++;
+            return node;
+        }
+
+        // Skip unrecognized lines
+        this.currentLine++;
+        return null;
+    }
+
+    private parseStruct(parent: nodes.ThriftNode, structType: string, name: string): nodes.Struct {
+        const startLine = this.currentLine;
+        const type = structType === 'exception' ? nodes.ThriftNodeType.Exception :
+            structType === 'union' ? nodes.ThriftNodeType.Union : nodes.ThriftNodeType.Struct;
+
+        const structNode: nodes.Struct = {
+            type: type,
+            name: name,
+            range: new vscode.Range(startLine, 0, startLine, 0), // Will be updated
+            parent: parent,
+            fields: []
+        };
+
+        // Parse body
+        this.currentLine = this.parseStructBody(structNode);
+        structNode.range = new vscode.Range(startLine, 0, this.currentLine,
+            this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
+        return structNode;
+    }
+
+    private parseStructBody(parent: nodes.Struct): number {
+        let braceCount = 0;
+        const startLine = this.currentLine;
+
+        // Find opening brace
+        while (this.currentLine < this.lines.length) {
+            const line = this.lines[this.currentLine];
+            if (line.includes('{')) {
+                braceCount++;
+                break;
+            }
+            this.currentLine++;
+        }
+
+        this.currentLine++; // Move past opening brace
+
+        // Parse fields until closing brace
+        while (this.currentLine < this.lines.length && braceCount > 0) {
+            const line = this.lines[this.currentLine];
+            const trimmed = line.trim();
+
+            if (trimmed.includes('{')) { braceCount++; }
+            if (trimmed.includes('}')) {
+                braceCount--;
+                if (braceCount <= 0) {
+                    this.currentLine++;
+                    break;
+                }
+            }
+
+            // Field regex: 1: optional string name,
+            const fieldMatch = trimmed.match(/^(\d+):\s*(?:(required|optional)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+            if (fieldMatch) {
+                const field: nodes.Field = {
+                    type: nodes.ThriftNodeType.Field,
+                    range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+                    parent: parent,
+                    id: parseInt(fieldMatch[1]),
+                    requiredness: fieldMatch[2] as 'required' | 'optional',
+                    fieldType: fieldMatch[3].trim(),
+                    name: fieldMatch[4]
+                };
+
+                // Check for default value
+                const defaultValueMatch = trimmed.match(/=\s*([^,;]+)/);
+                if (defaultValueMatch) {
+                    field.defaultValue = defaultValueMatch[1].trim();
+                }
+
+                parent.fields.push(field);
+            }
+
+            this.currentLine++;
+        }
+
+        return this.currentLine;
+    }
+
+    private parseEnum(parent: nodes.ThriftNode, name: string): nodes.Enum {
+        const startLine = this.currentLine;
+        const enumNode: nodes.Enum = {
+            type: nodes.ThriftNodeType.Enum,
+            name: name,
+            range: new vscode.Range(startLine, 0, startLine, 0), // Will be updated
+            parent: parent,
+            members: []
+        };
+
+        // Parse body
+        this.currentLine = this.parseEnumBody(enumNode);
+        enumNode.range = new vscode.Range(startLine, 0, this.currentLine,
+            this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
+        return enumNode;
+    }
+
+    private parseEnumBody(parent: nodes.Enum): number {
+        let braceCount = 0;
+        const startLine = this.currentLine;
+
+        // Find opening brace
+        while (this.currentLine < this.lines.length) {
+            const line = this.lines[this.currentLine];
+            if (line.includes('{')) {
+                braceCount++;
+                break;
+            }
+            this.currentLine++;
+        }
+
+        this.currentLine++; // Move past opening brace
+
+        // Parse members until closing brace
+        while (this.currentLine < this.lines.length && braceCount > 0) {
+            const line = this.lines[this.currentLine];
+            const trimmed = line.trim();
+
+            if (trimmed.includes('{')) { braceCount++; }
+            if (trimmed.includes('}')) {
+                braceCount--;
+                if (braceCount <= 0) {
+                    this.currentLine++;
+                    break;
+                }
+            }
+
+            // Enum Member: NAME = 1, or just NAME,
+            const memberMatch = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:=\s*(\d+|0x[0-9a-fA-F]+))?/);
+            if (memberMatch && trimmed && !trimmed.startsWith('//')) {
+                const member: nodes.EnumMember = {
+                    type: nodes.ThriftNodeType.EnumMember,
+                    range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+                    parent: parent,
+                    name: memberMatch[1],
+                    initializer: memberMatch[2]
+                };
+                parent.members.push(member);
+            }
+
+            this.currentLine++;
+        }
+
+        return this.currentLine;
+    }
+
+    private parseService(parent: nodes.ThriftNode, name: string, extendsClass: string | undefined): nodes.Service {
+        const startLine = this.currentLine;
+        const serviceNode: nodes.Service = {
+            type: nodes.ThriftNodeType.Service,
+            name: name,
+            extends: extendsClass,
+            range: new vscode.Range(startLine, 0, startLine, 0), // Will be updated
+            parent: parent,
+            functions: []
+        };
+
+        // Parse body
+        this.currentLine = this.parseServiceBody(serviceNode);
+        serviceNode.range = new vscode.Range(startLine, 0, this.currentLine,
+            this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
+        return serviceNode;
+    }
+
+    private parseServiceBody(parent: nodes.Service): number {
+        let braceCount = 0;
+        const startLine = this.currentLine;
+
+        // Find opening brace
+        while (this.currentLine < this.lines.length) {
+            const line = this.lines[this.currentLine];
+            if (line.includes('{')) {
+                braceCount++;
+                break;
+            }
+            this.currentLine++;
+        }
+
+        this.currentLine++; // Move past opening brace
+
+        // Parse functions until closing brace
+        while (this.currentLine < this.lines.length && braceCount > 0) {
+            const line = this.lines[this.currentLine];
+            const trimmed = line.trim();
+
+            if (trimmed.includes('{')) { braceCount++; }
+            if (trimmed.includes('}')) {
+                braceCount--;
+                if (braceCount <= 0) {
+                    this.currentLine++;
+                    break;
+                }
+            }
+
+            // Function: type name(args) throws (exceptions)
+            // Simplified match: just look for return type and name and parens
+            const funcMatch = trimmed.match(/^(?:(oneway)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
+            if (funcMatch) {
+                const funcNode: nodes.ThriftFunction = {
+                    type: nodes.ThriftNodeType.Function,
+                    range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+                    parent: parent,
+                    name: funcMatch[3],
+                    returnType: funcMatch[2].trim(),
+                    oneway: !!funcMatch[1],
+                    arguments: [],
+                    throws: []
+                };
+
+                parent.functions.push(funcNode);
+            }
+
+            this.currentLine++;
+        }
+
+        return this.currentLine;
+    }
+
+    private parseConst(parent: nodes.ThriftNode, valueType: string, name: string): nodes.Const {
+        const startLine = this.currentLine;
+        let endLine = this.currentLine;
+
+        // Simple heuristic for multi-line const: keep reading until we see a line ending with ;
+        while (endLine < this.lines.length && !this.lines[endLine].trim().endsWith(';')) {
+            endLine++;
+        }
+
+        const constNode: nodes.Const = {
+            type: nodes.ThriftNodeType.Const,
+            range: new vscode.Range(startLine, 0, endLine, this.lines[endLine] ? this.lines[endLine].length : 0),
+            parent: parent,
+            valueType: valueType,
+            name: name,
+            value: '' // TODO: extract value
+        };
+
+        this.currentLine = endLine + 1;
+        return constNode;
+    }
+}

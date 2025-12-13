@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { ThriftParser } from './ast/parser';
+import * as nodes from './ast/nodes';
 
 export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
     
@@ -283,27 +285,70 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         document: vscode.TextDocument,
         typeName: string
     ): Promise<vscode.Location | undefined> {
-        const text = document.getText();
-        const lines = text.split('\n');
+        // Use AST to find definition
+        const parser = new ThriftParser(document);
+        const ast = parser.parse();
+        
+        let foundLocation: vscode.Location | undefined = undefined;
+        
+        // Traverse AST to find the definition
+        this.traverseAST(ast, (node) => {
+            if (node.name === typeName) {
+                // Found the definition
+                foundLocation = new vscode.Location(document.uri, node.range);
+                return false; // Stop traversal
+            }
+            return true; // Continue traversal
+        });
+        
+        return foundLocation;
+    }
 
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            
-            // Check for struct, union, exception, enum, service, typedef definitions
-            const patterns = [
-                new RegExp(`^(struct|union|exception|enum|service)\\s+${typeName}\\b`),
-                new RegExp(`^typedef\\s+.+\\s+${typeName}\\b`)
-            ];
-
-            for (const pattern of patterns) {
-                if (pattern.test(line)) {
-                    const position = new vscode.Position(i, line.indexOf(typeName));
-                    return new vscode.Location(document.uri, position);
+    private traverseAST(node: nodes.ThriftNode, callback: (node: nodes.ThriftNode) => boolean): boolean {
+        // If callback returns false, stop traversal
+        if (!callback(node)) {
+            return false;
+        }
+        
+        // Handle specific node types with nested structures
+        if (node.type === nodes.ThriftNodeType.Struct || 
+            node.type === nodes.ThriftNodeType.Union || 
+            node.type === nodes.ThriftNodeType.Exception) {
+            const struct = node as nodes.Struct;
+            for (const field of struct.fields) {
+                if (!this.traverseAST(field, callback)) {
+                    return false;
+                }
+            }
+        } else if (node.type === nodes.ThriftNodeType.Enum) {
+            const enumNode = node as nodes.Enum;
+            for (const member of enumNode.members) {
+                if (!this.traverseAST(member, callback)) {
+                    return false;
+                }
+            }
+        } else if (node.type === nodes.ThriftNodeType.Service) {
+            const service = node as nodes.Service;
+            for (const func of service.functions) {
+                if (!this.traverseAST(func, callback)) {
+                    return false;
+                }
+            }
+        } else if (node.type === nodes.ThriftNodeType.Function) {
+            const func = node as nodes.ThriftFunction;
+            for (const arg of func.arguments) {
+                if (!this.traverseAST(arg, callback)) {
+                    return false;
+                }
+            }
+            for (const throwNode of func.throws) {
+                if (!this.traverseAST(throwNode, callback)) {
+                    return false;
                 }
             }
         }
-
-        return undefined;
+        
+        return true;
     }
 
     private async getIncludedFiles(document: vscode.TextDocument): Promise<vscode.Uri[]> {

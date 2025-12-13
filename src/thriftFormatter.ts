@@ -1,6 +1,7 @@
-
 import { ThriftFormattingOptions, StructField, EnumField, ConstField } from './interfaces';
 import { ThriftParser } from './thriftParser';
+import * as nodes from './ast/nodes';
+import { ThriftParser as AstParser } from './ast/parser';
 
 export class ThriftFormatter {
     private parser: ThriftParser;
@@ -10,6 +11,16 @@ export class ThriftFormatter {
     }
 
     public formatThriftCode(text: string, options: ThriftFormattingOptions): string {
+        // Create a temporary document to parse
+        const tempDocument = {
+            getText: () => text,
+            lineCount: text.split('\n').length
+        } as any;
+
+        // Use AST parser
+        const astParser = new AstParser(tempDocument);
+        const ast = astParser.parse();
+
         const lines = text.split('\n');
         const formattedLines: string[] = [];
         let indentLevel = (options.initialContext && typeof options.initialContext.indentLevel === 'number')
