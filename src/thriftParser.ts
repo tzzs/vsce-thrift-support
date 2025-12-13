@@ -68,7 +68,7 @@ export class ThriftParser {
 
         // Extract comment first
         let comment = '';
-        const commentMatch = remainder.match(/^(.*)(\/\/.*)$/);
+        const commentMatch = remainder.match(/^(.*)((?:\/\/|#).*)$/);
         if (commentMatch) {
             remainder = commentMatch[1].trim();
             comment = commentMatch[2];
@@ -129,7 +129,7 @@ export class ThriftParser {
 
     public parseEnumField(line: string): EnumField | null {
         // Parse enum field: ACTIVE = 1, // comment
-        const match = line.match(/^\s*(\w+)\s*=\s*([-+]?(?:\d+|0x[0-9a-fA-F]+))\s*([,;]?\s*(?:\/\/.*)?\s*)$/i);
+        const match = line.match(/^\s*(\w+)\s*=\s*([-+]?(?:\d+|0x[0-9a-fA-F]+))\s*([,;]?\s*(?:(?:\/\/|#).*)?\s*)$/i);
         if (!match) { return null; }
 
         const name = match[1];
@@ -137,7 +137,7 @@ export class ThriftParser {
         const suffixAndComment = match[3] || '';
 
         // Separate suffix (comma/semicolon) from comment
-        const commentMatch = suffixAndComment.match(/^([^/]*)(\/.+)$/);
+        const commentMatch = suffixAndComment.match(/^([^/#]*)((?:\/\/|#).+)$/);
         const suffix = commentMatch ? commentMatch[1].trim() : suffixAndComment.trim();
         const comment = commentMatch ? commentMatch[2] : '';
 

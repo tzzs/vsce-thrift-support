@@ -551,9 +551,9 @@ export class ThriftFormatter {
             }
 
             let valueStr = '' + f.value;
-            if (options.alignEnumValues) {
-                valueStr = valueStr.padEnd(maxValueWidth);
-            }
+            // if (options.alignEnumValues) {
+            //    valueStr = valueStr.padEnd(maxValueWidth);
+            // }
             base += valueStr;
 
             if (!hasSemicolon && options.trailingComma !== 'add' && hasComma) {
