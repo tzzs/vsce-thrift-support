@@ -8,3 +8,6 @@ enum SharedEnum {
     OPTION1 = 1,
     OPTION2 = 2
 }
+
+
+service SharedService {}
