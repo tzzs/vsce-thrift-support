@@ -1,5 +1,5 @@
 
-const { ThriftFormatter } = require('./out/thriftFormatter');
+const { ThriftFormatter } = require('../out/thriftFormatter');
 const fs = require('fs');
 
 const formatter = new ThriftFormatter();

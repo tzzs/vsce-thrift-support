@@ -1,6 +1,6 @@
 
-import { ThriftFormatter } from './src/thriftFormatter';
-import { ThriftFormattingOptions } from './src/interfaces';
+import { ThriftFormatter } from '../src/thriftFormatter';
+import { ThriftFormattingOptions } from '../src/interfaces';
 
 const formatter = new ThriftFormatter();
 const input = `
@@ -12,7 +12,7 @@ enum Status {
 `;
 
 const options: ThriftFormattingOptions = {
-    method: 'formatThriftCode', // Dummy, just to satisfy interface if needed, or unused
+    method: 'formatThriftCode',
     trailingComma: 'preserve',
     alignTypes: true,
     alignFieldNames: true,
