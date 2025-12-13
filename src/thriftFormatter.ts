@@ -189,6 +189,13 @@ export class ThriftFormatter {
                     continue;
                 }
 
+                // Flush accumulated enum fields before non-field separators/comments inside enum
+                if (enumFields.length > 0 && !this.parser.isEnumField(line)) {
+                    const formattedFields = this.formatEnumFields(enumFields, options, indentLevel);
+                    formattedLines.push(...formattedFields);
+                    enumFields = [];
+                }
+
                 if (this.parser.isEnumField(line)) {
                     const fieldInfo = this.parser.parseEnumField(line);
                     if (fieldInfo) {
@@ -238,14 +245,7 @@ export class ThriftFormatter {
         options: ThriftFormattingOptions,
         indentLevel: number
     ): string[] {
-        const sortedFields = [...fields].sort((a, b) => {
-            const aIdMatch = a.line.match(/^\s*(\d+):/);
-            const bIdMatch = b.line.match(/^\s*(\d+):/);
-            if (aIdMatch && bIdMatch) {
-                return parseInt(aIdMatch[1]) - parseInt(bIdMatch[1]);
-            }
-            return 0;
-        });
+        const sortedFields = fields;
 
         const needsAlignment = options.alignTypes || options.alignFieldNames || options.alignComments || options.alignAnnotations;
 

@@ -16,6 +16,9 @@ typedef string Email
 
 // Enum definition - 用户状态枚举
 enum Status {
+    A = 10 # 测试A
+    B = 20 # 测试B
+    C = -1 # 测试C
     ACTIVE    = 1, // 活跃状态
     INACTIVE  = 2, // 非活跃状态
     PENDING   = 3, // 待审核状态
@@ -39,8 +42,8 @@ struct User {
 
 struct Test2 {
     1: required i32    f1,# 123123
-    2: optional string      f2 = "", #1111
-    3: optional i32    f3 = 0, #())
+    2: optional string      F2URL = "", #测试f2
+    3: optional i32         f3 = 0, # ())
 }
 
 // Union definition - 搜索条件联合体

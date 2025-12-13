@@ -4,7 +4,7 @@ import { StructField, EnumField, ConstField } from './interfaces';
 export class ThriftParser {
     // Regex patterns
     public reStructField = /^\s*\d+:\s*(?:required|optional)?\s*.+$/;
-    public reEnumField = /^\s*\w+\s*=\s*\d+/;
+    public reEnumField = /^\s*\w+\s*=\s*[-+]?(?:\d+|0x[0-9a-fA-F]+)/;
     public reSpaceBeforeLt = /\s+</g;
     public reSpaceAfterLt = /<\s+/g;
     public reSpaceBeforeGt = /\s+>/g;
@@ -129,7 +129,7 @@ export class ThriftParser {
 
     public parseEnumField(line: string): EnumField | null {
         // Parse enum field: ACTIVE = 1, // comment
-        const match = line.match(/^\s*(\w+)\s*=\s*(\d+)\s*([,;]?\s*(?:\/\/.*)?\s*)$/);
+        const match = line.match(/^\s*(\w+)\s*=\s*([-+]?(?:\d+|0x[0-9a-fA-F]+))\s*([,;]?\s*(?:\/\/.*)?\s*)$/i);
         if (!match) { return null; }
 
         const name = match[1];
