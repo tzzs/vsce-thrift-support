@@ -62,8 +62,8 @@ function splitTopLevelAngles(typeInner: string): string[] {
     let depth = 0;
     for (let i = 0; i < typeInner.length; i++) {
         const ch = typeInner[i];
-        if (ch === '<') {depth++;}
-        if (ch === '>') {depth = Math.max(0, depth - 1);}
+        if (ch === '<') { depth++; }
+        if (ch === '>') { depth = Math.max(0, depth - 1); }
         if (ch === ',' && depth === 0) {
             parts.push(buf);
             buf = '';
@@ -71,7 +71,7 @@ function splitTopLevelAngles(typeInner: string): string[] {
             buf += ch;
         }
     }
-    if (buf) {parts.push(buf);}
+    if (buf) { parts.push(buf); }
     return parts.map(s => s.trim()).filter(Boolean);
 }
 
@@ -177,7 +177,7 @@ function stripCommentsFromLine(rawLine: string, state: { inBlock: boolean }): st
 
         // Handle string state and escapes
         if ((ch === '"' && !inS && !escaped) || (ch === "'" && !inD && !escaped)) {
-            if (ch === '"') {inD = !inD;} else {inS = !inS;}
+            if (ch === '"') { inD = !inD; } else { inS = !inS; }
             out += ch;
             i++;
             continue;
@@ -197,8 +197,10 @@ function stripCommentsFromLine(rawLine: string, state: { inBlock: boolean }): st
         }
 
         // Line comment start only if not inside a string
-        if (!inS && !inD && ch === '/' && next === '/') {
-            break; // ignore rest of the line
+        if (!inS && !inD) {
+            if ((ch === '/' && next === '/') || ch === '#') {
+                break; // ignore rest of the line
+            }
         }
 
         out += ch;
@@ -211,7 +213,7 @@ function stripCommentsFromLine(rawLine: string, state: { inBlock: boolean }): st
 function parseFieldSignature(codeLine: string): { id: number; typeText: string; name: string; typeStart: number; typeEnd: number } | null {
     const headerRe = /^(\s*)(\d+)\s*:\s*(?:required|optional)?\s*/;
     const m = headerRe.exec(codeLine);
-    if (!m) {return null;}
+    if (!m) { return null; }
     const id = parseInt(m[2], 10);
     let i = m[0].length;
     const n = codeLine.length;
@@ -221,20 +223,20 @@ function parseFieldSignature(codeLine: string): { id: number; typeText: string; 
     let angle = 0;
     let paren = 0;
     // skip leading spaces
-    while (i < n && /\s/.test(codeLine[i])) {i++;}
+    while (i < n && /\s/.test(codeLine[i])) { i++; }
     const typeStart = i;
     while (i < n) {
         const ch = codeLine[i];
-        if (ch === '<') {angle++;}
-        if (ch === '>') {angle = Math.max(0, angle - 1);}
-        if (ch === '(') {paren++;}
-        if (ch === ')') {paren = Math.max(0, paren - 1);}
+        if (ch === '<') { angle++; }
+        if (ch === '>') { angle = Math.max(0, angle - 1); }
+        if (ch === '(') { paren++; }
+        if (ch === ')') { paren = Math.max(0, paren - 1); }
 
         // termination: at outer level (no < or () depth) see whitespace then a name token next
         if (angle === 0 && paren === 0 && /\s/.test(ch)) {
             // peek next non-space run as potential name
             let j = i;
-            while (j < n && /\s/.test(codeLine[j])) {j++;}
+            while (j < n && /\s/.test(codeLine[j])) { j++; }
             const rest = codeLine.slice(j);
             const nameM = /^([A-Za-z_][A-Za-z0-9_]*)/.exec(rest);
             if (nameM) {
@@ -249,20 +251,20 @@ function parseFieldSignature(codeLine: string): { id: number; typeText: string; 
     const typeEnd = i; // exclusive
 
     // now parse field name
-    while (i < n && /\s/.test(codeLine[i])) {i++;}
+    while (i < n && /\s/.test(codeLine[i])) { i++; }
     const nameM = /^([A-Za-z_][A-Za-z0-9_]*)/.exec(codeLine.slice(i));
-    if (!nameM) {return null;}
+    if (!nameM) { return null; }
     const name = nameM[1];
 
     return { id, typeText: typeBuf.trim(), name, typeStart, typeEnd };
 }
 
 function isKnownType(typeName: string, definedTypes: Set<string>): boolean {
-    if (!typeName) {return false;}
+    if (!typeName) { return false; }
     const t = stripTypeAnnotations(typeName).trim();
-    if (PRIMITIVES.has(t)) {return true;}
-    if (definedTypes.has(t)) {return true;}
-    if (/^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/.test(t)) {return true;} // namespace.Type
+    if (PRIMITIVES.has(t)) { return true; }
+    if (definedTypes.has(t)) { return true; }
+    if (/^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/.test(t)) { return true; } // namespace.Type
     if (parseContainerType(t)) {
         const inner = t.slice(t.indexOf('<') + 1, t.lastIndexOf('>'));
         const parts = splitTopLevelAngles(inner);
@@ -281,32 +283,32 @@ function extractDefaultValue(codeLine: string): string | null {
         const ch = codeLine[i];
         if (inS) {
             if (!escaped && ch === '\\') { escaped = true; continue; }
-            if (!escaped && ch === '\'') {inS = false;}
+            if (!escaped && ch === '\'') { inS = false; }
             escaped = false;
             continue;
         }
         if (inD) {
             if (!escaped && ch === '\\') { escaped = true; continue; }
-            if (!escaped && ch === '"') {inD = false;}
+            if (!escaped && ch === '"') { inD = false; }
             escaped = false;
             continue;
         }
         if (ch === '\'') { inS = true; continue; }
         if (ch === '"') { inD = true; continue; }
-        if (ch === '<') {depthAngle++;}
-        else if (ch === '>') {depthAngle = Math.max(0, depthAngle - 1);}
-        else if (ch === '[') {depthBracket++;}
-        else if (ch === ']') {depthBracket = Math.max(0, depthBracket - 1);}
-        else if (ch === '{') {depthBrace++;}
-        else if (ch === '}') {depthBrace = Math.max(0, depthBrace - 1);}
-        else if (ch === '(') {depthParen++;}
-        else if (ch === ')') {depthParen = Math.max(0, depthParen - 1);}
+        if (ch === '<') { depthAngle++; }
+        else if (ch === '>') { depthAngle = Math.max(0, depthAngle - 1); }
+        else if (ch === '[') { depthBracket++; }
+        else if (ch === ']') { depthBracket = Math.max(0, depthBracket - 1); }
+        else if (ch === '{') { depthBrace++; }
+        else if (ch === '}') { depthBrace = Math.max(0, depthBrace - 1); }
+        else if (ch === '(') { depthParen++; }
+        else if (ch === ')') { depthParen = Math.max(0, depthParen - 1); }
         else if (ch === '=' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
             eq = i;
             break;
         }
     }
-    if (eq === -1) {return null;}
+    if (eq === -1) { return null; }
 
     // Capture value until a top-level comma/semicolon or annotation start '(' is reached
     let i = eq + 1;
@@ -319,7 +321,7 @@ function extractDefaultValue(codeLine: string): string | null {
         if (inS) {
             buf += ch;
             if (!escaped && ch === '\\') { escaped = true; i++; continue; }
-            if (!escaped && ch === '\'') {inS = false;}
+            if (!escaped && ch === '\'') { inS = false; }
             escaped = false;
             i++;
             continue;
@@ -327,7 +329,7 @@ function extractDefaultValue(codeLine: string): string | null {
         if (inD) {
             buf += ch;
             if (!escaped && ch === '\\') { escaped = true; i++; continue; }
-            if (!escaped && ch === '"') {inD = false;}
+            if (!escaped && ch === '"') { inD = false; }
             escaped = false;
             i++;
             continue;
@@ -335,12 +337,12 @@ function extractDefaultValue(codeLine: string): string | null {
         if (ch === '\'') { inS = true; buf += ch; i++; continue; }
         if (ch === '"') { inD = true; buf += ch; i++; continue; }
 
-        if (ch === '<') {depthAngle++;}
-        else if (ch === '>') {depthAngle = Math.max(0, depthAngle - 1);}
-        else if (ch === '[') {depthBracket++;}
-        else if (ch === ']') {depthBracket = Math.max(0, depthBracket - 1);}
-        else if (ch === '{') {depthBrace++;}
-        else if (ch === '}') {depthBrace = Math.max(0, depthBrace - 1);}
+        if (ch === '<') { depthAngle++; }
+        else if (ch === '>') { depthAngle = Math.max(0, depthAngle - 1); }
+        else if (ch === '[') { depthBracket++; }
+        else if (ch === ']') { depthBracket = Math.max(0, depthBracket - 1); }
+        else if (ch === '{') { depthBrace++; }
+        else if (ch === '}') { depthBrace = Math.max(0, depthBrace - 1); }
         else if (ch === '(' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
             // Annotation section begins; default value ends before annotations
             break;
@@ -377,23 +379,23 @@ function valueMatchesType(valueRaw: string, typeText: string, definedTypes: Set<
         return isQuotedString(v);
     }
     if (t === 'uuid') {
-        if (!isQuotedString(v)) {return false;}
+        if (!isQuotedString(v)) { return false; }
         const inner = v.slice(1, -1);
         return uuidRegex.test(inner);
     }
     if (/^list<.+>$/.test(t)) {
-        if (!(v.startsWith('[') && v.endsWith(']'))) {return false;}
+        if (!(v.startsWith('[') && v.endsWith(']'))) { return false; }
         const inner = v.slice(1, -1).trim();
-        if (inner.length === 0) {return true;} // allow empty list defaults: []
+        if (inner.length === 0) { return true; } // allow empty list defaults: []
         return true; // content validation is out of scope here
     }
     if (/^set<.+>$/.test(t)) {
         // Accept both {} and [] as set literals (be lenient for common authoring styles)
         const isBrace = v.startsWith('{') && v.endsWith('}');
         const isBracket = v.startsWith('[') && v.endsWith(']');
-        if (!isBrace && !isBracket) {return false;}
+        if (!isBrace && !isBracket) { return false; }
         const inner = v.slice(1, -1).trim();
-        if (inner.length === 0) {return true;} // allow empty set defaults: {} or []
+        if (inner.length === 0) { return true; } // allow empty set defaults: {} or []
         // heuristic: set has no ':' at top level
         const colonTopLevel = isBrace
             ? /:(?=(?:[^\{]*\{[^\}]*\})*[^\}]*$)/.test(v)
@@ -401,9 +403,9 @@ function valueMatchesType(valueRaw: string, typeText: string, definedTypes: Set<
         return !colonTopLevel;
     }
     if (/^map<.+>$/.test(t)) {
-        if (!(v.startsWith('{') && v.endsWith('}'))) {return false;}
+        if (!(v.startsWith('{') && v.endsWith('}'))) { return false; }
         const inner = v.slice(1, -1).trim();
-        if (inner.length === 0) {return true;} // allow empty map defaults: {}
+        if (inner.length === 0) { return true; } // allow empty map defaults: {}
         // heuristic: map has ':' at top level
         return /:(?=(?:[^\{]*\{[^\}]*\})*[^\}]*$)/.test(v);
     }
@@ -626,7 +628,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
                         typeCtxStack.push(pendingTypeKind);
                         inFieldBlock = (pendingTypeKind === 'struct' || pendingTypeKind === 'union' || pendingTypeKind === 'exception');
                         // reset field ids per block
-                        if (inFieldBlock) {currentFieldIds = new Set<number>();}
+                        if (inFieldBlock) { currentFieldIds = new Set<number>(); }
                         pendingTypeKind = null;
                     }
                 }
@@ -738,7 +740,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
                 // compute base type range within the line: after 'typedef' keyword and spaces
                 const afterTypedef = line.indexOf('typedef') + 'typedef'.length;
                 let baseStart = afterTypedef;
-                while (baseStart < line.length && /\s/.test(line[baseStart])) {baseStart++;}
+                while (baseStart < line.length && /\s/.test(line[baseStart])) { baseStart++; }
                 const baseEnd = baseStart + (mTypedef[2] ? mTypedef[2].length : 0);
                 issues.push({
                     message: `Unknown base type '${baseType}' in typedef`,
@@ -824,7 +826,7 @@ export function registerDiagnostics(context: vscode.ExtensionContext) {
     const collection = vscode.languages.createDiagnosticCollection('thrift');
 
     async function analyzeDocument(doc: vscode.TextDocument) {
-        if (doc.languageId !== 'thrift') {return;}
+        if (doc.languageId !== 'thrift') { return; }
 
         // Collect types from included files
         const includedTypes = await collectIncludedTypes(doc);
