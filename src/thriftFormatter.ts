@@ -254,6 +254,7 @@ export class ThriftFormatter {
         }
 
         let maxFieldIdWidth = 0;
+        let maxQualifierWidth = 0;
         let maxTypeWidth = 0;
         let maxNameWidth = 0;
         let maxAnnotationWidth = 0;
@@ -261,6 +262,7 @@ export class ThriftFormatter {
 
         const parsedFields = sortedFields.map(field => {
             maxFieldIdWidth = Math.max(maxFieldIdWidth, field.id.length);
+            maxQualifierWidth = Math.max(maxQualifierWidth, field.qualifier.length);
             maxTypeWidth = Math.max(maxTypeWidth, field.type.length);
             maxNameWidth = Math.max(maxNameWidth, field.name.length);
             if (options.alignAnnotations && field.annotation) {
@@ -272,7 +274,14 @@ export class ThriftFormatter {
         parsedFields.forEach(field => {
             let contentWidth = 0;
             contentWidth += maxFieldIdWidth + 2; // +2 for ": "
-            contentWidth += field.qualifier.length;
+
+            if (options.alignTypes) {
+                contentWidth += maxQualifierWidth;
+                if (maxQualifierWidth > 0) { contentWidth += 1; }
+            } else {
+                contentWidth += field.qualifier.length;
+                if (field.qualifier.length > 0) { contentWidth += 1; }
+            }
 
             if (options.alignTypes) {
                 contentWidth += maxTypeWidth;
@@ -323,7 +332,13 @@ export class ThriftFormatter {
                 if (!f || !f.annotation) { return; }
                 let w = 0;
                 w += maxFieldIdWidth + 2;
-                w += f.qualifier.length;
+                if (options.alignTypes) {
+                    w += maxQualifierWidth;
+                    if (maxQualifierWidth > 0) { w += 1; }
+                } else {
+                    w += f.qualifier.length;
+                    if (f.qualifier.length > 0) { w += 1; }
+                }
                 w += (options.alignTypes ? maxTypeWidth : f.type.length);
                 w += 1;
                 if (options.alignFieldNames) {
@@ -370,7 +385,13 @@ export class ThriftFormatter {
             const fieldIdWithColon = field.id + ':';
             formattedLine += fieldIdWithColon.padEnd(maxFieldIdWidth + 1) + ' ';
 
-            formattedLine += field.qualifier;
+            if (options.alignTypes) {
+                formattedLine += field.qualifier.padEnd(maxQualifierWidth);
+                if (maxQualifierWidth > 0) { formattedLine += ' '; }
+            } else {
+                formattedLine += field.qualifier;
+                if (field.qualifier.length > 0) { formattedLine += ' '; }
+            }
 
             if (options.alignTypes) {
                 formattedLine += field.type.padEnd(maxTypeWidth);
@@ -441,9 +462,7 @@ export class ThriftFormatter {
                     if (options.alignComments) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
                         const diff = maxContentWidth - currentWidth;
-                        const basePad = (options.alignAnnotations && hasComma && options.trailingComma !== 'add')
-                            ? Math.max(1, diff)
-                            : Math.max(1, diff + 1);
+                        const basePad = Math.max(1, diff + 1);
                         const padSpaces = commentCount > 1 ? basePad : 1;
                         formattedLine += ' '.repeat(padSpaces) + field.comment;
                     } else {
@@ -479,9 +498,7 @@ export class ThriftFormatter {
                     if (options.alignComments) {
                         const currentWidth = formattedLine.length - this.getIndent(indentLevel, options).length;
                         const diff = maxContentWidth - currentWidth;
-                        const basePad = (options.alignAnnotations && hasComma && options.trailingComma !== 'add')
-                            ? Math.max(1, diff)
-                            : Math.max(1, diff + 1);
+                        const basePad = Math.max(1, diff + 1);
                         const padSpaces = commentCount > 1 ? basePad : 1;
                         formattedLine += ' '.repeat(padSpaces) + field.comment;
                     } else {

@@ -62,7 +62,7 @@ export class ThriftParser {
 
         // Extract id and qualifier from prefix
         // prefix is like "1: required " or "1: "
-        const idQualMatch = prefix.match(/^\s*(\d+):\s*((?:required|optional)?\s*)/);
+        const idQualMatch = prefix.match(/^\s*(\d+):\s*((?:required|optional)?)\s*/);
         const id = idQualMatch ? idQualMatch[1] : '';
         const qualifier = idQualMatch ? idQualMatch[2] : '';
 
