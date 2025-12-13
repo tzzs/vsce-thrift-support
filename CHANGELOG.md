@@ -1,5 +1,20 @@
 # Changelog | 更新日志
 
+## [0.7.0](https://github.com/tzzs/vsce-thrift-support/compare/v0.6.1...v0.7.0) (2025-12-13)
+
+
+### Features
+
+* **build:** optimise packing performance ([5c55b42](https://github.com/tzzs/vsce-thrift-support/commit/5c55b42b906da1d9864a57dd5ea070400fd31e0a))
+* **style:** Optimise formatting issues ([7e3c43c](https://github.com/tzzs/vsce-thrift-support/commit/7e3c43c7ac686246bc472141c61953d131045baa))
+* **style:** Optimise formatting issues ([7bb7566](https://github.com/tzzs/vsce-thrift-support/commit/7bb7566b93f2645205f75eb8292ca48282709802))
+
+
+### Bug Fixes
+
+* optimising the sorting order of enumerations after formatting ([67d8d84](https://github.com/tzzs/vsce-thrift-support/commit/67d8d8461e31d27ca225f4126c704eabe35b3cfb))
+* reslove comment error ([0a104da](https://github.com/tzzs/vsce-thrift-support/commit/0a104daf38711c79144a5e6474190ab42e2e8598))
+
 ## [0.6.1](https://github.com/tzzs/vsce-thrift-support/compare/v0.6.0...v0.6.1) (2025-10-16)
 
 
