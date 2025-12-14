@@ -145,7 +145,7 @@
     "clean": "rimraf out",
     "build": "npm run clean && npm run compile",
     "package": "npx @vscode/vsce package",
-    "package:local": "npm run clean && npm run compile && node ./node_modules/@vscode/vsce/bin/cli.js package",
+    "package:local": "npm run clean && npm run compile && npx @vscode/vsce package",
     "package:mem": "node --max-old-space-size=4096 ./node_modules/@vscode/vsce/bin/cli.js package",
     "publish": "npx @vscode/vsce publish",
     "test": "node tests/test-include-navigation-fix.js",
