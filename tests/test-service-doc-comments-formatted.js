@@ -1,35 +1,48 @@
 const fs = require('fs');
 const path = require('path');
-
-// Import the formatter
 const { ThriftFormatter } = require('../out/thriftFormatter');
 
 /**
- * 专门测试服务中文档注释的缩进
- * 文档注释应该使用2空格缩进，与方法同级
+ * 测试服务中文档注释的缩进 - 格式化文件后检查
  */
-function testServiceDocComments() {
+function testServiceDocCommentsAfterFormat() {
     const filePath = path.join(__dirname, '../test-files/example.thrift');
     const content = fs.readFileSync(filePath, 'utf8');
     
-    // Format the content first
+    // 格式化文件内容
     const formatter = new ThriftFormatter();
     const options = {
         insertSpaces: true,
         indentSize: 2
     };
     
-    const formattedContent = formatter.format(content, options);
+    console.log('=== 格式化前的内容 ===');
+    const lines = content.split('\n');
+    lines.forEach((line, i) => {
+        if (line.includes('/**') || line.includes('*') || line.includes('*/')) {
+            console.log(`${i + 1}: "${line}"`);
+        }
+    });
     
-    const lines = formattedContent.split('\n');
+    const formatted = formatter.format(content, options);
+    
+    console.log('\n=== 格式化后的内容 ===');
+    const formattedLines = formatted.split('\n');
+    formattedLines.forEach((line, i) => {
+        if (line.includes('/**') || line.includes('*') || line.includes('*/')) {
+            console.log(`${i + 1}: "${line}"`);
+        }
+    });
+    
+    // 检查格式化后的结果
     let inUserService = false;
     let serviceBraceCount = 0;
     let errors = [];
     
-    console.log('=== 测试服务中文档注释缩进 ===\n');
+    console.log('\n=== 检查格式化后的文档注释缩进 ===');
     
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
+    for (let i = 0; i < formattedLines.length; i++) {
+        const line = formattedLines[i];
         const lineNum = i + 1;
         
         // 检测进入UserService
@@ -88,8 +101,8 @@ function testServiceDocComments() {
 }
 
 if (require.main === module) {
-    const success = testServiceDocComments();
+    const success = testServiceDocCommentsAfterFormat();
     process.exit(success ? 0 : 1);
 }
 
-module.exports = { testServiceDocComments };
+module.exports = { testServiceDocCommentsAfterFormat };
