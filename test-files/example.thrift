@@ -123,3 +123,20 @@ enum Status {
     Init = 1  // 测试;
     End  = 20 // 初始化;
 }
+
+
+struct PingRequest {
+    1: required string ping
+}
+
+struct PingResponse {
+    1: required string pong
+}
+
+service TestService {
+    // ping
+    PingResponse Ping(
+        1: required trace.Trace traceInfo,
+        2: required PingRequest request
+    )
+}

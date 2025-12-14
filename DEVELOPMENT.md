@@ -4,7 +4,7 @@
 
 ## 版本要求（务必统一）
 - Node.js: 22.18.0（与 CI 一致）
-- VS Code 引擎: ^1.74.0（与 package.json engines.vscode 一致）
+- VS Code 引擎: ^1.75.0（与 package.json engines.vscode 一致）
 - TypeScript: ^4.9.4（与 devDependencies 一致）
 - @vscode/vsce: ^3.6.0（用于本地打包/发布，已从旧版 vsce 升级）
 
@@ -38,7 +38,7 @@ thrift-support/
 
 ### 模块划分
 - 扩展入口（Extension）— <mcfile name="extension.ts" path="src/extension.ts"></mcfile>
-  - 激活时机：onLanguage:thrift
+  - 激活时机：onLanguage:thrift （当 targeting VS Code >= 1.75.0 时会自动从 contributions 生成）
   - 注册命令与提供者（格式化、跳转到定义、重命名、Code Actions）
   - 暴露/绑定重构命令：`thrift.refactor.extractType`、`thrift.refactor.moveType`
   - 读取并响应配置变更

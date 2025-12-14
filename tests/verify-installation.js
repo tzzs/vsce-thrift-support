@@ -147,8 +147,9 @@ try {
     // 检查关键配置
     const checks = [
         { key: 'main', expected: './out/extension.js', actual: packageJson.main },
-        { key: 'activationEvents', expected: 'onLanguage:thrift', actual: packageJson.activationEvents?.[0] },
-        { key: 'engines.vscode', expected: '^1.74.0', actual: packageJson.engines?.vscode }
+        // Activation events are generated automatically when targeting VS Code >= 1.75.0
+        { key: 'activationEvents', expected: undefined, actual: packageJson.activationEvents?.[0] },
+        { key: 'engines.vscode', expected: '^1.75.0', actual: packageJson.engines?.vscode }
     ];
     
     checks.forEach(check => {
@@ -182,7 +183,7 @@ try {
 // 5. 安装建议
 console.log('\n5. 安装建议:');
 console.log('=' .repeat(50));
-console.log('1. 确保VSCode版本 >= 1.74.0');
+console.log('1. 确保VSCode版本 >= 1.75.0');
 console.log('2. 卸载旧版本的Thrift插件');
 console.log('3. 安装新插件: code --install-extension thrift-support-0.1.0.vsix');
 console.log('4. 重启VSCode');
