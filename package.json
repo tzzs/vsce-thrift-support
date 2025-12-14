@@ -2,7 +2,7 @@
   "name": "thrift-support",
   "displayName": "Thrift Support",
   "description": "Apache Thrift language support: syntax highlighting, formatting, diagnostics, navigation, completion, and rename",
-  "version": "0.7.14",
+  "version": "0.7.1",
   "publisher": "tanzz",
   "icon": "icon.png",
   "repository": {
@@ -32,7 +32,6 @@
     "rename",
     "vscode extension"
   ],
-  
   "main": "./out/extension.js",
   "contributes": {
     "languages": [

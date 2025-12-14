@@ -1,5 +1,13 @@
 # Changelog | 更新日志
 
+## [0.7.1](https://github.com/tzzs/vsce-thrift-support/compare/v0.7.0...v0.7.1) (2025-12-14)
+
+
+### Bug Fixes
+
+* Fix service documentation comment indentation and alignment issues ([061676a](https://github.com/tzzs/vsce-thrift-support/commit/061676a88a0fb9f248c9b720227fddbbfcdbbd1d))
+* opti format ([10058d3](https://github.com/tzzs/vsce-thrift-support/commit/10058d323961b994961e9874d203864390275c5f))
+
 ## [0.7.0](https://github.com/tzzs/vsce-thrift-support/compare/v0.6.1...v0.7.0) (2025-12-13)
 
 
