@@ -10,23 +10,31 @@ export class ThriftFormatter {
         this.parser = new ThriftParser();
     }
 
-    public formatThriftCode(text: string, options: ThriftFormattingOptions): string {
-        // Create a temporary document to parse
-        const tempDocument = {
-            getText: () => text,
-            lineCount: text.split('\n').length
-        } as any;
-
-        // Use AST parser
-        const astParser = new AstParser(tempDocument);
-        const ast = astParser.parse();
-
-        const lines = text.split('\n');
+    public format(content: string, options: ThriftFormattingOptions = {
+        trailingComma: 'preserve',
+        alignTypes: true,
+        alignFieldNames: true,
+        alignStructDefaults: false,
+        alignAnnotations: true,
+        alignComments: true,
+        alignEnumNames: true,
+        alignEnumEquals: true,
+        alignEnumValues: true,
+        indentSize: 4,
+        maxLineLength: 100,
+        collectionStyle: 'preserve',
+        insertSpaces: true,
+        tabSize: 4
+    }): string {
+        const lines = content.split(/\r?\n/);
         const formattedLines: string[] = [];
         let indentLevel = (options.initialContext && typeof options.initialContext.indentLevel === 'number')
             ? options.initialContext.indentLevel : 0;
         let inStruct = !!(options.initialContext && options.initialContext.inStruct);
         let inEnum = !!(options.initialContext && options.initialContext.inEnum);
+        let inService = !!(options.initialContext && options.initialContext.inService);
+        let serviceIndentLevel = (options.initialContext && typeof options.initialContext.indentLevel === 'number')
+            ? options.initialContext.indentLevel : 0;
         let structFields: StructField[] = [];
         let enumFields: EnumField[] = [];
         let constFields: ConstField[] = [];
@@ -56,7 +64,14 @@ export class ThriftFormatter {
                     j++;
                 }
 
-                const indentStr = this.getIndent(indentLevel, options);
+                // Use service indent if we're inside a service, otherwise use regular indent
+                let indentStr: string;
+                if (inService) {
+                    // Documentation comments inside services should use method-level indent (2 spaces)
+                    indentStr = this.getServiceIndent(serviceIndentLevel + 1, options);
+                } else {
+                    indentStr = this.getIndent(indentLevel, options);
+                }
 
                 // Single-line block comment
                 if (commentLines.length === 1) {
@@ -74,13 +89,16 @@ export class ThriftFormatter {
                     let mid = commentLines[k].trim();
                     if (mid.startsWith('*')) { mid = mid.slice(1); }
                     mid = mid.replace(/^\s*/, '');
+                    // For proper alignment, add a space after the indent to align * with the first * in /**
+                    const alignmentSpace = ' ';
                     if (mid.length > 0) {
-                        formattedLines.push(indentStr + ' * ' + mid);
+                        formattedLines.push(indentStr + alignmentSpace + '* ' + mid);
                     } else {
-                        formattedLines.push(indentStr + ' *');
+                        formattedLines.push(indentStr + alignmentSpace + '*');
                     }
                 }
 
+                // For proper alignment, add a space before */ to align with the first * in /**
                 formattedLines.push(indentStr + ' */');
                 i = j - 1;
                 continue;
@@ -97,7 +115,11 @@ export class ThriftFormatter {
 
             // Skip empty lines and line comments
             if (!line || line.startsWith('//') || line.startsWith('#')) {
-                formattedLines.push(this.getIndent(indentLevel, options) + line);
+                if (inService) {
+                    formattedLines.push(this.getServiceIndent(serviceIndentLevel + 1, options) + line);
+                } else {
+                    formattedLines.push(this.getIndent(indentLevel, options) + line);
+                }
                 continue;
             }
 
@@ -138,7 +160,7 @@ export class ThriftFormatter {
                 continue;
             }
 
-            // Handle struct/union/exception/service definitions
+            // Handle struct/union/exception definitions
             if (this.parser.isStructStart(line)) {
                 if (line.includes('{') && line.includes('}')) {
                     formattedLines.push(this.getIndent(indentLevel, options) + line);
@@ -147,6 +169,20 @@ export class ThriftFormatter {
                 formattedLines.push(this.getIndent(indentLevel, options) + line);
                 indentLevel++;
                 inStruct = true;
+                continue;
+            }
+
+            // Handle service definitions
+            if (this.parser.isServiceStart(line)) {
+                if (line.includes('{') && line.includes('}')) {
+                    formattedLines.push(this.getIndent(indentLevel, options) + line);
+                    continue;
+                }
+                formattedLines.push(this.getIndent(indentLevel, options) + line);
+                // For service, we want methods to be indented 2 spaces, not 4
+                // So we don't increment indentLevel here, but track service state
+                inService = true;
+                serviceIndentLevel = indentLevel;  // Track the service base level
                 continue;
             }
             if (inStruct) {
@@ -175,6 +211,44 @@ export class ThriftFormatter {
                         continue;
                     }
                 }
+            }
+
+            // Handle service content
+            if (inService) {
+                if (line.startsWith('}')) {
+                    inService = false;
+                    formattedLines.push(this.getServiceIndent(serviceIndentLevel, options) + line);
+                    continue;
+                }
+
+                // Handle service method parameters (lines starting with digit like "1: required Type param,")
+                if (/^\s*\d+:\s*/.test(line)) {
+                    // This is a service method parameter, use 4-space indent (2 levels)
+                    // Following Apache Thrift standard where parameters are indented more than methods
+                    const paramIndent = this.getServiceIndent(serviceIndentLevel + 2, options);
+                    formattedLines.push(paramIndent + line.trim());
+                    continue;
+                }
+
+                if (this.parser.reServiceMethod.test(line)) {
+                    const normalized = this.normalizeGenericsInSignature(line);
+                    // Service methods should use 2-space indent from service level
+                    const methodIndent = this.getServiceIndent(serviceIndentLevel + 1, options);
+                    formattedLines.push(methodIndent + normalized);
+                    continue;
+                }
+
+                // Handle comments and other content in service
+                // Special handling for documentation comments
+                if (line.trim().startsWith('/**') || line.trim().startsWith('*') || line.trim().startsWith('*/')) {
+                    // Documentation comments should be at the same level as methods (2 spaces)
+                    // Trim the line and re-indent to ensure consistent formatting
+                    formattedLines.push(this.getServiceIndent(serviceIndentLevel + 1, options) + line.trim());
+                } else {
+                    // Other content (like regular comments)
+                    formattedLines.push(this.getServiceIndent(serviceIndentLevel + 1, options) + line);
+                }
+                continue;
             }
 
             if (this.parser.isEnumStart(line)) {
@@ -243,12 +317,21 @@ export class ThriftFormatter {
     }
 
     public getIndent(level: number, options: ThriftFormattingOptions): string {
-        const indentSize = options.indentSize || 4;
+        const indentSize = options.indentSize || 2;  // Default to 2 spaces for standard formatting
         if (options.insertSpaces) {
             return ' '.repeat(level * indentSize);
         } else {
             return '\t'.repeat(level);
         }
+    }
+
+    public getServiceIndent(level: number, options: ThriftFormattingOptions): string {
+        // For service content, use the same indentation as other code elements
+        // Following standard 2-space indentation like Apache Thrift official examples
+        const indentSize = options.indentSize || 2;
+        const result = options.insertSpaces ? ' '.repeat(level * indentSize) : '\t'.repeat(level);
+        console.log(`DEBUG: getServiceIndent(level=${level}, indentSize=${indentSize}) => '${result.replace(/ /g, '_')}'`);
+        return result;
     }
 
     private formatStructFields(
@@ -856,5 +939,10 @@ export class ThriftFormatter {
         }
         const normalized = res.join('');
         return comment ? `${normalized} ${comment}` : normalized;
+    }
+
+    public formatThriftCode(text: string, options: ThriftFormattingOptions): string {
+        // Delegate to the existing format method
+        return this.format(text, options);
     }
 }

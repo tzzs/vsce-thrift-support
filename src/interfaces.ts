@@ -14,7 +14,7 @@ export interface ThriftFormattingOptions {
     collectionStyle: 'preserve' | 'multiline' | 'auto';
     insertSpaces: boolean;
     tabSize: number;
-    initialContext?: { indentLevel: number; inStruct: boolean; inEnum: boolean };
+    initialContext?: { indentLevel: number; inStruct: boolean; inEnum: boolean; inService?: boolean };
 }
 
 export interface StructField {

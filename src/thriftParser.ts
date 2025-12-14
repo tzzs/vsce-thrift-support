@@ -13,7 +13,11 @@ export class ThriftParser {
     public reServiceMethod = /^\s*(oneway\s+)?[A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]*>)?\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)(\s*throws\s*\([^)]*\))?\s*[;,]?$/;
 
     public isStructStart(line: string): boolean {
-        return /^(struct|union|exception|service)\b/.test(line);
+        return /^(struct|union|exception)\b/.test(line);
+    }
+
+    public isServiceStart(line: string): boolean {
+        return /^service\b/.test(line);
     }
 
     public isEnumStart(line: string): boolean {

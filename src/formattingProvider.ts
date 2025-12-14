@@ -90,7 +90,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             alignEnumNames: alignNames,
             alignEnumEquals: resolvedAlignEnumEquals,
             alignEnumValues: resolvedAlignEnumValues,
-            indentSize: getOpt('indentSize', 4),
+            indentSize: options.indentSize || getOpt('indentSize', 4),
             maxLineLength: getOpt('maxLineLength', 100),
             collectionStyle: getOpt('collectionStyle', 'preserve'),
             insertSpaces: options.insertSpaces,
