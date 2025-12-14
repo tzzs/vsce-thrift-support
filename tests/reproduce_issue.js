@@ -1,8 +1,7 @@
-
-const { ThriftFormatter } = require('../out/thriftFormatter');
-const fs = require('fs');
-
-const formatter = new ThriftFormatter();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const thriftFormatter_1 = require("../src/thriftFormatter");
+const formatter = new thriftFormatter_1.ThriftFormatter();
 const input = `
 enum Status {
     A = 10
@@ -10,7 +9,6 @@ enum Status {
     ACTIVE = 1
 }
 `;
-
 const options = {
     method: 'formatThriftCode',
     trailingComma: 'preserve',
@@ -28,12 +26,7 @@ const options = {
     insertSpaces: true,
     tabSize: 4
 };
-
-try {
-    const output = formatter.formatThriftCode(input, options);
-    fs.writeFileSync('reproduce_output.txt', '---Input---\n' + input + '\n---Output---\n' + output);
-    console.log('Success');
-} catch (e) {
-    fs.writeFileSync('reproduce_output.txt', 'Error: ' + e.toString());
-    console.error(e);
-}
+const output = formatter.formatThriftCode(input, options);
+const fs = require('fs');
+fs.writeFileSync('reproduce_output.txt', '---Input---\n' + input + '\n---Output---\n' + output);
+//# sourceMappingURL=reproduce_issue.js.map

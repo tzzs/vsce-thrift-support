@@ -8,6 +8,7 @@
 # - type 必填；scope 可选；如有破坏性变更，可在 type 或 scope 后添加感叹号 !，或在 footer 中使用 BREAKING CHANGE: 进行说明
 # - 冒号后必须有一个空格；<description> 为简短摘要
 # - <description> 与 body（可选）之间空一行；body 与 footer（可选）之间再空一行
+# - 默认使用英文输出
 #
 # 语义化版本关系（规范仅对以下两类有隐含语义，其他类型无内建语义）：
 # - feat: 新功能（对应 SemVer 的 MINOR）

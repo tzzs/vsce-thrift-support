@@ -16,13 +16,13 @@ typedef string Email
 
 // Enum definition - 用户状态枚举
 enum Status {
-    A         = 10  # 测试A
-    B         = 20  # 测试B
-    C         = -1  # 测试C
-    ACTIVE    = 1 , // 活跃状态
-    INACTIVE  = 2 , // 非活跃状态
-    PENDING   = 3 , // 待审核状态
-    SUSPENDED = 4   // 暂停状态
+    ACTIVE    = 1, // 活跃状态
+    INACTIVE  = 2, // 非活跃状态
+    PENDING   = 3, // 待审核状态
+    SUSPENDED = 4  // 暂停状态
+    A         = 9  # 测试A
+    B         = 19 # 测试B
+    C         = -1 # 测试C
 }
 
 // Struct definition with various field types - 用户信息结构体
@@ -122,4 +122,21 @@ const list<string> SUPPORTED_LANGUAGES = ["java", "python", "cpp", "javascript"]
 enum Status {
     Init = 1  // 测试;
     End  = 20 // 初始化;
+}
+
+
+struct PingRequest {
+    1: required string ping
+}
+
+struct PingResponse {
+    1: required string pong
+}
+
+service TestService {
+    // ping
+    PingResponse Ping(
+        1: required trace.Trace traceInfo,
+        2: required PingRequest request
+    )
 }

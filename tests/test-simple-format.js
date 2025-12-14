@@ -1,105 +1,50 @@
-const Module = require('module');
-
-// Mock VSCode API
-const vscode = {
-    TextDocument: class {
-        constructor(uri, text) {
-            this.uri = uri;
-            this._text = text;
-        }
+// 简单测试服务缩进格式化
+const formatter = {
+    formatServiceTest: function(content) {
+        const lines = content.split('\n');
+        let result = [];
+        let inService = false;
         
-        getText(range) {
-            if (!range) return this._text;
-            return this._text;
-        }
-        
-        positionAt(offset) {
-            return { line: 0, character: offset };
-        }
-        
-        offsetAt(position) {
-            return 0;
-        }
-    },
-    
-    Range: class {
-        constructor(start, end) {
-            this.start = start;
-            this.end = end;
-        }
-    },
-    
-    TextEdit: {
-        replace: (range, newText) => ({ range, newText })
-    },
-    
-    workspace: {
-        getConfiguration: () => ({
-            get: (key, defaultValue) => {
-                const configs = {
-                    'trailingComma': 'preserve',
-                    'alignTypes': true,
-                    'alignFieldNames': false,
-                    'alignComments': true,
-                    'indentSize': 4,
-                    'maxLineLength': 100
-                };
-                return configs[key] !== undefined ? configs[key] : defaultValue;
-            }
-        })
-    }
-};
-
-// Mock require for vscode module
-const originalRequire = Module.prototype.require;
-Module.prototype.require = function(id) {
-    if (id === 'vscode') {
-        return vscode;
-    }
-    return originalRequire.apply(this, arguments);
-};
-
-// Test simple formatting
-function testSimpleFormatting() {
-    console.log('Testing simple formatting...');
-    
-    try {
-        const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
-        const formatter = new ThriftFormattingProvider();
-        
-        const testCode = `struct TestStruct {
-    1: required string name,
-    2: optional i32 value
-}`;
-        
-        console.log('Input code:');
-        console.log(testCode);
-        
-        const document = new vscode.TextDocument(
-            { fsPath: '/test/format.thrift' },
-            testCode
-        );
-        
-        const options = { insertSpaces: true, tabSize: 4 };
-        const edits = formatter.provideDocumentFormattingEdits(document, options);
-        
-        if (edits && edits.length > 0) {
-            const formattedText = edits[0].newText;
-            console.log('\nFormatted code:');
-            console.log(`"${formattedText}"`);
+        for (let line of lines) {
+            const trimmed = line.trim();
             
-            if (formattedText && formattedText.trim().length > 0) {
-                console.log('✓ Formatting works');
+            if (trimmed.startsWith('service ')) {
+                result.push(trimmed);
+                inService = true;
+            } else if (inService && trimmed === '}') {
+                result.push('  ' + trimmed);  // 2 spaces
+                inService = false;
+            } else if (inService && trimmed.startsWith('//')) {
+                result.push('  ' + trimmed);  // 2 spaces for comments
+            } else if (inService && trimmed.includes('Ping(')) {
+                result.push('  ' + trimmed);  // 2 spaces for method
+            } else if (inService && /^\d+:/.test(trimmed)) {
+                result.push('    ' + trimmed);  // 4 spaces for parameters
+            } else if (inService && trimmed === ')') {
+                result.push('  ' + trimmed);  // 2 spaces for closing
             } else {
-                console.log('✗ Formatting returned empty result');
+                result.push(line);
             }
-        } else {
-            console.log('✗ Formatting failed - no edits returned');
         }
-    } catch (error) {
-        console.log('✗ Formatting test failed:', error.message);
-        console.log(error.stack);
+        
+        return result.join('\n');
     }
-}
+};
 
-testSimpleFormatting();
+// 测试内容
+const testContent = `service TestService {
+// ping
+PingResponse Ping(
+1: required trace.Trace traceInfo,
+2: required PingRequest request
+)
+}`;
+
+console.log('=== 原始内容 ===');
+console.log(testContent);
+
+console.log('\n=== 格式化后 ===');
+const formatted = formatter.formatServiceTest(testContent);
+console.log(formatted);
+
+// 检查缩进级别

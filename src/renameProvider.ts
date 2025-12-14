@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { ThriftReferencesProvider } from './referencesProvider';
 
 export class ThriftRenameProvider implements vscode.RenameProvider {
     prepareRename(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Range | { range: vscode.Range; placeholder: string; }> {
@@ -16,26 +17,30 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         const oldName = document.getText(wordRange);
         if (!oldName || oldName === newName) {return undefined;}
 
-        const edit = new vscode.WorkspaceEdit();
-        const text = document.getText();
-        // Naive word-boundary replacement within the current document
-        const re = new RegExp(`\\b${this.escapeRegExp(oldName)}\\b`, 'g');
-        for (let line = 0; line < document.lineCount; line++) {
-            const lineText = document.lineAt(line).text;
-            let match: RegExpExecArray | null;
-            re.lastIndex = 0; // ensure reset for each line
-            while ((match = re.exec(lineText)) !== null) {
-                const start = match.index;
-                const end = start + oldName.length;
-                edit.replace(
-                    document.uri,
-                    new vscode.Range(new vscode.Position(line, start), new vscode.Position(line, end)),
-                    newName
-                );
-                // prevent infinite loop on zero-length
-                if (match.index === re.lastIndex) {re.lastIndex++;}
-            }
+        // Use the references provider to find all occurrences
+        const referencesProvider = new ThriftReferencesProvider();
+        const references = await referencesProvider.provideReferences(
+            document, 
+            position, 
+            { includeDeclaration: true }, 
+            token
+        );
+
+        if (!references || references.length === 0) {
+            return undefined;
         }
+
+        const edit = new vscode.WorkspaceEdit();
+        
+        // Apply edits for all references
+        for (const reference of references) {
+            edit.replace(
+                reference.uri,
+                reference.range,
+                newName
+            );
+        }
+        
         return edit;
     }
 

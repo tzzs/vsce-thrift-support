@@ -86,7 +86,7 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
             let parenDepth = 0;
 
             for (let i = openParenIndex; i < currentLine.length; i++) {
-                if (currentLine[i] === '(') parenDepth++;
+                if (currentLine[i] === '(') {parenDepth++;}
                 else if (currentLine[i] === ')') {
                     parenDepth--;
                     if (parenDepth === 0) {
@@ -175,8 +175,8 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
         const lines1 = range1.end.line - range1.start.line;
         const lines2 = range2.end.line - range2.start.line;
 
-        if (lines1 > lines2) return true;
-        if (lines1 < lines2) return false;
+        if (lines1 > lines2) {return true;}
+        if (lines1 < lines2) {return false;}
 
         // Same number of lines, compare columns
         const cols1 = range1.end.character - range1.start.character;

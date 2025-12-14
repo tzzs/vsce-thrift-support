@@ -10,7 +10,7 @@ This is a VS Code extension that provides comprehensive language support for Apa
 
 **Critical Requirements:**
 - Node.js: 22.18.0 (must match CI version)
-- VS Code Engine: ^1.74.0
+- VS Code Engine: ^1.75.0
 - TypeScript: ^4.9.4
 - @vscode/vsce: ^3.6.0 (note: package name changed from `vsce` to `@vscode/vsce`)
 
