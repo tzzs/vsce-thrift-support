@@ -16,8 +16,12 @@ export class ThriftParser {
     private lines: string[];
     private currentLine: number = 0;
 
-    constructor(document: vscode.TextDocument) {
-        this.text = document.getText();
+    constructor(documentOrContent: vscode.TextDocument | string) {
+        if (typeof documentOrContent === 'string') {
+            this.text = documentOrContent;
+        } else {
+            this.text = documentOrContent.getText();
+        }
         this.lines = this.text.split(/\r?\n/);
     }
 
@@ -34,9 +38,32 @@ export class ThriftParser {
         }
 
         // 解析并缓存
-        const parser = new ThriftParser(document);
+        const parser = new ThriftParser(content);
         const ast = parser.parse();
-        
+
+        astCache.set(uri, {
+            content,
+            ast,
+            timestamp: now
+        });
+
+        return ast;
+    }
+
+    // 基于内容和URI的缓存解析方法
+    public static parseContentWithCache(uri: string, content: string): nodes.ThriftDocument {
+        const now = Date.now();
+
+        // 检查缓存
+        const cached = astCache.get(uri);
+        if (cached && cached.content === content && (now - cached.timestamp) < CACHE_MAX_AGE) {
+            return cached.ast;
+        }
+
+        // 解析并缓存
+        const parser = new ThriftParser(content);
+        const ast = parser.parse();
+
         astCache.set(uri, {
             content,
             ast,
@@ -74,8 +101,6 @@ export class ThriftParser {
             const node = this.parseNextNode(root);
             if (node) {
                 root.body.push(node);
-            } else {
-                this.currentLine++;
             }
         }
 

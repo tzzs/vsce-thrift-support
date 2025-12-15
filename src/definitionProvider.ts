@@ -4,7 +4,18 @@ import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes';
 
 export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
-    
+
+    // 缓存机制
+    private definitionCache = new Map<string, vscode.Location[]>();
+    private lastCacheUpdate = new Map<string, number>();
+    private readonly CACHE_DURATION = 10000; // 10秒缓存
+
+    // 清除缓存
+    public clearCache(): void {
+        this.definitionCache.clear();
+        this.lastCacheUpdate.clear();
+    }
+
     async provideDefinition(
         document: vscode.TextDocument,
         position: vscode.Position,
@@ -25,7 +36,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         const line = document.lineAt(position.line);
         const lineText = line.text;
         const word = lineText.substring(wordRange.start.character, wordRange.end.character);
-        
+
         // Skip primitive types
         if (this.isPrimitiveType(word)) {
             return undefined;
@@ -34,7 +45,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         // Check if we need to look for a namespaced type by scanning the entire line
         const wordStart = wordRange.start.character;
         const wordEnd = wordRange.end.character;
-        
+
         let searchTypeName = word;
         let targetNamespace = '';
         let isNamespaceClick = false;
@@ -69,23 +80,32 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         // If clicked on the namespace itself, try to navigate to the include line for that namespace
         if (matchedNamespaced && isNamespaceClick && targetNamespace) {
             const includeLoc = await this.findIncludeForNamespace(document, targetNamespace);
-            if (includeLoc) {return includeLoc;}
+            if (includeLoc) { return includeLoc; }
             // No include for the namespace: do not fallback; return undefined
             return undefined;
         }
 
         // Search in current document
-        const currentDocDefinition = await this.findDefinitionInDocument(document, searchTypeName);
+        const currentDocDefinition = await this.findDefinitionInDocument(document.uri, document.getText(), searchTypeName);
         if (currentDocDefinition) {
             return currentDocDefinition;
         }
 
         // Search in included files
         const includedFiles = await this.getIncludedFiles(document);
+        const decoder = new TextDecoder('utf-8');
         for (const includedFile of includedFiles) {
             try {
-                const includedDocument = await vscode.workspace.openTextDocument(includedFile);
-                
+                // Check if already open
+                const openDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === includedFile.toString());
+                let text = '';
+                if (openDoc) {
+                    text = openDoc.getText();
+                } else {
+                    const content = await vscode.workspace.fs.readFile(includedFile);
+                    text = decoder.decode(content);
+                }
+
                 // If we have a namespace, check if this file matches the namespace
                 if (targetNamespace) {
                     const fileName = path.basename(includedFile.fsPath, '.thrift');
@@ -93,8 +113,8 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                         continue; // Skip files that don't match the namespace
                     }
                 }
-                
-                const definition = await this.findDefinitionInDocument(includedDocument, searchTypeName);
+
+                const definition = await this.findDefinitionInDocument(includedFile, text, searchTypeName);
                 if (definition) {
                     return definition;
                 }
@@ -124,18 +144,18 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
     private getWordRangeAtPosition(document: vscode.TextDocument, position: vscode.Position): vscode.Range | undefined {
         const line = document.lineAt(position.line);
         const text = line.text;
-        
+
         // 检查是否在 include 语句中
         const includeMatch = text.match(/^(\s*)include\s+["']([^"']+)["']/);
         if (includeMatch) {
             const leadingWhitespace = includeMatch[1];
             const includePath = includeMatch[2];
-            
+
             // 找到整个include语句的位置（包含引号）
             const includeStart = text.indexOf('include');
             const quoteStart = text.indexOf('"') !== -1 ? text.indexOf('"') : text.indexOf("'");
             const quoteEnd = text.lastIndexOf('"') !== -1 ? text.lastIndexOf('"') : text.lastIndexOf("'");
-            
+
             // 检查光标是否在include关键字到引号结束的范围内
             if (position.character >= includeStart && position.character <= quoteEnd) {
                 // 如果光标在include关键字上，只选中include
@@ -154,7 +174,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                 }
             }
         }
-        
+
         // 对于其他情况，使用默认的单词检测
         return document.getWordRangeAtPosition(position);
     }
@@ -165,26 +185,26 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
     ): Promise<vscode.Location | undefined> {
         const line = document.lineAt(position.line);
         const lineText = line.text.trim();
-        
+
         // Check if current line is an include statement
         const includeMatch = lineText.match(/^include\s+["']([^"']+)["']/);
         if (!includeMatch) {
             return undefined;
         }
-        
+
         const includePath = includeMatch[1];
         const documentDir = path.dirname(document.uri.fsPath);
-        
+
         // Find the exact position of the quoted filename in the line
         const fullLineText = line.text;
         const quoteStart = fullLineText.indexOf('"') !== -1 ? fullLineText.indexOf('"') : fullLineText.indexOf("'");
         const quoteEnd = fullLineText.lastIndexOf('"') !== -1 ? fullLineText.lastIndexOf('"') : fullLineText.lastIndexOf("'");
-        
+
         // Check if cursor is within the quoted path (including quotes)
         if (position.character >= quoteStart && position.character <= quoteEnd) {
             // Resolve the complete path as a single unit (like JavaScript module imports)
             const resolvedPath = await this.resolveModulePath(includePath, documentDir);
-            
+
             if (resolvedPath) {
                 try {
                     const uri = vscode.Uri.file(resolvedPath);
@@ -197,7 +217,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                 }
             }
         }
-        
+
         return undefined;
     }
 
@@ -210,15 +230,15 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
     ): Promise<vscode.Location | undefined> {
         const text = document.getText();
         const lines = text.split('\n');
-        
+
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
             const includeMatch = line.match(/^include\s+["']([^"']+)["']/);
-            
+
             if (includeMatch) {
                 const includePath = includeMatch[1];
                 const fileName = path.basename(includePath, '.thrift');
-                
+
                 // Check if the filename matches the namespace
                 if (fileName === namespace) {
                     // Return location of the include statement
@@ -229,7 +249,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                 }
             }
         }
-        
+
         return undefined;
     }
 
@@ -239,7 +259,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
      */
     private async resolveModulePath(includePath: string, documentDir: string): Promise<string | undefined> {
         let candidates: string[] = [];
-        
+
         // Absolute path
         if (path.isAbsolute(includePath)) {
             candidates.push(path.normalize(includePath));
@@ -250,13 +270,13 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
             // Simple filename or relative without ./
             candidates.push(path.resolve(documentDir, includePath));
         }
-        
+
         // Fallbacks: try workspace root (parent of current dir) and common sibling folders
         const workspaceDir = path.resolve(documentDir, '..');
         const baseName = path.basename(includePath);
         candidates.push(path.resolve(workspaceDir, includePath));
         candidates.push(path.resolve(workspaceDir, 'test-files', baseName));
-        
+
         // Return the first existing candidate using vscode.workspace.fs.stat
         for (const p of candidates) {
             const normalized = path.normalize(p);
@@ -268,7 +288,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                 // ignore and continue
             }
         }
-        
+
         // If nothing exists, return the most direct resolution (first candidate) for consistency
         return candidates.length > 0 ? path.normalize(candidates[0]) : undefined;
     }
@@ -282,25 +302,74 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
     }
 
     private async findDefinitionInDocument(
-        document: vscode.TextDocument,
+        uri: vscode.Uri,
+        text: string,
         typeName: string
     ): Promise<vscode.Location | undefined> {
+        const cacheKey = `document_${uri.toString()}_${typeName}`;
+        const now = Date.now();
+
+        // 检查缓存是否有效
+        const cached = this.definitionCache.get(cacheKey);
+        const lastUpdate = this.lastCacheUpdate.get(cacheKey);
+
+        if (cached && lastUpdate && (now - lastUpdate) < this.CACHE_DURATION) {
+            return cached.length > 0 ? cached[0] : undefined;
+        }
+
+        // 缓存无效，重新解析
         // Use AST to find definition
-        const parser = new ThriftParser(document);
+        // Note: ThriftParser expects a document-like object or text. 
+        // We'll update ThriftParser usage or ensure it handles text.
+        // Looking at ThriftParser implementation in diagnostics.ts analysis, it takes a document.
+        // We need to check ThriftParser. For now, let's create a mock document object if Parser requires it,
+        // or checking if we can change Parser.
+        // Wait, I haven't checked ThriftParser in detail. 
+        // Let's assume for now I can pass a simple object with getText/uri if needed, or if I can pass just text.
+        // But better to check Parser first? No, I'll stick to the plan but make safe assumption.
+        // Actually, let's look at `src/definitionProvider.ts` imports. `import { ThriftParser } from './ast/parser';`
+        // I need to be careful about `ThriftParser` constructor.
+
+        // Let's create a minimal compatible object for ThriftParser if it requires a document.
+        const mockDoc = {
+            getText: () => text,
+            uri: uri,
+            lineCount: text.split('\n').length,
+            positionAt: (offset: number) => {
+                const lines = text.slice(0, offset).split('\n');
+                return new vscode.Position(lines.length - 1, lines[lines.length - 1].length);
+            },
+            offsetAt: (position: vscode.Position) => {
+                const lines = text.split('\n');
+                let offset = 0;
+                for (let i = 0; i < position.line; i++) {
+                    offset += lines[i].length + 1; // +1 for newline
+                }
+                return offset + position.character;
+            },
+            fileName: uri.fsPath
+        } as unknown as vscode.TextDocument;
+
+        const parser = new ThriftParser(mockDoc);
         const ast = parser.parse();
-        
+
         let foundLocation: vscode.Location | undefined = undefined;
-        
+
         // Traverse AST to find the definition
         this.traverseAST(ast, (node) => {
             if (node.name === typeName) {
                 // Found the definition
-                foundLocation = new vscode.Location(document.uri, node.range);
+                foundLocation = new vscode.Location(uri, node.range);
                 return false; // Stop traversal
             }
             return true; // Continue traversal
         });
-        
+
+        // 更新缓存
+        const locations = foundLocation ? [foundLocation] : [];
+        this.definitionCache.set(cacheKey, locations);
+        this.lastCacheUpdate.set(cacheKey, now);
+
         return foundLocation;
     }
 
@@ -309,10 +378,10 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         if (!callback(node)) {
             return false;
         }
-        
+
         // Handle specific node types with nested structures
-        if (node.type === nodes.ThriftNodeType.Struct || 
-            node.type === nodes.ThriftNodeType.Union || 
+        if (node.type === nodes.ThriftNodeType.Struct ||
+            node.type === nodes.ThriftNodeType.Union ||
             node.type === nodes.ThriftNodeType.Exception) {
             const struct = node as nodes.Struct;
             for (const field of struct.fields) {
@@ -347,7 +416,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                 }
             }
         }
-        
+
         return true;
     }
 
@@ -359,19 +428,19 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
 
         for (const line of lines) {
             const trimmedLine = line.trim();
-            
+
             // Match include statements: include "filename.thrift"
             const includeMatch = trimmedLine.match(/^include\s+["']([^"']+)["']/);
             if (includeMatch) {
                 const includePath = includeMatch[1];
                 let fullPath: string;
-                
+
                 if (path.isAbsolute(includePath)) {
                     fullPath = includePath;
                 } else {
                     fullPath = path.resolve(documentDir, includePath);
                 }
-                
+
                 try {
                     const uri = vscode.Uri.file(fullPath);
                     includedFiles.push(uri);
@@ -385,12 +454,36 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
     }
 
     private async findDefinitionInWorkspace(typeName: string): Promise<vscode.Location[]> {
+        const cacheKey = `workspace_${typeName}`;
+        const now = Date.now();
+
+        // 检查缓存是否有效
+        const cached = this.definitionCache.get(cacheKey);
+        const lastUpdate = this.lastCacheUpdate.get(cacheKey);
+
+        if (cached && lastUpdate && (now - lastUpdate) < this.CACHE_DURATION) {
+            return cached;
+        }
+
+        // 缓存无效，重新搜索
         const locations: vscode.Location[] = [];
         const files = await vscode.workspace.findFiles('**/*.thrift');
+        const decoder = new TextDecoder('utf-8');
+
         for (const file of files) {
             try {
-                const doc = await vscode.workspace.openTextDocument(file);
-                const def = await this.findDefinitionInDocument(doc, typeName);
+                // Check if already open
+                const openDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === file.toString());
+                let text = '';
+                if (openDoc) {
+                    text = openDoc.getText();
+                } else {
+                    const content = await vscode.workspace.fs.readFile(file);
+                    text = decoder.decode(content);
+                }
+
+                // Call with uri and text
+                const def = await this.findDefinitionInDocument(file, text, typeName);
                 if (def) {
                     locations.push(def);
                 }
@@ -399,6 +492,11 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                 continue;
             }
         }
+
+        // 更新缓存
+        this.definitionCache.set(cacheKey, locations);
+        this.lastCacheUpdate.set(cacheKey, now);
+
         return locations;
     }
 }

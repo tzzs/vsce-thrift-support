@@ -15,7 +15,7 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
         context: vscode.CodeActionContext,
         token: vscode.CancellationToken
     ): Promise<vscode.CodeAction[] | undefined> {
-        if (document.languageId !== 'thrift') {return;}
+        if (document.languageId !== 'thrift') { return; }
 
         const actions: vscode.CodeAction[] = [];
 
@@ -96,7 +96,7 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
         const lines = text.split('\n');
         for (const l of lines) {
             const mm = l.trim().match(/^include\s+["']([^"']+)["']/);
-            if (mm) {set.add(mm[1]);}
+            if (mm) { set.add(mm[1]); }
         }
         return set;
     }
@@ -117,10 +117,21 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
         const results: Array<{ uri: vscode.Uri }> = [];
         const files = await vscode.workspace.findFiles('**/*.thrift');
         const defRegex = new RegExp(`^\\s*(struct|enum|service|typedef)\\s+${typeName}(\\b|\\s|<|$)`, 'm');
+        const decoder = new TextDecoder('utf-8');
+
         for (const file of files) {
             try {
-                const doc = await vscode.workspace.openTextDocument(file);
-                if (defRegex.test(doc.getText())) {
+                // Check if buffer is open first to use live content
+                const openDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === file.toString());
+                let text = '';
+                if (openDoc) {
+                    text = openDoc.getText();
+                } else {
+                    const content = await vscode.workspace.fs.readFile(file);
+                    text = decoder.decode(content);
+                }
+
+                if (defRegex.test(text)) {
                     results.push({ uri: file });
                 }
             } catch {

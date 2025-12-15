@@ -74,19 +74,13 @@ export class PerformanceMonitor {
     private static warnSlowOperation(metric: PerformanceMetrics): void {
         console.warn(`[Thrift Support] Slow operation detected: ${metric.operation} took ${metric.duration.toFixed(2)}ms`);
         
-        // 如果操作特别慢，显示通知
+        // 如果操作特别慢，只在控制台记录，不显示弹窗
         if (metric.duration > 500) {
             const fileInfo = metric.documentUri ? ` in ${vscode.workspace.asRelativePath(metric.documentUri)}` : '';
             const sizeInfo = metric.fileSize ? ` (${(metric.fileSize / 1024).toFixed(1)}KB)` : '';
             
-            vscode.window.showWarningMessage(
-                `Thrift 操作"${metric.operation}"耗时 ${metric.duration.toFixed(0)}ms，可能影响编辑体验。`,
-                '查看详情'
-            ).then(selection => {
-                if (selection === '查看详情') {
-                    this.showPerformanceReport();
-                }
-            });
+            // 只在控制台记录，不显示弹窗干扰用户
+            console.warn(`[Thrift Performance] Slow operation: ${metric.operation} took ${metric.duration.toFixed(0)}ms${fileInfo}${sizeInfo}`);
         }
     }
 
