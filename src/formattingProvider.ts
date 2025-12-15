@@ -116,9 +116,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             const tempUri = document.uri.with({ path: document.uri.path + '.temp' });
             const tempDoc = { getText: () => before, uri: tempUri, lineCount: start.line } as vscode.TextDocument;
             
-            // Parse with AST parser
-            const astParser = new ThriftParser(tempDoc);
-            const ast = astParser.parse();
+            // Parse with AST parser (使用缓存版本)
+            const ast = ThriftParser.parseWithCache(tempDoc);
             
             // Count open structs/enums
             let inStruct = false;

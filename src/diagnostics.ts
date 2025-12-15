@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { PerformanceMonitor } from './performanceMonitor';
 
 export type ThriftIssue = {
     message: string;
@@ -479,15 +480,41 @@ async function getIncludedFiles(document: vscode.TextDocument): Promise<vscode.U
     return includedFiles;
 }
 
-// Collect types from all included files
+// 包含文件类型缓存 - 避免重复分析相同文件
+const includeTypesCache = new Map<string, Map<string, string>>();
+const includeFileTimestamps = new Map<string, number>();
+const INCLUDE_CACHE_MAX_AGE = 3 * 60 * 1000; // 3分钟缓存
+
+// Collect types from all included files (带缓存优化版本)
 async function collectIncludedTypes(document: vscode.TextDocument): Promise<Map<string, string>> {
     const includedTypes = new Map<string, string>();
     const includedFiles = await getIncludedFiles(document);
+    const now = Date.now();
 
     for (const includedFile of includedFiles) {
         try {
+            const includedFileKey = includedFile.toString();
+            // 检查缓存是否有效
+            const cachedTypes = includeTypesCache.get(includedFileKey);
+            const cachedTime = includeFileTimestamps.get(includedFileKey);
+            
+            if (cachedTypes && cachedTime && (now - cachedTime) < INCLUDE_CACHE_MAX_AGE) {
+                // 使用缓存的数据
+                for (const [name, kind] of cachedTypes) {
+                    if (!includedTypes.has(name)) {
+                        includedTypes.set(name, kind);
+                    }
+                }
+                continue;
+            }
+
+            // 缓存无效，重新分析
             const includedDocument = await vscode.workspace.openTextDocument(includedFile);
             const types = parseTypesFromContent(includedDocument.getText());
+
+            // 更新缓存
+            includeTypesCache.set(includedFileKey, new Map(types));
+            includeFileTimestamps.set(includedFileKey, now);
 
             // Add types from this included file
             for (const [name, kind] of types) {
@@ -502,6 +529,17 @@ async function collectIncludedTypes(document: vscode.TextDocument): Promise<Map<
     }
 
     return includedTypes;
+}
+
+// 清理包含文件缓存
+function clearIncludeCache(): void {
+    const now = Date.now();
+    for (const [file, timestamp] of includeFileTimestamps.entries()) {
+        if (now - timestamp > INCLUDE_CACHE_MAX_AGE) {
+            includeTypesCache.delete(file);
+            includeFileTimestamps.delete(file);
+        }
+    }
 }
 
 export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?: Map<string, string>): ThriftIssue[] {
@@ -824,15 +862,61 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
 
 export function registerDiagnostics(context: vscode.ExtensionContext) {
     const collection = vscode.languages.createDiagnosticCollection('thrift');
+    
+    // 性能优化：诊断节流机制
+    const diagnosticTimeouts = new Map<string, NodeJS.Timeout>();
+    const documentVersions = new Map<string, number>();
+    const DIAGNOSTIC_DELAY = 300; // 300ms 延迟
 
     async function analyzeDocument(doc: vscode.TextDocument) {
         if (doc.languageId !== 'thrift') { return; }
 
-        // Collect types from included files
-        const includedTypes = await collectIncludedTypes(doc);
-        const issues = analyzeThriftText(doc.getText(), doc.uri, includedTypes);
-        const diagnostics = issues.map(i => new vscode.Diagnostic(i.range, i.message, i.severity));
-        collection.set(doc.uri, diagnostics);
+        // 使用性能监控包装分析过程
+        await PerformanceMonitor.measureAsync(
+            'Thrift诊断分析',
+            async () => {
+                try {
+                    // Collect types from included files
+                    const includedTypes = await collectIncludedTypes(doc);
+                    const issues = analyzeThriftText(doc.getText(), doc.uri, includedTypes);
+                    const diagnostics = issues.map(i => new vscode.Diagnostic(i.range, i.message, i.severity));
+                    collection.set(doc.uri, diagnostics);
+                } catch (error) {
+                    console.error('诊断分析错误:', error);
+                    // 出错时清空诊断信息，避免显示过时错误
+                    collection.set(doc.uri, []);
+                }
+            },
+            doc
+        );
+    }
+
+    // 节流版本的文档分析函数
+    function debouncedAnalyzeDocument(doc: vscode.TextDocument) {
+        if (doc.languageId !== 'thrift') { return; }
+        
+        const docKey = doc.uri.toString();
+        const currentVersion = doc.version;
+        
+        // 如果文档版本没有变化，跳过分析
+        if (documentVersions.get(docKey) === currentVersion) {
+            return;
+        }
+        
+        // 清除之前的超时
+        const existingTimeout = diagnosticTimeouts.get(docKey);
+        if (existingTimeout) {
+            clearTimeout(existingTimeout);
+        }
+        
+        // 设置新的超时
+        const timeout = setTimeout(() => {
+            documentVersions.set(docKey, currentVersion);
+            diagnosticTimeouts.delete(docKey);
+            analyzeDocument(doc);
+        }, DIAGNOSTIC_DELAY);
+        
+        diagnosticTimeouts.set(docKey, timeout);
     }
 
     // Initial pass
@@ -841,9 +925,19 @@ export function registerDiagnostics(context: vscode.ExtensionContext) {
     }
 
     context.subscriptions.push(
-        vscode.workspace.onDidOpenTextDocument(doc => analyzeDocument(doc)),
-        vscode.workspace.onDidChangeTextDocument(e => analyzeDocument(e.document)),
-        vscode.workspace.onDidSaveTextDocument(doc => analyzeDocument(doc)),
-        vscode.workspace.onDidCloseTextDocument(doc => collection.delete(doc.uri))
+        vscode.workspace.onDidOpenTextDocument(doc => analyzeDocument(doc)), // 立即分析新打开的文档
+        vscode.workspace.onDidChangeTextDocument(e => debouncedAnalyzeDocument(e.document)), // 节流处理文档变更
+        vscode.workspace.onDidSaveTextDocument(doc => analyzeDocument(doc)), // 保存时立即分析
+        vscode.workspace.onDidCloseTextDocument(doc => {
+            collection.delete(doc.uri);
+            // 清理相关缓存
+            const docKey = doc.uri.toString();
+            const timeout = diagnosticTimeouts.get(docKey);
+            if (timeout) {
+                clearTimeout(timeout);
+                diagnosticTimeouts.delete(docKey);
+            }
+            documentVersions.delete(docKey);
+        })
     );
 }
