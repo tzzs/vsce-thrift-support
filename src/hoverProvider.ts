@@ -5,14 +5,32 @@ import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes';
 
 export class ThriftHoverProvider implements vscode.HoverProvider {
+    
+    // 使用单例定义提供器，避免重复创建实例
+    private static definitionProvider: ThriftDefinitionProvider | null = null;
+    
+    private getDefinitionProvider(): ThriftDefinitionProvider {
+        if (!ThriftHoverProvider.definitionProvider) {
+            ThriftHoverProvider.definitionProvider = new ThriftDefinitionProvider();
+        }
+        return ThriftHoverProvider.definitionProvider;
+    }
+    
+    // 清除缓存的静态方法
+    public static clearCache(): void {
+        if (ThriftHoverProvider.definitionProvider) {
+            ThriftHoverProvider.definitionProvider.clearCache();
+        }
+    }
+    
     async provideHover(
         document: vscode.TextDocument,
         position: vscode.Position,
         token: vscode.CancellationToken
     ): Promise<vscode.Hover | undefined> {
         try {
-            // Reuse definition resolution to find the symbol being hovered
-            const defProvider = new ThriftDefinitionProvider();
+            // 使用单例定义提供器，避免重复创建实例
+            const defProvider = this.getDefinitionProvider();
             const def = await defProvider.provideDefinition(document, position, token);
             const loc = this.normalizeDefinition(def);
             if (!loc) {

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { PerformanceMonitor } from './performanceMonitor';
 
 export type ThriftIssue = {
     message: string;
@@ -479,15 +480,78 @@ async function getIncludedFiles(document: vscode.TextDocument): Promise<vscode.U
     return includedFiles;
 }
 
-// Collect types from all included files
+// 包含文件类型缓存 - 避免重复分析相同文件
+const includeTypesCache = new Map<string, Map<string, string>>();
+const includeFileTimestamps = new Map<string, number>();
+const includeFileStats = new Map<string, {mtime: number, size: number}>();
+const INCLUDE_CACHE_MAX_AGE = 3 * 60 * 1000; // 3分钟缓存
+
+// Collect types from all included files (带智能缓存优化版本)
 async function collectIncludedTypes(document: vscode.TextDocument): Promise<Map<string, string>> {
     const includedTypes = new Map<string, string>();
     const includedFiles = await getIncludedFiles(document);
+    const now = Date.now();
+    const decoder = new TextDecoder('utf-8');
 
     for (const includedFile of includedFiles) {
         try {
-            const includedDocument = await vscode.workspace.openTextDocument(includedFile);
-            const types = parseTypesFromContent(includedDocument.getText());
+            const includedFileKey = includedFile.toString();
+            
+            // 检查文件状态是否发生变化
+            let fileStats;
+            try {
+                const stat = await vscode.workspace.fs.stat(includedFile);
+                fileStats = { mtime: stat.mtime, size: stat.size };
+            } catch {
+                // 无法获取文件状态，使用缓存或跳过
+                fileStats = null;
+            }
+            
+            const cachedStats = includeFileStats.get(includedFileKey);
+            const cachedTypes = includeTypesCache.get(includedFileKey);
+            const cachedTime = includeFileTimestamps.get(includedFileKey);
+            
+            // 判断缓存是否有效：时间未过期且文件状态未变化
+            const cacheValid = cachedTypes && cachedTime && 
+                (now - cachedTime) < INCLUDE_CACHE_MAX_AGE &&
+                fileStats && cachedStats &&
+                fileStats.mtime === cachedStats.mtime && 
+                fileStats.size === cachedStats.size;
+            
+            if (cacheValid) {
+                // 使用缓存的数据
+                console.log(`[Diagnostics] Using cached types for included file: ${path.basename(includedFile.fsPath)}`);
+                for (const [name, kind] of cachedTypes) {
+                    if (!includedTypes.has(name)) {
+                        includedTypes.set(name, kind);
+                    }
+                }
+                continue;
+            }
+
+            console.log(`[Diagnostics] Analyzing included file: ${path.basename(includedFile.fsPath)} (cache miss)`);
+            
+            // 缓存无效，重新分析
+            // 关键修复: 不要使用 openTextDocument，因为它会触发 onDidOpenTextDocument 事件，导致递归扫描
+            // 只有当文档已经在编辑器中打开时才使用 TextDocument，否则直接读取文件内容
+            let text = '';
+            const openDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === includedFileKey);
+            
+            if (openDoc) {
+                text = openDoc.getText();
+            } else {
+                const content = await vscode.workspace.fs.readFile(includedFile);
+                text = decoder.decode(content);
+            }
+
+            const types = parseTypesFromContent(text);
+
+            // 更新缓存
+            includeTypesCache.set(includedFileKey, new Map(types));
+            includeFileTimestamps.set(includedFileKey, now);
+            if (fileStats) {
+                includeFileStats.set(includedFileKey, fileStats);
+            }
 
             // Add types from this included file
             for (const [name, kind] of types) {
@@ -497,11 +561,24 @@ async function collectIncludedTypes(document: vscode.TextDocument): Promise<Map<
             }
         } catch (error) {
             // File might not exist or be accessible, skip
+            console.log(`[Diagnostics] Failed to analyze included file: ${path.basename(includedFile.fsPath)}, error: ${error}`);
             continue;
         }
     }
 
     return includedTypes;
+}
+
+// 清理包含文件缓存
+function clearIncludeCache(): void {
+    const now = Date.now();
+    for (const [file, timestamp] of includeFileTimestamps.entries()) {
+        if (now - timestamp > INCLUDE_CACHE_MAX_AGE) {
+            includeTypesCache.delete(file);
+            includeFileTimestamps.delete(file);
+            includeFileStats.delete(file);
+        }
+    }
 }
 
 export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?: Map<string, string>): ThriftIssue[] {
@@ -822,28 +899,333 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
     return issues;
 }
 
+export class DiagnosticManager {
+    private collection: vscode.DiagnosticCollection;
+    private analysisQueue = new Map<string, NodeJS.Timeout>();
+    private documentStates = new Map<string, { version: number; isAnalyzing: boolean; lastAnalysis?: number }>();
+    private readonly ANALYSIS_DELAY = 300; // 300ms
+    private readonly MIN_ANALYSIS_INTERVAL = 1000; // 最少1秒间隔
+    
+    // 文件依赖跟踪 - key: 文件路径, value: 依赖该文件的其他文件路径集合
+    private fileDependencies = new Map<string, Set<string>>();
+    // 反向依赖跟踪 - key: 文件路径, value: 该文件包含的其他文件路径集合
+    private fileIncludes = new Map<string, Set<string>>();
+
+    constructor() {
+        this.collection = vscode.languages.createDiagnosticCollection('thrift');
+    }
+
+    private getDocumentKey(doc: vscode.TextDocument): string {
+        return doc.uri.toString();
+    }
+
+    // 跟踪文件依赖关系
+    private trackFileDependencies(document: vscode.TextDocument, includedFiles: vscode.Uri[]) {
+        const docKey = this.getDocumentKey(document);
+        
+        // 清除旧的依赖关系
+        const oldIncludes = this.fileIncludes.get(docKey);
+        if (oldIncludes) {
+            // 从其他文件的依赖列表中移除当前文件
+            for (const includedKey of oldIncludes) {
+                const dependents = this.fileDependencies.get(includedKey);
+                if (dependents) {
+                    dependents.delete(docKey);
+                    if (dependents.size === 0) {
+                        this.fileDependencies.delete(includedKey);
+                    }
+                }
+            }
+        }
+        
+        // 建立新的依赖关系
+        const newIncludes = new Set<string>();
+        for (const includedFile of includedFiles) {
+            const includedKey = includedFile.toString();
+            newIncludes.add(includedKey);
+            
+            // 添加到依赖映射
+            if (!this.fileDependencies.has(includedKey)) {
+                this.fileDependencies.set(includedKey, new Set<string>());
+            }
+            this.fileDependencies.get(includedKey)!.add(docKey);
+        }
+        
+        // 更新包含映射
+        this.fileIncludes.set(docKey, newIncludes);
+    }
+
+    // 获取依赖指定文件的所有文件
+    private getDependentFiles(fileKey: string): string[] {
+        const dependents = this.fileDependencies.get(fileKey);
+        return dependents ? Array.from(dependents) : [];
+    }
+
+    private shouldAnalyzeDocument(doc: vscode.TextDocument): boolean {
+        const key = this.getDocumentKey(doc);
+        const state = this.documentStates.get(key);
+        
+        if (!state) return true;
+        
+        // 如果正在分析，跳过
+        if (state.isAnalyzing) return false;
+        
+        // 如果版本没有变化，跳过
+        if (state.version === doc.version) return false;
+        
+        // 检查最小分析间隔
+        const now = Date.now();
+        if (state.lastAnalysis && (now - state.lastAnalysis) < this.MIN_ANALYSIS_INTERVAL) {
+            return false;
+        }
+        
+        return true;
+    }
+
+    private async performAnalysis(doc: vscode.TextDocument) {
+        const key = this.getDocumentKey(doc);
+        console.log(`[Diagnostics] Starting analysis for ${path.basename(doc.uri.fsPath)}`);
+        
+        // 更新状态
+        const state = this.documentStates.get(key) || { version: doc.version, isAnalyzing: false };
+        state.isAnalyzing = true;
+        state.version = doc.version;
+        this.documentStates.set(key, state);
+
+        try {
+            // 使用性能监控包装分析过程
+            await PerformanceMonitor.measureAsync(
+                'Thrift诊断分析',
+                async () => {
+                    try {
+                        // Collect types from included files
+                        const includedFiles = await getIncludedFiles(doc);
+                        const includedTypes = await collectIncludedTypes(doc);
+                        
+                        // 跟踪文件依赖关系
+                        this.trackFileDependencies(doc, includedFiles);
+                        
+                        const issues = analyzeThriftText(doc.getText(), doc.uri, includedTypes);
+                        const diagnostics = issues.map(i => new vscode.Diagnostic(i.range, i.message, i.severity));
+                        
+                        // 原子性更新诊断信息
+                        this.collection.set(doc.uri, diagnostics);
+                        
+                        console.log(`文档 ${path.basename(doc.uri.fsPath)} 分析完成: ${diagnostics.length} 个问题`);
+                    } catch (error) {
+                        console.error('诊断分析错误:', error);
+                        // 出错时清空诊断信息，避免显示过时错误
+                        this.collection.set(doc.uri, []);
+                    }
+                },
+                doc
+            );
+        } finally {
+            // 更新状态
+            state.isAnalyzing = false;
+            state.lastAnalysis = Date.now();
+            this.documentStates.set(key, state);
+        }
+    }
+
+    public scheduleAnalysis(doc: vscode.TextDocument, immediate: boolean = false, skipDependents: boolean = false, triggerSource?: string) {
+        if (doc.languageId !== 'thrift') return;
+
+        const key = this.getDocumentKey(doc);
+        const triggerInfo = triggerSource ? ` (triggered by ${triggerSource})` : '';
+        console.log(`[Diagnostics] Schedule analysis for ${path.basename(doc.uri.fsPath)}, immediate=${immediate}, skipDependents=${skipDependents}${triggerInfo}`);
+        
+        // 清除之前的分析队列
+        const existingTimeout = this.analysisQueue.get(key);
+        if (existingTimeout) {
+            clearTimeout(existingTimeout);
+        }
+
+        // 检查是否需要分析
+        if (!this.shouldAnalyzeDocument(doc)) {
+            console.log(`[Diagnostics] Skip analysis for ${path.basename(doc.uri.fsPath)} - shouldAnalyzeDocument returned false`);
+            return;
+        }
+
+        if (immediate) {
+            // 立即分析
+            this.performAnalysis(doc);
+        } else {
+            // 延迟分析
+            const timeout = setTimeout(() => {
+                this.analysisQueue.delete(key);
+                this.performAnalysis(doc);
+            }, this.ANALYSIS_DELAY);
+            
+            this.analysisQueue.set(key, timeout);
+        }
+
+        // 如果需要分析依赖文件，延迟分析它们（避免连锁反应）
+        if (!skipDependents) {
+            const dependentFiles = this.getDependentFiles(key);
+            if (dependentFiles.length > 0) {
+                console.log(`[Diagnostics] File ${path.basename(doc.uri.fsPath)} changed, scheduling analysis for ${dependentFiles.length} dependent files${triggerInfo}`);
+                
+                // 延迟分析依赖文件，避免立即连锁反应
+                setTimeout(() => {
+                    for (const dependentKey of dependentFiles) {
+                        const dependentDoc = vscode.workspace.textDocuments.find(d => this.getDocumentKey(d) === dependentKey);
+                        if (dependentDoc && dependentDoc.languageId === 'thrift') {
+                            console.log(`[Diagnostics] Scheduling analysis for dependent file: ${path.basename(dependentDoc.uri.fsPath)} (triggered by dependency change)`);
+                            // 使用 skipDependents=true 避免递归分析
+                            this.scheduleAnalysis(dependentDoc, false, true, 'dependency');
+                        }
+                    }
+                }, this.ANALYSIS_DELAY * 2); // 双倍延迟
+            }
+        }
+    }
+
+    public clearDocument(doc: vscode.TextDocument) {
+        const key = this.getDocumentKey(doc);
+        
+        // 清除分析队列
+        const timeout = this.analysisQueue.get(key);
+        if (timeout) {
+            clearTimeout(timeout);
+            this.analysisQueue.delete(key);
+        }
+        
+        // 清除状态
+        this.documentStates.delete(key);
+        
+        // 清除依赖关系
+        const oldIncludes = this.fileIncludes.get(key);
+        if (oldIncludes) {
+            for (const includedKey of oldIncludes) {
+                const dependents = this.fileDependencies.get(includedKey);
+                if (dependents) {
+                    dependents.delete(key);
+                    if (dependents.size === 0) {
+                        this.fileDependencies.delete(includedKey);
+                    }
+                }
+            }
+        }
+        this.fileIncludes.delete(key);
+        
+        // 清除诊断信息
+        this.collection.delete(doc.uri);
+        
+        // 清除包含文件缓存（如果这个文件是被包含的文件）
+        const docUri = doc.uri.toString();
+        if (includeTypesCache.has(docUri)) {
+            includeTypesCache.delete(docUri);
+            includeFileTimestamps.delete(docUri);
+            includeFileStats.delete(docUri);
+            console.log(`[Diagnostics] Cleared include cache for: ${path.basename(doc.uri.fsPath)}`);
+        }
+    }
+
+    public dispose() {
+        // 清除所有待处理的分析
+        for (const timeout of this.analysisQueue.values()) {
+            clearTimeout(timeout);
+        }
+        this.analysisQueue.clear();
+        this.documentStates.clear();
+        this.fileDependencies.clear();
+        this.fileIncludes.clear();
+        this.collection.dispose();
+    }
+
+    // Testing methods to expose internal state for unit tests
+    public getFileDependenciesForTesting(): Map<string, Set<string>> {
+        return this.fileDependencies;
+    }
+
+    public getFileIncludesForTesting(): Map<string, Set<string>> {
+        return this.fileIncludes;
+    }
+}
+
 export function registerDiagnostics(context: vscode.ExtensionContext) {
-    const collection = vscode.languages.createDiagnosticCollection('thrift');
+    const diagnosticManager = new DiagnosticManager();
+    
+    // 添加文件系统监听器，监控.thrift文件变化
+    const fileWatcher = vscode.workspace.createFileSystemWatcher('**/*.thrift');
+    
+    fileWatcher.onDidChange(uri => {
+        const fileKey = uri.toString();
+        // 如果这个文件在包含缓存中，清除它
+        if (includeTypesCache.has(fileKey)) {
+            includeTypesCache.delete(fileKey);
+            includeFileTimestamps.delete(fileKey);
+            includeFileStats.delete(fileKey);
+            console.log(`[Diagnostics] Cleared include cache due to file change: ${path.basename(uri.fsPath)}`);
+            
+            // 查找所有依赖这个文件的文档并重新分析
+            vscode.workspace.textDocuments.forEach(doc => {
+                if (doc.languageId === 'thrift') {
+                    // 检查这个文档是否包含被修改的文件
+                    getIncludedFiles(doc).then(includedFiles => {
+                        const isDependent = includedFiles.some(includedFile => includedFile.toString() === fileKey);
+                        if (isDependent) {
+                            console.log(`[Diagnostics] Rescheduling analysis for dependent file: ${path.basename(doc.uri.fsPath)} (due to include file change)`);
+                            diagnosticManager.scheduleAnalysis(doc, false, false, 'includeFileChanged');
+                        }
+                    }).catch(error => {
+                        console.error(`[Diagnostics] Error checking dependencies: ${error}`);
+                    });
+                }
+            });
+        }
+    });
+    
+    context.subscriptions.push(fileWatcher);
 
-    async function analyzeDocument(doc: vscode.TextDocument) {
-        if (doc.languageId !== 'thrift') { return; }
-
-        // Collect types from included files
-        const includedTypes = await collectIncludedTypes(doc);
-        const issues = analyzeThriftText(doc.getText(), doc.uri, includedTypes);
-        const diagnostics = issues.map(i => new vscode.Diagnostic(i.range, i.message, i.severity));
-        collection.set(doc.uri, diagnostics);
-    }
-
-    // Initial pass
-    if (vscode.window.activeTextEditor) {
-        analyzeDocument(vscode.window.activeTextEditor.document);
-    }
-
+    // 注册事件监听器
     context.subscriptions.push(
-        vscode.workspace.onDidOpenTextDocument(doc => analyzeDocument(doc)),
-        vscode.workspace.onDidChangeTextDocument(e => analyzeDocument(e.document)),
-        vscode.workspace.onDidSaveTextDocument(doc => analyzeDocument(doc)),
-        vscode.workspace.onDidCloseTextDocument(doc => collection.delete(doc.uri))
+        // 文档打开时立即分析
+        vscode.workspace.onDidOpenTextDocument(doc => {
+            if (doc.languageId === 'thrift') {
+                diagnosticManager.scheduleAnalysis(doc, true, false, 'documentOpen');
+            }
+        }),
+        
+        // 文档内容变更时延迟分析
+        vscode.workspace.onDidChangeTextDocument(e => {
+            if (e.document.languageId === 'thrift') {
+                diagnosticManager.scheduleAnalysis(e.document, false, false, 'documentChange');
+            }
+        }),
+        
+        // 文档保存时立即分析（确保显示最新状态）
+        vscode.workspace.onDidSaveTextDocument(doc => {
+            if (doc.languageId === 'thrift') {
+                diagnosticManager.scheduleAnalysis(doc, true, false, 'documentSave');
+            }
+        }),
+        
+        // 文档关闭时清理
+        vscode.workspace.onDidCloseTextDocument(doc => {
+            if (doc.languageId === 'thrift') {
+                diagnosticManager.clearDocument(doc);
+            }
+        }),
+        
+        // 监听文档激活事件 - 这可能是点击文件时触发扫描的原因
+        vscode.window.onDidChangeActiveTextEditor(editor => {
+            if (editor && editor.document.languageId === 'thrift') {
+                console.log(`[Diagnostics] Active text editor changed to: ${path.basename(editor.document.uri.fsPath)}`);
+                // 延迟分析，避免立即触发
+                setTimeout(() => {
+                    diagnosticManager.scheduleAnalysis(editor.document, false, false, 'documentActivate');
+                }, 500);
+            }
+        }),
+        
+        // 扩展卸载时清理
+        diagnosticManager
     );
+
+    // 初始分析活动文档
+    if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.languageId === 'thrift') {
+        diagnosticManager.scheduleAnalysis(vscode.window.activeTextEditor.document, true, false, 'extensionActivate');
+    }
 }

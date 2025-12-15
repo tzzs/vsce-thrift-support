@@ -90,8 +90,8 @@ export class ThriftFormatter {
                     if (mid.startsWith('*')) { mid = mid.slice(1); }
                     mid = mid.replace(/^\s*/, '');
                     // For proper alignment, add a space after the indent to align * with the first * in /**
-                    // But for service comments, we want the * to be at the same level as /**
-                    const alignmentSpace = inService ? '' : ' ';
+                    // Standard Javadoc style alignment
+                    const alignmentSpace = ' ';
                     if (mid.length > 0) {
                         formattedLines.push(indentStr + alignmentSpace + '* ' + mid);
                     } else {
@@ -100,8 +100,7 @@ export class ThriftFormatter {
                 }
 
                 // For proper alignment, add a space before */ to align with the first * in /**
-                // But for service comments, we want the */ to be at the same level as /**
-                const closingSpace = inService ? '' : ' ';
+                const closingSpace = ' ';
                 formattedLines.push(indentStr + closingSpace + '*/');
                 i = j - 1;
                 continue;
@@ -329,14 +328,8 @@ export class ThriftFormatter {
     }
 
     public getServiceIndent(level: number, options: ThriftFormattingOptions): string {
-        // For service content, use the same indentation as other code elements
-        // Following standard 2-space indentation like Apache Thrift official examples
-        const indentSize = options.indentSize || 2;
-        // For service methods and their documentation, we want 2 spaces when level is 1
-        // This ensures service methods are properly indented regardless of the service's base level
-        const spaces = (level === 1 && options.insertSpaces) ? 2 : (level * indentSize);
-        const result = options.insertSpaces ? ' '.repeat(spaces) : '\t'.repeat(level);
-        return result;
+        // Use standard indentation logic based on options
+        return this.getIndent(level, options);
     }
 
     private formatStructFields(

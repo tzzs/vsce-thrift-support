@@ -11,6 +11,8 @@ import { registerWorkspaceSymbolProvider } from './workspaceSymbolProvider';
 import { registerReferencesProvider } from './referencesProvider';
 import { registerFoldingRangeProvider } from './foldingRangeProvider';
 import { registerSelectionRangeProvider } from './selectionRangeProvider';
+import { PerformanceMonitor } from './performanceMonitor';
+import { registerMinimalProviders } from './minimalProviders';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Thrift Support extension is now active!');
@@ -30,11 +32,37 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.languages.registerDefinitionProvider('thrift', definitionProvider)
     );
 
+    // 添加文件监听器，当文件改变时清除定义提供器的缓存
+    const definitionFileWatcher = vscode.workspace.createFileSystemWatcher('**/*.thrift');
+    definitionFileWatcher.onDidCreate(() => {
+        definitionProvider.clearCache();
+    });
+    definitionFileWatcher.onDidChange(() => {
+        definitionProvider.clearCache();
+    });
+    definitionFileWatcher.onDidDelete(() => {
+        definitionProvider.clearCache();
+    });
+    context.subscriptions.push(definitionFileWatcher);
+
     // Register hover provider for showing symbol documentation on hover
     const hoverProvider = new ThriftHoverProvider();
     context.subscriptions.push(
         vscode.languages.registerHoverProvider('thrift', hoverProvider)
     );
+
+    // 添加文件监听器，当文件改变时清除悬停提供器的缓存
+    const hoverFileWatcher = vscode.workspace.createFileSystemWatcher('**/*.thrift');
+    hoverFileWatcher.onDidCreate(() => {
+        ThriftHoverProvider.clearCache();
+    });
+    hoverFileWatcher.onDidChange(() => {
+        ThriftHoverProvider.clearCache();
+    });
+    hoverFileWatcher.onDidDelete(() => {
+        ThriftHoverProvider.clearCache();
+    });
+    context.subscriptions.push(hoverFileWatcher);
 
     // Register diagnostics (syntax/type/duplicate id/unknown type)
     registerDiagnostics(context);
@@ -45,11 +73,21 @@ export function activate(context: vscode.ExtensionContext) {
     // Register document symbol provider for outline view
     registerDocumentSymbolProvider(context);
 
-    // Register workspace symbol provider for global symbol search
-    registerWorkspaceSymbolProvider(context);
-
-    // Register references provider for "Find All References"
-    registerReferencesProvider(context);
+    // 根据配置决定使用哪种提供器
+    const config = vscode.workspace.getConfiguration('thrift');
+    const scanningMode = config.get('scanningMode', 'minimal') as string;
+    
+    if (scanningMode === 'full') {
+        // 完整扫描模式 - 使用原有的提供器
+        registerWorkspaceSymbolProvider(context);
+        registerReferencesProvider(context);
+    } else if (scanningMode === 'minimal' || scanningMode === 'on-demand') {
+        // 最小化扫描模式 - 使用新的最小化提供器
+        registerMinimalProviders(context);
+    } else {
+        // 默认使用最小化扫描模式
+        registerMinimalProviders(context);
+    }
 
     // Register folding range provider for code folding
     registerFoldingRangeProvider(context);
@@ -213,6 +251,21 @@ export function activate(context: vscode.ExtensionContext) {
             edit.insert(targetUri, new vscode.Position(0, 0), typeBlock + '\n');
 
             await vscode.workspace.applyEdit(edit);
+        })
+    );
+
+    // Register performance monitoring commands
+    context.subscriptions.push(
+        vscode.commands.registerCommand('thrift.showPerformanceReport', () => {
+            PerformanceMonitor.showPerformanceReport();
+        })
+    );
+
+    // Add command to clear performance data
+    context.subscriptions.push(
+        vscode.commands.registerCommand('thrift.clearPerformanceData', () => {
+            PerformanceMonitor.clearMetrics();
+            vscode.window.showInformationMessage('Thrift Support: Performance metrics cleared');
         })
     );
 }
