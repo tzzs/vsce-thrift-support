@@ -1,5 +1,33 @@
 # Changelog | 更新日志
 
+## [1.0.0](https://github.com/tzzs/vsce-thrift-support/compare/v0.7.1...v1.0.0) (2025-12-15)
+
+
+### ⚠ BREAKING CHANGES
+
+* Removed all scanning-related configuration options including
+    - thrift.enableWorkspaceSymbolScanning
+    - thrift.enableReferenceScanning
+    - thrift.scanningMode
+    - thrift.maxFilesToScan
+    - thrift.scanInterval
+    - thrift.scanOnDocumentActivate
+    - config-schema.json file
+
+### Features
+
+* add performance optimizations and comprehensive unit tests ([0a12912](https://github.com/tzzs/vsce-thrift-support/commit/0a12912ab295f5619b41bbd4eb0afd2788a13859))
+
+
+### Bug Fixes
+
+* **formatter,definition:** fix service indentation, comment alignment and external navigation ([cc97005](https://github.com/tzzs/vsce-thrift-support/commit/cc97005a77dc028c26c0ab00e4553e98bb6c3f29))
+
+
+### Code Refactoring
+
+* remove scanning configuration options to simplify user experience ([ba5b9a6](https://github.com/tzzs/vsce-thrift-support/commit/ba5b9a690cd1c4265d954588f48593c7bfbdc98e))
+
 ## [0.7.1](https://github.com/tzzs/vsce-thrift-support/compare/v0.7.0...v0.7.1) (2025-12-14)
 
 
