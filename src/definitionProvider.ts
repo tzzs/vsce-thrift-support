@@ -318,39 +318,9 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         }
 
         // 缓存无效，重新解析
-        // Use AST to find definition
-        // Note: ThriftParser expects a document-like object or text. 
-        // We'll update ThriftParser usage or ensure it handles text.
-        // Looking at ThriftParser implementation in diagnostics.ts analysis, it takes a document.
-        // We need to check ThriftParser. For now, let's create a mock document object if Parser requires it,
-        // or checking if we can change Parser.
-        // Wait, I haven't checked ThriftParser in detail. 
-        // Let's assume for now I can pass a simple object with getText/uri if needed, or if I can pass just text.
-        // But better to check Parser first? No, I'll stick to the plan but make safe assumption.
-        // Actually, let's look at `src/definitionProvider.ts` imports. `import { ThriftParser } from './ast/parser';`
-        // I need to be careful about `ThriftParser` constructor.
-
-        // Let's create a minimal compatible object for ThriftParser if it requires a document.
-        const mockDoc = {
-            getText: () => text,
-            uri: uri,
-            lineCount: text.split('\n').length,
-            positionAt: (offset: number) => {
-                const lines = text.slice(0, offset).split('\n');
-                return new vscode.Position(lines.length - 1, lines[lines.length - 1].length);
-            },
-            offsetAt: (position: vscode.Position) => {
-                const lines = text.split('\n');
-                let offset = 0;
-                for (let i = 0; i < position.line; i++) {
-                    offset += lines[i].length + 1; // +1 for newline
-                }
-                return offset + position.character;
-            },
-            fileName: uri.fsPath
-        } as unknown as vscode.TextDocument;
-
-        const parser = new ThriftParser(mockDoc);
+        // ThriftParser now supports both TextDocument and string
+        // Since we already have the text string, pass it directly
+        const parser = new ThriftParser(text);
         const ast = parser.parse();
 
         let foundLocation: vscode.Location | undefined = undefined;
@@ -380,7 +350,17 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         }
 
         // Handle specific node types with nested structures
-        if (node.type === nodes.ThriftNodeType.Struct ||
+        if (node.type === nodes.ThriftNodeType.Document) {
+            // Document node has a body array containing all top-level definitions
+            const doc = node as nodes.ThriftDocument;
+            if (doc.body) {
+                for (const item of doc.body) {
+                    if (!this.traverseAST(item, callback)) {
+                        return false;
+                    }
+                }
+            }
+        } else if (node.type === nodes.ThriftNodeType.Struct ||
             node.type === nodes.ThriftNodeType.Union ||
             node.type === nodes.ThriftNodeType.Exception) {
             const struct = node as nodes.Struct;
