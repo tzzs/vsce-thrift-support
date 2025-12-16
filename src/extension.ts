@@ -12,7 +12,6 @@ import { registerReferencesProvider } from './referencesProvider';
 import { registerFoldingRangeProvider } from './foldingRangeProvider';
 import { registerSelectionRangeProvider } from './selectionRangeProvider';
 import { PerformanceMonitor } from './performanceMonitor';
-import { registerMinimalProviders } from './minimalProviders';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Thrift Support extension is now active!');
@@ -21,7 +20,7 @@ export function activate(context: vscode.ExtensionContext) {
     const formattingProvider = new ThriftFormattingProvider();
     context.subscriptions.push(
         vscode.languages.registerDocumentFormattingEditProvider('thrift', formattingProvider)
-    ); 
+    );
     context.subscriptions.push(
         vscode.languages.registerDocumentRangeFormattingEditProvider('thrift', formattingProvider)
     );
@@ -73,21 +72,11 @@ export function activate(context: vscode.ExtensionContext) {
     // Register document symbol provider for outline view
     registerDocumentSymbolProvider(context);
 
-    // 根据配置决定使用哪种提供器
-    const config = vscode.workspace.getConfiguration('thrift');
-    const scanningMode = config.get('scanningMode', 'minimal') as string;
-    
-    if (scanningMode === 'full') {
-        // 完整扫描模式 - 使用原有的提供器
-        registerWorkspaceSymbolProvider(context);
-        registerReferencesProvider(context);
-    } else if (scanningMode === 'minimal' || scanningMode === 'on-demand') {
-        // 最小化扫描模式 - 使用新的最小化提供器
-        registerMinimalProviders(context);
-    } else {
-        // 默认使用最小化扫描模式
-        registerMinimalProviders(context);
-    }
+    // Register workspace symbol provider for symbol search (Ctrl+T)
+    registerWorkspaceSymbolProvider(context);
+
+    // Register references provider for finding references
+    registerReferencesProvider(context);
 
     // Register folding range provider for code folding
     registerFoldingRangeProvider(context);
@@ -105,12 +94,14 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.languages.registerCodeActionsProvider(
             'thrift',
             new ThriftRefactorCodeActionProvider(),
-            { providedCodeActionKinds: [
-                vscode.CodeActionKind.Refactor,
-                vscode.CodeActionKind.RefactorExtract,
-                vscode.CodeActionKind.RefactorMove,
-                vscode.CodeActionKind.QuickFix,
-            ]}
+            {
+                providedCodeActionKinds: [
+                    vscode.CodeActionKind.Refactor,
+                    vscode.CodeActionKind.RefactorExtract,
+                    vscode.CodeActionKind.RefactorMove,
+                    vscode.CodeActionKind.QuickFix,
+                ]
+            }
         )
     );
 
@@ -137,7 +128,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('thrift.refactor.extractType', async () => {
             const editor = vscode.window.activeTextEditor;
-            if (!editor || editor.document.languageId !== 'thrift') {return;}
+            if (!editor || editor.document.languageId !== 'thrift') { return; }
             const doc = editor.document;
             const sel = editor.selection;
             const fullLine = doc.lineAt(sel.active.line).text;
@@ -148,12 +139,12 @@ export function activate(context: vscode.ExtensionContext) {
             if (!typeText) {
                 // match field: 1: required list<string> items,
                 const m = fullLine.match(/^(\s*)\d+\s*:\s*(?:required|optional)?\s*([^\s,;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/);
-                if (m) {typeText = m[2];}
+                if (m) { typeText = m[2]; }
             }
-            if (!typeText) {return;}
+            if (!typeText) { return; }
 
             const newTypeName = await vscode.window.showInputBox({ prompt: 'New type name', value: 'ExtractedType' });
-            if (!newTypeName) {return;}
+            if (!newTypeName) { return; }
 
             const edit = new vscode.WorkspaceEdit();
 
@@ -188,7 +179,7 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('thrift.refactor.moveType', async () => {
             const editor = vscode.window.activeTextEditor;
-            if (!editor || editor.document.languageId !== 'thrift') {return;}
+            if (!editor || editor.document.languageId !== 'thrift') { return; }
             const doc = editor.document;
             const sel = editor.selection;
             const pos = sel.active;
@@ -214,7 +205,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             const typeDeclLine = doc.lineAt(startLine).text;
             const m = typeDeclLine.match(/^\s*(struct|enum|service|typedef)\s+([A-Za-z_][A-Za-z0-9_]*)/);
-            if (!m) {return;}
+            if (!m) { return; }
             const typeName = m[2];
 
             // Find matching closing brace if not found yet
@@ -223,7 +214,7 @@ export function activate(context: vscode.ExtensionContext) {
                 let depth = 0;
                 for (let i = pos.line; i < doc.lineCount; i++) {
                     const t = doc.lineAt(i).text;
-                    if (t.includes('{')) { if (depth === 0) {startLine = i;} depth++; }
+                    if (t.includes('{')) { if (depth === 0) { startLine = i; } depth++; }
                     if (t.includes('}')) { depth--; if (depth === 0) { endLine = i; break; } }
                 }
             }
@@ -232,7 +223,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             const defaultFileName = `${typeName}.thrift`;
             const targetName = await vscode.window.showInputBox({ prompt: 'Target .thrift file name', value: defaultFileName });
-            if (!targetName) {return;}
+            if (!targetName) { return; }
 
             const folder = vscode.Uri.file(require('path').dirname(doc.uri.fsPath));
             const targetUri = vscode.Uri.file(require('path').join(folder.fsPath, targetName));
