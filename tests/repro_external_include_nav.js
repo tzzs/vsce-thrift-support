@@ -5,22 +5,37 @@ const fs = require('fs');
 // Mock VS Code API
 const vscode = {
     window: {
-        showInformationMessage: () => { },
-        showErrorMessage: () => { },
+        showInformationMessage: () => {
+        },
+        showErrorMessage: () => {
+        },
         activeTextEditor: null
     },
-    Position: class { constructor(currLine, currChar) { this.line = currLine; this.character = currChar; } },
+    Position: class {
+        constructor(currLine, currChar) {
+            this.line = currLine;
+            this.character = currChar;
+        }
+    },
     Range: class {
         constructor(start, end) {
             this.start = start;
             this.end = end;
         }
-        contains(pos) { return true; }
+
+        contains(pos) {
+            return true;
+        }
     },
-    Location: class { constructor(uri, range) { this.uri = uri; this.range = range; } },
+    Location: class {
+        constructor(uri, range) {
+            this.uri = uri;
+            this.range = range;
+        }
+    },
     Uri: {
-        file: (f) => ({ fsPath: f, toString: () => f }),
-        parse: (s) => ({ fsPath: s, toString: () => s })
+        file: (f) => ({fsPath: f, toString: () => f}),
+        parse: (s) => ({fsPath: s, toString: () => s})
     },
     workspace: {
         fs: {
@@ -37,7 +52,7 @@ const vscode = {
             }
         },
         textDocuments: [],
-        getWorkspaceFolder: () => ({ uri: { fsPath: __dirname } }),
+        getWorkspaceFolder: () => ({uri: {fsPath: __dirname}}),
         asRelativePath: (p) => path.relative(__dirname, p)
     },
     TextDocument: class {
@@ -46,8 +61,15 @@ const vscode = {
             this.content = content;
             this.lines = content.split('\n');
         }
-        getText(range) { return this.content; }
-      lineAt(line) { return { text: this.lines[line] }; }
+
+        getText(range) {
+            return this.content;
+        }
+
+        lineAt(line) {
+            return {text: this.lines[line]};
+        }
+
         getWordRangeAtPosition(pos) {
             const line = this.lines[pos.line];
             if (!line) return undefined;
@@ -71,25 +93,33 @@ const vscode = {
 
             return new vscode.Range(new vscode.Position(pos.line, start), new vscode.Position(pos.line, end));
         }
-        positionAt(offset) { return new vscode.Position(0, 0); }
+
+        positionAt(offset) {
+            return new vscode.Position(0, 0);
+        }
     },
-    CancellationToken: class { }
+    CancellationToken: class {
+    }
 };
 
 // Mock TextDecoder
 global.TextDecoder = class {
-    decode(buffer) { return buffer.toString(); }
+    decode(buffer) {
+        return buffer.toString();
+    }
 };
 
 const Module = require('module');
 const originalLoad = Module._load;
 Module._load = function (request, parent, isMain) {
-    if (request === 'vscode') { return vscode; }
+    if (request === 'vscode') {
+        return vscode;
+    }
     return originalLoad.apply(this, arguments);
 };
 
 // Import DefinitionProvider
-const { ThriftDefinitionProvider } = require('../out/definitionProvider.js');
+const {ThriftDefinitionProvider} = require('../out/definitionProvider.js');
 
 async function testExternalIncludeNavigation() {
     console.log('Testing External Include Navigation');

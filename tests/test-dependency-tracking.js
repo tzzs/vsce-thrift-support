@@ -15,7 +15,7 @@ class DependencyTest {
         this.dependentFiles.set('test_020.thrift', ['test_091.thrift']);
         this.dependentFiles.set('test_078.thrift', ['test_091.thrift']);
         this.dependentFiles.set('test_001.thrift', ['test_091.thrift']);
-        
+
         console.log('[Dependency] Setup file dependencies:');
         for (const [includeFile, dependents] of this.dependentFiles.entries()) {
             console.log(`  ${includeFile} -> ${dependents.join(', ')}`);
@@ -26,7 +26,7 @@ class DependencyTest {
     simulateFileChange(filePath) {
         const fileName = path.basename(filePath);
         console.log(`\n[Dependency] File modified: ${fileName}`);
-        
+
         const changeTime = new Date().toISOString();
         this.fileModificationLog.push({
             file: fileName,
@@ -36,17 +36,17 @@ class DependencyTest {
 
         // 查找依赖这个文件的所有文档
         const dependents = this.dependentFiles.get(fileName) || [];
-        
+
         if (dependents.length > 0) {
             console.log(`[Dependency] Found ${dependents.length} dependent files:`);
-            
+
             for (const dependentFile of dependents) {
                 console.log(`  - ${dependentFile} (will be re-analyzed)`);
-                
+
                 // 记录触发的重新分析
                 this.fileModificationLog[this.fileModificationLog.length - 1]
                     .triggeredReanalysis.push(dependentFile);
-                
+
                 // 模拟延迟分析依赖文件，避免立即连锁反应
                 setTimeout(() => {
                     this.simulateReanalysis(dependentFile, fileName);
@@ -60,10 +60,10 @@ class DependencyTest {
     // 模拟重新分析
     simulateReanalysis(dependentFile, triggerFile) {
         console.log(`\n[Dependency] 🔍 Re-analyzing ${dependentFile} (triggered by ${triggerFile})`);
-        
+
         // 这里会触发包含文件分析，使用缓存机制
         console.log(`[Dependency] Checking includes for ${dependentFile}...`);
-        
+
         // 模拟分析过程
         setTimeout(() => {
             console.log(`[Dependency] ✅ Completed reanalysis of ${dependentFile}`);
@@ -74,7 +74,7 @@ class DependencyTest {
     getTestReport() {
         console.log('\n📋 Dependency Test Report:');
         console.log('==========================');
-        
+
         if (this.fileModificationLog.length === 0) {
             console.log('No file modifications were simulated');
             return;
@@ -85,7 +85,7 @@ class DependencyTest {
             console.log(`\nFile: ${log.file}`);
             console.log(`Time: ${log.time}`);
             console.log(`Triggered reanalysis: ${log.triggeredReanalysis.length} files`);
-            
+
             if (log.triggeredReanalysis.length > 0) {
                 for (const reanalyzed of log.triggeredReanalysis) {
                     console.log(`  - ${reanalyzed}`);
@@ -102,7 +102,7 @@ class DependencyTest {
 async function runDependencyTest() {
     console.log('🔄 File Modification and Dependency Test');
     console.log('==========================================\n');
-    
+
     const test = new DependencyTest();
     test.setupDependencies();
 
@@ -126,13 +126,13 @@ async function runDependencyTest() {
     // 验证结果
     console.log('\n📊 Test Validation:');
     console.log('====================');
-    
+
     const expectedReanalyses = 2; // 每次修改应该触发1个重新分析
     const actualReanalyses = test.fileModificationLog.reduce((sum, log) => sum + log.triggeredReanalysis.length, 0);
-    
+
     console.log(`Expected reanalyses: ${expectedReanalyses}`);
     console.log(`Actual reanalyses: ${actualReanalyses}`);
-    
+
     if (actualReanalyses === expectedReanalyses) {
         console.log('✅ Dependency tracking is working correctly!');
     } else {
@@ -145,4 +145,4 @@ if (require.main === module) {
     runDependencyTest().catch(console.error);
 }
 
-module.exports = { DependencyTest };
+module.exports = {DependencyTest};

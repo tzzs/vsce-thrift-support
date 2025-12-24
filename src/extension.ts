@@ -1,17 +1,18 @@
 import * as vscode from 'vscode';
-import { ThriftFormattingProvider } from './formattingProvider';
-import { ThriftDefinitionProvider } from './definitionProvider';
-import { ThriftHoverProvider } from './hoverProvider';
-import { registerDiagnostics } from './diagnostics';
-import { ThriftRenameProvider } from './renameProvider';
-import { ThriftRefactorCodeActionProvider } from './codeActionsProvider';
-import { registerCompletionProvider } from './completionProvider';
-import { registerDocumentSymbolProvider } from './documentSymbolProvider';
-import { registerWorkspaceSymbolProvider } from './workspaceSymbolProvider';
-import { registerReferencesProvider } from './referencesProvider';
-import { registerFoldingRangeProvider } from './foldingRangeProvider';
-import { registerSelectionRangeProvider } from './selectionRangeProvider';
-import { PerformanceMonitor } from './performanceMonitor';
+import {ThriftFormattingProvider} from './formattingProvider';
+import {ThriftDefinitionProvider} from './definitionProvider';
+import {ThriftHoverProvider} from './hoverProvider';
+import {registerDiagnostics} from './diagnostics';
+import {ThriftRenameProvider} from './renameProvider';
+import {ThriftRefactorCodeActionProvider} from './codeActionsProvider';
+import {registerCompletionProvider} from './completionProvider';
+import {registerDocumentSymbolProvider} from './documentSymbolProvider';
+import {registerWorkspaceSymbolProvider} from './workspaceSymbolProvider';
+import {registerReferencesProvider} from './referencesProvider';
+import {registerFoldingRangeProvider} from './foldingRangeProvider';
+import {registerSelectionRangeProvider} from './selectionRangeProvider';
+import {PerformanceMonitor} from './performanceMonitor';
+import {ThriftFileWatcher} from '../utils/fileWatcher';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Thrift Support extension is now active!');
@@ -32,14 +33,8 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     // 添加文件监听器，当文件改变时清除定义提供器的缓存
-    const definitionFileWatcher = vscode.workspace.createFileSystemWatcher('**/*.thrift');
-    definitionFileWatcher.onDidCreate(() => {
-        definitionProvider.clearCache();
-    });
-    definitionFileWatcher.onDidChange(() => {
-        definitionProvider.clearCache();
-    });
-    definitionFileWatcher.onDidDelete(() => {
+    const fileWatcher = ThriftFileWatcher.getInstance();
+    const definitionFileWatcher = fileWatcher.createWatcher('**/*.thrift', () => {
         definitionProvider.clearCache();
     });
     context.subscriptions.push(definitionFileWatcher);
@@ -51,14 +46,7 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     // 添加文件监听器，当文件改变时清除悬停提供器的缓存
-    const hoverFileWatcher = vscode.workspace.createFileSystemWatcher('**/*.thrift');
-    hoverFileWatcher.onDidCreate(() => {
-        ThriftHoverProvider.clearCache();
-    });
-    hoverFileWatcher.onDidChange(() => {
-        ThriftHoverProvider.clearCache();
-    });
-    hoverFileWatcher.onDidDelete(() => {
+    const hoverFileWatcher = fileWatcher.createWatcher('**/*.thrift', () => {
         ThriftHoverProvider.clearCache();
     });
     context.subscriptions.push(hoverFileWatcher);
@@ -128,7 +116,9 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('thrift.refactor.extractType', async () => {
             const editor = vscode.window.activeTextEditor;
-            if (!editor || editor.document.languageId !== 'thrift') { return; }
+            if (!editor || editor.document.languageId !== 'thrift') {
+                return;
+            }
             const doc = editor.document;
             const sel = editor.selection;
             const fullLine = doc.lineAt(sel.active.line).text;
@@ -139,12 +129,18 @@ export function activate(context: vscode.ExtensionContext) {
             if (!typeText) {
                 // match field: 1: required list<string> items,
                 const m = fullLine.match(/^(\s*)\d+\s*:\s*(?:required|optional)?\s*([^\s,;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/);
-                if (m) { typeText = m[2]; }
+                if (m) {
+                    typeText = m[2];
+                }
             }
-            if (!typeText) { return; }
+            if (!typeText) {
+                return;
+            }
 
-            const newTypeName = await vscode.window.showInputBox({ prompt: 'New type name', value: 'ExtractedType' });
-            if (!newTypeName) { return; }
+            const newTypeName = await vscode.window.showInputBox({prompt: 'New type name', value: 'ExtractedType'});
+            if (!newTypeName) {
+                return;
+            }
 
             const edit = new vscode.WorkspaceEdit();
 
@@ -179,7 +175,9 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('thrift.refactor.moveType', async () => {
             const editor = vscode.window.activeTextEditor;
-            if (!editor || editor.document.languageId !== 'thrift') { return; }
+            if (!editor || editor.document.languageId !== 'thrift') {
+                return;
+            }
             const doc = editor.document;
             const sel = editor.selection;
             const pos = sel.active;
@@ -196,16 +194,24 @@ export function activate(context: vscode.ExtensionContext) {
             }
             for (let i = pos.line; i < doc.lineCount; i++) {
                 const t = doc.lineAt(i).text;
-                if (t.includes('{')) { startLine = Math.min(startLine, i); break; }
+                if (t.includes('{')) {
+                    startLine = Math.min(startLine, i);
+                    break;
+                }
             }
             for (let i = pos.line; i < doc.lineCount; i++) {
                 const t = doc.lineAt(i).text;
-                if (t.includes('}')) { endLine = i; break; }
+                if (t.includes('}')) {
+                    endLine = i;
+                    break;
+                }
             }
 
             const typeDeclLine = doc.lineAt(startLine).text;
             const m = typeDeclLine.match(/^\s*(struct|enum|service|typedef)\s+([A-Za-z_][A-Za-z0-9_]*)/);
-            if (!m) { return; }
+            if (!m) {
+                return;
+            }
             const typeName = m[2];
 
             // Find matching closing brace if not found yet
@@ -214,16 +220,32 @@ export function activate(context: vscode.ExtensionContext) {
                 let depth = 0;
                 for (let i = pos.line; i < doc.lineCount; i++) {
                     const t = doc.lineAt(i).text;
-                    if (t.includes('{')) { if (depth === 0) { startLine = i; } depth++; }
-                    if (t.includes('}')) { depth--; if (depth === 0) { endLine = i; break; } }
+                    if (t.includes('{')) {
+                        if (depth === 0) {
+                            startLine = i;
+                        }
+                        depth++;
+                    }
+                    if (t.includes('}')) {
+                        depth--;
+                        if (depth === 0) {
+                            endLine = i;
+                            break;
+                        }
+                    }
                 }
             }
 
             const typeBlock = doc.getText(new vscode.Range(startLine, 0, endLine, doc.lineAt(endLine).text.length));
 
             const defaultFileName = `${typeName}.thrift`;
-            const targetName = await vscode.window.showInputBox({ prompt: 'Target .thrift file name', value: defaultFileName });
-            if (!targetName) { return; }
+            const targetName = await vscode.window.showInputBox({
+                prompt: 'Target .thrift file name',
+                value: defaultFileName
+            });
+            if (!targetName) {
+                return;
+            }
 
             const folder = vscode.Uri.file(require('path').dirname(doc.uri.fsPath));
             const targetUri = vscode.Uri.file(require('path').join(folder.fsPath, targetName));
@@ -238,7 +260,7 @@ export function activate(context: vscode.ExtensionContext) {
             // Remove original block
             edit.delete(doc.uri, new vscode.Range(startLine, 0, endLine + 1, 0));
             // Create new file and insert block
-            edit.createFile(targetUri, { overwrite: true });
+            edit.createFile(targetUri, {overwrite: true});
             edit.insert(targetUri, new vscode.Position(0, 0), typeBlock + '\n');
 
             await vscode.workspace.applyEdit(edit);

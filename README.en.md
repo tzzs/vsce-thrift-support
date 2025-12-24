@@ -2,7 +2,8 @@
 
 [English](./README.en.md) | [中文](./README.md)
 
-A VSCode extension that provides complete support for Apache Thrift files, including syntax highlighting, code formatting, and navigation.
+A VSCode extension that provides complete support for Apache Thrift files, including syntax highlighting, code
+formatting, and navigation.
 
 [![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/tanzz.thrift-support?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=tanzz.thrift-support)
 [![Installs](https://img.shields.io/visual-studio-marketplace/i/tanzz.thrift-support?label=Installs)](https://marketplace.visualstudio.com/items?itemName=tanzz.thrift-support)
@@ -15,11 +16,13 @@ A VSCode extension that provides complete support for Apache Thrift files, inclu
 ## 🚀 Features
 
 ### Syntax Highlighting
+
 - Full Thrift syntax coverage: keywords, data types, strings, comments, numeric literals
 - Supports all primitive and container types (including `uuid`)
 - Smart token coloring for better readability
 
 ### Code Formatting
+
 - Document formatting: format the entire Thrift file with one command
 - Selection formatting: format only the selected text
 - Smart alignment: align field types, field names, and comments
@@ -28,11 +31,13 @@ A VSCode extension that provides complete support for Apache Thrift files, inclu
 > Publisher namespace: tanzz (used for both VS Marketplace and Open VSX)
 
 ### Code Navigation
+
 - Go to Definition: jump to type definitions quickly
 - Include resolution: follow `include` statements across files
 - Workspace search: find definitions across the workspace
 
 ### Code Refactoring
+
 - Identifier rename (F2): updates references across files with basic conflict checks
 - Extract type (typedef): infer type from selection or current field and generate a `typedef`
 - Move type to file: move `struct/enum/service/typedef` into a new `.thrift` file and auto-insert an `include`
@@ -47,33 +52,37 @@ A VSCode extension that provides complete support for Apache Thrift files, inclu
 ## 🔧 Usage
 
 ### Formatting
+
 - Format Document: `Ctrl+Shift+I` (Windows/Linux) or `Cmd+Shift+I` (macOS)
 - Format Selection: select text, then `Ctrl+K Ctrl+F` (Windows/Linux) or `Cmd+K Cmd+F` (macOS)
 - Command Palette:
-  - `Thrift: Format Document`
-  - `Thrift: Format Selection`
+    - `Thrift: Format Document`
+    - `Thrift: Format Selection`
 
 ### Code Navigation
+
 - Go to Definition: `F12` or `Ctrl+Click`
 - Peek Definition: `Alt+F12`
 
 ### Diagnostics
+
 - Syntax pairing and unclosed checks (syntax.unmatchedCloser / syntax.unclosed)
 - Type checks: unknown types and typedef base (type.unknown / typedef.unknownBase)
 - Container inner type checks: validate inner types of list/map/set
 - Enum constraints: values must be non-negative integers (enum.negativeValue / enum.valueNotInteger)
 - Default value type checks: including base types and UUID string format (value.typeMismatch)
 - Service constraints:
-  - oneway must return void and must not declare throws (service.oneway.returnNotVoid / service.oneway.hasThrows)
-  - throws must reference known exception types (service.throws.unknown / service.throws.notException)
-  - extends must target a service type (service.extends.unknown / service.extends.notService)
+    - oneway must return void and must not declare throws (service.oneway.returnNotVoid / service.oneway.hasThrows)
+    - throws must reference known exception types (service.throws.unknown / service.throws.notException)
+    - extends must target a service type (service.extends.unknown / service.extends.notService)
 - Robust default value extraction improvements:
-  - Ignore '=' inside field annotations so it won’t be treated as the start of a default value
-  - set<T> default values accept either `[]` or `{}` with bracket-aware element checks
+    - Ignore '=' inside field annotations so it won’t be treated as the start of a default value
+    - set<T> default values accept either `[]` or `{}` with bracket-aware element checks
 
 Note: Diagnostics update in real-time during editing and on save. You can review them in VSCode’s “Problems” panel.
 
 ### Code Refactoring
+
 - Identifier rename (F2): cross-file reference updates with basic conflict checks
 - Extract type (typedef): infer type from selection/current field and generate a `typedef`
 - Move type to file: move `struct/enum/service/typedef` into a new `.thrift` file and auto-insert an `include`
@@ -82,9 +91,9 @@ Note: Diagnostics update in real-time during editing and on save. You can review
 
 - Starting from Apache Thrift IDL 0.23, `uuid` is treated as a built-in base type in this extension.
 - Alignment touches the following components:
-  - Diagnostics: `uuid` is recognized as a primitive type
-  - Definition Provider: `uuid` is excluded from user-defined symbol navigation
-  - Syntax Highlighting: `uuid` is included in the primitive type regex
+    - Diagnostics: `uuid` is recognized as a primitive type
+    - Definition Provider: `uuid` is excluded from user-defined symbol navigation
+    - Syntax Highlighting: `uuid` is included in the primitive type regex
 - Reference: Apache Thrift IDL — https://thrift.apache.org/docs/idl
 
 ## 🐛 Issues
@@ -100,14 +109,17 @@ If you encounter issues or have feature requests:
 We welcome contributions!
 
 ### How to Contribute
+
 1. Report bugs and propose features
 2. Open pull requests with clear descriptions
 3. Help improve documentation
 
 ### Development
+
 Development prerequisites, build/test steps, and CI/CD details have been moved to DEVELOPMENT.md.
 
 ### Pull Requests
+
 1. Create a feature branch: `git checkout -b feature/your-feature`
 2. Commit changes: `git commit -m "Add your feature"`
 3. Push branch: `git push origin feature/your-feature`

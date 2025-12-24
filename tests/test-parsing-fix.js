@@ -7,8 +7,8 @@ const Module = require('module');
 const mockVscode = {
     Range: class {
         constructor(startLine, startChar, endLine, endChar) {
-            this.start = { line: startLine, character: startChar };
-            this.end = { line: endLine, character: endChar };
+            this.start = {line: startLine, character: startChar};
+            this.end = {line: endLine, character: endChar};
         }
     },
     Position: class {
@@ -18,7 +18,7 @@ const mockVscode = {
         }
     },
     Uri: {
-        file: (f) => ({ fsPath: f, toString: () => f })
+        file: (f) => ({fsPath: f, toString: () => f})
     },
     workspace: {
         fs: {
@@ -37,7 +37,7 @@ Module.prototype.require = function (id) {
     return originalRequire.call(this, id);
 };
 
-const { ThriftParser } = require('../out/ast/parser');
+const {ThriftParser} = require('../out/src/ast/parser.js');
 
 async function testThriftParserStringInput() {
     console.log('Testing ThriftParser with string input...');

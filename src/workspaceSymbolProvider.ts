@@ -1,86 +1,91 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
+import {ThriftFileWatcher} from '../utils/fileWatcher';
+import {CacheManager} from '../utils/cacheManager';
+import {ErrorHandler} from '../utils/errorHandler';
 
 export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvider {
-    private cachedSymbols: Map<string, vscode.SymbolInformation[]> = new Map();
+    private cacheManager = CacheManager.getInstance();
     private fileWatcher: vscode.FileSystemWatcher | undefined;
-    private lastGlobalScan: number = 0;
-    private readonly GLOBAL_SCAN_INTERVAL = 60000; // 60秒间隔，增加间隔时间
     private isScanning: boolean = false;
     private workspaceFileList: string[] = [];
     private lastFileListUpdate: number = 0;
     private readonly FILE_LIST_UPDATE_INTERVAL = 30000; // 30秒更新文件列表
+    private errorHandler = ErrorHandler.getInstance();
 
     constructor() {
+        // 注册缓存配置
+        this.cacheManager.registerCache('workspaceSymbols', {
+            maxSize: 1000,
+            ttl: 60000 // 60秒
+        });
+        this.cacheManager.registerCache('fileSymbols', {
+            maxSize: 500,
+            ttl: 30000 // 30秒
+        });
+
         // Watch for changes to Thrift files
-        this.fileWatcher = vscode.workspace.createFileSystemWatcher('**/*.thrift');
-
-        if (this.fileWatcher && this.fileWatcher.onDidCreate) {
-            this.fileWatcher.onDidCreate((uri: vscode.Uri) => {
-                this.cachedSymbols.delete(uri.fsPath);
-            });
-
-            this.fileWatcher.onDidChange((uri: vscode.Uri) => {
-                this.cachedSymbols.delete(uri.fsPath);
-            });
-
-            this.fileWatcher.onDidDelete((uri: vscode.Uri) => {
-                this.cachedSymbols.delete(uri.fsPath);
-            });
-        }
+        const fileWatcher = ThriftFileWatcher.getInstance();
+        this.fileWatcher = fileWatcher.createWatcher('**/*.thrift', () => {
+            // Clear all cached symbols when any thrift file changes
+            this.cacheManager.clear('workspaceSymbols');
+            this.cacheManager.clear('fileSymbols');
+        });
     }
 
     public async provideWorkspaceSymbols(
         query: string,
         token: vscode.CancellationToken
     ): Promise<vscode.SymbolInformation[]> {
-        const allSymbols: vscode.SymbolInformation[] = [];
+        const cacheKey = query || 'all';
 
-        // 限制全局扫描频率，避免频繁触发
-        const now = Date.now();
-        if (this.isScanning || (now - this.lastGlobalScan) < this.GLOBAL_SCAN_INTERVAL) {
-            // 使用缓存数据
-            for (const [uri, symbols] of this.cachedSymbols) {
-                if (token.isCancellationRequested) break;
-                allSymbols.push(...symbols);
-            }
-            return this.filterSymbols(allSymbols, query);
+        // 先从缓存中获取
+        const cached = this.cacheManager.get<vscode.SymbolInformation[]>('workspaceSymbols', cacheKey);
+        if (cached) {
+            return cached;
         }
 
-        this.isScanning = true;
-        this.lastGlobalScan = now;
+        const allSymbols: vscode.SymbolInformation[] = [];
 
-        try {
-            // 智能文件列表更新 - 只在需要时更新
-            const thriftFiles = await this.getThriftFiles();
+        // 智能文件列表更新 - 只在需要时更新
+        const thriftFiles = await this.getThriftFiles();
 
-            for (const file of thriftFiles) {
-                if (token.isCancellationRequested) {
-                    break;
-                }
-
-                try {
-                    const symbols = await this.getSymbolsForFile(file);
-                    allSymbols.push(...symbols);
-                } catch (error) {
-                    console.error(`Error parsing symbols from ${file.fsPath}:`, error);
-                }
+        for (const file of thriftFiles) {
+            if (token.isCancellationRequested) {
+                break;
             }
-        } finally {
-            this.isScanning = false;
+
+            try {
+                const symbols = await this.getSymbolsForFile(file);
+                allSymbols.push(...symbols);
+            } catch (error) {
+                this.errorHandler.handleError(error, {
+                    component: 'ThriftWorkspaceSymbolProvider',
+                    operation: 'getSymbolsForFile',
+                    filePath: file.fsPath,
+                    additionalInfo: {query}
+                });
+            }
         }
 
         // Filter by query if provided
+        let filteredSymbols = allSymbols;
         if (query) {
-            const lowerQuery = query.toLowerCase();
-            return allSymbols.filter(symbol =>
-                symbol.name.toLowerCase().includes(lowerQuery) ||
-                symbol.containerName.toLowerCase().includes(lowerQuery)
-            );
+            filteredSymbols = this.filterSymbols(allSymbols, query);
         }
 
-        return allSymbols;
+        // 缓存结果
+        this.cacheManager.set('workspaceSymbols', cacheKey, filteredSymbols);
+
+        return filteredSymbols;
+    }
+
+    dispose() {
+        if (this.fileWatcher) {
+            this.fileWatcher.dispose();
+        }
+        this.cacheManager.clear('workspaceSymbols');
+        this.cacheManager.clear('fileSymbols');
     }
 
     private filterSymbols(symbols: vscode.SymbolInformation[], query: string): vscode.SymbolInformation[] {
@@ -114,10 +119,13 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
     }
 
     private async getSymbolsForFile(uri: vscode.Uri): Promise<vscode.SymbolInformation[]> {
-        // Check cache first
-        if (this.cachedSymbols.has(uri.fsPath)) {
+        const cacheKey = uri.fsPath;
+
+        // 从缓存管理器获取缓存
+        const cached = this.cacheManager.get<vscode.SymbolInformation[]>('fileSymbols', cacheKey);
+        if (cached) {
             console.log(`[WorkspaceSymbolProvider] Using cached symbols for: ${path.basename(uri.fsPath)}`);
-            return this.cachedSymbols.get(uri.fsPath)!;
+            return cached;
         }
 
         console.log(`[WorkspaceSymbolProvider] Parsing symbols for: ${path.basename(uri.fsPath)}`);
@@ -135,8 +143,8 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
 
         const symbols = this.parseSymbolsFromText(text, uri);
 
-        // Cache the results
-        this.cachedSymbols.set(uri.fsPath, symbols);
+        // 缓存结果
+        this.cacheManager.set('fileSymbols', cacheKey, symbols);
         return symbols;
     }
 
@@ -320,23 +328,25 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
 
     private getSymbolKind(type: string): vscode.SymbolKind {
         switch (type) {
-            case 'struct': return vscode.SymbolKind.Struct;
-            case 'union': return vscode.SymbolKind.Struct;
-            case 'exception': return vscode.SymbolKind.Class;
-            case 'enum': return vscode.SymbolKind.Enum;
-            case 'senum': return vscode.SymbolKind.Enum;
-            case 'service': return vscode.SymbolKind.Interface;
-            case 'typedef': return vscode.SymbolKind.TypeParameter;
-            case 'const': return vscode.SymbolKind.Constant;
-            default: return vscode.SymbolKind.Variable;
+            case 'struct':
+                return vscode.SymbolKind.Struct;
+            case 'union':
+                return vscode.SymbolKind.Struct;
+            case 'exception':
+                return vscode.SymbolKind.Class;
+            case 'enum':
+                return vscode.SymbolKind.Enum;
+            case 'senum':
+                return vscode.SymbolKind.Enum;
+            case 'service':
+                return vscode.SymbolKind.Interface;
+            case 'typedef':
+                return vscode.SymbolKind.TypeParameter;
+            case 'const':
+                return vscode.SymbolKind.Constant;
+            default:
+                return vscode.SymbolKind.Variable;
         }
-    }
-
-    dispose() {
-        if (this.fileWatcher) {
-            this.fileWatcher.dispose();
-        }
-        this.cachedSymbols.clear();
     }
 }
 

@@ -28,13 +28,13 @@ let clickCount = 0;
 function simulateFileClick(filePath) {
     clickCount++;
     console.log(`\n🖱️ 模拟点击文件: ${filePath}`);
-    
+
     // 模拟文档激活事件
     const eventTriggered = true;
-    
+
     if (eventTriggered) {
         console.log(`   ✅ 文档激活事件触发`);
-        
+
         // 检查是否应该扫描（根据我们的修复）
         if (mockConfig.scanOnDocumentActivate) {
             console.log(`   ⚠️  扫描已启用（用户配置）`);
@@ -52,9 +52,9 @@ function performScan(filePath) {
         timestamp: Date.now(),
         triggeredBy: 'documentActivate'
     });
-    
+
     console.log(`   📊 执行扫描: ${filePath}`);
-    
+
     // 模拟级联扫描（之前的问题）
     if (mockConfig.scanningMode !== 'minimal') {
         simulateCascadingScan(filePath);
@@ -63,7 +63,7 @@ function performScan(filePath) {
 
 function simulateCascadingScan(filePath) {
     console.log(`   ⚠️  检测到include依赖，触发级联扫描`);
-    
+
     // 模拟扫描其他文件
     mockFiles.forEach(otherFile => {
         if (otherFile !== filePath) {
@@ -79,19 +79,19 @@ function simulateCascadingScan(filePath) {
 
 function runVerificationTest() {
     console.log('📋 开始验证测试...\n');
-    
+
     console.log('🔧 当前配置:');
     console.log(`   scanOnDocumentActivate: ${mockConfig.scanOnDocumentActivate}`);
     console.log(`   scanningMode: ${mockConfig.scanningMode}`);
     console.log('');
-    
+
     // 测试点击不同文件
     mockFiles.forEach(file => {
         if (fs.existsSync(file)) {
             simulateFileClick(file);
         }
     });
-    
+
     // 生成测试报告
     generateReport();
 }
@@ -102,7 +102,7 @@ function generateReport() {
     console.log(`总点击次数: ${clickCount}`);
     console.log(`总扫描次数: ${scanLog.length}`);
     console.log(`级联扫描次数: ${scanLog.filter(s => s.triggeredBy === 'cascading').length}`);
-    
+
     if (scanLog.length === 0) {
         console.log('\n✅ 修复成功！');
         console.log('   - 点击文件不再触发自动扫描');
@@ -114,7 +114,7 @@ function generateReport() {
             console.log(`   - ${log.file} (${log.triggeredBy})`);
         });
     }
-    
+
     console.log('\n💡 关键改进:');
     console.log('   1. 文档激活事件默认不触发扫描');
     console.log('   2. 用户可通过配置控制扫描行为');

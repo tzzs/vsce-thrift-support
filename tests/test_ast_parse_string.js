@@ -1,17 +1,29 @@
 // Mock vscode
 const vscode = {
-    Position: class { constructor(line, char) { this.line = line; this.character = char; } },
-    Range: class { constructor(start, end) { this.start = start; this.end = end; } },
+    Position: class {
+        constructor(line, char) {
+            this.line = line;
+            this.character = char;
+        }
+    },
+    Range: class {
+        constructor(start, end) {
+            this.start = start;
+            this.end = end;
+        }
+    },
 };
 
 const Module = require('module');
 const originalLoad = Module._load;
 Module._load = function (request, parent, isMain) {
-    if (request === 'vscode') { return vscode; }
+    if (request === 'vscode') {
+        return vscode;
+    }
     return originalLoad.apply(this, arguments);
 };
 
-const { ThriftParser } = require('../out/ast/parser.js');
+const {ThriftParser} = require('../out/ast/parser.js');
 
 const testContent = `
 struct SharedStruct {

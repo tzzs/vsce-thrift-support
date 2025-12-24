@@ -1,28 +1,50 @@
 import * as vscode from 'vscode';
-import { ThriftDefinitionProvider } from './definitionProvider';
+import {ThriftDefinitionProvider} from './definitionProvider';
 import * as path from 'path';
-import { ThriftParser } from './ast/parser';
-import * as nodes from './ast/nodes';
+import {CacheManager} from '../utils/cacheManager';
+import {FileContentReader} from '../utils/fileReader';
+import {ErrorHandler} from '../utils/errorHandler';
 
 export class ThriftHoverProvider implements vscode.HoverProvider {
-    
+
     // 使用单例定义提供器，避免重复创建实例
     private static definitionProvider: ThriftDefinitionProvider | null = null;
-    
-    private getDefinitionProvider(): ThriftDefinitionProvider {
-        if (!ThriftHoverProvider.definitionProvider) {
-            ThriftHoverProvider.definitionProvider = new ThriftDefinitionProvider();
-        }
-        return ThriftHoverProvider.definitionProvider;
+
+    // 缓存管理器
+    private cacheManager = CacheManager.getInstance();
+
+    // 文件内容读取器
+    private fileReader = FileContentReader.getInstance();
+
+    // 错误处理器
+    private errorHandler = ErrorHandler.getInstance();
+
+    constructor() {
+        // 注册缓存配置
+        this.cacheManager.registerCache('hoverIncludes', {
+            maxSize: 200,
+            ttl: 30000 // 30秒
+        });
+        this.cacheManager.registerCache('hoverContent', {
+            maxSize: 100,
+            ttl: 10000 // 10秒
+        });
     }
-    
+
     // 清除缓存的静态方法
     public static clearCache(): void {
         if (ThriftHoverProvider.definitionProvider) {
             ThriftHoverProvider.definitionProvider.clearCache();
         }
     }
-    
+
+    // 清除缓存的实例方法
+    public clearCache(): void {
+        this.cacheManager.clear('hoverIncludes');
+        this.cacheManager.clear('hoverContent');
+        ThriftHoverProvider.clearCache();
+    }
+
     async provideHover(
         document: vscode.TextDocument,
         position: vscode.Position,
@@ -41,14 +63,17 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             const allowed = new Set<string>();
             allowed.add(document.uri.fsPath);
             const includes = await this.getIncludedFiles(document);
-            for (const u of includes) {allowed.add(u.fsPath);}
+            for (const u of includes) {
+                allowed.add(u.fsPath);
+            }
             if (!allowed.has(loc.uri.fsPath)) {
                 return undefined;
             }
 
-            const targetDoc = await vscode.workspace.openTextDocument(loc.uri);
+            // 使用文件内容读取器获取内容
+            const content = await this.fileReader.readFile(loc.uri);
             const defLineIndex = loc.range.start.line;
-            const lines = targetDoc.getText().split('\n');
+            const lines = content.split('\n');
 
             // Extract the definition line and preceding doc comments
             const defLine = lines[defLineIndex] ?? '';
@@ -70,15 +95,32 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             }
 
             return new vscode.Hover(md);
-        } catch {
+        } catch (error) {
+            this.errorHandler.handleError(error, {
+                component: 'ThriftHoverProvider',
+                operation: 'provideHover',
+                filePath: document.uri.fsPath,
+                additionalInfo: {position: position.toString()}
+            });
             return undefined;
         }
     }
 
+    private getDefinitionProvider(): ThriftDefinitionProvider {
+        if (!ThriftHoverProvider.definitionProvider) {
+            ThriftHoverProvider.definitionProvider = new ThriftDefinitionProvider();
+        }
+        return ThriftHoverProvider.definitionProvider;
+    }
+
     private normalizeDefinition(def: vscode.Definition | undefined): vscode.Location | undefined {
-        if (!def) {return undefined;}
+        if (!def) {
+            return undefined;
+        }
         if (Array.isArray(def)) {
-            if (def.length === 0) {return undefined;}
+            if (def.length === 0) {
+                return undefined;
+            }
             // Recursively normalize the first entry
             return this.normalizeDefinition(def[0] as any);
         }
@@ -94,6 +136,16 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
     }
 
     private async getIncludedFiles(document: vscode.TextDocument): Promise<vscode.Uri[]> {
+        // 使用缓存键
+        const cacheKey = document.uri.toString();
+        const cacheName = 'hoverIncludes';
+
+        // 检查缓存
+        const cached = this.cacheManager.get<vscode.Uri[]>(cacheName, cacheKey);
+        if (cached) {
+            return cached;
+        }
+
         const text = document.getText();
         const lines = text.split('\n');
         const includedFiles: vscode.Uri[] = [];
@@ -118,15 +170,20 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
                 }
             }
         }
+
+        // 缓存结果
+        this.cacheManager.set(cacheName, cacheKey, includedFiles);
         return includedFiles;
     }
 
     private extractLeadingDocComments(lines: string[], defLineIndex: number): string[] {
         const results: string[] = [];
         let i = defLineIndex - 1;
-        if (i < 0) {return results;}
+        if (i < 0) {
+            return results;
+        }
 
-        const trim = (s: string) => s.replace(/\s+$/,'');
+        const trim = (s: string) => s.replace(/\s+$/, '');
 
         // Allow up to one blank line between the definition and its doc comments
         let blanks = 0;
@@ -134,7 +191,9 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             blanks++;
             i--;
         }
-        if (i < 0) {return results;}
+        if (i < 0) {
+            return results;
+        }
 
         // Handle block comments ending right above the definition (possibly after one blank line)
         if (/\*\//.test(lines[i])) {
@@ -182,8 +241,12 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             out.push(line);
         }
         // Trim trailing/leading empty lines
-        while (out.length && out[0].trim() === '') {out.shift();}
-        while (out.length && out[out.length - 1].trim() === '') {out.pop();}
+        while (out.length && out[0].trim() === '') {
+            out.shift();
+        }
+        while (out.length && out[out.length - 1].trim() === '') {
+            out.pop();
+        }
         return out;
     }
 }

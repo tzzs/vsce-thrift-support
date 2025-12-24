@@ -1,19 +1,38 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { ThriftParser } from './ast/parser';
+import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes';
+import {CacheManager} from '../utils/cacheManager';
+import {ErrorHandler} from '../utils/errorHandler';
 
 export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
+    // 缓存管理器
+    private cacheManager = CacheManager.getInstance();
 
-    // 缓存机制
-    private definitionCache = new Map<string, vscode.Location[]>();
-    private lastCacheUpdate = new Map<string, number>();
-    private readonly CACHE_DURATION = 10000; // 10秒缓存
+    // 错误处理器
+    private errorHandler = ErrorHandler.getInstance();
+
+    constructor() {
+        // 注册缓存配置
+        this.cacheManager.registerCache('definition', {
+            maxSize: 1000,
+            ttl: 10000 // 10秒
+        });
+        this.cacheManager.registerCache('document', {
+            maxSize: 500,
+            ttl: 10000 // 10秒
+        });
+        this.cacheManager.registerCache('workspace', {
+            maxSize: 200,
+            ttl: 30000 // 30秒
+        });
+    }
 
     // 清除缓存
     public clearCache(): void {
-        this.definitionCache.clear();
-        this.lastCacheUpdate.clear();
+        this.cacheManager.clear('definition');
+        this.cacheManager.clear('document');
+        this.cacheManager.clear('workspace');
     }
 
     async provideDefinition(
@@ -80,7 +99,9 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         // If clicked on the namespace itself, try to navigate to the include line for that namespace
         if (matchedNamespaced && isNamespaceClick && targetNamespace) {
             const includeLoc = await this.findIncludeForNamespace(document, targetNamespace);
-            if (includeLoc) { return includeLoc; }
+            if (includeLoc) {
+                return includeLoc;
+            }
             // No include for the namespace: do not fallback; return undefined
             return undefined;
         }
@@ -119,7 +140,12 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                     return definition;
                 }
             } catch (error) {
-                // File might not exist or be accessible
+                this.errorHandler.handleError(error, {
+                    component: 'ThriftDefinitionProvider',
+                    operation: 'findDefinitionInIncludedFile',
+                    filePath: includedFile.fsPath,
+                    additionalInfo: {searchTypeName}
+                });
                 continue;
             }
         }
@@ -212,7 +238,12 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                     await vscode.workspace.fs.stat(uri);
                     return new vscode.Location(uri, new vscode.Position(0, 0));
                 } catch (error) {
-                    // File doesn't exist, return undefined
+                    this.errorHandler.handleWarning(`Include file not found: ${includePath}`, {
+                        component: 'ThriftDefinitionProvider',
+                        operation: 'resolveIncludePath',
+                        filePath: document.uri.fsPath,
+                        additionalInfo: {includePath}
+                    });
                     return undefined;
                 }
             }
@@ -307,14 +338,11 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         typeName: string
     ): Promise<vscode.Location | undefined> {
         const cacheKey = `document_${uri.toString()}_${typeName}`;
-        const now = Date.now();
 
-        // 检查缓存是否有效
-        const cached = this.definitionCache.get(cacheKey);
-        const lastUpdate = this.lastCacheUpdate.get(cacheKey);
-
-        if (cached && lastUpdate && (now - lastUpdate) < this.CACHE_DURATION) {
-            return cached.length > 0 ? cached[0] : undefined;
+        // 从缓存管理器获取缓存
+        const cached = this.cacheManager.get<vscode.Location[]>('document', cacheKey);
+        if (cached && cached.length > 0) {
+            return cached[0];
         }
 
         // 缓存无效，重新解析
@@ -337,8 +365,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
 
         // 更新缓存
         const locations = foundLocation ? [foundLocation] : [];
-        this.definitionCache.set(cacheKey, locations);
-        this.lastCacheUpdate.set(cacheKey, now);
+        this.cacheManager.set('document', cacheKey, locations);
 
         return foundLocation;
     }
@@ -425,7 +452,12 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                     const uri = vscode.Uri.file(fullPath);
                     includedFiles.push(uri);
                 } catch (error) {
-                    // Invalid path, skip
+                    this.errorHandler.handleWarning(`Invalid include path: ${includePath}`, {
+                        component: 'ThriftDefinitionProvider',
+                        operation: 'getIncludedFiles',
+                        filePath: document.uri.fsPath,
+                        additionalInfo: {includePath}
+                    });
                 }
             }
         }
@@ -435,13 +467,10 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
 
     private async findDefinitionInWorkspace(typeName: string): Promise<vscode.Location[]> {
         const cacheKey = `workspace_${typeName}`;
-        const now = Date.now();
 
-        // 检查缓存是否有效
-        const cached = this.definitionCache.get(cacheKey);
-        const lastUpdate = this.lastCacheUpdate.get(cacheKey);
-
-        if (cached && lastUpdate && (now - lastUpdate) < this.CACHE_DURATION) {
+        // 从缓存管理器获取缓存
+        const cached = this.cacheManager.get<vscode.Location[]>('workspace', cacheKey);
+        if (cached) {
             return cached;
         }
 
@@ -474,8 +503,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         }
 
         // 更新缓存
-        this.definitionCache.set(cacheKey, locations);
-        this.lastCacheUpdate.set(cacheKey, now);
+        this.cacheManager.set('workspace', cacheKey, locations);
 
         return locations;
     }

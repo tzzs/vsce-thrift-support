@@ -1,6 +1,5 @@
-
-import { ThriftFormatter } from '../src/thriftFormatter';
-import { ThriftFormattingOptions } from '../src/interfaces';
+import {ThriftFormatter} from '../src/thriftFormatter';
+import {ThriftFormattingOptions} from '../src/interfaces';
 
 const formatter = new ThriftFormatter();
 const input = `

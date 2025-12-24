@@ -7,32 +7,32 @@ const vscode = {
             this.uri = uri;
             this._text = text;
         }
-        
+
         getText(range) {
             if (!range) return this._text;
             return this._text;
         }
-        
+
         positionAt(offset) {
-            return { line: 0, character: offset };
+            return {line: 0, character: offset};
         }
-        
+
         offsetAt(position) {
             return 0;
         }
     },
-    
+
     Range: class {
         constructor(start, end) {
             this.start = start;
             this.end = end;
         }
     },
-    
+
     TextEdit: {
-        replace: (range, newText) => ({ range, newText })
+        replace: (range, newText) => ({range, newText})
     },
-    
+
     workspace: {
         getConfiguration: () => ({
             get: (key, defaultValue) => {
@@ -52,7 +52,7 @@ const vscode = {
 
 // Mock require for vscode module
 const originalRequire = Module.prototype.require;
-Module.prototype.require = function(id) {
+Module.prototype.require = function (id) {
     if (id === 'vscode') {
         return vscode;
     }
@@ -62,41 +62,41 @@ Module.prototype.require = function(id) {
 // Test complex types formatting
 function testComplexTypesFormatting() {
     console.log('Testing complex types formatting...');
-    
+
     try {
-        const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
+        const {ThriftFormattingProvider} = require('../out/src/formattingProvider.js');
         const formatter = new ThriftFormattingProvider();
-        
+
         const testCode = `struct TestStruct {
     1: required list < string > names,
     2: optional map< string , i32 > values  ,
     3: i32 count
 }`;
-        
+
         console.log('Input code:');
         console.log(testCode);
-        
+
         const document = new vscode.TextDocument(
-            { fsPath: '/test/format.thrift' },
+            {fsPath: '/test/format.thrift'},
             testCode
         );
-        
-        const options = { insertSpaces: true, tabSize: 4 };
+
+        const options = {insertSpaces: true, tabSize: 4};
         const edits = formatter.provideDocumentFormattingEdits(document, options);
-        
+
         if (edits && edits.length > 0) {
             const formattedText = edits[0].newText;
             console.log('\nFormatted code:');
             console.log(formattedText);
-            
+
             // Check specific formatting expectations
             const hasCorrectList = formattedText.includes('list<string>');
             const hasCorrectMap = formattedText.includes('map<string,i32>');
-            
+
             console.log('\nChecking formatting:');
             console.log('- list<string> (no spaces):', hasCorrectList ? '✓' : '✗');
             console.log('- map<string,i32> (no spaces):', hasCorrectMap ? '✓' : '✗');
-            
+
             if (hasCorrectList && hasCorrectMap) {
                 console.log('\n✓ Complex types formatted correctly');
             } else {

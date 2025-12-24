@@ -9,49 +9,49 @@ const vscode = {
             this._text = text;
             this._lines = text.split('\n');
         }
-        
+
+        get lineCount() {
+            return this._lines.length;
+        }
+
         getText(range) {
             if (!range) return this._text;
             return this._text;
         }
-        
+
         lineAt(line) {
             return {
                 text: this._lines[line] || '',
                 range: new vscode.Range(line, 0, line, (this._lines[line] || '').length)
             };
         }
-        
-        get lineCount() {
-            return this._lines.length;
-        }
-        
+
         getWordRangeAtPosition(position) {
             const line = this._lines[position.line];
             if (!line) return null;
-            
+
             // Find word boundaries
             let start = position.character;
             let end = position.character;
-            
+
             // Move start backwards to find word start
             while (start > 0 && /\w/.test(line[start - 1])) {
                 start--;
             }
-            
+
             // Move end forwards to find word end  
             while (end < line.length && /\w/.test(line[end])) {
                 end++;
             }
-            
+
             if (start === end) return null;
-            
+
             return new vscode.Range(
                 new vscode.Position(position.line, start),
                 new vscode.Position(position.line, end)
             );
         }
-        
+
         positionAt(offset) {
             let currentOffset = 0;
             for (let line = 0; line < this._lines.length; line++) {
@@ -63,7 +63,7 @@ const vscode = {
             }
             return new vscode.Position(this._lines.length - 1, this._lines[this._lines.length - 1].length);
         }
-        
+
         offsetAt(position) {
             let offset = 0;
             for (let i = 0; i < position.line && i < this._lines.length; i++) {
@@ -72,46 +72,46 @@ const vscode = {
             return offset + Math.min(position.character, this._lines[position.line]?.length || 0);
         }
     },
-    
+
     Position: class {
         constructor(line, character) {
             this.line = line;
             this.character = character;
         }
     },
-    
+
     Range: class {
         constructor(startLine, startChar, endLine, endChar) {
             this.start = new vscode.Position(startLine, startChar);
             this.end = new vscode.Position(endLine, endChar);
         }
     },
-    
+
     Location: class {
         constructor(uri, position) {
             this.uri = uri;
             this.range = new vscode.Range(position.line, position.character, position.line, position.character);
         }
     },
-    
+
     Uri: {
-        file: (path) => ({ fsPath: path, toString: () => `file://${path}` })
+        file: (path) => ({fsPath: path, toString: () => `file://${path}`})
     },
-    
+
     TextEdit: {
-        replace: (range, newText) => ({ range, newText })
+        replace: (range, newText) => ({range, newText})
     },
-    
+
     workspace: {
         fs: {
             stat: async (uri) => {
                 // Mock file existence check
                 if (uri.fsPath.includes('shared.thrift')) {
-                    return { type: 1 }; // File exists
+                    return {type: 1}; // File exists
                 }
                 throw new Error('File not found');
             },
-            
+
             readFile: async (uri) => {
                 // Mock file reading
                 if (uri.fsPath.includes('shared.thrift')) {
@@ -120,17 +120,17 @@ const vscode = {
                 throw new Error('File not found');
             }
         },
-        
+
         findFiles: async (pattern) => {
             // Mock findFiles - return empty array for simplicity
             return [];
         },
-        
+
         openTextDocument: async (uri) => {
             // Mock openTextDocument
             return new vscode.TextDocument(uri, 'struct MockStruct { 1: string name }');
         },
-        
+
         getConfiguration: (section) => ({
             get: (key, defaultValue) => {
                 // Return default formatting options
@@ -155,7 +155,7 @@ const vscode = {
 
 // Mock require for vscode module
 const originalRequire = Module.prototype.require;
-Module.prototype.require = function(id) {
+Module.prototype.require = function (id) {
     if (id === 'vscode') {
         return vscode;
     }
@@ -163,40 +163,40 @@ Module.prototype.require = function(id) {
 };
 
 // Import the definition provider
-const { ThriftDefinitionProvider } = require('../out/definitionProvider.js');
+const {ThriftDefinitionProvider} = require('../out/src/definitionProvider.js');
 
 // Test cases
 async function testIncludeNavigation() {
     console.log('Testing include navigation...');
-    
+
     const provider = new ThriftDefinitionProvider();
-    
+
     // Test document with include statement
     const testText = 'include "shared.thrift"\n\nstruct Test {\n    1: string name\n}';
     const document = new vscode.TextDocument(
         vscode.Uri.file('/test/main.thrift'),
         testText
     );
-    
+
     // Test cursor positions in the filename
     const testPositions = [
-        { line: 0, character: 9, desc: 'at start of filename (s)' },
-        { line: 0, character: 15, desc: 'at dot in filename' },
-        { line: 0, character: 16, desc: 'after dot (t)' },
-        { line: 0, character: 21, desc: 'at end of filename (t)' }
+        {line: 0, character: 9, desc: 'at start of filename (s)'},
+        {line: 0, character: 15, desc: 'at dot in filename'},
+        {line: 0, character: 16, desc: 'after dot (t)'},
+        {line: 0, character: 21, desc: 'at end of filename (t)'}
     ];
-    
+
     for (const pos of testPositions) {
         const position = new vscode.Position(pos.line, pos.character);
         const result = await provider.provideDefinition(document, position);
-        
+
         if (result && result.uri && result.uri.fsPath.includes('shared.thrift')) {
             console.log(`✓ Navigation works ${pos.desc}`);
         } else {
             console.log(`✗ Navigation failed ${pos.desc}`);
         }
     }
-    
+
     // Test cursor outside filename (should not navigate)
     const outsidePosition = new vscode.Position(0, 5); // Before filename
     const outsideResult = await provider.provideDefinition(document, outsidePosition);
@@ -210,30 +210,30 @@ async function testIncludeNavigation() {
 // Test formatting
 function testFormatting() {
     console.log('\nTesting formatting...');
-    
+
     try {
-        const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
+        const {ThriftFormattingProvider} = require('../out/src/formattingProvider.js');
         const formatter = new ThriftFormattingProvider();
-        
+
         const testCode = `struct TestStruct {
     1: required list < string > names,
     2: optional map< string , i32 > values  ,
     3: i32 count
 }`;
-        
+
         const document = new vscode.TextDocument(
             vscode.Uri.file('/test/format.thrift'),
             testCode
         );
-        
-        const options = { insertSpaces: true, tabSize: 4 };
+
+        const options = {insertSpaces: true, tabSize: 4};
         const edits = formatter.provideDocumentFormattingEdits(document, options);
-        
+
         if (edits && edits.length > 0) {
             const formattedText = edits[0].newText;
             console.log('Formatted code:');
             console.log(formattedText);
-            
+
             // Check if complex types are properly formatted
             if (formattedText.includes('list<string>') && formattedText.includes('map<string,i32>')) {
                 console.log('✓ Complex types formatted correctly (no spaces around < >)');

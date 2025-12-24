@@ -1,6 +1,6 @@
 const fs = require('fs');
-const { ThriftFormatter } = require('./out/thriftFormatter');
-const { ThriftParser } = require('./out/thriftParser');
+const {ThriftFormatter} = require('../out/src/thriftFormatter.js');
+const {ThriftParser} = require('../out/src/thriftParser.js');
 
 // 读取测试文件
 const content = fs.readFileSync('test-files/example.thrift', 'utf8');

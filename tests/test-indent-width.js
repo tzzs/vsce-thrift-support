@@ -12,7 +12,7 @@ const vscode = {
                 'thrift-support.formatting.alignEnumValues': true,
                 'thrift-support.formatting.indentSize': global.testIndentSize || 4
             };
-            
+
             return {
                 get: (key) => {
                     const fullKey = section ? `${section}.${key}` : key;
@@ -23,11 +23,11 @@ const vscode = {
     },
     TextEdit: {
         replace: (range, newText) => {
-            return { range, newText };
+            return {range, newText};
         }
     },
-    Range: function(startLine, startChar, endLine, endChar) {
-        return { start: { line: startLine, character: startChar }, end: { line: endLine, character: endChar } };
+    Range: function (startLine, startChar, endLine, endChar) {
+        return {start: {line: startLine, character: startChar}, end: {line: endLine, character: endChar}};
     }
 };
 
@@ -35,7 +35,7 @@ const vscode = {
 const Module = require('module');
 const originalRequire = Module.prototype.require;
 
-Module.prototype.require = function(id) {
+Module.prototype.require = function (id) {
     if (id === 'vscode') {
         return vscode;
     }
@@ -43,16 +43,16 @@ Module.prototype.require = function(id) {
 };
 
 // Import the formatter
-const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
+const {ThriftFormattingProvider} = require('../out/src/formattingProvider.js');
 
 // Restore original require
 Module.prototype.require = originalRequire;
 
 function testIndentWidth() {
     console.log('Testing indent width functionality...');
-    
+
     const formatter = new ThriftFormattingProvider();
-    
+
     const testCases = [
         {
             name: 'Default indent width (4 spaces)',
@@ -82,49 +82,49 @@ function testIndentWidth() {
             expectedPattern: /^        1: string name/m // Should start with 8 spaces
         }
     ];
-    
+
     testCases.forEach(testCase => {
         console.log(`\n--- ${testCase.name} ---`);
-        
+
         // Set global test configuration
         global.testIndentSize = testCase.indentSize;
-        
+
         // Mock document and range
         const mockDocument = {
             getText: () => testCase.input
         };
-        const mockRange = { start: { line: 0, character: 0 }, end: { line: 4, character: 1 } };
-        const mockOptions = { insertSpaces: true, tabSize: testCase.indentSize };
-        
+        const mockRange = {start: {line: 0, character: 0}, end: {line: 4, character: 1}};
+        const mockOptions = {insertSpaces: true, tabSize: testCase.indentSize};
+
         try {
             const result = formatter.provideDocumentRangeFormattingEdits(
                 mockDocument,
                 mockRange,
                 mockOptions
             );
-            
+
             console.log('Input:');
             console.log(testCase.input);
             console.log('\nOutput:');
             console.log(result[0].newText);
-            
+
             // Check if the output matches expected pattern
             const matches = testCase.expectedPattern.test(result[0].newText);
             console.log(`\nIndent check: ${matches ? 'PASS' : 'FAIL'}`);
-            
+
             if (!matches) {
                 console.log(`Expected pattern: ${testCase.expectedPattern}`);
                 console.log('Actual first line with field:', result[0].newText.split('\n').find(line => line.includes(': string')));
             }
-            
+
         } catch (error) {
             console.log('Error:', error.message);
         }
     });
-    
+
     // Clean up
     delete global.testIndentSize;
-    
+
     console.log('\nIndent width tests completed!');
 }
 

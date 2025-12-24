@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 
 console.log('🧪 测试边界情况...');
-console.log('=' .repeat(50));
+console.log('='.repeat(50));
 
 // 模拟vscode模块
 const mockVscode = {
@@ -32,6 +32,7 @@ const mockVscode = {
             this.range = range;
             this.newText = newText;
         }
+
         static replace(range, newText) {
             return new mockVscode.TextEdit(range, newText);
         }
@@ -53,7 +54,7 @@ const mockVscode = {
 // 拦截require调用
 const Module = require('module');
 const originalRequire = Module.prototype.require;
-Module.prototype.require = function(id) {
+Module.prototype.require = function (id) {
     if (id === 'vscode') {
         return mockVscode;
     }
@@ -62,21 +63,21 @@ Module.prototype.require = function(id) {
 
 try {
     // 导入格式化器
-    const { ThriftFormattingProvider } = require('./out/formattingProvider.js');
-    
+    const {ThriftFormattingProvider} = require('../out/src/formattingProvider.js');
+
     // 恢复原始require
     Module.prototype.require = originalRequire;
-    
+
     // 创建格式化器实例
     const formatter = new ThriftFormattingProvider();
-    
+
     // 测试用例1: 多余的闭合大括号
     console.log('\n测试用例1: 多余的闭合大括号');
     const testCase1 = `struct User {
   1: required string name,
 }
 }`; // 多了一个闭合大括号
-    
+
     const formatThriftCode = formatter.formatThriftCode || formatter['formatThriftCode'];
     if (typeof formatThriftCode === 'function') {
         const config = {
@@ -88,7 +89,7 @@ try {
             maxLineLength: 100,
             insertSpaces: true
         };
-        
+
         try {
             const result1 = formatThriftCode.call(formatter, testCase1, config);
             console.log('✅ 测试用例1通过 - 没有抛出错误');
@@ -97,7 +98,7 @@ try {
         } catch (error) {
             console.log('❌ 测试用例1失败:', error.message);
         }
-        
+
         // 测试用例2: 嵌套结构不匹配
         console.log('\n测试用例2: 嵌套结构不匹配');
         const testCase2 = `struct Outer {
@@ -106,7 +107,7 @@ try {
   }
 }
 }`; // 多了一个闭合大括号
-        
+
         try {
             const result2 = formatThriftCode.call(formatter, testCase2, config);
             console.log('✅ 测试用例2通过 - 没有抛出错误');
@@ -115,12 +116,12 @@ try {
         } catch (error) {
             console.log('❌ 测试用例2失败:', error.message);
         }
-        
+
         // 测试用例3: 只有闭合大括号
         console.log('\n测试用例3: 只有闭合大括号');
         const testCase3 = `}
 }`;
-        
+
         try {
             const result3 = formatThriftCode.call(formatter, testCase3, config);
             console.log('✅ 测试用例3通过 - 没有抛出错误');
@@ -129,14 +130,14 @@ try {
         } catch (error) {
             console.log('❌ 测试用例3失败:', error.message);
         }
-        
+
         // 测试用例4: 正常情况验证
         console.log('\n测试用例4: 正常情况验证');
         const testCase4 = `struct User {
   1: required string name,
   2: optional i32 age,
 }`;
-        
+
         try {
             const result4 = formatThriftCode.call(formatter, testCase4, config);
             console.log('✅ 测试用例4通过 - 正常格式化');
@@ -145,11 +146,11 @@ try {
         } catch (error) {
             console.log('❌ 测试用例4失败:', error.message);
         }
-        
+
     } else {
         console.log('❌ 无法访问格式化方法');
     }
-    
+
 } catch (error) {
     console.log('❌ 格式化器加载失败:', error.message);
 }

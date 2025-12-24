@@ -5,32 +5,50 @@ const fs = require('fs');
 // Mock VS Code API
 const vscode = {
     window: {
-        showInformationMessage: () => { },
-        showErrorMessage: () => { },
+        showInformationMessage: () => {
+        },
+        showErrorMessage: () => {
+        },
     },
-    Position: class { constructor(currLine, currChar) { this.line = currLine; this.character = currChar; } },
-    Range: class { constructor(start, end) { this.start = start; this.end = end; } },
-    TextEdit: class { static replace(range, newText) { return { range, newText }; } },
-    Uri: { file: (f) => ({ fsPath: f, toString: () => f }) },
+    Position: class {
+        constructor(currLine, currChar) {
+            this.line = currLine;
+            this.character = currChar;
+        }
+    },
+    Range: class {
+        constructor(start, end) {
+            this.start = start;
+            this.end = end;
+        }
+    },
+    TextEdit: class {
+        static replace(range, newText) {
+            return {range, newText};
+        }
+    },
+    Uri: {file: (f) => ({fsPath: f, toString: () => f})},
     workspace: {
         openTextDocument: async (uri) => ({
             uri,
             getText: () => fs.readFileSync(uri.fsPath, 'utf8'),
-            lineAt: (line) => ({ text: '' })
+            lineAt: (line) => ({text: ''})
         }),
-        getConfiguration: () => ({ get: (k, d) => d })
+        getConfiguration: () => ({get: (k, d) => d})
     }
 };
 
 const Module = require('module');
 const originalLoad = Module._load;
 Module._load = function (request, parent, isMain) {
-    if (request === 'vscode') { return vscode; }
+    if (request === 'vscode') {
+        return vscode;
+    }
     return originalLoad.apply(this, arguments);
 };
 
 // Import formatter
-const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
+const {ThriftFormattingProvider} = require('../out/src/formattingProvider.js');
 
 async function testServiceIndentation() {
     console.log('Testing Service Indentation with indentSize = 4');

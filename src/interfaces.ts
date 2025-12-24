@@ -1,4 +1,3 @@
-
 export interface ThriftFormattingOptions {
     trailingComma: 'preserve' | 'add' | 'remove';
     alignTypes: boolean;

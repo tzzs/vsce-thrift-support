@@ -1,9 +1,12 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { ThriftParser } from './ast/parser';
+import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes';
+import {ErrorHandler} from '../utils/errorHandler';
 
 export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
+    // 错误处理器
+    private errorHandler = ErrorHandler.getInstance();
     private keywords = [
         'namespace', 'include', 'cpp_include', 'php_include', 'py_module', 'perl_package', 'ruby_namespace',
         'smalltalk_category', 'smalltalk_prefix', 'java_package', 'cocoa_prefix', 'csharp_namespace',
@@ -61,7 +64,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         }
 
         // Collect available types and values from AST
-        const { types, values } = this.collectTypesAndValues(thriftDoc);
+        const {types, values} = this.collectTypesAndValues(thriftDoc);
 
         // 3. Inside a block (struct, enum, service)
         const blockNode = this.findBlockNode(thriftDoc, position.line);
@@ -118,6 +121,11 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
             this.addTypeCompletions(completions, types);
         }
 
+        // Check for enum value assignment context
+        if (this.isInEnumAssignmentContext(line, position.character, thriftDoc)) {
+            this.addEnumValueCompletions(completions, values);
+        }
+
         return completions;
     }
 
@@ -148,7 +156,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
             }
             return undefined;
         }
-        
+
         return findDeepestNode(doc.body);
     }
 
@@ -171,13 +179,13 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
             // For enums, members are children
             if (nodes.isEnumNode(node)) {
                 node.members.forEach(m => {
-                    if (m.name) { 
+                    if (m.name) {
                         values.push(m.name);
                     }
                 });
             }
         }
-        return { types, values };
+        return {types, values};
     }
 
     private addTypeCompletions(completions: vscode.CompletionItem[], userTypes: string[]) {
@@ -215,6 +223,39 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         return false;
     }
 
+    private isInEnumAssignmentContext(line: string, character: number, doc: nodes.ThriftDocument): boolean {
+        const beforeCursor = line.substring(0, character);
+
+        // Check if we're in a pattern like "Type fieldName = " or "1: required Type fieldName = "
+        // Match patterns like:
+        // "Status status = "
+        // "1: required Status status = "
+        // "1: optional Status status = "
+        const assignmentMatch = beforeCursor.match(/^\s*(?:\d+\s*:\s*(?:required|optional)\s+)?(\w+)\s+(\w+)\s*=\s*$/);
+        if (!assignmentMatch) {
+            return false;
+        }
+
+        const [, typeName, fieldName] = assignmentMatch;
+
+        // Check if the type is an enum in the document
+        for (const node of doc.body) {
+            if (nodes.isEnumNode(node) && node.name === typeName) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private addEnumValueCompletions(completions: vscode.CompletionItem[], values: string[]) {
+        values.forEach(value => {
+            const item = new vscode.CompletionItem(value, vscode.CompletionItemKind.EnumMember);
+            item.detail = 'Enum value';
+            completions.push(item);
+        });
+    }
+
     private async provideIncludePathCompletions(
         document: vscode.TextDocument,
         prefix: string
@@ -245,7 +286,12 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
                 completions.push(item);
             });
         } catch (error) {
-            console.error('Error providing include path completions:', error);
+            this.errorHandler.handleError(error, {
+                component: 'ThriftCompletionProvider',
+                operation: 'provideIncludePathCompletions',
+                filePath: document.uri.fsPath,
+                additionalInfo: {prefix}
+            });
         }
 
         return completions;

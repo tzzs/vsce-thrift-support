@@ -25,7 +25,18 @@ export interface ThriftNodeBase {
     name?: string;
 }
 
-export type ThriftNode = ThriftDocument | Namespace | Include | Const | Typedef | Enum | EnumMember | Struct | Field | Service | ThriftFunction;
+export type ThriftNode =
+    ThriftDocument
+    | Namespace
+    | Include
+    | Const
+    | Typedef
+    | Enum
+    | EnumMember
+    | Struct
+    | Field
+    | Service
+    | ThriftFunction;
 
 export interface ThriftDocument extends ThriftNodeBase {
     type: ThriftNodeType.Document;
@@ -97,9 +108,9 @@ export function isServiceNode(node: ThriftNode): node is Service {
 }
 
 export function isStructNode(node: ThriftNode): node is Struct {
-    return node.type === ThriftNodeType.Struct || 
-           node.type === ThriftNodeType.Union || 
-           node.type === ThriftNodeType.Exception;
+    return node.type === ThriftNodeType.Struct ||
+        node.type === ThriftNodeType.Union ||
+        node.type === ThriftNodeType.Exception;
 }
 
 export function isEnumNode(node: ThriftNode): node is Enum {

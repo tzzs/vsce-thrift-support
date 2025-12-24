@@ -32,7 +32,7 @@
     "rename",
     "vscode extension"
   ],
-  "main": "./out/extension.js",
+  "main": "./out/src/extension.js",
   "contributes": {
     "languages": [
       {
@@ -148,15 +148,16 @@
     "package:local": "npm run clean && npm run compile && npx @vscode/vsce package",
     "package:mem": "node --max-old-space-size=4096 ./node_modules/@vscode/vsce/bin/cli.js package",
     "publish": "npx @vscode/vsce publish",
-    "test": "node tests/test-include-navigation-fix.js",
+    "test": "node tests/run-all-unified.js",
+    "test:stable": "node tests/run-stable-tests.js",
     "test:complex": "node tests/test-complex-types.js",
     "test:enum": "node tests/test-enum-formatting.js",
     "test:indent": "node tests/test-indent-width.js",
     "test:comma": "node tests/test-trailing-comma.js",
     "test:const": "node tests/test-const-formatting.js",
     "test:all": "npm run test && npm run test:complex && npm run test:enum && npm run test:indent && npm run test:comma && npm run test:const",
-    "test:all:node": "node tests/run-all.js",
-    "coverage": "nyc --reporter=text-summary node tests/run-all.js"
+    "test:all:node": "node tests/run-all-unified.js",
+    "coverage": "nyc --reporter=text-summary node tests/run-all-unified.js"
   },
   "devDependencies": {
     "@types/node": "16.x",

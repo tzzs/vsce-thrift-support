@@ -13,9 +13,9 @@ class TestThriftFormatter {
         for (let i = 0; i < lines.length; i++) {
             let originalLine = lines[i];
             let line = originalLine.trim();
-            
-            console.log(`第${i+1}行: "${originalLine}" -> "${line}"`);
-            
+
+            console.log(`第${i + 1}行: "${originalLine}" -> "${line}"`);
+
             // Skip empty lines and comments
             if (!line || line.startsWith('//') || line.startsWith('#') || line.startsWith('/*')) {
                 formattedLines.push(this.getIndent(indentLevel, options) + line);
@@ -81,7 +81,7 @@ class TestThriftFormatter {
 
     isStructStart(line) {
         const result = /^(struct|union|exception|service|enum)\s+\w+\s*\{?$/.test(line) ||
-               /^(struct|union|exception|service|enum)\s+\w+.*\{$/.test(line);
+            /^(struct|union|exception|service|enum)\s+\w+.*\{$/.test(line);
         console.log(`    isStructStart("${line}") = ${result}`);
         return result;
     }
@@ -104,7 +104,7 @@ class TestThriftFormatter {
             const commentMatch = suffix.match(/^([^/]*)(\/.*)$/);
             const fieldSuffix = commentMatch ? commentMatch[1].trim() : suffix;
             const comment = commentMatch ? commentMatch[2] : '';
-            
+
             const result = {
                 line: line,
                 type: type,
@@ -120,7 +120,7 @@ class TestThriftFormatter {
 
     formatStructFields(fields, options, indentLevel) {
         console.log('formatStructFields: 处理', fields.length, '个字段');
-        
+
         if (!options.alignTypes && !options.alignFieldNames && !options.alignComments) {
             return fields.map(f => this.getIndent(indentLevel, options) + f.line);
         }
@@ -136,16 +136,16 @@ class TestThriftFormatter {
                 const type = match[2];
                 const name = match[3];
                 const remainder = match[4].trim();
-                
+
                 // Parse suffix and comment
                 const commentMatch = remainder.match(/^([^/]*)(\/.*)$/);
                 const suffix = commentMatch ? commentMatch[1].trim() : remainder;
                 const comment = commentMatch ? commentMatch[2] : '';
-                
+
                 maxTypeWidth = Math.max(maxTypeWidth, type.length);
                 maxNameWidth = Math.max(maxNameWidth, name.length);
-                
-                return { prefix, type, name, suffix, comment };
+
+                return {prefix, type, name, suffix, comment};
             }
             return null;
         }).filter(f => f !== null);
@@ -154,37 +154,39 @@ class TestThriftFormatter {
 
         // Format fields with alignment
         return parsedFields.map(field => {
-            if (!field) {return '';}
-            
+            if (!field) {
+                return '';
+            }
+
             let formattedLine = this.getIndent(indentLevel, options) + field.prefix;
-            
+
             if (options.alignTypes) {
                 formattedLine += field.type.padEnd(maxTypeWidth);
             } else {
                 formattedLine += field.type;
             }
-            
+
             formattedLine += ' ';
-            
+
             if (options.alignFieldNames) {
                 formattedLine += field.name.padEnd(maxNameWidth);
             } else {
                 formattedLine += field.name;
             }
-            
+
             // Fix spacing around equals sign
             let cleanSuffix = field.suffix;
             if (cleanSuffix.includes('=')) {
                 cleanSuffix = cleanSuffix.replace(/\s*=\s*/, ' = ');
             }
-            
+
             formattedLine += cleanSuffix;
-            
+
             // Add trailing comma if configured
             if (options.trailingComma && !cleanSuffix.includes(',') && !cleanSuffix.includes(';')) {
                 formattedLine += ',';
             }
-            
+
             if (field.comment && options.alignComments) {
                 // Align comments
                 const targetLength = 60; // Target column for comments
@@ -198,7 +200,7 @@ class TestThriftFormatter {
             } else if (field.comment) {
                 formattedLine += ' ' + field.comment;
             }
-            
+
             console.log('格式化字段:', formattedLine);
             return formattedLine;
         });

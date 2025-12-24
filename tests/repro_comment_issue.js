@@ -1,4 +1,3 @@
-
 const fs = require('fs');
 
 try {
@@ -13,7 +12,7 @@ try {
         return originalRequire.apply(this, arguments);
     };
 
-    const { analyzeThriftText } = require('../out/diagnostics');
+    const {analyzeThriftText} = require('../out/diagnostics');
 
     console.log('Running specific repro test...');
 

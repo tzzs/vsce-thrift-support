@@ -15,7 +15,7 @@ const vscode = {
                 'thrift-support.formatting.alignEnumValues': true,
                 'thrift-support.formatting.indentSize': 4
             };
-            
+
             return {
                 get: (key) => {
                     const fullKey = section ? `${section}.${key}` : key;
@@ -26,7 +26,7 @@ const vscode = {
     },
     TextEdit: {
         replace: (range, newText) => {
-            return { range, newText };
+            return {range, newText};
         }
     }
 };
@@ -35,7 +35,7 @@ const vscode = {
 const Module = require('module');
 const originalRequire = Module.prototype.require;
 
-Module.prototype.require = function(id) {
+Module.prototype.require = function (id) {
     if (id === 'vscode') {
         return vscode;
     }
@@ -43,7 +43,7 @@ Module.prototype.require = function(id) {
 };
 
 // Import the formatter
-const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
+const {ThriftFormattingProvider} = require('../out/src/formattingProvider.js');
 
 // Restore original require
 Module.prototype.require = originalRequire;
@@ -51,9 +51,9 @@ Module.prototype.require = originalRequire;
 // Test enum formatting
 function testEnumFormatting() {
     console.log('Testing enum formatting...');
-    
+
     const formatter = new ThriftFormattingProvider();
-    
+
     // Test input with unaligned enum
     const input = `enum Status {
 ACTIVE=1,
@@ -61,51 +61,54 @@ INACTIVE = 2,
 PENDING= 3,
 SUSPENDED =4
 }`;
-    
+
     console.log('Input:');
     console.log(input);
     console.log('\n--- Formatted Output ---');
-    
+
     // Mock document and options
     const mockDocument = {
         getText: () => input,
         lineCount: input.split('\n').length,
-        lineAt: (i) => ({ text: input.split('\n')[i] })
+        lineAt: (i) => ({text: input.split('\n')[i]})
     };
-    
-    const mockOptions = { insertSpaces: true, tabSize: 4 };
-    const mockRange = { start: { line: 0, character: 0 }, end: { line: input.split('\n').length - 1, character: input.split('\n')[input.split('\n').length - 1].length } };
-    
+
+    const mockOptions = {insertSpaces: true, tabSize: 4};
+    const mockRange = {
+        start: {line: 0, character: 0},
+        end: {line: input.split('\n').length - 1, character: input.split('\n')[input.split('\n').length - 1].length}
+    };
+
     try {
         const edits = formatter.provideDocumentRangeFormattingEdits(mockDocument, mockRange, mockOptions);
         if (edits && edits.length > 0) {
             const formatted = edits[0].newText;
             console.log(formatted);
-            
+
             // Check if enum fields are properly aligned
             const lines = formatted.split('\n');
             const enumLines = lines.filter(line => line.trim().match(/^\w+\s*=\s*\d+/));
-            
+
             if (enumLines.length > 0) {
                 console.log('\n--- Enum field alignment check ---');
                 enumLines.forEach(line => {
                     console.log(`"${line}"`);
                 });
-                
+
                 // Check if all enum names start at the same position
                 const namePositions = enumLines.map(line => line.search(/\w/));
                 const allSamePosition = namePositions.every(pos => pos === namePositions[0]);
-                
+
                 if (allSamePosition) {
                     console.log('✓ Enum names are properly aligned');
                 } else {
                     console.log('✗ Enum names are not aligned');
                 }
-                
+
                 // Check if equals signs are aligned
                 const equalsPositions = enumLines.map(line => line.indexOf('='));
                 const equalsAligned = equalsPositions.every(pos => pos === equalsPositions[0]);
-                
+
                 if (equalsAligned) {
                     console.log('✓ Equals signs are properly aligned');
                 } else {
@@ -123,7 +126,7 @@ SUSPENDED =4
 // Test with different alignment configurations
 function testEnumAlignmentConfigurations() {
     console.log('\n\n=== Testing different alignment configurations ===');
-    
+
     const configs = [
         {
             name: 'All alignment disabled',
@@ -158,17 +161,17 @@ function testEnumAlignmentConfigurations() {
             }
         }
     ];
-    
+
     configs.forEach(testConfig => {
         console.log(`\n--- ${testConfig.name} ---`);
-        
+
         // Update vscode mock configuration
         const originalGetConfiguration = vscode.workspace.getConfiguration;
         vscode.workspace.getConfiguration = (section) => {
             return {
                 get: (key) => {
                     const fullKey = section ? `${section}.${key}` : key;
-                    
+
                     // Check if this is one of the test config keys
                     if (key === 'alignEnumNames') {
                         return testConfig.config.alignEnumNames;
@@ -179,7 +182,7 @@ function testEnumAlignmentConfigurations() {
                     if (key === 'alignEnumValues') {
                         return testConfig.config.alignEnumValues;
                     }
-                    
+
                     // Default values for other configs
                     const defaults = {
                         'thrift-support.formatting.trailingComma': true,
@@ -192,9 +195,9 @@ function testEnumAlignmentConfigurations() {
                 }
             };
         };
-        
+
         testEnumFormatting();
-        
+
         // Restore original configuration
         vscode.workspace.getConfiguration = originalGetConfiguration;
     });

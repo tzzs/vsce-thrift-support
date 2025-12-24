@@ -234,7 +234,9 @@ export class ThriftParser {
             const line = this.lines[this.currentLine];
             const trimmed = line.trim();
 
-            if (trimmed.includes('{')) { braceCount++; }
+            if (trimmed.includes('{')) {
+                braceCount++;
+            }
             if (trimmed.includes('}')) {
                 braceCount--;
                 if (braceCount <= 0) {
@@ -309,7 +311,9 @@ export class ThriftParser {
             const line = this.lines[this.currentLine];
             const trimmed = line.trim();
 
-            if (trimmed.includes('{')) { braceCount++; }
+            if (trimmed.includes('{')) {
+                braceCount++;
+            }
             if (trimmed.includes('}')) {
                 braceCount--;
                 if (braceCount <= 0) {
@@ -376,7 +380,9 @@ export class ThriftParser {
             const line = this.lines[this.currentLine];
             const trimmed = line.trim();
 
-            if (trimmed.includes('{')) { braceCount++; }
+            if (trimmed.includes('{')) {
+                braceCount++;
+            }
             if (trimmed.includes('}')) {
                 braceCount--;
                 if (braceCount <= 0) {
@@ -389,16 +395,210 @@ export class ThriftParser {
             // Simplified match: just look for return type and name and parens
             const funcMatch = trimmed.match(/^(?:(oneway)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
             if (funcMatch) {
+                // Calculate more accurate range for the function declaration
+                const funcStartLine = this.currentLine;
+                const funcStartChar = line.indexOf(funcMatch[0]); // Start from the beginning of the function match
+
+                // Parse function arguments
+                const args: nodes.Field[] = [];
+
+                // Find the opening parenthesis
+                let parenStartPos = line.indexOf('(');
+                if (parenStartPos !== -1) {
+                    // Parse arguments between parentheses
+                    let argParsingLine = this.currentLine;
+                    let argParsingChar = parenStartPos + 1;
+                    let argParenCount = 1;
+
+                    // Collect argument text
+                    let argText = '';
+                    let inArgParsing = true;
+
+                    while (inArgParsing && argParsingLine < this.lines.length) {
+                        const argLine = this.lines[argParsingLine];
+                        while (argParsingChar < argLine.length && inArgParsing) {
+                            const char = argLine[argParsingChar];
+                            if (char === '(') {
+                                argParenCount++;
+                                argText += char;
+                            } else if (char === ')') {
+                                argParenCount--;
+                                if (argParenCount === 0) {
+                                    inArgParsing = false;
+                                    // Don't add the closing parenthesis to argText
+                                } else {
+                                    argText += char;
+                                }
+                            } else {
+                                argText += char;
+                            }
+                            argParsingChar++;
+                        }
+
+                        if (inArgParsing) {
+                            argParsingLine++;
+                            argParsingChar = 0;
+                            if (argParsingLine < this.lines.length) {
+                                argText += '\n';
+                            }
+                        }
+                    }
+
+                    // Parse individual arguments
+                    if (argText.trim()) {
+                        // Split arguments by comma, but be careful about commas in complex types
+                        const argParts = argText.split(',');
+                        let currentArgText = '';
+                        let parenDepth = 0;
+
+                        for (let i = 0; i < argParts.length; i++) {
+                            currentArgText += argParts[i];
+
+                            // Count parentheses in this part
+                            for (const char of argParts[i]) {
+                                if (char === '(') parenDepth++;
+                                if (char === ')') parenDepth--;
+                            }
+
+                            // If we're at the top level (no unclosed parentheses), this is a complete argument
+                            if (parenDepth === 0) {
+                                const trimmedArg = currentArgText.trim();
+                                if (trimmedArg) {
+                                    // Parse argument: id: type name
+                                    const argMatch = trimmedArg.match(/^(\d+):\s*(?:(required|optional)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)$/);
+                                    if (argMatch) {
+                                        const argNode: nodes.Field = {
+                                            type: nodes.ThriftNodeType.Field,
+                                            range: new vscode.Range(argParsingLine, 0, argParsingLine, 0), // TODO: Better range calculation
+                                            parent: null as any, // Will be set later
+                                            id: parseInt(argMatch[1]),
+                                            requiredness: (argMatch[2] === 'required' || argMatch[2] === 'optional') ? argMatch[2] : 'required',
+                                            fieldType: argMatch[3].trim(),
+                                            name: argMatch[4]
+                                        };
+                                        args.push(argNode);
+                                    }
+                                }
+                                currentArgText = '';
+                            } else {
+                                // Not at top level, add a comma back for next iteration
+                                currentArgText += ',';
+                            }
+                        }
+                    }
+                }
+
+                // Find the end of the function declaration (either , or ; or {)
+                let funcEndLine = funcStartLine;
+                let funcEndChar = line.length;
+                let parenCount = 0;
+                let foundEnd = false;
+
+                // Look for the end of function declaration on the same line first
+                for (let i = funcMatch[0].length; i < line.length; i++) {
+                    const char = line[i];
+                    if (char === '(') {
+                        parenCount++;
+                    } else if (char === ')') {
+                        parenCount--;
+                        if (parenCount === 0) {
+                            // Look for throws clause or end of declaration
+                            let j = i + 1;
+                            while (j < line.length && /\s/.test(line[j])) j++; // Skip whitespace
+
+                            // Check if there's a throws clause
+                            if (line.substring(j, j + 6) === 'throws') {
+                                // Find the end of throws clause
+                                let throwsParenCount = 0;
+                                for (let k = j + 6; k < line.length; k++) {
+                                    if (line[k] === '(') {
+                                        throwsParenCount++;
+                                    } else if (line[k] === ')') {
+                                        throwsParenCount--;
+                                        if (throwsParenCount === 0) {
+                                            j = k + 1;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Find the end of the declaration
+                            while (j < line.length && /\s/.test(line[j])) j++; // Skip whitespace
+                            if (j < line.length && (line[j] === ',' || line[j] === ';' || line[j] === '{')) {
+                                funcEndChar = j + 1;
+                                foundEnd = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // If not found on the same line, look on subsequent lines
+                if (!foundEnd) {
+                    let searchLine = funcStartLine;
+                    while (searchLine < this.lines.length && !foundEnd) {
+                        const searchLineText = this.lines[searchLine];
+                        for (let i = 0; i < searchLineText.length; i++) {
+                            const char = searchLineText[i];
+                            if (char === '(') {
+                                parenCount++;
+                            } else if (char === ')') {
+                                parenCount--;
+                                if (parenCount === 0) {
+                                    // Look for throws clause or end of declaration
+                                    let j = i + 1;
+                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) j++; // Skip whitespace
+
+                                    // Check if there's a throws clause
+                                    if (searchLineText.substring(j, j + 6) === 'throws') {
+                                        // Find the end of throws clause
+                                        let throwsParenCount = 0;
+                                        for (let k = j + 6; k < searchLineText.length; k++) {
+                                            if (searchLineText[k] === '(') {
+                                                throwsParenCount++;
+                                            } else if (searchLineText[k] === ')') {
+                                                throwsParenCount--;
+                                                if (throwsParenCount === 0) {
+                                                    j = k + 1;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Find the end of the declaration
+                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) j++; // Skip whitespace
+                                    if (j < searchLineText.length && (searchLineText[j] === ',' || searchLineText[j] === ';' || searchLineText[j] === '{')) {
+                                        funcEndLine = searchLine;
+                                        funcEndChar = j + 1;
+                                        foundEnd = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        if (!foundEnd) {
+                            searchLine++;
+                        }
+                    }
+                }
+
                 const funcNode: nodes.ThriftFunction = {
                     type: nodes.ThriftNodeType.Function,
-                    range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+                    range: new vscode.Range(funcStartLine, funcStartChar, funcEndLine, funcEndChar),
                     parent: parent,
                     name: funcMatch[3],
                     returnType: funcMatch[2].trim(),
                     oneway: !!funcMatch[1],
-                    arguments: [],
+                    arguments: args,
                     throws: []
                 };
+
+                // Set parent for all arguments
+                args.forEach(arg => {
+                    arg.parent = funcNode;
+                });
 
                 parent.functions.push(funcNode);
             }

@@ -4,7 +4,7 @@ const path = require('path');
 // Mock VSCode API
 const vscode = {
     Uri: {
-        file: (path) => ({ fsPath: path, scheme: 'file' })
+        file: (path) => ({fsPath: path, scheme: 'file'})
     },
     Position: class {
         constructor(line, character) {
@@ -21,7 +21,7 @@ const vscode = {
     Location: class {
         constructor(uri, position) {
             this.uri = uri;
-            this.range = { start: position, end: position };
+            this.range = {start: position, end: position};
         }
     },
     workspace: {
@@ -43,28 +43,31 @@ const vscode = {
                     const lines = content.split('\n');
                     return {
                         text: lines[line] || '',
-                        range: { start: new vscode.Position(line, 0), end: new vscode.Position(line, lines[line]?.length || 0) }
+                        range: {
+                            start: new vscode.Position(line, 0),
+                            end: new vscode.Position(line, lines[line]?.length || 0)
+                        }
                     };
                 },
                 getWordRangeAtPosition: (position) => {
                     const lines = content.split('\n');
                     const line = lines[position.line] || '';
                     const char = position.character;
-                    
+
                     // Simple word boundary detection (letters, numbers, underscores)
                     let start = char;
                     let end = char;
-                    
+
                     while (start > 0 && /\w/.test(line[start - 1])) {
                         start--;
                     }
-                    
+
                     while (end < line.length && /\w/.test(line[end])) {
                         end++;
                     }
-                    
+
                     if (start === end) return undefined;
-                    
+
                     return {
                         start: new vscode.Position(position.line, start),
                         end: new vscode.Position(position.line, end)
@@ -84,8 +87,9 @@ const vscode = {
             let entries = [];
             try {
                 entries = fs.readdirSync(dir);
-            } catch {}
-            return entries.filter(f => f.endsWith('.thrift')).map(f => ({ fsPath: path.join(dir, f) }));
+            } catch {
+            }
+            return entries.filter(f => f.endsWith('.thrift')).map(f => ({fsPath: path.join(dir, f)}));
         }
     }
 };
@@ -93,7 +97,7 @@ const vscode = {
 // Ensure child modules that require('vscode') receive our mock
 const Module = require('module');
 const originalLoad = Module._load;
-Module._load = function(request, parent, isMain) {
+Module._load = function (request, parent, isMain) {
     if (request === 'vscode') {
         return vscode;
     }
@@ -101,15 +105,15 @@ Module._load = function(request, parent, isMain) {
 };
 
 // Import the definition provider (will pick up the mocked vscode)
-const { ThriftDefinitionProvider } = require('../out/definitionProvider');
+const {ThriftDefinitionProvider} = require('../out/src/definitionProvider.js');
 // After loading, restore the loader to avoid side effects on other tests
 Module._load = originalLoad;
 
 async function testIncludeFilenameDetection() {
     console.log('Testing include filename detection with dots...');
-    
+
     const provider = new ThriftDefinitionProvider();
-    
+
     // Create a test document with include statement
     const testContent = 'include "shared.thrift"\n';
     const testDocument = {
@@ -119,41 +123,41 @@ async function testIncludeFilenameDetection() {
             const lines = testContent.split('\n');
             return {
                 text: lines[line] || '',
-                range: { start: new vscode.Position(line, 0), end: new vscode.Position(line, lines[line]?.length || 0) }
+                range: {start: new vscode.Position(line, 0), end: new vscode.Position(line, lines[line]?.length || 0)}
             };
         },
         getWordRangeAtPosition: (position) => {
             const lines = testContent.split('\n');
             const line = lines[position.line] || '';
             const char = position.character;
-            
+
             // This simulates VSCode's default behavior - only alphanumeric
             let start = char;
             let end = char;
-            
+
             while (start > 0 && /\w/.test(line[start - 1])) {
                 start--;
             }
-            
+
             while (end < line.length && /\w/.test(line[end])) {
                 end++;
             }
-            
+
             if (start === end) return undefined;
-            
+
             return {
                 start: new vscode.Position(position.line, start),
                 end: new vscode.Position(position.line, end)
             };
         }
     };
-    
+
     console.log('\n1. Testing cursor on "shared" part of "shared.thrift"');
     try {
         // Position cursor on "shared" (character 9)
         const position1 = new vscode.Position(0, 9);
         const result1 = await provider.provideDefinition(testDocument, position1, null);
-        
+
         if (result1) {
             console.log('✅ Successfully detected include file from "shared" part');
             console.log('   Target:', result1.uri.fsPath);
@@ -163,13 +167,13 @@ async function testIncludeFilenameDetection() {
     } catch (error) {
         console.log('❌ Error testing "shared" part:', error.message);
     }
-    
+
     console.log('\n2. Testing cursor on "." part of "shared.thrift"');
     try {
         // Position cursor on "." (character 15)
         const position2 = new vscode.Position(0, 15);
         const result2 = await provider.provideDefinition(testDocument, position2, null);
-        
+
         if (result2) {
             console.log('✅ Successfully detected include file from "." part');
             console.log('   Target:', result2.uri.fsPath);
@@ -179,13 +183,13 @@ async function testIncludeFilenameDetection() {
     } catch (error) {
         console.log('❌ Error testing "." part:', error.message);
     }
-    
+
     console.log('\n3. Testing cursor on "thrift" part of "shared.thrift"');
     try {
         // Position cursor on "thrift" (character 17)
         const position3 = new vscode.Position(0, 17);
         const result3 = await provider.provideDefinition(testDocument, position3, null);
-        
+
         if (result3) {
             console.log('✅ Successfully detected include file from "thrift" part');
             console.log('   Target:', result3.uri.fsPath);
@@ -195,7 +199,7 @@ async function testIncludeFilenameDetection() {
     } catch (error) {
         console.log('❌ Error testing "thrift" part:', error.message);
     }
-    
+
     console.log('\n🎉 Include filename detection tests completed!');
 }
 

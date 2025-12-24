@@ -6,10 +6,10 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const {execSync} = require('child_process');
 
 console.log('🔍 验证 Thrift Support 插件安装...');
-console.log('=' .repeat(50));
+console.log('='.repeat(50));
 
 // 1. 检查编译输出
 console.log('\n1. 检查编译输出:');
@@ -18,7 +18,7 @@ if (fs.existsSync(outDir)) {
     const files = fs.readdirSync(outDir);
     console.log('✅ out/ 目录存在');
     console.log('   文件:', files.join(', '));
-    
+
     // 检查关键文件
     const requiredFiles = ['extension.js', 'formatter.js'];
     const missingFiles = requiredFiles.filter(file => !files.includes(file));
@@ -65,6 +65,7 @@ try {
                 this.range = range;
                 this.newText = newText;
             }
+
             static replace(range, newText) {
                 return new mockVscode.TextEdit(range, newText);
             }
@@ -82,33 +83,33 @@ try {
             }
         }
     };
-    
+
     // 拦截require调用
     const Module = require('module');
     const originalRequire = Module.prototype.require;
-    Module.prototype.require = function(id) {
+    Module.prototype.require = function (id) {
         if (id === 'vscode') {
             return mockVscode;
         }
         return originalRequire.apply(this, arguments);
     };
-    
+
     // 导入格式化器
-    const { ThriftFormattingProvider } = require('./out/formattingProvider.js');
-    
+    const {ThriftFormattingProvider} = require('./out/formattingProvider.js');
+
     // 恢复原始require
     Module.prototype.require = originalRequire;
-    
+
     // 创建格式化器实例
     const formatter = new ThriftFormattingProvider();
-    
+
     // 测试代码
     const testCode = `struct User {
   1: required UserId     id,
   2: required string   name,
   3: optional Email    email,
 }`;
-    
+
     // 使用反射访问私有方法
     const formatThriftCode = formatter.formatThriftCode || formatter['formatThriftCode'];
     if (typeof formatThriftCode === 'function') {
@@ -120,9 +121,9 @@ try {
             indentSize: 2,
             maxLineLength: 100
         };
-        
+
         const result = formatThriftCode.call(formatter, testCode, config);
-        
+
         if (result && result !== testCode) {
             console.log('✅ 格式化器逻辑正常工作');
             console.log('   原始代码行数:', testCode.split('\n').length);
@@ -134,7 +135,7 @@ try {
     } else {
         console.log('❌ 无法访问格式化方法');
     }
-    
+
 } catch (error) {
     console.log('❌ 格式化器测试失败:', error.message);
 }
@@ -143,15 +144,15 @@ try {
 console.log('\n4. 检查package.json配置:');
 try {
     const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-    
+
     // 检查关键配置
     const checks = [
-        { key: 'main', expected: './out/extension.js', actual: packageJson.main },
+        {key: 'main', expected: './out/extension.js', actual: packageJson.main},
         // Activation events are generated automatically when targeting VS Code >= 1.75.0
-        { key: 'activationEvents', expected: undefined, actual: packageJson.activationEvents?.[0] },
-        { key: 'engines.vscode', expected: '^1.75.0', actual: packageJson.engines?.vscode }
+        {key: 'activationEvents', expected: undefined, actual: packageJson.activationEvents?.[0]},
+        {key: 'engines.vscode', expected: '^1.75.0', actual: packageJson.engines?.vscode}
     ];
-    
+
     checks.forEach(check => {
         if (check.actual === check.expected) {
             console.log(`✅ ${check.key}: ${check.actual}`);
@@ -159,14 +160,14 @@ try {
             console.log(`⚠️  ${check.key}: ${check.actual} (期望: ${check.expected})`);
         }
     });
-    
+
     // 检查语言配置
     if (packageJson.contributes?.languages?.[0]?.id === 'thrift') {
         console.log('✅ Thrift语言配置正确');
     } else {
         console.log('❌ Thrift语言配置缺失或错误');
     }
-    
+
     // 检查格式化命令
     const commands = packageJson.contributes?.commands || [];
     const formatCommands = commands.filter(cmd => cmd.command.includes('format'));
@@ -175,14 +176,14 @@ try {
     } else {
         console.log('⚠️  格式化命令配置不完整');
     }
-    
+
 } catch (error) {
     console.log('❌ 读取package.json失败:', error.message);
 }
 
 // 5. 安装建议
 console.log('\n5. 安装建议:');
-console.log('=' .repeat(50));
+console.log('='.repeat(50));
 console.log('1. 确保VSCode版本 >= 1.75.0');
 console.log('2. 卸载旧版本的Thrift插件');
 console.log('3. 安装新插件: code --install-extension thrift-support-0.1.0.vsix');

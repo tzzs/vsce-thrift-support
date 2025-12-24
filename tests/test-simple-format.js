@@ -1,13 +1,13 @@
 // 简单测试服务缩进格式化
 const formatter = {
-    formatServiceTest: function(content) {
+    formatServiceTest: function (content) {
         const lines = content.split('\n');
         let result = [];
         let inService = false;
-        
+
         for (let line of lines) {
             const trimmed = line.trim();
-            
+
             if (trimmed.startsWith('service ')) {
                 result.push(trimmed);
                 inService = true;
@@ -26,7 +26,7 @@ const formatter = {
                 result.push(line);
             }
         }
-        
+
         return result.join('\n');
     }
 };

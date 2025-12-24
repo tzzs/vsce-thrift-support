@@ -2,8 +2,8 @@ name: publish
 
 on:
   workflow_run:
-    workflows: ["release-please"]
-    types: [completed]
+    workflows: [ "release-please" ]
+    types: [ completed ]
   workflow_dispatch:
 
 permissions:
@@ -102,7 +102,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   vsce_publish:
-    needs: [package, github_release]
+    needs: [ package, github_release ]
     if: ${{ needs.package.outputs.should_publish == 'true' }}
     runs-on: ubuntu-latest
     environment: vsce
@@ -126,7 +126,7 @@ jobs:
         run: npx @vscode/vsce publish --skip-duplicate --packagePath thrift-support-${{ needs.package.outputs.version }}.vsix
 
   openvsx_publish:
-    needs: [package, github_release]
+    needs: [ package, github_release ]
     if: ${{ needs.package.outputs.should_publish == 'true' }}
     runs-on: ubuntu-latest
     environment: vsce

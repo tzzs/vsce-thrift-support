@@ -23,11 +23,11 @@ export class ScanningAnalyzer {
      */
     public analyzeClickToScanChain(): void {
         console.log('\n🔍 === 分析点击文件触发扫描的根本原因 ===\n');
-        
+
         // 1. 文档激活事件监听
         this.logAnalysis('1. 文档激活事件监听');
         const disposables = [];
-        
+
         // 监听各种可能触发扫描的事件
         disposables.push(
             vscode.window.onDidChangeActiveTextEditor(editor => {
@@ -75,19 +75,40 @@ export class ScanningAnalyzer {
     }
 
     /**
+     * 获取分析结果和建议
+     */
+    public getAnalysisResults(): string {
+        return `
+🔧 根本原因总结：
+
+1. 架构差异：VS Code 内置语言服务有特权架构，第三方扩展使用标准 LSP
+2. 事件触发：onDidChangeActiveTextEditor 每次点击都触发分析
+3. 级联分析：include 依赖导致扫描相关文件
+4. 缓存策略：简单缓存 vs 智能语义缓存
+5. 资源管理：扩展主机进程 vs 独立语言服务进程
+
+💡 解决方案建议：
+- 使用最小化提供器（已实现）
+- 禁用工作区符号和引用扫描
+- 增加更智能的缓存机制
+- 实现增量分析而不是全量分析
+        `;
+    }
+
+    /**
      * 分析为什么特定文档会触发扫描
      */
     private analyzeWhyScanning(document: vscode.TextDocument): void {
         const fileName = path.basename(document.uri.fsPath);
         console.log(`\n  分析文件: ${fileName}`);
-        
+
         // 检查文件内容
         const content = document.getText();
         const includeMatches = content.match(/^\s*include\s+["\'][^"\']+["\']/gm) || [];
-        
+
         console.log(`  - 文件大小: ${content.length} 字符`);
         console.log(`  - include 语句数量: ${includeMatches.length}`);
-        
+
         if (includeMatches.length > 0) {
             console.log('  - 发现的 include 文件:');
             includeMatches.forEach(include => {
@@ -142,7 +163,7 @@ export class ScanningAnalyzer {
      */
     private compareWithBuiltInLanguages(): void {
         console.log('\n  🔍 VS Code 内置语言服务 vs 第三方扩展:');
-        
+
         console.log('\n  内置语言服务 (JS/TS/JavaScript):');
         console.log('  ✓ 独立进程运行，不影响主进程');
         console.log('  ✓ 智能增量更新，只分析改变的文件');
@@ -164,7 +185,7 @@ export class ScanningAnalyzer {
     private logEvent(eventName: string, filePath: string): void {
         const key = `${eventName}:${path.basename(filePath)}`;
         this.eventTriggerMap.set(key, (this.eventTriggerMap.get(key) || 0) + 1);
-        
+
         const timestamp = new Date().toISOString().substr(11, 8);
         console.log(`  [${timestamp}] ${eventName}: ${path.basename(filePath)}`);
     }
@@ -185,27 +206,6 @@ export class ScanningAnalyzer {
         for (const [key, count] of this.eventTriggerMap.entries()) {
             console.log(`  - ${key}: ${count} 次`);
         }
-    }
-
-    /**
-     * 获取分析结果和建议
-     */
-    public getAnalysisResults(): string {
-        return `
-🔧 根本原因总结：
-
-1. 架构差异：VS Code 内置语言服务有特权架构，第三方扩展使用标准 LSP
-2. 事件触发：onDidChangeActiveTextEditor 每次点击都触发分析
-3. 级联分析：include 依赖导致扫描相关文件
-4. 缓存策略：简单缓存 vs 智能语义缓存
-5. 资源管理：扩展主机进程 vs 独立语言服务进程
-
-💡 解决方案建议：
-- 使用最小化提供器（已实现）
-- 禁用工作区符号和引用扫描
-- 增加更智能的缓存机制
-- 实现增量分析而不是全量分析
-        `;
     }
 }
 

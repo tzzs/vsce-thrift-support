@@ -15,18 +15,20 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
         context: vscode.CodeActionContext,
         token: vscode.CancellationToken
     ): Promise<vscode.CodeAction[] | undefined> {
-        if (document.languageId !== 'thrift') { return; }
+        if (document.languageId !== 'thrift') {
+            return;
+        }
 
         const actions: vscode.CodeAction[] = [];
 
         // Extract type (typedef) from selection or current token
         const extract = new vscode.CodeAction('Extract type (typedef)', vscode.CodeActionKind.RefactorExtract);
-        extract.command = { command: 'thrift.refactor.extractType', title: 'Extract type (typedef)' };
+        extract.command = {command: 'thrift.refactor.extractType', title: 'Extract type (typedef)'};
         actions.push(extract);
 
         // Move type to another file (struct/enum/service/typedef)
         const move = new vscode.CodeAction('Move type to file...', vscode.CodeActionKind.RefactorMove);
-        move.command = { command: 'thrift.refactor.moveType', title: 'Move type to file...' };
+        move.command = {command: 'thrift.refactor.moveType', title: 'Move type to file...'};
         actions.push(move);
 
         const position = (range as vscode.Selection).active ?? range.start;
@@ -70,9 +72,9 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
                     const uniqueFiles = new Map<string, { fileName: string, uri: vscode.Uri }>();
                     for (const c of candidates) {
                         const fname = path.basename(c.uri.fsPath);
-                        uniqueFiles.set(fname, { fileName: fname, uri: c.uri });
+                        uniqueFiles.set(fname, {fileName: fname, uri: c.uri});
                     }
-                    for (const { fileName } of uniqueFiles.values()) {
+                    for (const {fileName} of uniqueFiles.values()) {
                         if (!includeSet.has(fileName)) {
                             const fix = new vscode.CodeAction(`Insert include "${fileName}"`, vscode.CodeActionKind.QuickFix);
                             fix.edit = new vscode.WorkspaceEdit();
@@ -96,7 +98,9 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
         const lines = text.split('\n');
         for (const l of lines) {
             const mm = l.trim().match(/^include\s+["']([^"']+)["']/);
-            if (mm) { set.add(mm[1]); }
+            if (mm) {
+                set.add(mm[1]);
+            }
         }
         return set;
     }
@@ -132,7 +136,7 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
                 }
 
                 if (defRegex.test(text)) {
-                    results.push({ uri: file });
+                    results.push({uri: file});
                 }
             } catch {
                 // ignore

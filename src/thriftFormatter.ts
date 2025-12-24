@@ -1,7 +1,5 @@
-import { ThriftFormattingOptions, StructField, EnumField, ConstField } from './interfaces';
-import { ThriftParser } from './thriftParser';
-import * as nodes from './ast/nodes';
-import { ThriftParser as AstParser } from './ast/parser';
+import {ConstField, EnumField, StructField, ThriftFormattingOptions} from './interfaces';
+import {ThriftParser} from './thriftParser';
 
 export class ThriftFormatter {
     private parser: ThriftParser;
@@ -60,7 +58,9 @@ export class ThriftFormatter {
                 let closed = line.includes('*/');
                 while (!closed && j < lines.length) {
                     commentLines.push(lines[j]);
-                    if (lines[j].includes('*/')) { closed = true; }
+                    if (lines[j].includes('*/')) {
+                        closed = true;
+                    }
                     j++;
                 }
 
@@ -87,7 +87,9 @@ export class ThriftFormatter {
 
                 for (let k = 1; k < commentLines.length - 1; k++) {
                     let mid = commentLines[k].trim();
-                    if (mid.startsWith('*')) { mid = mid.slice(1); }
+                    if (mid.startsWith('*')) {
+                        mid = mid.slice(1);
+                    }
                     mid = mid.replace(/^\s*/, '');
                     // For proper alignment, add a space after the indent to align * with the first * in /**
                     // Standard Javadoc style alignment
@@ -138,7 +140,9 @@ export class ThriftFormatter {
                 }
                 const fieldInfo = this.parser.parseConstField(constValue);
                 if (fieldInfo) {
-                    if (constFields.length === 0) { constBlockIndentLevel = indentLevel; }
+                    if (constFields.length === 0) {
+                        constBlockIndentLevel = indentLevel;
+                    }
                     constFields.push(fieldInfo);
                     inConstBlock = true;
                 }
@@ -147,7 +151,9 @@ export class ThriftFormatter {
             } else if (this.parser.isConstField(line)) {
                 const fieldInfo = this.parser.parseConstField(line);
                 if (fieldInfo) {
-                    if (constFields.length === 0) { constBlockIndentLevel = indentLevel; }
+                    if (constFields.length === 0) {
+                        constBlockIndentLevel = indentLevel;
+                    }
                     constFields.push(fieldInfo);
                     inConstBlock = true;
                     continue;
@@ -332,6 +338,11 @@ export class ThriftFormatter {
         return this.getIndent(level, options);
     }
 
+    public formatThriftCode(text: string, options: ThriftFormattingOptions): string {
+        // Delegate to the existing format method
+        return this.format(text, options);
+    }
+
     private formatStructFields(
         fields: StructField[],
         options: ThriftFormattingOptions,
@@ -369,10 +380,14 @@ export class ThriftFormatter {
 
             if (options.alignTypes) {
                 contentWidth += maxQualifierWidth;
-                if (maxQualifierWidth > 0) { contentWidth += 1; }
+                if (maxQualifierWidth > 0) {
+                    contentWidth += 1;
+                }
             } else {
                 contentWidth += field.qualifier.length;
-                if (field.qualifier.length > 0) { contentWidth += 1; }
+                if (field.qualifier.length > 0) {
+                    contentWidth += 1;
+                }
             }
 
             if (options.alignTypes) {
@@ -418,18 +433,26 @@ export class ThriftFormatter {
         });
 
         const targetAnnoStart = (() => {
-            if (!options.alignAnnotations) { return 0; }
+            if (!options.alignAnnotations) {
+                return 0;
+            }
             let max = 0;
             parsedFields.forEach(f => {
-                if (!f || !f.annotation) { return; }
+                if (!f || !f.annotation) {
+                    return;
+                }
                 let w = 0;
                 w += maxFieldIdWidth + 2;
                 if (options.alignTypes) {
                     w += maxQualifierWidth;
-                    if (maxQualifierWidth > 0) { w += 1; }
+                    if (maxQualifierWidth > 0) {
+                        w += 1;
+                    }
                 } else {
                     w += f.qualifier.length;
-                    if (f.qualifier.length > 0) { w += 1; }
+                    if (f.qualifier.length > 0) {
+                        w += 1;
+                    }
                 }
                 w += (options.alignTypes ? maxTypeWidth : f.type.length);
                 w += 1;
@@ -464,7 +487,9 @@ export class ThriftFormatter {
                         w += s.length;
                     }
                 }
-                if (w > max) { max = w; }
+                if (w > max) {
+                    max = w;
+                }
             });
             return max;
         })();
@@ -479,10 +504,14 @@ export class ThriftFormatter {
 
             if (options.alignTypes) {
                 formattedLine += field.qualifier.padEnd(maxQualifierWidth);
-                if (maxQualifierWidth > 0) { formattedLine += ' '; }
+                if (maxQualifierWidth > 0) {
+                    formattedLine += ' ';
+                }
             } else {
                 formattedLine += field.qualifier;
-                if (field.qualifier.length > 0) { formattedLine += ' '; }
+                if (field.qualifier.length > 0) {
+                    formattedLine += ' ';
+                }
             }
 
             if (options.alignTypes) {
@@ -629,8 +658,11 @@ export class ThriftFormatter {
             const hasSemicolon = f.suffix ? /;/.test(f.suffix) : false;
 
             if (!hasSemicolon) {
-                if (options.trailingComma === 'add') { hasComma = true; }
-                else if (options.trailingComma === 'remove') { hasComma = false; }
+                if (options.trailingComma === 'add') {
+                    hasComma = true;
+                } else if (options.trailingComma === 'remove') {
+                    hasComma = false;
+                }
             }
 
             // Handle name/equals alignment
@@ -652,10 +684,10 @@ export class ThriftFormatter {
                 base += ',';
             }
 
-            interim.push({ base, comment: f.comment, hasComma, hasSemicolon });
+            interim.push({base, comment: f.comment, hasComma, hasSemicolon});
             maxContentWidth = Math.max(maxContentWidth, base.length - indent.length);
         }
-        return interim.map(({ base, comment, hasComma, hasSemicolon }) => {
+        return interim.map(({base, comment, hasComma, hasSemicolon}) => {
             let line = base;
             if (comment) {
                 if (options.alignComments) {
@@ -681,7 +713,9 @@ export class ThriftFormatter {
         options: ThriftFormattingOptions,
         indentLevel: number
     ): string[] {
-        if (fields.length === 0) { return []; }
+        if (fields.length === 0) {
+            return [];
+        }
 
         const collectionStyle = options.collectionStyle || 'preserve';
         const maxLineLength = options.maxLineLength || 100;
@@ -744,13 +778,17 @@ export class ThriftFormatter {
                         continue;
                     }
                     if (ch === ',' && depth === 0) {
-                        if (current.trim()) { items.push(current.trim()); }
+                        if (current.trim()) {
+                            items.push(current.trim());
+                        }
                         current = '';
                     } else {
                         current += ch;
                     }
                 }
-                if (current.trim()) { items.push(current.trim()); }
+                if (current.trim()) {
+                    items.push(current.trim());
+                }
 
                 const lines: string[] = [open];
                 for (let idx = 0; idx < items.length; idx++) {
@@ -761,7 +799,7 @@ export class ThriftFormatter {
                 value = lines.join('\n');
             }
 
-            return { ...f, value };
+            return {...f, value};
         });
 
         const maxTypeWidth = Math.max(...adjFields.map(f => f.type.length));
@@ -769,10 +807,14 @@ export class ThriftFormatter {
 
         let maxFirstLineBaseLen = 0;
         for (const f of adjFields) {
-            if (!f.comment) { continue; }
+            if (!f.comment) {
+                continue;
+            }
             const firstLineValue = f.value.includes('\n') ? f.value.split('\n')[0] : f.value;
             const base = `const ${f.type.padEnd(maxTypeWidth)} ${f.name.padEnd(maxNameWidth)} = ${firstLineValue}`;
-            if (base.length > maxFirstLineBaseLen) { maxFirstLineBaseLen = base.length; }
+            if (base.length > maxFirstLineBaseLen) {
+                maxFirstLineBaseLen = base.length;
+            }
         }
 
         return adjFields.map(field => {
@@ -811,7 +853,9 @@ export class ThriftFormatter {
 
                     if (line.startsWith('//')) {
                         let idx = outLines.length - 1;
-                        while (idx >= 0 && outLines[idx] === '') { idx--; }
+                        while (idx >= 0 && outLines[idx] === '') {
+                            idx--;
+                        }
                         if (idx >= 0) {
                             outLines[idx] += ` ${line}`;
                         } else {
@@ -829,13 +873,17 @@ export class ThriftFormatter {
                     for (let idx = 1; idx < outLines.length; idx++) {
                         const l = outLines[idx];
                         const trimmed = l.trim();
-                        if (!trimmed || trimmed === '}' || trimmed === ']') { continue; }
+                        if (!trimmed || trimmed === '}' || trimmed === ']') {
+                            continue;
+                        }
                         const m = l.match(/^(\s*)(.*?)(\s*)(\/\/.*)$/);
                         if (m) {
                             const leading = m[1] || '';
                             const content = (m[2] || '').replace(/\s+$/, '');
                             const len = leading.length + content.length;
-                            if (len > maxContentLen) { maxContentLen = len; }
+                            if (len > maxContentLen) {
+                                maxContentLen = len;
+                            }
                             indices.push(idx);
                         }
                     }
@@ -843,7 +891,9 @@ export class ThriftFormatter {
                         for (const idx of indices) {
                             const l = outLines[idx];
                             const m = l.match(/^(\s*)(.*?)(\s*)(\/\/.*)$/);
-                            if (!m) { continue; }
+                            if (!m) {
+                                continue;
+                            }
                             const leading = m[1] || '';
                             const content = (m[2] || '').replace(/\s+$/, '');
                             const comment = (m[4] || '').replace(/^\s+/, '');
@@ -872,7 +922,9 @@ export class ThriftFormatter {
     }
 
     private normalizeGenericsInSignature(text: string): string {
-        if (!text) { return text; }
+        if (!text) {
+            return text;
+        }
         let code = text;
         let comment = '';
         const cm = code.match(/^(.*?)(\/\/.*)$/);
@@ -888,40 +940,72 @@ export class ThriftFormatter {
             const ch = code[i];
 
             if (inD) {
-                if (ch === '\\' && i + 1 < n) { res.push(ch); res.push(code[++i]); continue; }
+                if (ch === '\\' && i + 1 < n) {
+                    res.push(ch);
+                    res.push(code[++i]);
+                    continue;
+                }
                 res.push(ch);
-                if (ch === '"') { inD = false; }
+                if (ch === '"') {
+                    inD = false;
+                }
                 continue;
             }
             if (inS) {
-                if (ch === '\\' && i + 1 < n) { res.push(ch); res.push(code[++i]); continue; }
+                if (ch === '\\' && i + 1 < n) {
+                    res.push(ch);
+                    res.push(code[++i]);
+                    continue;
+                }
                 res.push(ch);
-                if (ch === "'") { inS = false; }
+                if (ch === "'") {
+                    inS = false;
+                }
                 continue;
             }
 
-            if (ch === '"') { inD = true; res.push(ch); continue; }
-            if (ch === "'") { inS = true; res.push(ch); continue; }
+            if (ch === '"') {
+                inD = true;
+                res.push(ch);
+                continue;
+            }
+            if (ch === "'") {
+                inS = true;
+                res.push(ch);
+                continue;
+            }
             if (ch === '<') {
-                while (res.length > 0 && res[res.length - 1] === ' ') { res.pop(); }
+                while (res.length > 0 && res[res.length - 1] === ' ') {
+                    res.pop();
+                }
                 res.push('<');
                 depthAngle++;
-                while (i + 1 < n && code[i + 1] === ' ') { i++; }
+                while (i + 1 < n && code[i + 1] === ' ') {
+                    i++;
+                }
                 continue;
             }
             if (ch === ',' && depthAngle > 0) {
-                while (res.length > 0 && res[res.length - 1] === ' ') { res.pop(); }
+                while (res.length > 0 && res[res.length - 1] === ' ') {
+                    res.pop();
+                }
                 res.push(',');
-                while (i + 1 < n && code[i + 1] === ' ') { i++; }
+                while (i + 1 < n && code[i + 1] === ' ') {
+                    i++;
+                }
                 continue;
             }
             if (ch === '>') {
                 if (depthAngle > 0) {
-                    while (res.length > 0 && res[res.length - 1] === ' ') { res.pop(); }
+                    while (res.length > 0 && res[res.length - 1] === ' ') {
+                        res.pop();
+                    }
                     res.push('>');
                     depthAngle = Math.max(0, depthAngle - 1);
                     let k = i + 1;
-                    while (k < n && code[k] === ' ') { k++; }
+                    while (k < n && code[k] === ' ') {
+                        k++;
+                    }
                     if (k < n) {
                         const next = code[k];
                         if (next === ',' || next === '>' || next === ')') {
@@ -937,10 +1021,5 @@ export class ThriftFormatter {
         }
         const normalized = res.join('');
         return comment ? `${normalized} ${comment}` : normalized;
-    }
-
-    public formatThriftCode(text: string, options: ThriftFormattingOptions): string {
-        // Delegate to the existing format method
-        return this.format(text, options);
     }
 }

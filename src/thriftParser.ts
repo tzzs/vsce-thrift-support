@@ -1,5 +1,4 @@
-
-import { StructField, EnumField, ConstField } from './interfaces';
+import {ConstField, EnumField, StructField} from './interfaces';
 
 export class ThriftParser {
     // Regex patterns
@@ -38,7 +37,9 @@ export class ThriftParser {
         // Quick pre-check: first non-space must be a digit
         const t = line.trimStart();
         const c = t.charCodeAt(0);
-        if (!(c >= 48 && c <= 57)) { return false; }
+        if (!(c >= 48 && c <= 57)) {
+            return false;
+        }
         // Match field definitions like: 1: required string name, or 1: string name,
         // Also match complex types like: 1: required list<string> names,
         return this.reStructField.test(line);
@@ -49,7 +50,9 @@ export class ThriftParser {
         const t = line.trimStart();
         const cc = t.charCodeAt(0);
         const isLetter = (cc >= 65 && cc <= 90) || (cc >= 97 && cc <= 122) || cc === 95; // A-Z a-z _
-        if (!isLetter) { return false; }
+        if (!isLetter) {
+            return false;
+        }
         // Match enum field definitions like: ACTIVE = 1, or INACTIVE = 2,
         return this.reEnumField.test(line);
     }
@@ -59,7 +62,9 @@ export class ThriftParser {
 
         // First, extract the prefix (field number and optional required/optional)
         const prefixMatch = line.match(/^\s*(\d+:\s*(?:required|optional)?\s*)(.*)$/);
-        if (!prefixMatch) { return null; }
+        if (!prefixMatch) {
+            return null;
+        }
 
         const prefix = prefixMatch[1];
         let remainder = prefixMatch[2];
@@ -96,7 +101,9 @@ export class ThriftParser {
 
         // Parse the main content: type fieldname [= defaultvalue]
         const fieldMatch = remainder.match(/^(.+?)\s+(\w+)(?:\s*=\s*(.+))?$/);
-        if (!fieldMatch) { return null; }
+        if (!fieldMatch) {
+            return null;
+        }
 
         let type = fieldMatch[1].trim();
         const name = fieldMatch[2];
@@ -134,7 +141,9 @@ export class ThriftParser {
     public parseEnumField(line: string): EnumField | null {
         // Parse enum field: ACTIVE = 1, // comment
         const match = line.match(/^\s*(\w+)\s*=\s*([-+]?(?:\d+|0x[0-9a-fA-F]+))\s*([,;]?\s*(?:(?:\/\/|#).*)?\s*)$/i);
-        if (!match) { return null; }
+        if (!match) {
+            return null;
+        }
 
         const name = match[1];
         const value = match[2];
@@ -157,12 +166,16 @@ export class ThriftParser {
     public parseConstField(
         source: string
     ): ConstField | null {
-        if (!source) { return null; }
+        if (!source) {
+            return null;
+        }
         const lines = source.split('\n');
         const header = (lines[0] || '').trim();
         // Match: const <type> <name> = <value>[ // comment]
         const m = header.match(/^const\s+([\w<>,\s]+?)\s+(\w+)\s*=\s*(.*)$/);
-        if (!m) { return null; }
+        if (!m) {
+            return null;
+        }
         let type = m[1].trim();
         const name = m[2].trim();
         let firstValuePart = (m[3] || '').trim();

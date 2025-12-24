@@ -1,22 +1,34 @@
 import * as vscode from 'vscode';
-import { ThriftParser } from './ast/parser';
+import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes';
+import {ThriftFileWatcher} from '../utils/fileWatcher';
+import {CacheManager} from '../utils/cacheManager';
+import {ErrorHandler} from '../utils/errorHandler';
 
 export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
-    private cachedSymbols = new Map<string, vscode.DocumentSymbol[]>();
-    private lastCacheUpdate = new Map<string, number>();
-    private readonly CACHE_DURATION = 10000; // 10秒缓存
+    private cacheManager = CacheManager.getInstance();
+    private errorHandler = ErrorHandler.getInstance();
+
+    constructor() {
+        // 注册缓存配置
+        this.cacheManager.registerCache('documentSymbols', {
+            maxSize: 500,
+            ttl: 10000 // 10秒
+        });
+
+        // 监听文件变化，清除缓存
+        const fileWatcher = ThriftFileWatcher.getInstance();
+        fileWatcher.createWatcher('**/*.thrift', () => {
+            this.cacheManager.clear('documentSymbols');
+        });
+    }
 
     // 清除缓存
     public clearCache(uri?: vscode.Uri): void {
         if (uri) {
-            const key = uri.toString();
-            this.cachedSymbols.delete(key);
-            this.lastCacheUpdate.delete(key);
+            this.cacheManager.delete('documentSymbols', uri.toString());
         } else {
-            // 清除所有缓存
-            this.cachedSymbols.clear();
-            this.lastCacheUpdate.clear();
+            this.cacheManager.clear('documentSymbols');
         }
     }
 
@@ -25,13 +37,10 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
         token: vscode.CancellationToken
     ): vscode.ProviderResult<vscode.SymbolInformation[] | vscode.DocumentSymbol[]> {
         const key = document.uri.toString();
-        const now = Date.now();
 
-        // 检查缓存是否有效
-        const cached = this.cachedSymbols.get(key);
-        const lastUpdate = this.lastCacheUpdate.get(key);
-
-        if (cached && lastUpdate && (now - lastUpdate) < this.CACHE_DURATION) {
+        // 从缓存管理器获取缓存
+        const cached = this.cacheManager.get<vscode.DocumentSymbol[]>('documentSymbols', key);
+        if (cached) {
             return cached;
         }
 
@@ -48,8 +57,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
         }
 
         // 更新缓存
-        this.cachedSymbols.set(key, symbols);
-        this.lastCacheUpdate.set(key, now);
+        this.cacheManager.set('documentSymbols', key, symbols);
 
         return symbols;
     }
@@ -71,11 +79,13 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
         switch (node.type) {
             case nodes.ThriftNodeType.Namespace:
                 kind = vscode.SymbolKind.Namespace;
-                detail = `namespace ${(node as nodes.Namespace).scope} ${(node as nodes.Namespace).namespace}`;
-                name = detail;
+                name = `namespace ${(node as nodes.Namespace).scope}`;
+                detail = `${name} ${(node as nodes.Namespace).namespace}`;
+                console.log(`DEBUG: Namespace node - scope: ${(node as nodes.Namespace).scope}, namespace: ${(node as nodes.Namespace).namespace}, name: ${name}, detail: ${detail}`);
                 break;
             case nodes.ThriftNodeType.Include:
                 kind = vscode.SymbolKind.File;
+                name = `include ${name}`;
                 detail = `include ${name}`;
                 break;
             case nodes.ThriftNodeType.Const:
@@ -146,19 +156,25 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
             const structNode = node as nodes.Struct;
             for (const field of structNode.fields) {
                 const childSym = this.createSymbol(field);
-                if (childSym) { docSymbol.children.push(childSym); }
+                if (childSym) {
+                    docSymbol.children.push(childSym);
+                }
             }
         } else if (node.type === nodes.ThriftNodeType.Enum) {
             const enumNode = node as nodes.Enum;
             for (const member of enumNode.members) {
                 const childSym = this.createSymbol(member);
-                if (childSym) { docSymbol.children.push(childSym); }
+                if (childSym) {
+                    docSymbol.children.push(childSym);
+                }
             }
         } else if (node.type === nodes.ThriftNodeType.Service) {
             const serviceNode = node as nodes.Service;
             for (const func of serviceNode.functions) {
                 const childSym = this.createSymbol(func);
-                if (childSym) { docSymbol.children.push(childSym); }
+                if (childSym) {
+                    docSymbol.children.push(childSym);
+                }
             }
         }
 
@@ -172,22 +188,10 @@ export function registerDocumentSymbolProvider(context: vscode.ExtensionContext)
     context.subscriptions.push(disposable);
 
     // 添加文件监听器，当文件改变时清除缓存
-    const fileWatcher = vscode.workspace.createFileSystemWatcher('**/*.thrift');
-
-    fileWatcher.onDidCreate((uri) => {
-        // 清除所有缓存，因为可能有新文件影响符号解析
+    const fileWatcher = ThriftFileWatcher.getInstance();
+    const docSymbolFileWatcher = fileWatcher.createWatcher('**/*.thrift', () => {
+        // 清除所有缓存，因为文件变化可能影响符号解析
         provider.clearCache();
     });
-
-    fileWatcher.onDidChange((uri) => {
-        // 清除特定文件的缓存，只传递uri，不打开文档
-        provider.clearCache(uri);
-    });
-
-    fileWatcher.onDidDelete((uri) => {
-        // 清除所有缓存，因为文件删除可能影响符号解析
-        provider.clearCache();
-    });
-
-    context.subscriptions.push(fileWatcher);
+    context.subscriptions.push(docSymbolFileWatcher);
 }

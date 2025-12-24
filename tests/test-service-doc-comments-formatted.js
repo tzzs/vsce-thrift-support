@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { ThriftFormatter } = require('../out/thriftFormatter');
+const {ThriftFormatter} = require('../out/src/thriftFormatter.js');
 
 /**
  * 测试服务中文档注释的缩进 - 格式化文件后检查
@@ -75,7 +75,7 @@ function testServiceDocCommentsAfterFormat() {
                 if (trimmed.startsWith('/**')) {
                     if (indent !== 2) {
                         console.log(`  ❌ 错误: 文档注释开始(/**)应该使用2空格缩进，实际为${indent}空格`);
-                        errors.push({ line: lineNum, expected: 2, actual: indent, content: line });
+                        errors.push({line: lineNum, expected: 2, actual: indent, content: line});
                     } else {
                         console.log(`  ✅ 正确: 文档注释开始缩进符合标准`);
                     }
@@ -85,7 +85,7 @@ function testServiceDocCommentsAfterFormat() {
                     // "   * " -> indentation 3
                     if (indent !== 3) {
                         console.log(`  ❌ 错误: 文档注释内容/结束应该使用3空格缩进(对齐*)，实际为${indent}空格`);
-                        errors.push({ line: lineNum, expected: 3, actual: indent, content: line });
+                        errors.push({line: lineNum, expected: 3, actual: indent, content: line});
                     } else {
                         console.log(`  ✅ 正确: 文档注释内容对齐正确 (3空格)`);
                     }
@@ -112,4 +112,4 @@ if (require.main === module) {
     process.exit(success ? 0 : 1);
 }
 
-module.exports = { testServiceDocCommentsAfterFormat };
+module.exports = {testServiceDocCommentsAfterFormat};

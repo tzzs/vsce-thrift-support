@@ -1,9 +1,8 @@
-
 module.exports = {
     Range: class {
         constructor(a, b, c, d) {
-            this.start = { line: a, character: b };
-            this.end = { line: c, character: d };
+            this.start = {line: a, character: b};
+            this.end = {line: c, character: d};
         }
     },
     DiagnosticSeverity: {
@@ -21,22 +20,45 @@ module.exports = {
     },
     languages: {
         createDiagnosticCollection: () => ({
-            set: () => { },
-            delete: () => { },
-            clear: () => { }
+            set: () => {
+            },
+            delete: () => {
+            },
+            clear: () => {
+            }
         })
     },
     workspace: {
-        onDidOpenTextDocument: () => { return { dispose: () => { } }; },
-        onDidChangeTextDocument: () => { return { dispose: () => { } }; },
-        onDidSaveTextDocument: () => { return { dispose: () => { } }; },
-        onDidCloseTextDocument: () => { return { dispose: () => { } }; },
-        openTextDocument: async () => ({ getText: () => "" })
+        onDidOpenTextDocument: () => {
+            return {
+                dispose: () => {
+                }
+            };
+        },
+        onDidChangeTextDocument: () => {
+            return {
+                dispose: () => {
+                }
+            };
+        },
+        onDidSaveTextDocument: () => {
+            return {
+                dispose: () => {
+                }
+            };
+        },
+        onDidCloseTextDocument: () => {
+            return {
+                dispose: () => {
+                }
+            };
+        },
+        openTextDocument: async () => ({getText: () => ""})
     },
     window: {
         activeTextEditor: null
     },
     Uri: {
-        file: (path) => ({ fsPath: path, toString: () => path })
+        file: (path) => ({fsPath: path, toString: () => path})
     }
 };

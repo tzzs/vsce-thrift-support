@@ -12,7 +12,7 @@ const vscode = {
                 'thrift-support.formatting.alignEnumValues': false,
                 'thrift-support.formatting.indentSize': 4
             };
-            
+
             return {
                 get: (key) => {
                     const fullKey = section ? `${section}.${key}` : key;
@@ -23,7 +23,7 @@ const vscode = {
     },
     TextEdit: {
         replace: (range, newText) => {
-            return { range, newText };
+            return {range, newText};
         }
     }
 };
@@ -32,7 +32,7 @@ const vscode = {
 const Module = require('module');
 const originalRequire = Module.prototype.require;
 
-Module.prototype.require = function(id) {
+Module.prototype.require = function (id) {
     if (id === 'vscode') {
         return vscode;
     }
@@ -40,16 +40,16 @@ Module.prototype.require = function(id) {
 };
 
 // Import the formatter
-const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
+const {ThriftFormattingProvider} = require('../out/src/formattingProvider.js');
 
 // Restore original require
 Module.prototype.require = originalRequire;
 
 function testTrailingComma() {
     console.log('Testing trailing comma functionality...');
-    
+
     const formatter = new ThriftFormattingProvider();
-    
+
     const testCases = [
         {
             name: 'Preserve mode - keep existing commas',
@@ -131,8 +131,8 @@ function testTrailingComma() {
     INACTIVE = 2,
 }`,
             expectedCheck: (output) => {
-                return output.includes('ACTIVE = 1') && !output.includes('ACTIVE = 1,') && 
-                       output.includes('INACTIVE = 2') && !output.includes('INACTIVE = 2,');
+                return output.includes('ACTIVE = 1') && !output.includes('ACTIVE = 1,') &&
+                    output.includes('INACTIVE = 2') && !output.includes('INACTIVE = 2,');
             },
             description: 'Should remove commas from enum values'
         },
@@ -155,49 +155,49 @@ function testTrailingComma() {
             description: 'Comma should be appended immediately after content with no preceding spaces even if alignment produced trailing spaces'
         }
     ];
-    
+
     testCases.forEach(testCase => {
         console.log(`\n--- ${testCase.name} ---`);
-        
+
         // Set global test configuration
         global.testTrailingComma = testCase.trailingComma;
-        
+
         // Mock document and range
         const mockDocument = {
             getText: () => testCase.input
         };
-        const mockRange = { start: { line: 0, character: 0 }, end: { line: 4, character: 1 } };
-        const mockOptions = { insertSpaces: true, tabSize: 4 };
-        
+        const mockRange = {start: {line: 0, character: 0}, end: {line: 4, character: 1}};
+        const mockOptions = {insertSpaces: true, tabSize: 4};
+
         try {
             const result = formatter.provideDocumentRangeFormattingEdits(
                 mockDocument,
                 mockRange,
                 mockOptions
             );
-            
+
             console.log('Input:');
             console.log(testCase.input);
             console.log('\nOutput:');
             console.log(result[0].newText);
-            
+
             // Check if the output matches expected behavior
             const passes = testCase.expectedCheck(result[0].newText);
             console.log(`\nTrailing comma check: ${passes ? 'PASS' : 'FAIL'}`);
             console.log(`Description: ${testCase.description}`);
-            
+
             if (!passes) {
                 console.log('Expected behavior not met');
             }
-            
+
         } catch (error) {
             console.log('Error:', error.message);
         }
     });
-    
+
     // Clean up
     delete global.testTrailingComma;
-    
+
     console.log('\nTrailing comma tests completed!');
 }
 

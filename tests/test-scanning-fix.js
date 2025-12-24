@@ -10,7 +10,7 @@ const readFileCalls = [];
 
 const vscode = {
     Uri: {
-        file: (path) => ({ fsPath: path, toString: () => path })
+        file: (path) => ({fsPath: path, toString: () => path})
     },
     workspace: {
         textDocuments: [], // No open documents initially
@@ -21,7 +21,7 @@ const vscode = {
                 getText: () => 'struct MockStruct { 1: i32 id }',
                 uri: uri,
                 lineCount: 1,
-                lineAt: () => ({ text: '' })
+                lineAt: () => ({text: ''})
             };
         },
         fs: {
@@ -30,21 +30,43 @@ const vscode = {
                 // Return encoded "struct MockStruct { 1: i32 id }"
                 return Buffer.from('struct MockStruct { 1: i32 id }');
             },
-            stat: async (uri) => ({ mtime: Date.now(), size: 100 })
+            stat: async (uri) => ({mtime: Date.now(), size: 100})
         }
     },
-    Position: function (line, character) { return { line, character }; },
-    Location: function (uri, range) { return { uri, range }; },
+    Position: function (line, character) {
+        return {line, character};
+    },
+    Location: function (uri, range) {
+        return {uri, range};
+    },
     Range: function (startLine, startChar, endLine, endChar) {
-        return { start: { line: startLine, character: startChar }, end: { line: endLine, character: endChar } };
+        return {start: {line: startLine, character: startChar}, end: {line: endLine, character: endChar}};
     },
     CompletionItemKind: {},
     SymbolKind: {},
-    TreeItem: class { },
-    EventEmitter: class { fire() { } event() { } dispose() { } },
+    TreeItem: class {
+    },
+    EventEmitter: class {
+        fire() {
+        }
+
+        event() {
+        }
+
+        dispose() {
+        }
+    },
     languages: {
-        createDiagnosticCollection: () => ({ set: () => { }, delete: () => { }, dispose: () => { } }),
-        registerReferenceProvider: () => ({ dispose: () => { } })
+        createDiagnosticCollection: () => ({
+            set: () => {
+            }, delete: () => {
+            }, dispose: () => {
+            }
+        }),
+        registerReferenceProvider: () => ({
+            dispose: () => {
+            }
+        })
     }
 };
 
@@ -61,7 +83,7 @@ Module.prototype.require = function (id) {
 
 // Import the provider to test (after mocking)
 // Assuming built files are in ../out
-const { ThriftDefinitionProvider } = require('../out/definitionProvider');
+const {ThriftDefinitionProvider} = require('../out/src/definitionProvider.js');
 
 async function run() {
     console.log('Running scanning fix tests...');
@@ -78,8 +100,8 @@ async function run() {
     const docA = {
         uri: fileA,
         getText: () => 'include "B.thrift"\nstruct A { 1: MockStruct ms }',
-        lineAt: (line) => ({ text: 'struct A { 1: MockStruct ms }' }),
-        getWordRangeAtPosition: () => ({ start: { character: 14 }, end: { character: 24 } })
+        lineAt: (line) => ({text: 'struct A { 1: MockStruct ms }'}),
+        getWordRangeAtPosition: () => ({start: {character: 14}, end: {character: 24}})
     };
 
     // Trigger definition search for "MockStruct"

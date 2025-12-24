@@ -56,3 +56,4 @@ build
 coverage
 .claude/
 test-thrift/
+.idea/

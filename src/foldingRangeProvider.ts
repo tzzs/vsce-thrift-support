@@ -15,22 +15,67 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
         let inBlockComment = false;
         let blockCommentStart = -1;
 
+        console.log(`[DEBUG] Total lines: ${lines.length}`);
         for (let i = 0; i < lines.length; i++) {
             if (token.isCancellationRequested) {
+                console.log(`[DEBUG] Cancellation requested, breaking at line ${i}`);
                 break;
             }
 
             const line = lines[i];
-            const trimmed = line.trim();
+            let trimmed = line.trim();
 
-            // Skip empty lines
-            if (!trimmed) {
-                continue;
+            console.log(`[DEBUG] Processing line ${i}: '${line}' -> trimmed='${trimmed}'`);
+            
+            // Handle block comments - check if we're in a block comment
+            if (inBlockComment) {
+                console.log(`[DEBUG] Line ${i} is in block comment: '${trimmed}'`);
+                if (line.includes('*/')) {
+                    console.log(`[DEBUG] Line ${i} ends block comment, creating range [${blockCommentStart}, ${i}]`);
+                    ranges.push(new vscode.FoldingRange(blockCommentStart, i));
+                    inBlockComment = false;
+                    blockCommentStart = -1;
+                    
+                    // After a block comment ends, check next few lines for struct definitions
+                    for (let checkLine = i + 1; checkLine < Math.min(i + 10, lines.length); checkLine++) {
+                        const nextLine = lines[checkLine].trim();
+                        
+                        // Skip empty lines and single-line comments
+                        if (!nextLine || nextLine.startsWith('//')) {
+                            console.log(`[DEBUG] Skipping check line ${checkLine}: '${lines[checkLine]}'`);
+                            continue;
+                        }
+                        
+                        // If we find a struct definition, create a folding range
+                        if (nextLine.startsWith('struct')) {
+                            console.log(`[DEBUG] Found struct at line ${checkLine}: '${nextLine}', looking for matching bracket`);
+                            const structEnd = this.findMatchingBracket(lines, checkLine, '{', '}');
+                            if (structEnd > checkLine) {
+                                console.log(`[DEBUG] Found matching bracket at line ${structEnd}, creating range [${checkLine}, ${structEnd}]`);
+                                ranges.push(new vscode.FoldingRange(checkLine, structEnd));
+                            } else {
+                                console.log(`[DEBUG] No matching bracket found for struct at line ${checkLine}`);
+                            }
+                            break; // Only check for the first struct after comment
+                        } else {
+                            console.log(`[DEBUG] Line ${checkLine} is not struct: '${nextLine}', stopping check`);
+                            // If we encounter something that's not a struct, stop checking
+                            break;
+                        }
+                    }
+                }
+                continue; // Continue to next line if in block comment
             }
 
-            // Handle block comments
-            if (inBlockComment) {
-                if (trimmed.includes('*/')) {
+            // Handle start of block comment
+            if (trimmed.startsWith('/*')) {
+                console.log(`[DEBUG] Line ${i} starts block comment: '${trimmed}'`);
+                inBlockComment = true;
+                blockCommentStart = i;
+                
+                // Check if this same line also ends the block comment
+                if (trimmed.includes('*/') && !trimmed.startsWith('*/')) {
+                    console.log(`[DEBUG] Line ${i} also ends block comment, creating range [${blockCommentStart}, ${i}]`);
                     ranges.push(new vscode.FoldingRange(blockCommentStart, i));
                     inBlockComment = false;
                     blockCommentStart = -1;
@@ -38,16 +83,21 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
                 continue;
             }
 
-            if (trimmed.startsWith('/*')) {
-                inBlockComment = true;
-                blockCommentStart = i;
+            // Skip empty lines
+            if (!trimmed) {
+                console.log(`[DEBUG] Line ${i} is empty, skipping`);
                 continue;
             }
 
             // Skip single-line comments
-            if (trimmed.startsWith('//') || trimmed.startsWith('#')) {
+            if (trimmed.startsWith('//')) {
+                console.log(`[DEBUG] Line ${i} is single-line comment, skipping: '${trimmed}'`);
                 continue;
             }
+
+            // Add detailed debug logging
+            console.log(`[DEBUG] Line ${i}: trimmed='${trimmed}', hasStruct=${trimmed.includes('struct')}, hasBrace=${trimmed.includes('{')}`);
+
 
             // Handle braces and parentheses for code blocks
             for (let j = 0; j < line.length; j++) {
@@ -57,11 +107,23 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
                 if (char === '{') {
                     // Try to identify what kind of block this is
                     const blockType = this.identifyBlockType(lines, i, j);
+                    // Add debug logging for struct blocks
+                    if (blockType === 'type') {
+                        const blockNameMatch = lines[i].substring(0, j).match(/(struct|union|exception|enum|senum|service)\s+(\w+)/);
+                        const blockName = blockNameMatch ? blockNameMatch[2] : 'unknown';
+                        console.log(`[DEBUG] Found opening brace for ${blockType} block: ${blockName} at line ${i}`);
+                    }
                     braceStack.push({ line: i, char: j, type: blockType });
                 } else if (char === '}') {
                     const openBrace = braceStack.pop();
                     if (openBrace) {
-                        ranges.push(new vscode.FoldingRange(openBrace.line, i));
+                        // Add debug logging for struct blocks
+                        if (openBrace.type === 'type') {
+                            console.log(`[DEBUG] Found closing brace for ${openBrace.type} block at line ${i}, creating folding range from ${openBrace.line} to ${i - 1}`);
+                        }
+                        // For struct blocks, don't include the closing brace line in the range
+                        const endLine = i - 1;
+                        ranges.push(new vscode.FoldingRange(openBrace.line, endLine));
                     }
                 }
 
@@ -73,20 +135,31 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
                         ranges.push(new vscode.FoldingRange(i, closeParenLine));
                     }
                 }
-            }
+            } // End of for loop
 
             // Handle multi-line lists/arrays in const definitions
-            if (trimmed.includes('[') && !trimmed.includes(']')) {
+            // Check if line has '[' but the matching ']' is not on the same line
+            if (trimmed.includes('[')) {
+                console.log(`[DEBUG] Line ${i} has '[': '${trimmed}'`);
                 const listEnd = this.findMatchingBracket(lines, i, '[', ']');
+                console.log(`[DEBUG] findMatchingBracket returned: ${listEnd}`);
                 if (listEnd > i) {
+                    console.log(`[DEBUG] Creating folding range [${i}, ${listEnd}] for list`);
                     ranges.push(new vscode.FoldingRange(i, listEnd));
                 }
             }
 
-            // Handle multi-line maps/objects in const definitions
-            if (trimmed.includes('{') && !trimmed.includes('}') && !this.isTypeBlock(lines, i)) {
+            // Handle multi-line maps/objects in const definitions - check if opening brace exists but closing brace doesn't
+            const hasOpeningBrace = trimmed.includes('{');
+            const hasClosingBrace = trimmed.includes('}');
+            const isTypeDefinition = this.isTypeBlock(lines, i);
+            
+            if (hasOpeningBrace && !hasClosingBrace && !isTypeDefinition) {
+                console.log(`[DEBUG] Line ${i} has '{' but not '}' and is not type definition: '${trimmed}'`);
                 const mapEnd = this.findMatchingBracket(lines, i, '{', '}');
+                console.log(`[DEBUG] findMatchingBracket for '{' returned: ${mapEnd}`);
                 if (mapEnd > i) {
+                    console.log(`[DEBUG] Creating folding range [${i}, ${mapEnd}] for map`);
                     ranges.push(new vscode.FoldingRange(i, mapEnd));
                 }
             }
@@ -98,18 +171,32 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
     private identifyBlockType(lines: string[], lineIndex: number, charIndex: number): string {
         const line = lines[lineIndex];
         const beforeBrace = line.substring(0, charIndex);
+        
+        // Add detailed debug logging
+        console.log(`[DEBUG] identifyBlockType - lineIndex: ${lineIndex}, charIndex: ${charIndex}, beforeBrace: '${beforeBrace.trim()}'`);
 
-        // Check for specific Thrift constructs
-        if (beforeBrace.match(/(struct|union|exception|enum|senum|service)\s+\w+\s*$/)) {
+        // Check for specific Thrift constructs with more flexible whitespace handling
+        if (beforeBrace.match(/(struct|union|exception|enum|senum|service)\s+\w+(?:\s*|\s+.*)$/i)) {
+            console.log(`[DEBUG] Matched type block at line ${lineIndex}`);
             return 'type';
         }
 
-        if (beforeBrace.match(/(function|method)\s+\w+\s*$/)) {
+        if (beforeBrace.match(/(function|method)\s+\w+\s*$/i)) {
             return 'function';
         }
 
-        if (beforeBrace.match(/throws\s*$/)) {
+        if (beforeBrace.match(/throws\s*$/i)) {
             return 'throws';
+        }
+
+        // Check previous lines for type definitions if current line doesn't match
+        for (let i = Math.max(0, lineIndex - 3); i < lineIndex; i++) {
+            const prevLine = lines[i].trim();
+            const prevTypeMatch = prevLine.match(/^(struct|union|exception|enum|senum|service)\s+\w+/i);
+            if (prevTypeMatch) {
+                console.log(`[DEBUG] Found type definition in previous line ${i}: ${prevTypeMatch[1]}, treating as type block`);
+                return 'type';
+            }
         }
 
         return 'block';
