@@ -2,26 +2,20 @@
 
 /**
  * Test runner for stable tests only
- * Runs only the tests that are known to pass after refactoring
+ * Runs only a small set of fast, reliable tests
  */
 
 const {spawnSync} = require('child_process');
 const path = require('path');
 
-// 只包含当前稳定的测试文件
 const stableTests = [
-    'tests/debug-definition-test.js',
-    'tests/simple-test.js',
-    'tests/test-include-navigation-fix.js',
-    'tests/test-vscode-simulation.js',
-    'tests/test-indent-width.js',
-    'tests/format-example.js',
-    'tests/test-namespace-edge-cases.js',
-    'tests/test-diagnostics.js',
-    'tests/test-const-formatting.js',
-    'tests/test-enum-formatting.js',
-    'tests/test-complex-types.js',
-    'tests/test-trailing-comma.js'
+    'tests/src/formattingProvider/test-format-core.js',
+    'tests/src/formattingProvider/test-format-indentation.js',
+    'tests/src/formattingProvider/test-trailing-comma.js',
+    'tests/src/formattingProvider/test-complex-types.js',
+    'tests/src/definitionProvider/test-include-filename-detection.js',
+    'tests/src/diagnostics/test-diagnostics-edge-cases.js',
+    'tests/src/thriftFormatter/test-struct-formatting.js'
 ];
 
 let failed = 0;
@@ -43,7 +37,7 @@ for (const test of stableTests) {
 }
 
 console.log('\n' + '='.repeat(60));
-console.log(`📊 Test Results:`);
+console.log('📊 Test Results:');
 console.log(`✅ Passed: ${passed}`);
 console.log(`❌ Failed: ${failed}`);
 console.log(`📈 Total: ${passed + failed}`);

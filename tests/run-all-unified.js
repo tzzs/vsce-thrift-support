@@ -8,7 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const {spawn} = require('child_process');
+const {Worker} = require('worker_threads');
 
 // 配置常量
 const CONFIG = {
@@ -61,7 +61,9 @@ console.log(`${COLORS.DIM}${'='.repeat(70)}${COLORS.RESET}`);
 function checkTestDependencies(testFile) {
     try {
         const testPath = path.join(__dirname, testFile);
+        const testDir = path.dirname(testPath);
         const content = fs.readFileSync(testPath, 'utf8');
+        const mockVscodePath = path.join(__dirname, 'mock_vscode.js');
         
         // 匹配require语句
         const requireRegex = /require\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g;
@@ -77,7 +79,13 @@ function checkTestDependencies(testFile) {
             
             // 检查相对路径模块
             if (modulePath.startsWith('.')) {
-                const fullPath = path.resolve(__dirname, modulePath);
+                const outMatch = modulePath.replace(/\\/g, '/').match(/^(?:\.{1,2}\/)+out\/src\/(.+)$/);
+                const mockMatch = modulePath.replace(/\\/g, '/').match(/^(?:\.\/)?mock[-_]vscode(?:\.js)?$/);
+                const fullPath = outMatch
+                    ? path.join(__dirname, '..', 'out', 'src', outMatch[1])
+                    : mockMatch
+                        ? mockVscodePath
+                        : path.resolve(testDir, modulePath);
                 const possiblePaths = [
                     fullPath,
                     fullPath + '.js',
@@ -97,17 +105,7 @@ function checkTestDependencies(testFile) {
                 }
             }
             
-            // 检查out目录中的模块
-            if (modulePath.includes('../out/')) {
-                const outPath = path.resolve(__dirname, modulePath);
-                if (!fs.existsSync(outPath) && !fs.existsSync(outPath + '.js')) {
-                    return {
-                        missing: true,
-                        module: modulePath,
-                        reason: `Compiled module not found: ${modulePath}. Try running 'npm run compile' first.`
-                    };
-                }
-            }
+            // out 模块检查已在相对路径检查中处理
         }
         
         return { missing: false };
@@ -139,26 +137,41 @@ function getAllTestFiles() {
     const testDir = __dirname;
     const testFiles = [];
     const skippedFiles = [];
-    
-    // 读取目录中的所有文件
-    const files = fs.readdirSync(testDir);
-    
-    // 筛选测试文件（以test-开头，.js结尾）
-    for (const file of files) {
-        if (file.startsWith('test-') && file.endsWith('.js')) {
-            if (CONFIG.PRE_CHECK_MODULES) {
-                const deps = checkTestDependencies(file);
-                if (deps.missing) {
-                    skippedFiles.push({
-                        file,
-                        reason: deps.reason
-                    });
+
+    const ignoredDirs = new Set(['node_modules', 'out', '.git']);
+
+    function walk(dir) {
+        const entries = fs.readdirSync(dir, {withFileTypes: true});
+        for (const entry of entries) {
+            const entryPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                if (ignoredDirs.has(entry.name)) {
                     continue;
                 }
+                walk(entryPath);
+                continue;
             }
-            testFiles.push(file);
+            if (!entry.isFile()) {
+                continue;
+            }
+            if (entry.name.startsWith('test-') && entry.name.endsWith('.js')) {
+                const relativePath = path.relative(testDir, entryPath);
+                if (CONFIG.PRE_CHECK_MODULES) {
+                    const deps = checkTestDependencies(relativePath);
+                    if (deps.missing) {
+                        skippedFiles.push({
+                            file: relativePath,
+                            reason: deps.reason
+                        });
+                        continue;
+                    }
+                }
+                testFiles.push(relativePath);
+            }
         }
     }
+
+    walk(testDir);
     
     // 按字母顺序排序
     testFiles.sort();
@@ -206,31 +219,31 @@ async function runTest(testFile, index, total) {
         
         console.log(`${COLORS.BLUE}${ICONS.RUNNING} [${testNumber}/${total}] Running ${testFile}...${COLORS.RESET}`);
         
-        const child = spawn('node', [testPath], {
-            stdio: 'pipe',
-            cwd: __dirname,
-            timeout: CONFIG.TEST_TIMEOUT,
+        const worker = new Worker(path.join(__dirname, 'worker-test-runner.js'), {
+            workerData: {testPath},
+            stdout: true,
+            stderr: true,
         });
         
         let output = '';
         let errorOutput = '';
         let timeout = false;
         
-        child.stdout.on('data', (data) => {
+        worker.stdout.on('data', (data) => {
             output += data.toString();
         });
         
-        child.stderr.on('data', (data) => {
+        worker.stderr.on('data', (data) => {
             errorOutput += data.toString();
         });
         
         // 超时处理
         const timeoutId = setTimeout(() => {
             timeout = true;
-            child.kill('SIGTERM');
+            worker.terminate();
         }, CONFIG.TEST_TIMEOUT);
         
-        child.on('close', (code) => {
+        worker.on('exit', (code) => {
             clearTimeout(timeoutId);
             const duration = Date.now() - startTime;
             const success = code === 0 && !timeout;
@@ -268,7 +281,7 @@ async function runTest(testFile, index, total) {
             resolve(result);
         });
         
-        child.on('error', (error) => {
+        worker.on('error', (error) => {
             clearTimeout(timeoutId);
             const duration = Date.now() - startTime;
             
@@ -319,30 +332,8 @@ async function checkAndCompile() {
     const missingFiles = keyFiles.filter(file => !fs.existsSync(file));
     
     if (missingFiles.length > 0) {
-        console.log(`${COLORS.YELLOW}${ICONS.WARNING} 检测到缺失的编译文件，正在自动编译...${COLORS.RESET}`);
-        
-        return new Promise((resolve, reject) => {
-            const compileProcess = spawn('npm', ['run', 'compile'], {
-                stdio: 'inherit',
-                cwd: path.join(__dirname, '..'),
-                shell: true
-            });
-            
-            compileProcess.on('close', (code) => {
-                if (code === 0) {
-                    console.log(`${COLORS.GREEN}${ICONS.SUCCESS} 编译完成！${COLORS.RESET}\n`);
-                    resolve();
-                } else {
-                    console.log(`${COLORS.RED}${ICONS.ERROR} 编译失败，退出码: ${code}${COLORS.RESET}`);
-                    reject(new Error(`编译失败，退出码: ${code}`));
-                }
-            });
-            
-            compileProcess.on('error', (error) => {
-                console.log(`${COLORS.RED}${ICONS.ERROR} 编译过程出错: ${error.message}${COLORS.RESET}`);
-                reject(error);
-            });
-        });
+        console.log(`${COLORS.YELLOW}${ICONS.WARNING} 检测到缺失的编译文件，请先运行 'npm run compile'${COLORS.RESET}`);
+        throw new Error('Missing compiled files. Run npm run compile first.');
     } else {
         console.log(`${COLORS.GREEN}${ICONS.SUCCESS} 编译文件已存在，跳过编译${COLORS.RESET}\n`);
         return Promise.resolve();
