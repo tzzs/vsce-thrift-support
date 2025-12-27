@@ -81,7 +81,6 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
                 kind = vscode.SymbolKind.Namespace;
                 name = `namespace ${(node as nodes.Namespace).scope}`;
                 detail = `${name} ${(node as nodes.Namespace).namespace}`;
-                console.log(`DEBUG: Namespace node - scope: ${(node as nodes.Namespace).scope}, namespace: ${(node as nodes.Namespace).namespace}, name: ${name}, detail: ${detail}`);
                 break;
             case nodes.ThriftNodeType.Include:
                 kind = vscode.SymbolKind.File;

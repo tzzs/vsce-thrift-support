@@ -212,25 +212,30 @@ export function activate(context: vscode.ExtensionContext) {
             if (!m) {
                 return;
             }
+            const typeKind = m[1];
             const typeName = m[2];
 
-            // Find matching closing brace if not found yet
-            if (endLine < startLine) {
-                // Find matching closing brace
-                let depth = 0;
-                for (let i = pos.line; i < doc.lineCount; i++) {
-                    const t = doc.lineAt(i).text;
-                    if (t.includes('{')) {
-                        if (depth === 0) {
-                            startLine = i;
+            // If it's a typedef, keep to the declaration line (typedef 无大括号，避免误删后续内容)
+            if (typeKind === 'typedef') {
+                endLine = startLine;
+            } else {
+                // Find matching closing brace if not found yet
+                if (endLine < startLine) {
+                    let depth = 0;
+                    for (let i = pos.line; i < doc.lineCount; i++) {
+                        const t = doc.lineAt(i).text;
+                        if (t.includes('{')) {
+                            if (depth === 0) {
+                                startLine = i;
+                            }
+                            depth++;
                         }
-                        depth++;
-                    }
-                    if (t.includes('}')) {
-                        depth--;
-                        if (depth === 0) {
-                            endLine = i;
-                            break;
+                        if (t.includes('}')) {
+                            depth--;
+                            if (depth === 0) {
+                                endLine = i;
+                                break;
+                            }
                         }
                     }
                 }
@@ -251,6 +256,14 @@ export function activate(context: vscode.ExtensionContext) {
             const targetUri = vscode.Uri.file(require('path').join(folder.fsPath, targetName));
 
             const edit = new vscode.WorkspaceEdit();
+            // Guard: avoid silently overwriting an existing file
+            try {
+                await vscode.workspace.fs.stat(targetUri);
+                vscode.window.showWarningMessage(`Target file "${targetName}" already exists. Move cancelled to avoid overwriting.`);
+                return;
+            } catch {
+                // file does not exist, safe to proceed
+            }
             // Ensure include line exists
             const includeLine = `include "${targetName}"`;
             const docText = doc.getText();

@@ -456,8 +456,8 @@ export class ThriftParser {
 
                             // Count parentheses in this part
                             for (const char of argParts[i]) {
-                                if (char === '(') parenDepth++;
-                                if (char === ')') parenDepth--;
+                                if (char === '(') {parenDepth++;}
+                                if (char === ')') {parenDepth--;}
                             }
 
                             // If we're at the top level (no unclosed parentheses), this is a complete argument
@@ -504,7 +504,7 @@ export class ThriftParser {
                         if (parenCount === 0) {
                             // Look for throws clause or end of declaration
                             let j = i + 1;
-                            while (j < line.length && /\s/.test(line[j])) j++; // Skip whitespace
+                            while (j < line.length && /\s/.test(line[j])) {j++;} // Skip whitespace
 
                             // Check if there's a throws clause
                             if (line.substring(j, j + 6) === 'throws') {
@@ -524,7 +524,7 @@ export class ThriftParser {
                             }
 
                             // Find the end of the declaration
-                            while (j < line.length && /\s/.test(line[j])) j++; // Skip whitespace
+                            while (j < line.length && /\s/.test(line[j])) {j++;} // Skip whitespace
                             if (j < line.length && (line[j] === ',' || line[j] === ';' || line[j] === '{')) {
                                 funcEndChar = j + 1;
                                 foundEnd = true;
@@ -548,7 +548,7 @@ export class ThriftParser {
                                 if (parenCount === 0) {
                                     // Look for throws clause or end of declaration
                                     let j = i + 1;
-                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) j++; // Skip whitespace
+                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) {j++;} // Skip whitespace
 
                                     // Check if there's a throws clause
                                     if (searchLineText.substring(j, j + 6) === 'throws') {
@@ -568,7 +568,7 @@ export class ThriftParser {
                                     }
 
                                     // Find the end of the declaration
-                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) j++; // Skip whitespace
+                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) {j++;} // Skip whitespace
                                     if (j < searchLineText.length && (searchLineText[j] === ',' || searchLineText[j] === ';' || searchLineText[j] === '{')) {
                                         funcEndLine = searchLine;
                                         funcEndChar = j + 1;

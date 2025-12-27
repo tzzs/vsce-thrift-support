@@ -1061,7 +1061,7 @@ export class DiagnosticManager {
     }
 
     public scheduleAnalysis(doc: vscode.TextDocument, immediate: boolean = false, skipDependents: boolean = false, triggerSource?: string) {
-        if (doc.languageId !== 'thrift') return;
+        if (doc.languageId !== 'thrift') {return;}
 
         const key = this.getDocumentKey(doc);
         const triggerInfo = triggerSource ? ` (triggered by ${triggerSource})` : '';
@@ -1073,24 +1073,25 @@ export class DiagnosticManager {
             clearTimeout(existingTimeout);
         }
 
-        // 检查是否需要分析
-        if (!this.shouldAnalyzeDocument(doc)) {
-            console.log(`[Diagnostics] Skip analysis for ${path.basename(doc.uri.fsPath)} - shouldAnalyzeDocument returned false`);
-            return;
-        }
+        const state = this.documentStates.get(key);
+        const now = Date.now();
+        const lastGap = state?.lastAnalysis ? now - state.lastAnalysis : Number.POSITIVE_INFINITY;
+        const throttleDelay = lastGap < this.MIN_ANALYSIS_INTERVAL ? this.MIN_ANALYSIS_INTERVAL - lastGap : 0;
 
-        if (immediate) {
-            // 立即分析
+        // 若正在分析则跳过
+        if (state?.isAnalyzing) {return;}
+        // 同一版本且无需节流等待，则不重复分析
+        if (state && state.version === doc.version && throttleDelay === 0) {return;}
+
+        const baseDelay = immediate ? 0 : this.ANALYSIS_DELAY;
+        const delay = Math.max(baseDelay, throttleDelay);
+
+        const timeout = setTimeout(() => {
+            this.analysisQueue.delete(key);
             this.performAnalysis(doc);
-        } else {
-            // 延迟分析
-            const timeout = setTimeout(() => {
-                this.analysisQueue.delete(key);
-                this.performAnalysis(doc);
-            }, this.ANALYSIS_DELAY);
+        }, delay);
 
-            this.analysisQueue.set(key, timeout);
-        }
+        this.analysisQueue.set(key, timeout);
 
         // 如果需要分析依赖文件，延迟分析它们（避免连锁反应）
         if (!skipDependents) {
@@ -1222,23 +1223,12 @@ export class DiagnosticManager {
     }
 
     private shouldAnalyzeDocument(doc: vscode.TextDocument): boolean {
+        // 保留方法以兼容，但节流逻辑已转移到 scheduleAnalysis 中
         const key = this.getDocumentKey(doc);
         const state = this.documentStates.get(key);
-
-        if (!state) return true;
-
-        // 如果正在分析，跳过
-        if (state.isAnalyzing) return false;
-
-        // 如果版本没有变化，跳过
-        if (state.version === doc.version) return false;
-
-        // 检查最小分析间隔
-        const now = Date.now();
-        if (state.lastAnalysis && (now - state.lastAnalysis) < this.MIN_ANALYSIS_INTERVAL) {
-            return false;
-        }
-
+        if (!state) {return true;}
+        if (state.isAnalyzing) {return false;}
+        if (state.version === doc.version) {return false;}
         return true;
     }
 

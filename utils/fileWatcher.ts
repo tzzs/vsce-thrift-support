@@ -14,7 +14,12 @@ export class ThriftFileWatcher {
     createWatcher(pattern: string, onChange: () => void): vscode.FileSystemWatcher {
         const key = `thrift-${pattern}`;
         if (this.watchers.has(key)) {
-            return this.watchers.get(key)!;
+            const existing = this.watchers.get(key)!;
+            // 即便已有 watcher，也要为新的订阅者挂载回调，确保缓存清理不会漏掉
+            existing.onDidCreate(onChange);
+            existing.onDidChange(onChange);
+            existing.onDidDelete(onChange);
+            return existing;
         }
 
         const watcher = vscode.workspace.createFileSystemWatcher(pattern);

@@ -4,6 +4,7 @@ import * as nodes from './ast/nodes';
 import {ThriftFileWatcher} from '../utils/fileWatcher';
 import {CacheManager} from '../utils/cacheManager';
 import {ErrorHandler} from '../utils/errorHandler';
+import {readThriftFile} from '../utils/fileReader';
 
 export class ThriftReferencesProvider implements vscode.ReferenceProvider {
     private readonly REFERENCE_SCAN_INTERVAL = 60000; // 60秒间隔，增加间隔时间
@@ -22,12 +23,10 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
 
     constructor() {
         // 注册缓存配置
-        console.log('Registering references cache...');
         this.cacheManager.registerCache('references', {
             maxSize: 1000,
             ttl: 10000 // 10秒
         });
-        console.log('References cache registered');
     }
 
     public async provideReferences(
@@ -36,25 +35,31 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         context: vscode.ReferenceContext,
         token: vscode.CancellationToken
     ): Promise<vscode.Location[]> {
-        console.log('provideReferences called');
+         
+        // Check for cancellation immediately
+        if (token.isCancellationRequested) {
+            return [];
+        }
+        
         const references: vscode.Location[] = [];
         // 使用更精确的单词边界匹配
         const wordRange = document.getWordRangeAtPosition(position, /\b([A-Za-z_][A-Za-z0-9_]*)\b/);
         if (!wordRange) {
-            console.log('No word range found');
             return references;
         }
 
         const symbolName = document.getText(wordRange);
-        console.log(`Looking for references to symbol: ${symbolName}`);
         const symbolType = await this.getSymbolType(document, position, symbolName);
 
         if (!symbolType) {
-            console.log(`No symbol type found for: ${symbolName}`);
             return references;
         }
 
-        console.log(`Found symbol type: ${symbolType}`);
+
+        // Check for cancellation before proceeding with document processing
+        if (token.isCancellationRequested) {
+            return [];
+        }
 
         // 创建缓存键
         const cacheKey = `${document.uri.fsPath}:${symbolName}:${symbolType}`;
@@ -64,17 +69,15 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         const cacheName = 'references';
         const cachedReferences = this.cacheManager.get<vscode.Location[]>(cacheName, cacheKey);
         if (cachedReferences) {
-            console.log(`Using cached references for ${symbolName}`);
             return cachedReferences;
         }
 
         // Search in current document
-        const currentDocRefs = await this.findReferencesInDocument(document.uri, document.getText(), symbolName, document.uri.fsPath);
+        const currentDocRefs = await this.findReferencesInDocument(document.uri, document.getText(), symbolName, document.uri.fsPath, token);
         references.push(...currentDocRefs);
 
         // 限制全局扫描频率，避免频繁触发
         if (this.isScanning) {
-            console.log('Global reference scan in progress, returning current results');
             return references;
         }
 
@@ -94,18 +97,9 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                 }
 
                 try {
-                    // Check if buffer is open first
-                    const openDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === file.toString());
-                    let text = '';
-                    if (openDoc) {
-                        text = openDoc.getText();
-                    } else {
-                        const content = await vscode.workspace.fs.readFile(file);
-                        const decoder = new TextDecoder('utf-8');
-                        text = decoder.decode(content);
-                    }
+                    const text = await readThriftFile(file);
 
-                    const refs = await this.findReferencesInDocument(file, text, symbolName, document.uri.fsPath);
+                    const refs = await this.findReferencesInDocument(file, text, symbolName, document.uri.fsPath, token);
                     references.push(...refs);
                 } catch (error) {
                     this.errorHandler.handleError(error, {
@@ -135,7 +129,6 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
     }
 
     private async getSymbolType(document: vscode.TextDocument, position: vscode.Position, symbolName: string): Promise<string | null> {
-        console.log(`[DEBUG] getSymbolType called with symbolName: "${symbolName}", position: [${position.line}, ${position.character}]`);
 
         // Handle namespaced symbols (e.g., "shared.Address")
         if (symbolName.includes('.')) {
@@ -143,12 +136,10 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             if (parts.length === 2) {
                 const namespace = parts[0];
                 const typeName = parts[1];
-                console.log(`[DEBUG] Handling namespaced symbol: namespace="${namespace}", typeName="${typeName}"`);
 
                 // For namespaced symbols, we're interested in the type part
                 // Check if this is a reference to the namespace itself or the type
                 // If we're looking for the full namespaced symbol, treat it as a type
-                console.log(`[DEBUG] Assuming namespaced symbol "${symbolName}" is a type`);
                 return 'type';
             }
         }
@@ -166,7 +157,6 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             const afterWord = lineText.substring(wordEnd);
             const namespacedPattern = /^\s*\.\s*[A-Za-z_][A-Za-z0-9_]*/;
             if (namespacedPattern.test(afterWord)) {
-                console.log(`[DEBUG] Found namespace part "${symbolName}" in namespaced pattern`);
                 // This is the namespace part of a namespaced type reference
                 return 'namespace';
             }
@@ -176,7 +166,6 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             const reverseBefore = beforeWord.split('').reverse().join('');
             const reversedNamespacePattern = /^[A-Za-z_][A-Za-z0-9_]*\s*\.\s*$/;
             if (reversedNamespacePattern.test(reverseBefore)) {
-                console.log(`[DEBUG] Found namespace part "${symbolName}" in namespaced pattern (reversed)`);
                 // This is the namespace part of a namespaced type reference
                 return 'namespace';
             }
@@ -187,17 +176,13 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
 
         // Find the node containing the position
         const node = this.findNodeAtPosition(ast, position);
-        console.log(`[DEBUG] Found node: ${node ? `${node.type}:${node.name}` : 'null'}`);
 
         if (!node) {
-            console.log(`[DEBUG] No node found at position`);
             return null;
         }
 
         // Check if the symbol is a definition
-        console.log(`[DEBUG] Comparing node.name="${node.name}" with symbolName="${symbolName}"`);
         if (node.name === symbolName) {
-            console.log(`[DEBUG] Node name matches symbol name`);
             switch (node.type) {
                 case nodes.ThriftNodeType.Struct:
                     return 'struct';
@@ -212,23 +197,17 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                 case nodes.ThriftNodeType.Typedef:
                     return 'typedef';
                 case nodes.ThriftNodeType.Const:
-                    console.log(`[DEBUG] Returning "type" for node type: ${node.type}`);
                     return 'type';
                 case nodes.ThriftNodeType.Field:
-                    console.log(`[DEBUG] Returning "field" for node type: ${node.type}`);
                     return 'field';
                 case nodes.ThriftNodeType.Function:
-                    console.log(`[DEBUG] Returning "method" for node type: ${node.type}`);
                     return 'method';
                 case nodes.ThriftNodeType.EnumMember:
-                    console.log(`[DEBUG] Returning "enumValue" for node type: ${node.type}`);
                     return 'enumValue';
                 default:
-                    console.log(`[DEBUG] Unknown node type: ${node.type}`);
                     return null;
             }
         } else {
-            console.log(`[DEBUG] Node name does not match symbol name, checking if it's a child element`);
 
             // Check if the symbol is a child element (field, enum member, function argument, etc.)
             switch (node.type) {
@@ -240,19 +219,16 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                     if (structNode.fields) {
                         for (const field of structNode.fields) {
                             if (field.name === symbolName) {
-                                console.log(`[DEBUG] Found field "${symbolName}" in struct`);
                                 return 'field';
                             }
 
                             // Check if symbol is a field type within this struct
                             if (field.fieldType === symbolName) {
-                                console.log(`[DEBUG] Found field type "${symbolName}" in struct`);
                                 return 'type';
                             }
 
                             // Check for namespaced field types
                             if (field.fieldType.includes('.') && field.fieldType.endsWith('.' + symbolName)) {
-                                console.log(`[DEBUG] Found namespaced field type "${symbolName}" in struct`);
                                 return 'type';
                             }
                         }
@@ -262,13 +238,11 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                     // For field nodes, check if the symbol is the field type
                     const fieldNode = node as nodes.Field;
                     if (fieldNode.fieldType === symbolName) {
-                        console.log(`[DEBUG] Found field type "${symbolName}" in field`);
                         return 'type';
                     }
 
                     // Check for namespaced field types
                     if (fieldNode.fieldType.includes('.') && fieldNode.fieldType.endsWith('.' + symbolName)) {
-                        console.log(`[DEBUG] Found namespaced field type "${symbolName}" in field`);
                         return 'type';
                     }
 
@@ -277,7 +251,6 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                     if (fieldNode.fieldType.includes('.')) {
                         const parts = fieldNode.fieldType.split('.');
                         if (parts.length === 2 && parts[1] === symbolName) {
-                            console.log(`[DEBUG] Found namespaced field type "${symbolName}" in field (special case)`);
                             return 'type';
                         }
                     }
@@ -288,7 +261,6 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                     if (enumNode.members) {
                         for (const member of enumNode.members) {
                             if (member.name === symbolName) {
-                                console.log(`[DEBUG] Found enum member "${symbolName}" in enum`);
                                 return 'enumValue';
                             }
                         }
@@ -300,19 +272,16 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                     if (serviceNode.functions) {
                         for (const func of serviceNode.functions) {
                             if (func.name === symbolName) {
-                                console.log(`[DEBUG] Found method "${symbolName}" in service`);
                                 return 'method';
                             }
 
                             // Check if symbol is a function return type or parameter type
                             if (func.returnType === symbolName) {
-                                console.log(`[DEBUG] Found return type "${symbolName}" in function`);
                                 return 'type';
                             }
 
                             // Check for namespaced return types
                             if (func.returnType.includes('.') && func.returnType.endsWith('.' + symbolName)) {
-                                console.log(`[DEBUG] Found namespaced return type "${symbolName}" in function`);
                                 return 'type';
                             }
 
@@ -325,13 +294,11 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                     // For function nodes, check if the symbol is the return type or a parameter type
                     const funcNode = node as nodes.ThriftFunction;
                     if (funcNode.returnType === symbolName) {
-                        console.log(`[DEBUG] Found return type "${symbolName}" in function`);
                         return 'type';
                     }
 
                     // Check for namespaced return types
                     if (funcNode.returnType.includes('.') && funcNode.returnType.endsWith('.' + symbolName)) {
-                        console.log(`[DEBUG] Found namespaced return type "${symbolName}" in function`);
                         return 'type';
                     }
 
@@ -341,20 +308,33 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                 default:
                     // For all other node types, we consider them as potentially containing searchable child elements
                     // This prevents prematurely returning null when we might find the symbol in child elements
-                    console.log(`[DEBUG] Node type ${node.type} may contain searchable child elements`);
                     break;
             }
         }
 
-        console.log(`[DEBUG] Returning null`);
         return null;
     }
 
     private findNodeAtPosition(doc: nodes.ThriftDocument, position: vscode.Position): nodes.ThriftNode | undefined {
+        const rangeContains = (range: vscode.Range | {start: vscode.Position; end: vscode.Position} | undefined, pos: vscode.Position): boolean => {
+            if (!range) {
+                return false;
+            }
+            if (typeof (range as vscode.Range).contains === 'function') {
+                return (range as vscode.Range).contains(pos);
+            }
+            const start = range.start;
+            const end = range.end;
+            return pos.line >= start.line &&
+                pos.line <= end.line &&
+                (pos.line !== start.line || pos.character >= start.character) &&
+                (pos.line !== end.line || pos.character <= end.character);
+        };
+
         // Find the deepest node that contains the position
         function findDeepestNode(nodesArray: nodes.ThriftNode[]): nodes.ThriftNode | undefined {
             for (const node of nodesArray) {
-                if (node.range.contains(position)) {
+                if (rangeContains(node.range as vscode.Range, position)) {
                     // Check children first (generic children)
                     if (node.children) {
                         const childResult = findDeepestNode(node.children);
@@ -425,10 +405,13 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         return findDeepestNode(doc.body);
     }
 
-    private async findReferencesInDocument(uri: vscode.Uri, text: string, symbolName: string, originalNamespace: string = '', isOriginalDocument: boolean = false): Promise<vscode.Location[]> {
-        console.log(`[DEBUG] findReferencesInDocument parsing text of length: ${text.length}`);
-        console.log(`[DEBUG] Looking for symbol: ${symbolName}`);
-        console.log(`[DEBUG] File URI: ${uri.fsPath}`);
+    private async findReferencesInDocument(uri: vscode.Uri, text: string, symbolName: string, originalNamespace: string = '', token?: vscode.CancellationToken): Promise<vscode.Location[]> {
+        
+        // Check for cancellation immediately
+        if (token && token.isCancellationRequested) {
+            return [];
+        }
+        
         const references: vscode.Location[] = [];
 
         // 尝试使用缓存的AST
@@ -438,10 +421,8 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             const parser = new ThriftParser(text);
             ast = parser.parse();
 
-            console.log(`[DEBUG] Parsed AST successfully. Root type: ${ast.type}, Body length: ${ast.body ? ast.body.length : 'undefined'}`);
 
             // Log the entire AST structure for debugging
-            console.log(`[DEBUG] AST structure:`);
             this.logAST(ast, 0);
         } catch (error) {
             console.error(`[ERROR] Failed to parse AST:`, error);
@@ -463,14 +444,12 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                     currentFunction = node as nodes.ThriftFunction;
                     const func = node as nodes.ThriftFunction;
                     // For function nodes, we're not automatically in arguments context
-                    console.log(`[DEBUG] Function context: entering function ${func.name}`);
                 } else {
                     currentFunction = null;
                     inFunctionArguments = false;
                     inFunctionThrows = false;
                     currentArgument = null;
                     inServiceFunction = false;
-                    console.log(`[DEBUG] Function context: exiting function`);
                 }
             }
 
@@ -482,29 +461,24 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                     inFunctionArguments = true;
                     inServiceFunction = true;
                     currentArgument = node as nodes.Field;
-                    console.log(`[DEBUG] Entering field node: ${currentArgument.name}`);
                 } else {
                     inFunctionArguments = false;
                     currentArgument = null;
-                    console.log(`[DEBUG] Exiting field node`);
                 }
             }
 
             // Handle function nodes specifically to track throws context
             if (node.type === nodes.ThriftNodeType.Function) {
                 if (entering) {
-                    console.log(`[DEBUG] Entering function node`);
                 } else {
                     // When exiting function node, ensure we're not in throws context
                     inFunctionThrows = false;
-                    console.log(`[DEBUG] Exiting function node`);
                 }
             }
         };
 
         // Traverse the AST to find references
         this.traverseAST(ast, (node) => {
-            console.log(`[DEBUG] Traversing node: ${node.type}${node.name ? ':' + node.name : ''}`);
 
             // Check if this node is the actual definition of the symbol
             const isDefinitionNode = (n: nodes.ThriftNode) => {
@@ -513,7 +487,6 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             };
 
             if (node.name === symbolName && isDefinitionNode(node)) {
-                console.log(`[DEBUG] Found definition node for ${symbolName} (type: ${node.type})`);
                 // Add definition nodes to references
                 const location = new vscode.Location(uri, node.range);
                 references.push(location);
@@ -522,23 +495,19 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
 
             // Skip references found in function throws clauses per test requirements
             if (inFunctionThrows) {
-                console.log(`[DEBUG] Skipping node in function throws: ${node.type}${node.name ? ':' + node.name : ''}`);
                 return;
             }
 
             // Handle function return types specifically - only when not in function arguments
             if (node.type === nodes.ThriftNodeType.Function) {
                 const func = node as nodes.ThriftFunction;
-                console.log(`[DEBUG] Checking function ${func.name} return type: "${func.returnType}", comparing with symbol: "${symbolName}"`);
                 if (func.returnType === symbolName) {
-                    console.log(`[DEBUG] Found function return type reference to ${symbolName}`);
                     const location = new vscode.Location(uri, func.range);
                     references.push(location);
                 }
 
                 // Handle namespaced return types
                 if (func.returnType.includes('.') && func.returnType.endsWith('.' + symbolName)) {
-                    console.log(`[DEBUG] Found namespaced return type reference to ${symbolName}`);
                     const location = new vscode.Location(uri, func.range);
                     references.push(location);
                 }
@@ -549,11 +518,9 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             // But we should skip field types when we're in function arguments context
             if (node.type === nodes.ThriftNodeType.Field) {
                 const field = node as nodes.Field;
-                console.log(`[DEBUG] Checking field: ${field.name} with type: ${field.fieldType}, inFunctionArguments: ${inFunctionArguments}`);
                 // Skip field type references when in function arguments context
                 if (!inFunctionArguments) {
                     if (field.fieldType === symbolName) {
-                        console.log(`[DEBUG] Found field type reference to ${symbolName}`);
                         // We'd need to track the position of the fieldType in the original text
                         // This is a simplified approach - in practice, we'd need more detailed position info
                         const location = new vscode.Location(uri, field.range);
@@ -569,12 +536,10 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
 
                             // Check if we're looking for the namespace or the type
                             if (namespace === symbolName) {
-                                console.log(`[DEBUG] Found namespace reference "${symbolName}" in field type "${field.fieldType}"`);
                                 // For namespace references, we create a location at the namespace part
                                 const location = new vscode.Location(uri, field.range);
                                 references.push(location);
                             } else if (typeName === symbolName) {
-                                console.log(`[DEBUG] Found type reference "${symbolName}" in field type "${field.fieldType}"`);
                                 // For type references, we create a location at the type part
                                 const location = new vscode.Location(uri, field.range);
                                 references.push(location);
@@ -582,7 +547,6 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                         }
                     }
                 } else {
-                    console.log(`[DEBUG] Skipping field type reference in function arguments context: ${field.fieldType}`);
                 }
                 return; // Don't process children of Field nodes here as they are handled in traverseAST
             }
@@ -591,13 +555,11 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             // Only count references, not definitions or declarations
         }, contextCallback);
 
-        console.log(`[DEBUG] findReferencesInDocument returning ${references.length} references`);
         return references;
     }
 
     private logAST(node: nodes.ThriftNode, depth: number): void {
         const indent = '  '.repeat(depth);
-        console.log(`${indent}${node.type}${node.name ? ':' + node.name : ''} [${node.range.start.line}:${node.range.start.character}-${node.range.end.line}:${node.range.end.character}]`);
 
         if (node.children && Array.isArray(node.children)) {
             node.children.forEach(child => this.logAST(child, depth + 1));
@@ -702,15 +664,12 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
 
         // 只在需要时更新文件列表，避免频繁扫描
         if ((now - this.lastFileListUpdate) > this.FILE_LIST_UPDATE_INTERVAL || this.workspaceFileList.length === 0) {
-            console.log(`[ReferencesProvider] Updating workspace file list...`);
             const files = await vscode.workspace.findFiles('**/*.thrift', '**/node_modules/**', 1000);
             this.workspaceFileList = files.map(f => f.fsPath);
             this.lastFileListUpdate = now;
-            console.log(`[ReferencesProvider] Found ${files.length} Thrift files`);
             return files;
         } else {
             // 使用缓存的文件列表
-            console.log(`[ReferencesProvider] Using cached file list (${this.workspaceFileList.length} files)`);
             return this.workspaceFileList.map(fsPath => vscode.Uri.file(fsPath));
         }
     }
@@ -727,12 +686,10 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         // 检查缓存是否存在且未过期
         const cached = this.astCache.get(cacheKey);
         if (cached && (now - cached.timestamp) < this.AST_CACHE_TTL) {
-            console.log(`[DEBUG] Using cached AST for ${cacheKey}`);
             return cached.ast;
         }
 
         // 解析新的AST
-        console.log(`[DEBUG] Parsing AST for ${cacheKey}`);
         const parser = new ThriftParser(document);
         const ast = parser.parse();
 

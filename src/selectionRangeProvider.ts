@@ -253,26 +253,26 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
                 const nameRange = new vscode.Range(position.line, nameStart, position.line, nameEnd);
                 this.addRangeIfLarger(ranges, nameRange);
                 fieldComponentSelected = true;
-                if (position.line === 1 && position.character === 13) console.log('DEBUG: Selected name component');
+                if (position.line === 1 && position.character === 13) {console.log('DEBUG: Selected name component');}
             } else if (isOnType) {
                 const typeRange = new vscode.Range(position.line, typeStart, position.line, typeEnd);
                 this.addRangeIfLarger(ranges, typeRange);
                 fieldComponentSelected = true;
-                if (position.line === 1 && position.character === 13) console.log('DEBUG: Selected type component');
+                if (position.line === 1 && position.character === 13) {console.log('DEBUG: Selected type component');}
             } else if (isOnRequiredness && requiredness) {
                 const requirednessRange = new vscode.Range(position.line, requirednessStart, position.line, requirednessEnd);
                 this.addRangeIfLarger(ranges, requirednessRange);
                 fieldComponentSelected = true;
-                if (position.line === 1 && position.character === 13) console.log('DEBUG: Selected requiredness component');
+                if (position.line === 1 && position.character === 13) {console.log('DEBUG: Selected requiredness component');}
             } else if (isOnFieldId) {
                 const fieldIdRange = new vscode.Range(position.line, fieldIdStart, position.line, fieldIdEnd);
                 this.addRangeIfLarger(ranges, fieldIdRange);
                 fieldComponentSelected = true;
-                if (position.line === 1 && position.character === 13) console.log('DEBUG: Selected field ID component');
+                if (position.line === 1 && position.character === 13) {console.log('DEBUG: Selected field ID component');}
             } else if (isNearName || isJustAfterType) {
                 // Prefer name over type when distances are close (within 2 characters)
                 // This handles the case where cursor is at the boundary between type and name
-                if (position.line === 1 && position.character === 13) console.log('DEBUG: Checking name/type condition:', minDistanceToName < minDistanceToType + 2 || isJustAfterType);
+                if (position.line === 1 && position.character === 13) {console.log('DEBUG: Checking name/type condition:', minDistanceToName < minDistanceToType + 2 || isJustAfterType);}
                 if (minDistanceToName < minDistanceToType + 2 || isJustAfterType) {
                     // For component selection, we want to replace the current selection with the specific component
                     // Remove any existing component ranges and add the name range as the primary selection
@@ -288,17 +288,17 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
                         ranges.push(new vscode.SelectionRange(nameRange));
                     }
                     fieldComponentSelected = true;
-                    if (position.line === 1 && position.character === 13) console.log('DEBUG: Selected name component (whitespace) - added to beginning');
+                    if (position.line === 1 && position.character === 13) {console.log('DEBUG: Selected name component (whitespace) - added to beginning');}
                 } else if (isNearName) {
                     const nameRange = new vscode.Range(position.line, nameStart, position.line, nameEnd);
                     this.addRangeIfLarger(ranges, nameRange);
                     fieldComponentSelected = true;
-                    if (position.line === 1 && position.character === 13) console.log('DEBUG: Selected name component (whitespace) - normal');
+                    if (position.line === 1 && position.character === 13) {console.log('DEBUG: Selected name component (whitespace) - normal');}
                 }
             } else if (isNearType || isJustAfterRequiredness) {
                 // Prefer type over requiredness when distances are close (within 2 characters)
                 // This handles the case where cursor is at the boundary between components
-                if (position.line === 1 && position.character === 13) console.log('DEBUG: Checking type/requiredness condition:', minDistanceToType < minDistanceToRequiredness + 2 || isJustAfterRequiredness);
+                if (position.line === 1 && position.character === 13) {console.log('DEBUG: Checking type/requiredness condition:', minDistanceToType < minDistanceToRequiredness + 2 || isJustAfterRequiredness);}
                 if (minDistanceToType < minDistanceToRequiredness + 2 || isJustAfterRequiredness) {
                     // For component selection, we want to replace the current selection with the specific component
                     // Remove any existing component ranges and add the type range as the primary selection
@@ -314,19 +314,19 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
                         ranges.push(new vscode.SelectionRange(typeRange));
                     }
                     fieldComponentSelected = true;
-                    if (position.line === 1 && position.character === 13) console.log('DEBUG: Selected type component (whitespace) - added to beginning');
+                    if (position.line === 1 && position.character === 13) {console.log('DEBUG: Selected type component (whitespace) - added to beginning');}
                 } else if (requiredness) {
                     const requirednessRange = new vscode.Range(position.line, requirednessStart, position.line, requirednessEnd);
                     this.addRangeIfLarger(ranges, requirednessRange);
                     fieldComponentSelected = true;
-                    if (position.line === 1 && position.character === 13) console.log('DEBUG: Selected requiredness component (whitespace)');
+                    if (position.line === 1 && position.character === 13) {console.log('DEBUG: Selected requiredness component (whitespace)');}
                 }
             } else if (isNearRequiredness && requiredness) {
                 // Only near requiredness
                 const requirednessRange = new vscode.Range(position.line, requirednessStart, position.line, requirednessEnd);
                 this.addRangeIfLarger(ranges, requirednessRange);
                 fieldComponentSelected = true;
-                if (position.line === 1 && position.character === 13) console.log('DEBUG: Selected requiredness component (only near)');
+                if (position.line === 1 && position.character === 13) {console.log('DEBUG: Selected requiredness component (only near)');}
             }
 
             // If we've selected a field component, add the full field range as parent and return early
@@ -754,8 +754,8 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
         const lines1 = range1.end.line - range1.start.line;
         const lines2 = range2.end.line - range2.start.line;
         
-        if (lines1 > lines2) return true;
-        if (lines1 < lines2) return false;
+        if (lines1 > lines2) {return true;}
+        if (lines1 < lines2) {return false;}
         
         // Same number of lines, compare character spans
         const chars1 = range1.end.character - range1.start.character;

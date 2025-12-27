@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import {readThriftFile} from '../utils/fileReader';
 
 export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvider {
     static readonly providedCodeActionKinds = [
@@ -121,19 +122,9 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
         const results: Array<{ uri: vscode.Uri }> = [];
         const files = await vscode.workspace.findFiles('**/*.thrift');
         const defRegex = new RegExp(`^\\s*(struct|enum|service|typedef)\\s+${typeName}(\\b|\\s|<|$)`, 'm');
-        const decoder = new TextDecoder('utf-8');
-
         for (const file of files) {
             try {
-                // Check if buffer is open first to use live content
-                const openDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === file.toString());
-                let text = '';
-                if (openDoc) {
-                    text = openDoc.getText();
-                } else {
-                    const content = await vscode.workspace.fs.readFile(file);
-                    text = decoder.decode(content);
-                }
+                const text = await readThriftFile(file);
 
                 if (defRegex.test(text)) {
                     results.push({uri: file});

@@ -3,6 +3,7 @@ import * as path from 'path';
 import {ThriftFileWatcher} from '../utils/fileWatcher';
 import {CacheManager} from '../utils/cacheManager';
 import {ErrorHandler} from '../utils/errorHandler';
+import {readThriftFile} from '../utils/fileReader';
 
 export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvider {
     private cacheManager = CacheManager.getInstance();
@@ -130,16 +131,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
 
         console.log(`[WorkspaceSymbolProvider] Parsing symbols for: ${path.basename(uri.fsPath)}`);
 
-        let text = '';
-        // Check if buffer is open first
-        const openDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString());
-        if (openDoc) {
-            text = openDoc.getText();
-        } else {
-            const content = await vscode.workspace.fs.readFile(uri);
-            const decoder = new TextDecoder('utf-8');
-            text = decoder.decode(content);
-        }
+        const text = await readThriftFile(uri);
 
         const symbols = this.parseSymbolsFromText(text, uri);
 

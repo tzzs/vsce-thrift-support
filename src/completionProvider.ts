@@ -27,8 +27,10 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         token: vscode.CancellationToken,
         context: vscode.CompletionContext
     ): Promise<vscode.CompletionItem[] | vscode.CompletionList> {
-        const parser = new ThriftParser(document);
-        const thriftDoc = parser.parse();
+        const thriftDoc = ThriftParser.parseWithCache(document);
+        if (token.isCancellationRequested) {
+            return [];
+        }
         const completions: vscode.CompletionItem[] = [];
 
         // Determine context using AST

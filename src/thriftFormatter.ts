@@ -131,12 +131,15 @@ export class ThriftFormatter {
             if (this.parser.isConstStart(line)) {
                 let constValue = line;
                 let j = i + 1;
-                while (j < lines.length && !(lines[j].trim().endsWith('}') || lines[j].trim().endsWith(']'))) {
-                    constValue += '\n' + lines[j].trim();
+                while (j < lines.length) {
+                    const trimmed = lines[j].trim();
+                    const stripped = trimmed.split(/\/\/|#/)[0].trim(); // ignore trailing comments when detecting close
+                    constValue += '\n' + trimmed;
+                    const closes = stripped.endsWith('}') || stripped.endsWith(']');
+                    if (closes) {
+                        break;
+                    }
                     j++;
-                }
-                if (j < lines.length) {
-                    constValue += '\n' + lines[j].trim();
                 }
                 const fieldInfo = this.parser.parseConstField(constValue);
                 if (fieldInfo) {
@@ -171,8 +174,46 @@ export class ThriftFormatter {
             // Handle struct/union/exception definitions
             if (this.parser.isStructStart(line)) {
                 if (line.includes('{') && line.includes('}')) {
-                    formattedLines.push(this.getIndent(indentLevel, options) + line);
-                    continue;
+                    // Single-line struct: parse and format properly
+                    const openBraceIndex = line.indexOf('{');
+                    const closeBraceIndex = line.lastIndexOf('}');
+                    
+                    if (openBraceIndex !== -1 && closeBraceIndex !== -1 && openBraceIndex < closeBraceIndex) {
+                        // Extract struct header (everything before '{')
+                        const structHeader = line.substring(0, openBraceIndex).trim();
+                        // Extract content between braces
+                        const structContent = line.substring(openBraceIndex + 1, closeBraceIndex).trim();
+                        
+                        // Output struct header
+                        formattedLines.push(this.getIndent(indentLevel, options) + structHeader + ' {');
+                        
+                        // Process struct fields if any content exists
+                        if (structContent) {
+                            // Split content by top-level separators (semicolon or comma)
+                            const fieldStrings = this.splitTopLevelParts(structContent);
+                            const fieldInfos: StructField[] = [];
+                            
+                            for (const fieldStr of fieldStrings) {
+                                const trimmedField = fieldStr.trim();
+                                if (trimmedField && this.parser.isStructField(trimmedField)) {
+                                    const fieldInfo = this.parser.parseStructField(trimmedField);
+                                    if (fieldInfo) {
+                                        fieldInfos.push(fieldInfo);
+                                    }
+                                }
+                            }
+                            
+                            // Format all fields together for proper alignment and comma handling
+                            if (fieldInfos.length > 0) {
+                                const formattedFields = this.formatStructFields(fieldInfos, options, indentLevel + 1);
+                                formattedLines.push(...formattedFields);
+                            }
+                        }
+                        
+                        // Output closing brace
+                        formattedLines.push(this.getIndent(indentLevel, options) + '}');
+                        continue;
+                    }
                 }
                 formattedLines.push(this.getIndent(indentLevel, options) + line);
                 indentLevel++;
@@ -183,8 +224,38 @@ export class ThriftFormatter {
             // Handle service definitions
             if (this.parser.isServiceStart(line)) {
                 if (line.includes('{') && line.includes('}')) {
-                    formattedLines.push(this.getIndent(indentLevel, options) + line);
-                    continue;
+                    // 单行服务：解析并格式化
+                    const openBraceIndex = line.indexOf('{');
+                    const closeBraceIndex = line.lastIndexOf('}');
+                    
+                    if (openBraceIndex !== -1 && closeBraceIndex !== -1 && openBraceIndex < closeBraceIndex) {
+                        // 提取服务头部（'{'之前的内容）
+                        const serviceHeader = line.substring(0, openBraceIndex).trim();
+                        // 提取大括号之间的内容
+                        const serviceContent = line.substring(openBraceIndex + 1, closeBraceIndex).trim();
+                        
+                        // 输出服务头部
+                        formattedLines.push(this.getIndent(indentLevel, options) + serviceHeader + ' {');
+                        
+                        // 处理服务方法
+                        if (serviceContent) {
+                            // 按顶层分隔符（; 或 ,）拆分方法
+                            const methodStrings = this.splitTopLevelParts(serviceContent);
+                            
+                            for (const methodStr of methodStrings) {
+                                const trimmedMethod = methodStr.trim();
+                                if (trimmedMethod) {
+                                    // 标准化泛型并格式化方法
+                                    const normalizedMethod = this.normalizeGenericsInSignature(trimmedMethod);
+                                    formattedLines.push(this.getServiceIndent(indentLevel + 1, options) + normalizedMethod);
+                                }
+                            }
+                        }
+                        
+                        // 输出结束大括号
+                        formattedLines.push(this.getIndent(indentLevel, options) + '}');
+                        continue;
+                    }
                 }
                 formattedLines.push(this.getIndent(indentLevel, options) + line);
                 // For service, we want methods to be indented 2 spaces, not 4
@@ -261,8 +332,46 @@ export class ThriftFormatter {
 
             if (this.parser.isEnumStart(line)) {
                 if (line.includes('{') && line.includes('}')) {
-                    formattedLines.push(this.getIndent(indentLevel, options) + line);
-                    continue;
+                    // 单行枚举：解析并格式化
+                    const openBraceIndex = line.indexOf('{');
+                    const closeBraceIndex = line.lastIndexOf('}');
+                    
+                    if (openBraceIndex !== -1 && closeBraceIndex !== -1 && openBraceIndex < closeBraceIndex) {
+                        // 提取枚举头部（'{'之前的内容）
+                        const enumHeader = line.substring(0, openBraceIndex).trim();
+                        // 提取大括号之间的内容
+                        const enumContent = line.substring(openBraceIndex + 1, closeBraceIndex).trim();
+                        
+                        // 输出枚举头部
+                        formattedLines.push(this.getIndent(indentLevel, options) + enumHeader + ' {');
+                        
+                        // 处理枚举字段
+                        if (enumContent) {
+                            // 按顶层分隔符（; 或 ,）拆分枚举字段
+                            const fieldStrings = this.splitTopLevelParts(enumContent);
+                            const enumFieldInfos: EnumField[] = [];
+                            
+                            for (const fieldStr of fieldStrings) {
+                                const trimmedField = fieldStr.trim();
+                                if (trimmedField && this.parser.isEnumField(trimmedField)) {
+                                    const fieldInfo = this.parser.parseEnumField(trimmedField);
+                                    if (fieldInfo) {
+                                        enumFieldInfos.push(fieldInfo);
+                                    }
+                                }
+                            }
+                            
+                            // 一起格式化所有字段以获得正确对齐
+                            if (enumFieldInfos.length > 0) {
+                                const formattedFields = this.formatEnumFields(enumFieldInfos, options, indentLevel + 1);
+                                formattedLines.push(...formattedFields);
+                            }
+                        }
+                        
+                        // 输出结束大括号
+                        formattedLines.push(this.getIndent(indentLevel, options) + '}');
+                        continue;
+                    }
                 }
                 formattedLines.push(this.getIndent(indentLevel, options) + line);
                 indentLevel++;
@@ -919,6 +1028,83 @@ export class ThriftFormatter {
                 return base;
             }
         });
+    }
+
+    // Split a single-line struct/enum/service body by top-level separators (; or ,), ignoring nested generics/collections and strings.
+    private splitTopLevelParts(content: string): string[] {
+        const parts: string[] = [];
+        let buf = '';
+        let depthAngle = 0, depthParen = 0, depthBrace = 0, depthBracket = 0;
+        let inS = false, inD = false, escaped = false;
+
+        for (let i = 0; i < content.length; i++) {
+            const ch = content[i];
+            const next = i + 1 < content.length ? content[i + 1] : '';
+
+            if (escaped) {
+                buf += ch;
+                escaped = false;
+                continue;
+            }
+            if (inS) {
+                if (ch === '\\') {
+                    escaped = true;
+                } else if (ch === '\'') {
+                    inS = false;
+                }
+                buf += ch;
+                continue;
+            }
+            if (inD) {
+                if (ch === '\\') {
+                    escaped = true;
+                } else if (ch === '"') {
+                    inD = false;
+                }
+                buf += ch;
+                continue;
+            }
+
+            if (ch === '\'') {
+                inS = true;
+                buf += ch;
+                continue;
+            }
+            if (ch === '"') {
+                inD = true;
+                buf += ch;
+                continue;
+            }
+
+            if (ch === '<') {depthAngle++;}
+            else if (ch === '>') {depthAngle = Math.max(0, depthAngle - 1);}
+            else if (ch === '(') {depthParen++;}
+            else if (ch === ')') {depthParen = Math.max(0, depthParen - 1);}
+            else if (ch === '{') {depthBrace++;}
+            else if (ch === '}') {depthBrace = Math.max(0, depthBrace - 1);}
+            else if (ch === '[') {depthBracket++;}
+            else if (ch === ']') {depthBracket = Math.max(0, depthBracket - 1);}
+
+            const atTop = depthAngle === 0 && depthParen === 0 && depthBrace === 0 && depthBracket === 0;
+            if (atTop && (ch === ';' || ch === ',')) {
+                if (buf.trim()) {
+                    parts.push(buf.trim());
+                }
+                buf = '';
+                // allow sequences like ", " to be skipped
+                if (next === ' ' || next === '\t') {
+                    continue;
+                }
+                continue;
+            }
+
+            buf += ch;
+        }
+
+        if (buf.trim()) {
+            parts.push(buf.trim());
+        }
+        return parts;
     }
 
     private normalizeGenericsInSignature(text: string): string {

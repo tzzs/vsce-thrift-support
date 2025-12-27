@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import {ThriftDefinitionProvider} from './definitionProvider';
 import * as path from 'path';
 import {CacheManager} from '../utils/cacheManager';
-import {FileContentReader} from '../utils/fileReader';
+import {readThriftFile} from '../utils/fileReader';
 import {ErrorHandler} from '../utils/errorHandler';
 
 export class ThriftHoverProvider implements vscode.HoverProvider {
@@ -12,9 +12,6 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
 
     // 缓存管理器
     private cacheManager = CacheManager.getInstance();
-
-    // 文件内容读取器
-    private fileReader = FileContentReader.getInstance();
 
     // 错误处理器
     private errorHandler = ErrorHandler.getInstance();
@@ -71,7 +68,7 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             }
 
             // 使用文件内容读取器获取内容
-            const content = await this.fileReader.readFile(loc.uri);
+            const content = await readThriftFile(loc.uri);
             const defLineIndex = loc.range.start.line;
             const lines = content.split('\n');
 
