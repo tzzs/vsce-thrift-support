@@ -2,7 +2,7 @@
   "name": "thrift-support",
   "displayName": "Thrift Support",
   "description": "Apache Thrift language support: syntax highlighting, formatting, diagnostics, navigation, completion, and rename",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "publisher": "tanzz",
   "icon": "icon.png",
   "repository": {
@@ -33,6 +33,16 @@
     "vscode extension"
   ],
   "main": "./out/src/extension.js",
+  "files": [
+    "out/**",
+    "syntaxes/**",
+    "language-configuration.json",
+    "icon.png",
+    "README.md",
+    "README.en.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "contributes": {
     "languages": [
       {
@@ -137,26 +147,12 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "tsc:mem": "node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc -p ./",
-    "tsc:diag": "tsc -p ./ --extendedDiagnostics",
     "lint": "eslint --cache src --ext ts",
-    "lint:fix": "eslint --cache src --ext ts --fix",
-    "lint:fix:mem": "node --max-old-space-size=4096 ./node_modules/eslint/bin/eslint.js --cache src --ext ts --fix",
     "clean": "rimraf out",
     "build": "npm run clean && npm run compile",
     "package": "npx @vscode/vsce package",
-    "package:local": "npm run clean && npm run compile && npx @vscode/vsce package",
-    "package:mem": "node --max-old-space-size=4096 ./node_modules/@vscode/vsce/bin/cli.js package",
     "publish": "npx @vscode/vsce publish",
     "test": "node tests/run-all-unified.js",
-    "test:stable": "node tests/run-stable-tests.js",
-    "test:complex": "node tests/test-complex-types.js",
-    "test:enum": "node tests/test-enum-formatting.js",
-    "test:indent": "node tests/test-indent-width.js",
-    "test:comma": "node tests/test-trailing-comma.js",
-    "test:const": "node tests/test-const-formatting.js",
-    "test:all": "npm run test && npm run test:complex && npm run test:enum && npm run test:indent && npm run test:comma && npm run test:const",
-    "test:all:node": "node tests/run-all-unified.js",
     "coverage": "nyc --reporter=text-summary node tests/run-all-unified.js"
   },
   "devDependencies": {
@@ -173,16 +169,22 @@
   "nyc": {
     "include": [
       "src/**/*.ts",
-      "out/**/*.js"
+      "out/**/*.js",
+      "utils/**/*.ts"
     ],
     "exclude": [
-      "tests/**"
+      "tests/**",
+      "test-files/**",
+      "test-thrift/**"
     ],
     "extension": [
       ".js",
       ".ts"
     ],
+    "cache": true,
+    "cache-dir": ".nyc_cache",
     "all": false,
+    "exclude-after-remap": true,
     "sourceMap": true,
     "instrument": true,
     "reporter": [
