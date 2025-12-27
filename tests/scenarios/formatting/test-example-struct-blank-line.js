@@ -9,7 +9,7 @@ function runTest() {
     const fs = require('fs');
     const path = require('path');
 const {createVscodeMock, installVscodeMock} = require('../../test-helpers/vscode-mock');
-    const examplePath = path.join(__dirname, '..', '..', 'test-files', 'example.thrift');
+    const examplePath = path.join(__dirname, '..', '..', '..', 'test-files', 'example.thrift');
     const fullInput = fs.readFileSync(examplePath, 'utf8');
 
     // Extract the User struct section (lines 25-38 approximately)

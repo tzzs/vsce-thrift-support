@@ -57,7 +57,7 @@ async function testExampleFileFormatting() {
     const provider = new ThriftFormattingProvider();
 
     // 直接测试 example.thrift 文件
-    const examplePath = path.join(__dirname, '..', '..', 'test-files', 'example.thrift');
+    const examplePath = path.join(__dirname, '..', '..', '..', 'test-files', 'example.thrift');
     const exampleUri = vscode.Uri.file(examplePath);
     const doc = await vscode.workspace.openTextDocument(exampleUri);
 

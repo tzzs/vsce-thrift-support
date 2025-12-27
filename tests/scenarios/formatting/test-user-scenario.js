@@ -28,7 +28,7 @@ const {ThriftFormattingProvider} = formatter_module;
 
 async function runUserScenario() {
     const provider = new ThriftFormattingProvider();
-    const file = path.join(__dirname, '..', '..', 'test-files', 'example.thrift');
+    const file = path.join(__dirname, '..', '..', '..', 'test-files', 'example.thrift');
     const text = fs.readFileSync(file, 'utf8');
     const doc = {
         uri: {fsPath: file},

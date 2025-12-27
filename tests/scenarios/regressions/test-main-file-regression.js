@@ -41,7 +41,7 @@ Module.prototype.require = originalRequire;
 
 function run() {
     const formatter = new ThriftFormattingProvider();
-    const mainPath = path.resolve(__dirname, '..', '..', 'test-files', 'main.thrift');
+    const mainPath = path.resolve(__dirname, '..', '..', '..', 'test-files', 'main.thrift');
     const input = fs.readFileSync(mainPath, 'utf8');
 
     const modes = ['preserve', 'add', 'remove'];

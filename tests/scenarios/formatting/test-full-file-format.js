@@ -9,7 +9,7 @@ function runTest() {
     const fs = require('fs');
     const path = require('path');
 const {createVscodeMock, installVscodeMock} = require('../../test-helpers/vscode-mock');
-    const examplePath = path.join(__dirname, '..', '..', 'test-files', 'example.thrift');
+    const examplePath = path.join(__dirname, '..', '..', '..', 'test-files', 'example.thrift');
     const fullInput = fs.readFileSync(examplePath, 'utf8');
 
     console.log('Testing full file formatting...');
@@ -124,7 +124,7 @@ const {createVscodeMock, installVscodeMock} = require('../../test-helpers/vscode
     console.log('✅ Full file formatting preserves User struct blank lines correctly');
 
     // Write formatted output to a temp file for manual inspection
-    const outputPath = path.join(__dirname, '..', '..', 'test-files', 'example-formatted.thrift');
+    const outputPath = path.join(__dirname, '..', '..', '..', 'test-files', 'example-formatted.thrift');
     fs.writeFileSync(outputPath, output, 'utf8');
     console.log(`\nFormatted output written to: ${outputPath}`);
 }
