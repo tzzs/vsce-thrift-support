@@ -1,12 +1,9 @@
-import {ConstField, EnumField, StructField, ThriftFormattingOptions} from './interfaces';
-import {ThriftParser} from './thriftParser';
+import { ConstField, EnumField, StructField, ThriftFormattingOptions } from './interfaces';
+import { ThriftParser } from './ast/parser';
+import * as nodes from './ast/nodes';
 
 export class ThriftFormatter {
-    private parser: ThriftParser;
-
-    constructor() {
-        this.parser = new ThriftParser();
-    }
+    private reServiceMethod = /^\s*(oneway\s+)?[A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]*>)?\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)(\s*throws\s*\([^)]*\))?\s*[;,]?$/;
 
     public format(content: string, options: ThriftFormattingOptions = {
         trailingComma: 'preserve',
@@ -25,6 +22,17 @@ export class ThriftFormatter {
         tabSize: 4
     }): string {
         const lines = content.split(/\r?\n/);
+        const ast = new ThriftParser(content).parse();
+        const astIndex = this.buildAstIndex(ast);
+        const {
+            structStarts,
+            structFieldIndex,
+            enumStarts,
+            enumMemberIndex,
+            serviceStarts,
+            constStarts,
+            constEnds
+        } = astIndex;
         const formattedLines: string[] = [];
         let indentLevel = (options.initialContext && typeof options.initialContext.indentLevel === 'number')
             ? options.initialContext.indentLevel : 0;
@@ -43,9 +51,14 @@ export class ThriftFormatter {
         for (let i = 0; i < lines.length; i++) {
             let originalLine = lines[i];
             let line = originalLine.trim();
+            const isConstStart = constStarts.has(i);
+            const isStructStart = structStarts.has(i);
+            const isEnumStart = enumStarts.has(i);
+            const isServiceStart = serviceStarts.has(i);
 
             // Flush accumulated struct fields before non-field separators/comments inside struct
-            if (inStruct && structFields.length > 0 && !this.parser.isStructField(line) && !line.startsWith('}')) {
+            const hasStructField = structFieldIndex.has(i) || this.isStructFieldText(line);
+            if (inStruct && structFields.length > 0 && !hasStructField && !line.startsWith('}')) {
                 const formattedFields = this.formatStructFields(structFields, options, indentLevel);
                 formattedLines.push(...formattedFields);
                 structFields = [];
@@ -109,7 +122,7 @@ export class ThriftFormatter {
             }
 
             // Flush const block if needed
-            if (inConstBlock && constFields.length > 0 && !this.parser.isConstField(line) && !this.parser.isConstStart(line)) {
+            if (inConstBlock && constFields.length > 0 && !isConstStart) {
                 const formattedFields = this.formatConstFields(constFields, options, constBlockIndentLevel ?? indentLevel);
                 formattedLines.push(...formattedFields);
                 constFields = [];
@@ -127,35 +140,11 @@ export class ThriftFormatter {
                 continue;
             }
 
-            // Handle const fields
-            if (this.parser.isConstStart(line)) {
-                const strippedFirst = line.split(/\/\/|#/)[0].trim();
-                const closesInline = strippedFirst.endsWith('}') || strippedFirst.endsWith(']');
-                if (closesInline) {
-                    const fieldInfo = this.parser.parseConstField(line);
-                    if (fieldInfo) {
-                        if (constFields.length === 0) {
-                            constBlockIndentLevel = (inStruct || inEnum || inService) ? indentLevel : 0;
-                        }
-                        constFields.push(fieldInfo);
-                        inConstBlock = true;
-                    }
-                    continue;
-                }
-
-                let constValue = line;
-                let j = i + 1;
-                while (j < lines.length) {
-                    const trimmed = lines[j].trim();
-                    const stripped = trimmed.split(/\/\/|#/)[0].trim(); // ignore trailing comments when detecting close
-                    constValue += '\n' + trimmed;
-                    const closes = stripped.endsWith('}') || stripped.endsWith(']');
-                    if (closes) {
-                        break;
-                    }
-                    j++;
-                }
-                const fieldInfo = this.parser.parseConstField(constValue);
+            // Handle const fields (AST indexed)
+            if (isConstStart) {
+                const endLine = constEnds.get(i) ?? i;
+                const constText = lines.slice(i, endLine + 1).join('\n');
+                const fieldInfo = this.parseConstFieldText(constText);
                 if (fieldInfo) {
                     if (constFields.length === 0) {
                         constBlockIndentLevel = (inStruct || inEnum || inService) ? indentLevel : 0;
@@ -163,19 +152,8 @@ export class ThriftFormatter {
                     constFields.push(fieldInfo);
                     inConstBlock = true;
                 }
-                i = j;
+                i = endLine;
                 continue;
-            } else if (this.parser.isConstField(line)) {
-                const fieldInfo = this.parser.parseConstField(line);
-                if (fieldInfo) {
-                    if (constFields.length === 0) {
-                        constBlockIndentLevel = (inStruct || inEnum || inService) ? indentLevel : 0;
-                    }
-                    constFields.push(fieldInfo);
-                    inConstBlock = true;
-                    continue;
-                }
-            } else if (inConstBlock && constFields.length > 0 && !this.parser.isConstField(line) && !this.parser.isConstStart(line)) {
             }
 
             // Typedef normalization
@@ -186,44 +164,47 @@ export class ThriftFormatter {
             }
 
             // Handle struct/union/exception definitions
-            if (this.parser.isStructStart(line)) {
+            if (this.isInlineStructLike(line)) {
+                const formattedInline = this.formatInlineStructLike(line, indentLevel, options);
+                if (formattedInline) {
+                    formattedLines.push(...formattedInline);
+                    continue;
+                }
+            }
+            if (isStructStart) {
                 if (line.includes('{') && line.includes('}')) {
                     // Single-line struct: parse and format properly
                     const openBraceIndex = line.indexOf('{');
                     const closeBraceIndex = line.lastIndexOf('}');
-                    
+
                     if (openBraceIndex !== -1 && closeBraceIndex !== -1 && openBraceIndex < closeBraceIndex) {
                         // Extract struct header (everything before '{')
                         const structHeader = line.substring(0, openBraceIndex).trim();
                         // Extract content between braces
                         const structContent = line.substring(openBraceIndex + 1, closeBraceIndex).trim();
-                        
+
                         // Output struct header
                         formattedLines.push(this.getIndent(indentLevel, options) + structHeader + ' {');
-                        
+
                         // Process struct fields if any content exists
                         if (structContent) {
-                            // Split content by top-level separators (semicolon or comma)
                             const fieldStrings = this.splitTopLevelParts(structContent);
                             const fieldInfos: StructField[] = [];
-                            
+
                             for (const fieldStr of fieldStrings) {
-                                const trimmedField = fieldStr.trim();
-                                if (trimmedField && this.parser.isStructField(trimmedField)) {
-                                    const fieldInfo = this.parser.parseStructField(trimmedField);
-                                    if (fieldInfo) {
-                                        fieldInfos.push(fieldInfo);
-                                    }
+                                const fieldInfo = this.parseStructFieldText(fieldStr.trim());
+                                if (fieldInfo) {
+                                    fieldInfos.push(fieldInfo);
                                 }
                             }
-                            
+
                             // Format all fields together for proper alignment and comma handling
                             if (fieldInfos.length > 0) {
                                 const formattedFields = this.formatStructFields(fieldInfos, options, indentLevel + 1);
                                 formattedLines.push(...formattedFields);
                             }
                         }
-                        
+
                         // Output closing brace
                         formattedLines.push(this.getIndent(indentLevel, options) + '}');
                         continue;
@@ -236,26 +217,32 @@ export class ThriftFormatter {
             }
 
             // Handle service definitions
-            if (this.parser.isServiceStart(line)) {
+            if (this.isInlineService(line)) {
+                const formattedInline = this.formatInlineService(line, indentLevel, options);
+                if (formattedInline) {
+                    formattedLines.push(...formattedInline);
+                    continue;
+                }
+            }
+            if (isServiceStart) {
                 if (line.includes('{') && line.includes('}')) {
                     // 单行服务：解析并格式化
                     const openBraceIndex = line.indexOf('{');
                     const closeBraceIndex = line.lastIndexOf('}');
-                    
+
                     if (openBraceIndex !== -1 && closeBraceIndex !== -1 && openBraceIndex < closeBraceIndex) {
                         // 提取服务头部（'{'之前的内容）
                         const serviceHeader = line.substring(0, openBraceIndex).trim();
                         // 提取大括号之间的内容
                         const serviceContent = line.substring(openBraceIndex + 1, closeBraceIndex).trim();
-                        
+
                         // 输出服务头部
                         formattedLines.push(this.getIndent(indentLevel, options) + serviceHeader + ' {');
-                        
+
                         // 处理服务方法
                         if (serviceContent) {
-                            // 按顶层分隔符（; 或 ,）拆分方法
                             const methodStrings = this.splitTopLevelParts(serviceContent);
-                            
+
                             for (const methodStr of methodStrings) {
                                 const trimmedMethod = methodStr.trim();
                                 if (trimmedMethod) {
@@ -265,7 +252,7 @@ export class ThriftFormatter {
                                 }
                             }
                         }
-                        
+
                         // 输出结束大括号
                         formattedLines.push(this.getIndent(indentLevel, options) + '}');
                         continue;
@@ -291,18 +278,19 @@ export class ThriftFormatter {
                     continue;
                 }
 
-                if (this.parser.reServiceMethod.test(line)) {
+                if (this.reServiceMethod.test(line)) {
                     const normalized = this.normalizeGenericsInSignature(line);
                     formattedLines.push(this.getIndent(indentLevel, options) + normalized);
                     continue;
                 }
 
-                if (this.parser.isStructField(line)) {
-                    const fieldInfo = this.parser.parseStructField(line);
-                    if (fieldInfo) {
-                        structFields.push(fieldInfo);
-                        continue;
-                    }
+                const fieldNode = structFieldIndex.get(i);
+                const fieldInfo = fieldNode
+                    ? this.buildStructFieldFromAst(line, fieldNode)
+                    : this.parseStructFieldText(line);
+                if (fieldInfo) {
+                    structFields.push(fieldInfo);
+                    continue;
                 }
             }
 
@@ -323,7 +311,7 @@ export class ThriftFormatter {
                     continue;
                 }
 
-                if (this.parser.reServiceMethod.test(line)) {
+                if (this.reServiceMethod.test(line)) {
                     const normalized = this.normalizeGenericsInSignature(line);
                     // Service methods should use 2-space indent from service level
                     const methodIndent = this.getServiceIndent(serviceIndentLevel + 1, options);
@@ -344,44 +332,47 @@ export class ThriftFormatter {
                 continue;
             }
 
-            if (this.parser.isEnumStart(line)) {
+            if (this.isInlineEnum(line)) {
+                const formattedInline = this.formatInlineEnum(line, indentLevel, options);
+                if (formattedInline) {
+                    formattedLines.push(...formattedInline);
+                    continue;
+                }
+            }
+            if (isEnumStart) {
                 if (line.includes('{') && line.includes('}')) {
                     // 单行枚举：解析并格式化
                     const openBraceIndex = line.indexOf('{');
                     const closeBraceIndex = line.lastIndexOf('}');
-                    
+
                     if (openBraceIndex !== -1 && closeBraceIndex !== -1 && openBraceIndex < closeBraceIndex) {
                         // 提取枚举头部（'{'之前的内容）
                         const enumHeader = line.substring(0, openBraceIndex).trim();
                         // 提取大括号之间的内容
                         const enumContent = line.substring(openBraceIndex + 1, closeBraceIndex).trim();
-                        
+
                         // 输出枚举头部
                         formattedLines.push(this.getIndent(indentLevel, options) + enumHeader + ' {');
-                        
+
                         // 处理枚举字段
                         if (enumContent) {
-                            // 按顶层分隔符（; 或 ,）拆分枚举字段
                             const fieldStrings = this.splitTopLevelParts(enumContent);
                             const enumFieldInfos: EnumField[] = [];
-                            
+
                             for (const fieldStr of fieldStrings) {
-                                const trimmedField = fieldStr.trim();
-                                if (trimmedField && this.parser.isEnumField(trimmedField)) {
-                                    const fieldInfo = this.parser.parseEnumField(trimmedField);
-                                    if (fieldInfo) {
-                                        enumFieldInfos.push(fieldInfo);
-                                    }
+                                const fieldInfo = this.parseEnumFieldText(fieldStr.trim());
+                                if (fieldInfo) {
+                                    enumFieldInfos.push(fieldInfo);
                                 }
                             }
-                            
+
                             // 一起格式化所有字段以获得正确对齐
                             if (enumFieldInfos.length > 0) {
                                 const formattedFields = this.formatEnumFields(enumFieldInfos, options, indentLevel + 1);
                                 formattedLines.push(...formattedFields);
                             }
                         }
-                        
+
                         // 输出结束大括号
                         formattedLines.push(this.getIndent(indentLevel, options) + '}');
                         continue;
@@ -406,18 +397,20 @@ export class ThriftFormatter {
                 }
 
                 // Flush accumulated enum fields before non-field separators/comments inside enum
-                if (enumFields.length > 0 && !this.parser.isEnumField(line)) {
+                const hasEnumField = enumMemberIndex.has(i) || this.isEnumFieldText(line);
+                if (enumFields.length > 0 && !hasEnumField) {
                     const formattedFields = this.formatEnumFields(enumFields, options, indentLevel);
                     formattedLines.push(...formattedFields);
                     enumFields = [];
                 }
 
-                if (this.parser.isEnumField(line)) {
-                    const fieldInfo = this.parser.parseEnumField(line);
-                    if (fieldInfo) {
-                        enumFields.push(fieldInfo);
-                        continue;
-                    }
+                const enumNode = enumMemberIndex.get(i);
+                const fieldInfo = enumNode
+                    ? this.buildEnumFieldFromAst(line, enumNode)
+                    : this.parseEnumFieldText(line);
+                if (fieldInfo) {
+                    enumFields.push(fieldInfo);
+                    continue;
                 }
             }
 
@@ -445,6 +438,441 @@ export class ThriftFormatter {
 
         const cleaned = formattedLines.map(l => l.replace(/\s+$/g, ''));
         return cleaned.join('\n');
+    }
+
+    private buildAstIndex(ast: nodes.ThriftDocument): {
+        structStarts: Map<number, nodes.Struct>;
+        structFieldIndex: Map<number, nodes.Field>;
+        enumStarts: Map<number, nodes.Enum>;
+        enumMemberIndex: Map<number, nodes.EnumMember>;
+        serviceStarts: Map<number, nodes.Service>;
+        serviceFunctionIndex: Map<number, nodes.ThriftFunction>;
+        constStarts: Map<number, nodes.Const>;
+        constEnds: Map<number, number>;
+    } {
+        const structStarts = new Map<number, nodes.Struct>();
+        const structFieldIndex = new Map<number, nodes.Field>();
+        const enumStarts = new Map<number, nodes.Enum>();
+        const enumMemberIndex = new Map<number, nodes.EnumMember>();
+        const serviceStarts = new Map<number, nodes.Service>();
+        const serviceFunctionIndex = new Map<number, nodes.ThriftFunction>();
+        const constStarts = new Map<number, nodes.Const>();
+        const constEnds = new Map<number, number>();
+
+        const visit = (node: nodes.ThriftNode) => {
+            switch (node.type) {
+                case nodes.ThriftNodeType.Struct:
+                case nodes.ThriftNodeType.Union:
+                case nodes.ThriftNodeType.Exception: {
+                    const structNode = node as nodes.Struct;
+                    structStarts.set(structNode.range.start.line, structNode);
+                    structNode.fields.forEach(field => {
+                        structFieldIndex.set(field.range.start.line, field);
+                    });
+                    break;
+                }
+                case nodes.ThriftNodeType.Enum: {
+                    const enumNode = node as nodes.Enum;
+                    enumStarts.set(enumNode.range.start.line, enumNode);
+                    enumNode.members.forEach(member => {
+                        enumMemberIndex.set(member.range.start.line, member);
+                    });
+                    break;
+                }
+                case nodes.ThriftNodeType.Service: {
+                    const serviceNode = node as nodes.Service;
+                    serviceStarts.set(serviceNode.range.start.line, serviceNode);
+                    serviceNode.functions.forEach(fn => {
+                        serviceFunctionIndex.set(fn.range.start.line, fn);
+                    });
+                    break;
+                }
+                case nodes.ThriftNodeType.Const: {
+                    const constNode = node as nodes.Const;
+                    constStarts.set(constNode.range.start.line, constNode);
+                    constEnds.set(constNode.range.start.line, constNode.range.end.line);
+                    break;
+                }
+                default:
+                    break;
+            }
+        };
+
+        ast.body.forEach(visit);
+
+        return {
+            structStarts,
+            structFieldIndex,
+            enumStarts,
+            enumMemberIndex,
+            serviceStarts,
+            serviceFunctionIndex,
+            constStarts,
+            constEnds
+        };
+    }
+
+    private splitLineComment(line: string): { code: string; comment: string } {
+        let inS = false;
+        let inD = false;
+        let escaped = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            const next = i + 1 < line.length ? line[i + 1] : '';
+            if (inS) {
+                if (!escaped && ch === '\\') {
+                    escaped = true;
+                    continue;
+                }
+                if (!escaped && ch === '\'') {
+                    inS = false;
+                }
+                escaped = false;
+                continue;
+            }
+            if (inD) {
+                if (!escaped && ch === '\\') {
+                    escaped = true;
+                    continue;
+                }
+                if (!escaped && ch === '"') {
+                    inD = false;
+                }
+                escaped = false;
+                continue;
+            }
+            if (ch === '\'') {
+                inS = true;
+                continue;
+            }
+            if (ch === '"') {
+                inD = true;
+                continue;
+            }
+            if (ch === '/' && next === '/') {
+                return { code: line.slice(0, i), comment: line.slice(i).trim() };
+            }
+            if (ch === '#') {
+                return { code: line.slice(0, i), comment: line.slice(i).trim() };
+            }
+        }
+        return { code: line, comment: '' };
+    }
+
+    private normalizeType(type: string): string {
+        return type
+            .replace(/\s+</g, '<')
+            .replace(/<\s+/g, '<')
+            .replace(/\s+>/g, '>')
+            .replace(/>\s*/g, '>')
+            .replace(/\s*,\s*/g, ',');
+    }
+
+    private buildStructFieldFromAst(line: string, field: nodes.Field): StructField | null {
+        const { code, comment } = this.splitLineComment(line);
+        let remainder = code.trim();
+        let trailing = '';
+        const suffixMatch = remainder.match(/^(.*?)([,;]\s*)$/);
+        if (suffixMatch) {
+            remainder = suffixMatch[1].trim();
+            trailing = suffixMatch[2].trim();
+        }
+        let annotation = '';
+        const annMatch = remainder.match(/^(.*?)(\([^)]*\))\s*$/);
+        if (annMatch) {
+            remainder = annMatch[1].trim();
+            annotation = annMatch[2];
+        }
+
+        const qualifier = field.requiredness || '';
+        const type = this.normalizeType(field.fieldType || '');
+        const name = field.name || '';
+        let suffix = '';
+        if (field.defaultValue) {
+            suffix = ` = ${field.defaultValue}`;
+        }
+        if (trailing) {
+            suffix += trailing;
+        }
+
+        if (!name || !type) {
+            return null;
+        }
+
+        return {
+            line: line.trim(),
+            id: String(field.id),
+            qualifier,
+            type,
+            name,
+            suffix,
+            comment,
+            annotation
+        };
+    }
+
+    private parseStructFieldText(text: string): StructField | null {
+        if (!text) {
+            return null;
+        }
+        const { code, comment } = this.splitLineComment(text);
+        let remainder = code.trim();
+
+        const prefixMatch = remainder.match(/^\s*(\d+:\s*(?:required|optional)?\s*)(.*)$/);
+        if (!prefixMatch) {
+            return null;
+        }
+        const prefix = prefixMatch[1];
+        remainder = prefixMatch[2];
+
+        const idQualMatch = prefix.match(/^\s*(\d+):\s*((?:required|optional)?)\s*/);
+        const id = idQualMatch ? idQualMatch[1] : '';
+        const qualifier = idQualMatch ? idQualMatch[2] : '';
+
+        let trailing = '';
+        const suffixMatch = remainder.match(/^(.*?)([,;]\s*)$/);
+        if (suffixMatch) {
+            remainder = suffixMatch[1].trim();
+            trailing = suffixMatch[2].trim();
+        }
+
+        let annotation = '';
+        const annMatch = remainder.match(/^(.*?)(\([^)]*\))\s*$/);
+        if (annMatch) {
+            remainder = annMatch[1].trim();
+            annotation = annMatch[2];
+        }
+
+        const fieldMatch = remainder.match(/^(.+?)\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s*=\s*(.+))?$/);
+        if (!fieldMatch) {
+            return null;
+        }
+
+        let type = this.normalizeType(fieldMatch[1].trim());
+        const name = fieldMatch[2];
+        const defaultValue = fieldMatch[3];
+
+        let suffix = '';
+        if (defaultValue) {
+            suffix = ` = ${defaultValue.trim()}`;
+        }
+        if (trailing) {
+            suffix += trailing;
+        }
+
+        return {
+            line: text.trim(),
+            id,
+            qualifier,
+            type,
+            name,
+            suffix,
+            comment,
+            annotation
+        };
+    }
+
+    private isStructFieldText(line: string): boolean {
+        const t = line.trimStart();
+        const c = t.charCodeAt(0);
+        if (!(c >= 48 && c <= 57)) {
+            return false;
+        }
+        return /^\s*\d+:\s*(?:required|optional)?\s*.+$/.test(line);
+    }
+
+    private buildEnumFieldFromAst(line: string, member: nodes.EnumMember): EnumField | null {
+        const { code, comment } = this.splitLineComment(line);
+        let remainder = code.trim();
+        let trailing = '';
+        const suffixMatch = remainder.match(/^(.*?)([,;]\s*)$/);
+        if (suffixMatch) {
+            remainder = suffixMatch[1].trim();
+            trailing = suffixMatch[2].trim();
+        }
+
+        let value = member.initializer;
+        if (!value) {
+            const match = remainder.match(/=\s*([^,;]+)\s*$/);
+            if (match) {
+                value = match[1].trim();
+            }
+        }
+        if (!member.name) {
+            return null;
+        }
+
+        return {
+            line: line.trim(),
+            name: member.name,
+            value: value || '',
+            suffix: trailing,
+            comment
+        };
+    }
+
+    private parseEnumFieldText(text: string): EnumField | null {
+        const match = text.match(/^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([-+]?(?:\d+|0x[0-9a-fA-F]+))\s*([,;]?\s*(?:(?:\/\/|#).*)?\s*)$/i);
+        if (!match) {
+            return null;
+        }
+
+        const name = match[1];
+        const value = match[2];
+        const suffixAndComment = match[3] || '';
+
+        const commentMatch = suffixAndComment.match(/^([^/#]*)((?:\/\/|#).+)$/);
+        const suffix = commentMatch ? commentMatch[1].trim() : suffixAndComment.trim();
+        const comment = commentMatch ? commentMatch[2] : '';
+
+        return {
+            line: text.trim(),
+            name,
+            value,
+            suffix,
+            comment
+        };
+    }
+
+    private isEnumFieldText(line: string): boolean {
+        const t = line.trimStart();
+        const cc = t.charCodeAt(0);
+        const isLetter = (cc >= 65 && cc <= 90) || (cc >= 97 && cc <= 122) || cc === 95;
+        if (!isLetter) {
+            return false;
+        }
+        return /^\s*[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*[-+]?(?:\d+|0x[0-9a-fA-F]+)/i.test(line);
+    }
+
+    private parseConstFieldText(source: string): ConstField | null {
+        if (!source) {
+            return null;
+        }
+        const lines = source.split('\n');
+        const header = (lines[0] || '').trim();
+        const m = header.match(/^const\s+([\w<>,\s]+?)\s+(\w+)\s*=\s*(.*)$/);
+        if (!m) {
+            return null;
+        }
+        let type = this.normalizeType(m[1].trim());
+        const name = m[2].trim();
+        let firstValuePart = (m[3] || '').trim();
+
+        let comment = '';
+        const commentIdx = firstValuePart.indexOf('//');
+        if (commentIdx >= 0) {
+            comment = firstValuePart.slice(commentIdx).trim();
+            firstValuePart = firstValuePart.slice(0, commentIdx).trim();
+        }
+
+        let value = firstValuePart;
+        if (lines.length > 1) {
+            const rest = lines.slice(1).map(l => l.trim()).join('\n');
+            value = (value ? value + '\n' : '') + rest;
+        }
+
+        return {
+            line: header,
+            type,
+            name,
+            value,
+            comment
+        };
+    }
+
+    private isInlineStructLike(line: string): boolean {
+        return /^(struct|union|exception)\b/.test(line) && line.includes('{') && line.includes('}');
+    }
+
+    private isInlineEnum(line: string): boolean {
+        return /^(enum|senum)\b/.test(line) && line.includes('{') && line.includes('}');
+    }
+
+    private isInlineService(line: string): boolean {
+        return /^service\b/.test(line) && line.includes('{') && line.includes('}');
+    }
+
+    private formatInlineStructLike(line: string, indentLevel: number, options: ThriftFormattingOptions): string[] | null {
+        const openBraceIndex = line.indexOf('{');
+        const closeBraceIndex = line.lastIndexOf('}');
+        if (openBraceIndex === -1 || closeBraceIndex === -1 || openBraceIndex >= closeBraceIndex) {
+            return null;
+        }
+        const structHeader = line.substring(0, openBraceIndex).trim();
+        const structContent = line.substring(openBraceIndex + 1, closeBraceIndex).trim();
+
+        const out: string[] = [];
+        out.push(this.getIndent(indentLevel, options) + structHeader + ' {');
+        if (structContent) {
+            const fieldStrings = this.splitTopLevelParts(structContent);
+            const fieldInfos: StructField[] = [];
+            for (const fieldStr of fieldStrings) {
+                const fieldInfo = this.parseStructFieldText(fieldStr.trim());
+                if (fieldInfo) {
+                    fieldInfos.push(fieldInfo);
+                }
+            }
+            if (fieldInfos.length > 0) {
+                const formattedFields = this.formatStructFields(fieldInfos, options, indentLevel + 1);
+                out.push(...formattedFields);
+            }
+        }
+        out.push(this.getIndent(indentLevel, options) + '}');
+        return out;
+    }
+
+    private formatInlineEnum(line: string, indentLevel: number, options: ThriftFormattingOptions): string[] | null {
+        const openBraceIndex = line.indexOf('{');
+        const closeBraceIndex = line.lastIndexOf('}');
+        if (openBraceIndex === -1 || closeBraceIndex === -1 || openBraceIndex >= closeBraceIndex) {
+            return null;
+        }
+        const enumHeader = line.substring(0, openBraceIndex).trim();
+        const enumContent = line.substring(openBraceIndex + 1, closeBraceIndex).trim();
+
+        const out: string[] = [];
+        out.push(this.getIndent(indentLevel, options) + enumHeader + ' {');
+        if (enumContent) {
+            const fieldStrings = this.splitTopLevelParts(enumContent);
+            const enumFieldInfos: EnumField[] = [];
+            for (const fieldStr of fieldStrings) {
+                const fieldInfo = this.parseEnumFieldText(fieldStr.trim());
+                if (fieldInfo) {
+                    enumFieldInfos.push(fieldInfo);
+                }
+            }
+            if (enumFieldInfos.length > 0) {
+                const formattedFields = this.formatEnumFields(enumFieldInfos, options, indentLevel + 1);
+                out.push(...formattedFields);
+            }
+        }
+        out.push(this.getIndent(indentLevel, options) + '}');
+        return out;
+    }
+
+    private formatInlineService(line: string, indentLevel: number, options: ThriftFormattingOptions): string[] | null {
+        const openBraceIndex = line.indexOf('{');
+        const closeBraceIndex = line.lastIndexOf('}');
+        if (openBraceIndex === -1 || closeBraceIndex === -1 || openBraceIndex >= closeBraceIndex) {
+            return null;
+        }
+        const serviceHeader = line.substring(0, openBraceIndex).trim();
+        const serviceContent = line.substring(openBraceIndex + 1, closeBraceIndex).trim();
+
+        const out: string[] = [];
+        out.push(this.getIndent(indentLevel, options) + serviceHeader + ' {');
+        if (serviceContent) {
+            const methodStrings = this.splitTopLevelParts(serviceContent);
+            for (const methodStr of methodStrings) {
+                const trimmedMethod = methodStr.trim();
+                if (trimmedMethod) {
+                    const normalizedMethod = this.normalizeGenericsInSignature(trimmedMethod);
+                    out.push(this.getServiceIndent(indentLevel + 1, options) + normalizedMethod);
+                }
+            }
+        }
+        out.push(this.getIndent(indentLevel, options) + '}');
+        return out;
     }
 
     public getIndent(level: number, options: ThriftFormattingOptions): string {
@@ -806,10 +1234,10 @@ export class ThriftFormatter {
                 base += ',';
             }
 
-            interim.push({base, comment: f.comment, hasComma, hasSemicolon});
+            interim.push({ base, comment: f.comment, hasComma, hasSemicolon });
             maxContentWidth = Math.max(maxContentWidth, base.length - indent.length);
         }
-        return interim.map(({base, comment, hasComma, hasSemicolon}) => {
+        return interim.map(({ base, comment, hasComma, hasSemicolon }) => {
             let line = base;
             if (comment) {
                 if (options.alignComments) {
@@ -921,7 +1349,7 @@ export class ThriftFormatter {
                 value = lines.join('\n');
             }
 
-            return {...f, value};
+            return { ...f, value };
         });
 
         const maxTypeWidth = Math.max(...adjFields.map(f => f.type.length));
@@ -1089,14 +1517,14 @@ export class ThriftFormatter {
                 continue;
             }
 
-            if (ch === '<') {depthAngle++;}
-            else if (ch === '>') {depthAngle = Math.max(0, depthAngle - 1);}
-            else if (ch === '(') {depthParen++;}
-            else if (ch === ')') {depthParen = Math.max(0, depthParen - 1);}
-            else if (ch === '{') {depthBrace++;}
-            else if (ch === '}') {depthBrace = Math.max(0, depthBrace - 1);}
-            else if (ch === '[') {depthBracket++;}
-            else if (ch === ']') {depthBracket = Math.max(0, depthBracket - 1);}
+            if (ch === '<') { depthAngle++; }
+            else if (ch === '>') { depthAngle = Math.max(0, depthAngle - 1); }
+            else if (ch === '(') { depthParen++; }
+            else if (ch === ')') { depthParen = Math.max(0, depthParen - 1); }
+            else if (ch === '{') { depthBrace++; }
+            else if (ch === '}') { depthBrace = Math.max(0, depthBrace - 1); }
+            else if (ch === '[') { depthBracket++; }
+            else if (ch === ']') { depthBracket = Math.max(0, depthBracket - 1); }
 
             const atTop = depthAngle === 0 && depthParen === 0 && depthBrace === 0 && depthBracket === 0;
             if (atTop && (ch === ';' || ch === ',')) {

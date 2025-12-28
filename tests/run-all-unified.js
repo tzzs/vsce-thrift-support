@@ -326,7 +326,7 @@ async function checkAndCompile() {
     const keyFiles = [
         path.join(__dirname, '../out/src/extension.js'),
         path.join(__dirname, '../out/src/formattingProvider.js'),
-        path.join(__dirname, '../out/src/thriftParser.js')
+        path.join(__dirname, '../out/src/ast/parser.js')
     ];
     
     const missingFiles = keyFiles.filter(file => !fs.existsSync(file));

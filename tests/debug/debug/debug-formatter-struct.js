@@ -1,7 +1,4 @@
 const { ThriftFormatter } = require('../out/src/thriftFormatter');
-const { ThriftParser } = require('../out/src/thriftParser');
-
-const parser = new ThriftParser();
 const formatter = new ThriftFormatter();
 
 const testCases = [
@@ -20,9 +17,9 @@ testCases.forEach((testCase, index) => {
     
     lines.forEach((line, lineIndex) => {
         console.log(`  Line ${lineIndex}: "${line}"`);
-        console.log(`    isStructStart: ${parser.isStructStart(line)}`);
-        
-        if (parser.isStructStart(line)) {
+        const isStructStart = /^(struct|union|exception)\b/.test(line.trim());
+        console.log(`    isStructStart: ${isStructStart}`);
+        if (isStructStart) {
             console.log(`    Contains {: ${line.includes('{')}`);
             console.log(`    Contains }: ${line.includes('}')}`);
             console.log(`    Both on same line: ${line.includes('{') && line.includes('}')}`);

@@ -1,12 +1,10 @@
 // 简单测试格式化器行为
 const fs = require('fs');
 const {ThriftFormatter} = require('../out/src/thriftFormatter.js');
-const {ThriftParser} = require('../out/src/thriftParser.js');
 
 console.log('=== 测试格式化器行为 ===');
 
-const parser = new ThriftParser();
-const formatter = new ThriftFormatter(parser);
+const formatter = new ThriftFormatter();
 
 const testCases = [
     {

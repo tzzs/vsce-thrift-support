@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import {ThriftParser} from './ast/parser';
+import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes';
 
 export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {

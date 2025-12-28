@@ -39,97 +39,55 @@ async function run() {
 
     let parser;
     try {
-        const {ThriftParser} = require('../../../out/src/thriftParser.js');
-        parser = new ThriftParser();
+        const {ThriftParser} = require('../../../out/src/ast/parser.js');
+        parser = ThriftParser;
     } catch (error) {
-        throw new Error(`Failed to load thrift parser: ${error.message}`);
+        throw new Error(`Failed to load AST parser: ${error.message}`);
     }
 
-    console.log('Testing isStructField function...');
-    
-    // Test valid struct fields
-    const validFields = [
-        '1: required list<string> names,',
-        '2: optional map<string, i32> values,',
-        '3: i32 count',
-        '4: required string name = "default"',
-        '5: optional bool isActive = true'
+    const normalizeType = (type) => type.replace(/\s+</g, '<')
+        .replace(/<\s+/g, '<')
+        .replace(/\s+>/g, '>')
+        .replace(/>\s*/g, '>')
+        .replace(/\s*,\s*/g, ',');
+
+    console.log('Testing AST struct field parsing...');
+
+    const content = `
+struct User {
+    1: required list<string> names,
+    2: optional map<string, i32> values,
+    3: i32 count
+    4: required string name = "default"
+    5: optional bool isActive = true
+}
+`;
+
+    const ast = new parser(content).parse();
+    const structNode = ast.body.find(node => node.type === 'Struct' && node.name === 'User');
+    assert.ok(structNode, 'Should parse struct User');
+
+    const fields = structNode.fields;
+    assert.strictEqual(fields.length, 5, 'Should parse 5 struct fields');
+
+    const fieldChecks = [
+        { id: 1, requiredness: 'required', type: 'list<string>', name: 'names', hasDefault: false },
+        { id: 2, requiredness: 'optional', type: 'map<string,i32>', name: 'values', hasDefault: false },
+        { id: 3, requiredness: undefined, type: 'i32', name: 'count', hasDefault: false },
+        { id: 4, requiredness: 'required', type: 'string', name: 'name', hasDefault: true },
+        { id: 5, requiredness: 'optional', type: 'bool', name: 'isActive', hasDefault: true }
     ];
 
-    validFields.forEach(field => {
-        const result = parser.isStructField(field);
-        assert.strictEqual(result, true, `Should identify as struct field: "${field}"`);
+    fieldChecks.forEach((expected, idx) => {
+        const field = fields[idx];
+        assert.strictEqual(field.id, expected.id, `Field ID should be ${expected.id}`);
+        assert.strictEqual(field.requiredness, expected.requiredness, `Requiredness should be ${expected.requiredness}`);
+        assert.strictEqual(normalizeType(field.fieldType), expected.type, `Type should be "${expected.type}"`);
+        assert.strictEqual(field.name, expected.name, `Name should be "${expected.name}"`);
+        assert.strictEqual(!!field.defaultValue, expected.hasDefault, `hasDefault should be ${expected.hasDefault}`);
     });
-    console.log(`✓ Validated ${validFields.length} valid struct fields`);
 
-    // Test invalid struct fields
-    const invalidIsStructFields = [
-        'struct User {',
-        '}',
-        'service UserService {',
-        'const i32 MAX_VALUE = 100',
-        'enum Status {',
-        'ACTIVE = 1'
-    ];
-
-    invalidIsStructFields.forEach(field => {
-        const result = parser.isStructField(field);
-        assert.strictEqual(result, false, `Should not identify as struct field: "${field}"`);
-    });
-    console.log(`✓ Validated ${invalidIsStructFields.length} invalid struct fields`);
-
-    console.log('Testing parseStructField function...');
-    
-    // Test parsing valid struct fields
-    const fieldTests = [
-        {
-            field: '1: required list<string> names,',
-            expected: { fieldId: 1, requiredness: 'required', type: 'list<string>', name: 'names', hasDefault: false }
-        },
-        {
-            field: '2: optional map<string, i32> values,',
-            expected: { fieldId: 2, requiredness: 'optional', type: 'map<string,i32>', name: 'values', hasDefault: false }
-        },
-        {
-            field: '3: i32 count',
-            expected: { fieldId: 3, requiredness: '', type: 'i32', name: 'count', hasDefault: false }
-        },
-        {
-            field: '4: required string name = "default"',
-            expected: { fieldId: 4, requiredness: 'required', type: 'string', name: 'name', hasDefault: true }
-        },
-        {
-            field: '5: optional bool isActive = true',
-            expected: { fieldId: 5, requiredness: 'optional', type: 'bool', name: 'isActive', hasDefault: true }
-        }
-    ];
-
-    fieldTests.forEach(({ field, expected }) => {
-        const result = parser.parseStructField(field);
-        assert.notStrictEqual(result, null, `Should parse struct field: "${field}"`);
-        assert.strictEqual(result.id, expected.fieldId.toString(), `Field ID should be ${expected.fieldId}`);
-        assert.strictEqual(result.qualifier, expected.requiredness, `Requiredness should be ${expected.requiredness}`);
-        assert.strictEqual(result.type, expected.type, `Type should be "${expected.type}"`);
-        assert.strictEqual(result.name, expected.name, `Name should be "${expected.name}"`);
-        assert.strictEqual(!!result.suffix && result.suffix.includes('='), expected.hasDefault, `hasDefault should be ${expected.hasDefault}`);
-    });
-    console.log(`✓ Parsed ${fieldTests.length} struct fields successfully`);
-
-    // Test parsing invalid struct fields
-    const invalidParseFields = [
-        'struct User {',
-        '}',
-        'service UserService {',
-        'const i32 MAX_VALUE = 100'
-    ];
-
-    invalidParseFields.forEach(field => {
-        const result = parser.parseStructField(field);
-        assert.strictEqual(result, null, `Should return null for invalid field: "${field}"`);
-    });
-    console.log(`✓ Validated ${invalidParseFields.length} invalid struct fields`);
-
-    console.log('All parsing functionality tests passed! ✅');
+    console.log('All AST parsing tests passed! ✅');
 }
 
 run().catch(err => {

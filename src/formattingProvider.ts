@@ -1,8 +1,7 @@
 import * as vscode from 'vscode';
-import {ThriftFormatter} from './thriftFormatter';
-import {ThriftParser} from './ast/parser'; // Changed to use AST parser
-import {ThriftParser as OldThriftParser} from './thriftParser'; // Import old parser for fallback
-import {ThriftFormattingOptions} from './interfaces';
+import { ThriftFormatter } from './thriftFormatter';
+import { ThriftParser } from './ast/parser';
+import { ThriftFormattingOptions } from './interfaces';
 
 export class ThriftFormattingProvider implements vscode.DocumentFormattingEditProvider, vscode.DocumentRangeFormattingEditProvider {
 
@@ -113,12 +112,12 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         try {
             const before = document.getText(new vscode.Range(new vscode.Position(0, 0), start));
             if (!before) {
-                return {indentLevel: 0, inStruct: false, inEnum: false};
+                return { indentLevel: 0, inStruct: false, inEnum: false };
             }
 
             // Create a temporary document with only the text before the selection
-            const tempUri = document.uri.with({path: document.uri.path + '.temp'});
-            const tempDoc = {getText: () => before, uri: tempUri, lineCount: start.line} as vscode.TextDocument;
+            const tempUri = document.uri.with({ path: document.uri.path + '.temp' });
+            const tempDoc = { getText: () => before, uri: tempUri, lineCount: start.line } as vscode.TextDocument;
 
             // Parse with AST parser (使用缓存版本)
             const ast = ThriftParser.parseWithCache(tempDoc);
@@ -165,100 +164,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 inEnum
             };
         } catch (e) {
-            // Fallback to old method if AST parsing fails
-            return this.computeInitialContextFallback(document, start);
-        }
-    }
-
-    // Fallback method using the old regex-based approach
-    private computeInitialContextFallback(document: vscode.TextDocument, start: vscode.Position): {
-        indentLevel: number;
-        inStruct: boolean;
-        inEnum: boolean
-    } {
-        const parser = new OldThriftParser(); // Using the old ThriftParser from thriftParser.ts
-        try {
-            const before = document.getText(new vscode.Range(new vscode.Position(0, 0), start));
-            if (!before) {
-                return {indentLevel: 0, inStruct: false, inEnum: false};
-            }
-            const lines = before.split('\n');
-            let inBlockComment = false;
-            const stack: Array<'struct' | 'enum'> = [];
-            for (let raw of lines) {
-                let line = raw;
-
-                // Handle existing block comment state
-                if (inBlockComment) {
-                    const endIdx = line.indexOf('*/');
-                    if (endIdx >= 0) {
-                        line = line.slice(endIdx + 2);
-                        inBlockComment = false;
-                    } else {
-                        continue; // entire line is inside block comment
-                    }
-                }
-
-                // Strip inline block comments starting on this line
-                const startIdx = line.indexOf('/*');
-                if (startIdx >= 0) {
-                    const endIdx = line.indexOf('*/', startIdx + 2);
-                    if (endIdx >= 0) {
-                        line = line.slice(0, startIdx) + line.slice(endIdx + 2);
-                    } else {
-                        inBlockComment = true;
-                        line = line.slice(0, startIdx);
-                    }
-                }
-
-                // Strip line comments
-                const slIdx = line.indexOf('//');
-                if (slIdx >= 0) {
-                    line = line.slice(0, slIdx);
-                }
-
-                const trimmed = line.trim();
-                if (!trimmed) {
-                    continue;
-                }
-
-                // Close brace reduces struct/enum depth
-                if (trimmed.startsWith('}')) {
-                    if (stack.length > 0) {
-                        stack.pop();
-                    }
-                    continue;
-                }
-
-                // Detect enum start
-                if (parser.isEnumStart(trimmed)) {
-                    if (trimmed.includes('{') && trimmed.includes('}')) {
-                        // single-line enum body, ignore
-                    } else if (trimmed.includes('{')) {
-                        stack.push('enum');
-                    }
-                    continue;
-                }
-
-                // Detect struct-like start
-                if (parser.isStructStart(trimmed)) {
-                    if (trimmed.includes('{') && trimmed.includes('}')) {
-                        // single-line body, ignore
-                    } else if (trimmed.includes('{')) {
-                        stack.push('struct');
-                    }
-                    continue;
-                }
-            }
-
-            const top = stack.length > 0 ? stack[stack.length - 1] : undefined;
-            return {
-                indentLevel: stack.length,
-                inStruct: top === 'struct',
-                inEnum: top === 'enum'
-            };
-        } catch (e) {
-            return {indentLevel: 0, inStruct: false, inEnum: false};
+            return { indentLevel: 0, inStruct: false, inEnum: false };
         }
     }
 }

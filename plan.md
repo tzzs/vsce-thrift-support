@@ -372,7 +372,7 @@ export class ConfigManager {
 }
 ```
 
-## 1. 解析器健壮性 (`thriftParser.ts`)
+## 1. 解析器健壮性 (`src/ast/parser.ts`)
 
 **当前状态:** 严重依赖正则表达式来提取字段。
 **问题:** 复杂的嵌套类型或边缘情况的语法（例如：泛型参数中的注释）可能会破坏正则匹配或产生错误结果。
@@ -415,7 +415,7 @@ export class ConfigManager {
 
 ## 5. Provider 代码重构与逻辑统一
 
-**当前状态:** `CompletionProvider`, `DocumentSymbolProvider`, 和 `ThriftParser` (用于格式化) 各自实现了独立的、基于正则的解析逻辑。
+**当前状态:** `CompletionProvider`, `DocumentSymbolProvider`, 和格式化器的解析逻辑各自实现了独立的、基于正则的解析逻辑。
 **问题:** 逻辑重复导致维护困难，修复一个 bug 可能需要在三个地方修改；且不一致的解析行为会导致不同功能表现不一致。
 **改进建议:**
 

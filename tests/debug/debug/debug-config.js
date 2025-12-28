@@ -57,12 +57,10 @@ installVscodeMock(vscode);
 
 // Mock require('vscode') inside formatter
 const {ThriftFormatter} = require('../out/src/thriftFormatter.js');
-const {ThriftParser} = require('../out/src/thriftParser.js');
 
 async function debugConfig() {
     console.log('=== 调试配置问题 ===');
     
-    const parser = new ThriftParser();
     const formatter = new ThriftFormatter();
     
     const input = `struct User{1:i32 id;2:string name;}`;

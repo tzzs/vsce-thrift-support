@@ -27,7 +27,6 @@ installVscodeMock(vscode);
 
 // Mock require('vscode') inside formatter
 const {ThriftFormatter} = require('../../../out/src/thriftFormatter.js');
-const {ThriftParser} = require('../../../out/src/thriftParser.js');
 
 function run() {
     console.log('\n=== 运行对齐格式化专项测试 ===');
@@ -47,8 +46,7 @@ function run() {
     }
     
     function assertFormatted(input, expected, options = {}) {
-        const parser = new ThriftParser();
-        const formatter = new ThriftFormatter(parser);
+        const formatter = new ThriftFormatter();
         const formatted = formatter.format(input, {
             indentSize: 4,
             alignTypes: true,

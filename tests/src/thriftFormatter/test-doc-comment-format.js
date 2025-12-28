@@ -1,5 +1,4 @@
 const {ThriftFormatter} = require('../../../out/src/thriftFormatter.js');
-const {ThriftParser} = require('../../../out/src/thriftParser.js');
 
 /**
  * 测试文档注释格式化
@@ -19,8 +18,7 @@ function testDocCommentFormatting() {
   User getUser(1: UserId userId)
 }`;
 
-    const parser = new ThriftParser();
-    const formatter = new ThriftFormatter(parser);
+    const formatter = new ThriftFormatter();
 
     const options = {
         indentSize: 2,

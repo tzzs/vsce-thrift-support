@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
-import {ThriftDefinitionProvider} from './definitionProvider';
+import { ThriftDefinitionProvider } from './definitionProvider';
 import * as path from 'path';
-import {CacheManager} from './utils/cacheManager';
-import {readThriftFile} from './utils/fileReader';
-import {ThriftParser} from './ast/parser';
-import {collectIncludes} from './ast/utils';
-import {ErrorHandler} from './utils/errorHandler';
+import { CacheManager } from './utils/cacheManager';
+import { readThriftFile } from './utils/fileReader';
+import { ThriftParser } from './ast/parser';
+import { collectIncludes } from './ast/utils';
+import { ErrorHandler } from './utils/errorHandler';
 
 export class ThriftHoverProvider implements vscode.HoverProvider {
 
@@ -99,7 +99,7 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
                 component: 'ThriftHoverProvider',
                 operation: 'provideHover',
                 filePath: document.uri.fsPath,
-                additionalInfo: {position: position.toString()}
+                additionalInfo: { position: position.toString() }
             });
             return undefined;
         }
