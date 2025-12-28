@@ -245,8 +245,9 @@ export class ThriftParser {
                 }
             }
 
+            const codeOnly = this.stripLineComments(trimmed);
             // Field regex: 1: optional string name,
-            const fieldMatch = trimmed.match(/^(\d+):\s*(?:(required|optional)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+            const fieldMatch = codeOnly.match(/^(\d+):\s*(?:(required|optional)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
             if (fieldMatch) {
                 const field: nodes.Field = {
                     type: nodes.ThriftNodeType.Field,
@@ -259,7 +260,7 @@ export class ThriftParser {
                 };
 
                 // Check for default value
-                const defaultValueMatch = trimmed.match(/=\s*([^,;]+)/);
+                const defaultValueMatch = codeOnly.match(/=\s*([^,;]+)/);
                 if (defaultValueMatch) {
                     field.defaultValue = defaultValueMatch[1].trim();
                 }
@@ -323,9 +324,10 @@ export class ThriftParser {
                 }
             }
 
+            const codeOnly = this.stripLineComments(trimmed);
             // Enum Member: NAME = 1, or just NAME,
-            const memberMatch = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:=\s*([^,;]+))?/);
-            if (memberMatch && trimmed && !trimmed.startsWith('//')) {
+            const memberMatch = codeOnly.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:=\s*([^,;]+))?/);
+            if (memberMatch && codeOnly && !codeOnly.startsWith('//')) {
                 const member: nodes.EnumMember = {
                     type: nodes.ThriftNodeType.EnumMember,
                     range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
@@ -586,6 +588,58 @@ export class ThriftParser {
         return {valueType: typeBuf.trim(), name: nameMatch[1]};
     }
 
+    private stripLineComments(line: string): string {
+        let out = '';
+        let inS = false;
+        let inD = false;
+        let escaped = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            const next = i + 1 < line.length ? line[i + 1] : '';
+            if (inS) {
+                if (!escaped && ch === '\\') {
+                    escaped = true;
+                    out += ch;
+                    continue;
+                }
+                if (!escaped && ch === '\'') {
+                    inS = false;
+                }
+                escaped = false;
+                out += ch;
+                continue;
+            }
+            if (inD) {
+                if (!escaped && ch === '\\') {
+                    escaped = true;
+                    out += ch;
+                    continue;
+                }
+                if (!escaped && ch === '"') {
+                    inD = false;
+                }
+                escaped = false;
+                out += ch;
+                continue;
+            }
+            if (ch === '\'') {
+                inS = true;
+                out += ch;
+                continue;
+            }
+            if (ch === '"') {
+                inD = true;
+                out += ch;
+                continue;
+            }
+            if ((ch === '/' && next === '/') || ch === '#') {
+                break;
+            }
+            out += ch;
+        }
+        return out;
+    }
+
     private splitTopLevelCommasWithOffsets(text: string): Array<{text: string; start: number}> {
         const parts: Array<{text: string; start: number}> = [];
         let start = 0;
@@ -675,7 +729,7 @@ export class ThriftParser {
         const segments = this.splitTopLevelCommasWithOffsets(text);
         for (const seg of segments) {
             const leading = seg.text.match(/^\s*/)?.[0].length ?? 0;
-            const segmentText = seg.text.trim();
+            const segmentText = this.stripLineComments(seg.text).trim();
             const segmentStart = seg.start + leading;
             const segmentEnd = segmentStart + segmentText.length;
             const match = segmentText.match(/^(\d+):\s*(?:(required|optional)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);

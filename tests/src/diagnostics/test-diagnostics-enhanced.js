@@ -113,6 +113,15 @@ function run() {
     assert.ok(findByCode(issues, 'enum.valueNotInteger').length === 2, 'Float and hex enum values should be flagged');
     console.log('Test 11 passed: Negative enum values are now allowed, float/hex values are flagged');
 
+    // Test 11b: Enum values with inline comments should parse as integers
+    const enumInlineComments = `enum Status {
+    ACTIVE = 1, // ok
+    INACTIVE = 2 # ok
+    PENDING = -3 # ok
+  }`;
+    issues = analyzeThriftText(enumInlineComments);
+    assert.ok(findByCode(issues, 'enum.valueNotInteger').length === 0, 'Inline comments should not break enum value parsing');
+
     // Test 11b: Additional enum tests with various negative values
     const enumWithNegatives = `enum ErrorCode {
     SUCCESS = 0,
