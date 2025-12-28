@@ -186,6 +186,15 @@ export function registerDocumentSymbolProvider(context: vscode.ExtensionContext)
     const disposable = vscode.languages.registerDocumentSymbolProvider('thrift', provider);
     context.subscriptions.push(disposable);
 
+    // Clear cache on in-memory edits to avoid stale symbols for dirty docs.
+    const changeDisposable = vscode.workspace.onDidChangeTextDocument((event) => {
+        if (event.document.languageId !== 'thrift') {
+            return;
+        }
+        provider.clearCache(event.document.uri);
+    });
+    context.subscriptions.push(changeDisposable);
+
     // 添加文件监听器，当文件改变时清除缓存
     const fileWatcher = ThriftFileWatcher.getInstance();
     const docSymbolFileWatcher = fileWatcher.createWatcher('**/*.thrift', () => {
