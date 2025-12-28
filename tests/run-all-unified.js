@@ -9,6 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const {Worker} = require('worker_threads');
+const {execSync} = require('child_process');
 
 // 配置常量
 const CONFIG = {
@@ -332,12 +333,16 @@ async function checkAndCompile() {
     const missingFiles = keyFiles.filter(file => !fs.existsSync(file));
     
     if (missingFiles.length > 0) {
-        console.log(`${COLORS.YELLOW}${ICONS.WARNING} 检测到缺失的编译文件，请先运行 'npm run compile'${COLORS.RESET}`);
-        throw new Error('Missing compiled files. Run npm run compile first.');
-    } else {
-        console.log(`${COLORS.GREEN}${ICONS.SUCCESS} 编译文件已存在，跳过编译${COLORS.RESET}\n`);
-        return Promise.resolve();
+        console.log(`${COLORS.YELLOW}${ICONS.WARNING} 检测到缺失的编译文件，正在执行 'npm run compile'${COLORS.RESET}`);
+        execSync('npm run compile', {stdio: 'inherit'});
+        const stillMissing = keyFiles.filter(file => !fs.existsSync(file));
+        if (stillMissing.length > 0) {
+            throw new Error('Missing compiled files. Run npm run compile first.');
+        }
     }
+
+    console.log(`${COLORS.GREEN}${ICONS.SUCCESS} 编译文件已存在，跳过编译${COLORS.RESET}\n`);
+    return Promise.resolve();
 }
 
 /**
