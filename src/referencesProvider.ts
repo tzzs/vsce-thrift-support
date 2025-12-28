@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
-import {ThriftParser} from './ast/parser';
+import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes';
-import {ThriftFileWatcher} from '../utils/fileWatcher';
-import {CacheManager} from '../utils/cacheManager';
-import {ErrorHandler} from '../utils/errorHandler';
-import {readThriftFile} from '../utils/fileReader';
+import { ThriftFileWatcher } from '../utils/fileWatcher';
+import { CacheManager } from '../utils/cacheManager';
+import { ErrorHandler } from '../utils/errorHandler';
+import { readThriftFile } from '../utils/fileReader';
 
 export class ThriftReferencesProvider implements vscode.ReferenceProvider {
     private readonly REFERENCE_SCAN_INTERVAL = 60000; // 60秒间隔，增加间隔时间
@@ -35,12 +35,12 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         context: vscode.ReferenceContext,
         token: vscode.CancellationToken
     ): Promise<vscode.Location[]> {
-         
+
         // Check for cancellation immediately
         if (token.isCancellationRequested) {
             return [];
         }
-        
+
         const references: vscode.Location[] = [];
         // 使用更精确的单词边界匹配
         const wordRange = document.getWordRangeAtPosition(position, /\b([A-Za-z_][A-Za-z0-9_]*)\b/);
@@ -106,7 +106,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                         component: 'ThriftReferencesProvider',
                         operation: 'findReferencesInFile',
                         filePath: file?.fsPath || 'unknown',
-                        additionalInfo: {symbolName}
+                        additionalInfo: { symbolName }
                     });
                 }
             }
@@ -316,7 +316,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
     }
 
     private findNodeAtPosition(doc: nodes.ThriftDocument, position: vscode.Position): nodes.ThriftNode | undefined {
-        const rangeContains = (range: vscode.Range | {start: vscode.Position; end: vscode.Position} | undefined, pos: vscode.Position): boolean => {
+        const rangeContains = (range: vscode.Range | { start: vscode.Position; end: vscode.Position } | undefined, pos: vscode.Position): boolean => {
             if (!range) {
                 return false;
             }
@@ -406,12 +406,12 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
     }
 
     private async findReferencesInDocument(uri: vscode.Uri, text: string, symbolName: string, originalNamespace: string = '', token?: vscode.CancellationToken): Promise<vscode.Location[]> {
-        
+
         // Check for cancellation immediately
         if (token && token.isCancellationRequested) {
             return [];
         }
-        
+
         const references: vscode.Location[] = [];
 
         // 尝试使用缓存的AST
@@ -422,8 +422,6 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             ast = parser.parse();
 
 
-            // Log the entire AST structure for debugging
-            this.logAST(ast, 0);
         } catch (error) {
             console.error(`[ERROR] Failed to parse AST:`, error);
             return references;
@@ -442,8 +440,10 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             if (node.type === nodes.ThriftNodeType.Function) {
                 if (entering) {
                     currentFunction = node as nodes.ThriftFunction;
-                    const func = node as nodes.ThriftFunction;
-                    // For function nodes, we're not automatically in arguments context
+                    inFunctionArguments = false;
+                    inFunctionThrows = false;
+                    currentArgument = null;
+                    inServiceFunction = true;
                 } else {
                     currentFunction = null;
                     inFunctionArguments = false;
@@ -453,16 +453,28 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                 }
             }
 
-            // Handle argument nodes specifically
+            // Handle argument/throws fields only when they belong to a function
             if (node.type === nodes.ThriftNodeType.Field) {
                 if (entering) {
-                    // Check if this field is part of function arguments (not just any field)
-                    // For now, we'll track all field nodes as potentially being in function arguments
-                    inFunctionArguments = true;
-                    inServiceFunction = true;
-                    currentArgument = node as nodes.Field;
+                    const field = node as nodes.Field;
+                    if (currentFunction && currentFunction.arguments && currentFunction.arguments.includes(field)) {
+                        inFunctionArguments = true;
+                        inFunctionThrows = false;
+                        inServiceFunction = true;
+                        currentArgument = field;
+                    } else if (currentFunction && currentFunction.throws && currentFunction.throws.includes(field)) {
+                        inFunctionArguments = false;
+                        inFunctionThrows = true;
+                        inServiceFunction = true;
+                        currentArgument = field;
+                    } else {
+                        inFunctionArguments = false;
+                        inFunctionThrows = false;
+                        currentArgument = null;
+                    }
                 } else {
                     inFunctionArguments = false;
+                    inFunctionThrows = false;
                     currentArgument = null;
                 }
             }
@@ -694,7 +706,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         const ast = parser.parse();
 
         // 更新缓存
-        this.astCache.set(cacheKey, {ast, timestamp: now});
+        this.astCache.set(cacheKey, { ast, timestamp: now });
 
         return ast;
     }
