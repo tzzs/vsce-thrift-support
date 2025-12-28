@@ -37,7 +37,7 @@ Module.prototype.require = function (id) {
     return originalRequire.call(this, id);
 };
 
-const {ThriftParser} = require('../../../../out/src/ast/parser.js');
+const {ThriftParser} = require('../../../../out/ast/parser.js');
 
 async function testThriftParserStringInput() {
     console.log('Testing ThriftParser with string input...');

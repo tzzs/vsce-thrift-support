@@ -1,4 +1,4 @@
-const { ThriftFormatter } = require('../../../out/src/thriftFormatter');
+const { ThriftFormatter } = require('../../../out/thriftFormatter');
 
 function testStructFormatting() {
     console.log('Testing struct formatting behavior...\n');

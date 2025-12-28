@@ -25,7 +25,7 @@ installVscodeMock(vscode);
 
 
 // Hook require('vscode')
-const {ThriftFormattingProvider} = require('../out/src/formattingProvider.js');
+const {ThriftFormattingProvider} = require('../out/formattingProvider.js');
 
 function resetRequireCache(moduleName) {
     Object.keys(require.cache).forEach((key) => {

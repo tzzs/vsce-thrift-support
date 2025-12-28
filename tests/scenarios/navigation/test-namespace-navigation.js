@@ -68,7 +68,7 @@ installVscodeMock(vscode);
 
 
 // Hook mock into require('vscode')
-const {ThriftDefinitionProvider} = require('../../../out/src/definitionProvider.js');
+const {ThriftDefinitionProvider} = require('../../../out/definitionProvider.js');
 
 async function run() {
     const provider = new ThriftDefinitionProvider();

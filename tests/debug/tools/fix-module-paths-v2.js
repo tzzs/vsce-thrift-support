@@ -46,19 +46,19 @@ function fixModulePath(modulePath) {
     
     let fixedPath = modulePath;
     
-    // 规则1: ../out/ -> ../out/src/
-    if (fixedPath.startsWith('../out/') && !fixedPath.startsWith('../out/src/')) {
-        fixedPath = fixedPath.replace('../out/', '../out/src/');
+    // 规则1: ../out/src/ -> ../out/
+    if (fixedPath.startsWith('../out/src/')) {
+        fixedPath = fixedPath.replace('../out/src/', '../out/');
     }
     
-    // 规则2: ./out/ -> ./out/src/
-    if (fixedPath.startsWith('./out/') && !fixedPath.startsWith('./out/src/')) {
-        fixedPath = fixedPath.replace('./out/', './out/src/');
+    // 规则2: ./out/src/ -> ./out/
+    if (fixedPath.startsWith('./out/src/')) {
+        fixedPath = fixedPath.replace('./out/src/', './out/');
     }
     
     // 规则3: 为没有扩展名的 out 模块添加 .js 扩展名
     if (!fixedPath.endsWith('.js') && !fixedPath.endsWith('.json') && 
-        (fixedPath.includes('../out/src/') || fixedPath.includes('./out/src/'))) {
+        (fixedPath.includes('../out/') || fixedPath.includes('./out/'))) {
         fixedPath += '.js';
     }
     

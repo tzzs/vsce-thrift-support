@@ -49,7 +49,7 @@ installVscodeMock(vscode);
 
 
 // Mock require('vscode') inside formatter
-const {ThriftDocumentFormattingProvider} = require('../../../out/src/formattingProvider.js');
+const {ThriftDocumentFormattingProvider} = require('../../../out/formattingProvider.js');
 
 async function run() {
     console.log('\n=== 运行缩进格式化专项测试 ===');

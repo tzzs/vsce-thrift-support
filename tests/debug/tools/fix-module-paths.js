@@ -2,7 +2,7 @@
 
 /**
  * 批量修复测试文件中的模块路径错误
- * 将 ../out/ 修复为 ../out/src/
+ * 将 ../out/src/ 修复为 ../out/
  * 为缺少扩展名的模块添加 .js 扩展名
  */
 
@@ -32,14 +32,14 @@ const ICONS = {
 function fixModulePath(modulePath) {
     let fixedPath = modulePath;
     
-    // 规则1: ../out/ -> ../out/src/
-    if (fixedPath.startsWith('../out/') && !fixedPath.startsWith('../out/src/')) {
-        fixedPath = fixedPath.replace('../out/', '../out/src/');
+    // 规则1: ../out/src/ -> ../out/
+    if (fixedPath.startsWith('../out/src/')) {
+        fixedPath = fixedPath.replace('../out/src/', '../out/');
     }
     
-    // 规则2: ./out/ -> ./out/src/
-    if (fixedPath.startsWith('./out/') && !fixedPath.startsWith('./out/src/')) {
-        fixedPath = fixedPath.replace('./out/', './out/src/');
+    // 规则2: ./out/src/ -> ./out/
+    if (fixedPath.startsWith('./out/src/')) {
+        fixedPath = fixedPath.replace('./out/src/', './out/');
     }
     
     // 规则3: 为没有扩展名的模块添加 .js 扩展名
@@ -111,9 +111,9 @@ function getTestFilesToFix() {
             const content = fs.readFileSync(filePath, 'utf8');
             
             // 检查是否包含需要修复的路径
-            if (content.includes('../out/') && !content.includes('../out/src/')) {
+            if (content.includes('../out/src/')) {
                 testFiles.push(file);
-            } else if (content.includes('./out/') && !content.includes('./out/src/')) {
+            } else if (content.includes('./out/src/')) {
                 testFiles.push(file);
             } else if (content.match(/require\s*\(\s*['"`]\.[\.\/]+\/out\/[^'"`]+['"`]\s*\)/)) {
                 // 匹配任何需要修复的 out 路径

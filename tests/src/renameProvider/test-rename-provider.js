@@ -1,9 +1,9 @@
 // RenameProvider unit tests with a minimal VSCode mock
 const assert = require('assert');
-const {ThriftRenameProvider} = require('../../../out/src/renameProvider.js');
+const {ThriftRenameProvider} = require('../../../out/renameProvider.js');
 
 // Mock the references provider to return simple results
-const referencesProvider = require('../../../out/src/referencesProvider.js');
+const referencesProvider = require('../../../out/referencesProvider.js');
 const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 const originalThriftReferencesProvider = referencesProvider.ThriftReferencesProvider;
 

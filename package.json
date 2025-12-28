@@ -32,7 +32,7 @@
     "rename",
     "vscode extension"
   ],
-  "main": "./out/src/extension.js",
+  "main": "./out/extension.js",
   "files": [
     "out/**",
     "syntaxes/**",

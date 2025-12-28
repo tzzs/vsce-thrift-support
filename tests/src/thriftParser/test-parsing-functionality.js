@@ -39,7 +39,7 @@ async function run() {
 
     let ThriftParser;
     try {
-        ({ThriftParser} = require('../../../out/src/ast/parser.js'));
+        ({ThriftParser} = require('../../../out/ast/parser.js'));
     } catch (error) {
         throw new Error(`Failed to load AST parser: ${error.message}`);
     }

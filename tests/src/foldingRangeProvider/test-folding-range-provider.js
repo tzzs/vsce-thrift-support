@@ -33,7 +33,7 @@ installVscodeMock(vscode);
 
 
 // Hook require('vscode')
-const {ThriftFoldingRangeProvider} = require('../../../out/src/foldingRangeProvider.js');
+const {ThriftFoldingRangeProvider} = require('../../../out/foldingRangeProvider.js');
 
 function createMockDocument(text, fileName = 'test.thrift') {
     const lines = text.split('\n');

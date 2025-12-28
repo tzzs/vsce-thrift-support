@@ -51,7 +51,7 @@ global.vscode = vscodeMock;
 global.Module = Module;
 global.originalRequire = Module.prototype.require;
 
-// Mock vscode for all tests (out/src 和源码均会 require)
+// Mock vscode for all tests (out 和源码均会 require)
 Module._load = function (request, parent, isMain) {
     if (request === 'vscode') {
         return vscodeMock;

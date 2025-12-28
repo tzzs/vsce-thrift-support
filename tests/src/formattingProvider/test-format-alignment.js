@@ -26,7 +26,7 @@ installVscodeMock(vscode);
 
 
 // Mock require('vscode') inside formatter
-const {ThriftFormatter} = require('../../../out/src/thriftFormatter.js');
+const {ThriftFormatter} = require('../../../out/thriftFormatter.js');
 
 function run() {
     console.log('\n=== 运行对齐格式化专项测试 ===');

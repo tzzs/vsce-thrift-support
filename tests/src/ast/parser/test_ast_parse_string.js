@@ -17,7 +17,7 @@ const vscode = createVscodeMock({
 installVscodeMock(vscode);
 
 
-const {ThriftParser} = require('../../../out/src/ast/parser.js');
+const {ThriftParser} = require('../../../out/ast/parser.js');
 
 const testContent = `
 struct SharedStruct {

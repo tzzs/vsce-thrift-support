@@ -1,6 +1,6 @@
 // Diagnostics unit test: service method throws with namespaced exception
 const assert = require('assert');
-const {analyzeThriftText} = require('../../../out/src/diagnostics.js');
+const {analyzeThriftText} = require('../../../out/diagnostics.js');
 const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 Module.prototype.require = originalRequire;
 

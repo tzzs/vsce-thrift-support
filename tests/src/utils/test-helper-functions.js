@@ -1,7 +1,7 @@
 // Unit tests for helper functions in diagnostics module
 const assert = require('assert');
 // Import the diagnostics module to access helper functions
-const diagnosticsModule = require('../../../out/src/diagnostics.js');
+const diagnosticsModule = require('../../../out/diagnostics.js');
 const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 Module.prototype.require = originalRequire;
 

@@ -88,7 +88,7 @@ Module._load = function(request, parent, isMain) {
 };
 
 // Load extension
-const ext = require('../../../out/src/extension.js');
+const ext = require('../../../out/extension.js');
 
 async function run() {
     const context = {subscriptions: disposables};

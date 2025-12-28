@@ -1,4 +1,4 @@
-const { ThriftParser } = require('../out/src/ast/parser');
+const { ThriftParser } = require('../out/ast/parser');
 
 // Test cases from our debug formatter
 const testCases = [

@@ -58,7 +58,7 @@ Module._load = function (request, parent, isMain) {
     return originalLoad.apply(this, arguments);
 };
 
-const {ThriftFormattingProvider} = require(path.resolve(__dirname, '../out/src/formattingProvider.js'));
+const {ThriftFormattingProvider} = require(path.resolve(__dirname, '../out/formattingProvider.js'));
 
 function run() {
     const filePath = path.resolve(__dirname, '../test-files/example.thrift');

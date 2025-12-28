@@ -23,7 +23,7 @@ const vscode = createVscodeMock({
 installVscodeMock(vscode);
 
 
-const formatter_module = require('../../../out/src/formattingProvider.js');
+const formatter_module = require('../../../out/formattingProvider.js');
 const {ThriftFormattingProvider} = formatter_module;
 
 async function runUserScenario() {

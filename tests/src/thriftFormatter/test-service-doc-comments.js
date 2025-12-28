@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Import the formatter
-const {ThriftFormatter} = require('../../../out/src/thriftFormatter.js');
+const {ThriftFormatter} = require('../../../out/thriftFormatter.js');
 
 /**
  * 专门测试服务中文档注释的缩进

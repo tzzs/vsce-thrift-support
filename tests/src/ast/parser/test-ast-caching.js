@@ -1,7 +1,7 @@
 // AST缓存机制测试
 const assert = require('assert');
 // 导入AST解析器
-const {ThriftParser} = require('../../../../out/src/ast/parser.js');
+const {ThriftParser} = require('../../../../out/ast/parser.js');
 const {createVscodeMock, installVscodeMock} = require('../../../mock_vscode.js');
 
 Module.prototype.require = originalRequire;

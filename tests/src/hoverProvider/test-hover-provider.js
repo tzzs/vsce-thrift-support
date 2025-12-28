@@ -91,7 +91,7 @@ Module.prototype.require = function(id) {
 };
 
 // Load the hover provider with fresh mock
-const { ThriftHoverProvider } = require('../../../out/src/hoverProvider.js');
+const { ThriftHoverProvider } = require('../../../out/hoverProvider.js');
 
 function createMockDocument(text, fileName = 'test.thrift') {
     const lines = text.split('\n');

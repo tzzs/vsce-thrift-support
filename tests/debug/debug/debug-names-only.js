@@ -40,7 +40,7 @@ installVscodeMock(vscode);
 
 
 // Mock Module to load our formatter
-const { ThriftFormatter } = require('../out/src/thriftFormatter');
+const { ThriftFormatter } = require('../out/thriftFormatter');
 
 // 创建格式化器
 const formatter = new ThriftFormatter();

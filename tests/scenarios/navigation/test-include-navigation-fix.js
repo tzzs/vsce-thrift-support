@@ -166,7 +166,7 @@ Module.prototype.require = function (id) {
 };
 
 // Import the definition provider
-const {ThriftDefinitionProvider} = require('../../../out/src/definitionProvider.js');
+const {ThriftDefinitionProvider} = require('../../../out/definitionProvider.js');
 
 // Test cases
 async function testIncludeNavigation() {
@@ -215,7 +215,7 @@ function testFormatting() {
     console.log('\nTesting formatting...');
 
     try {
-        const {ThriftFormattingProvider} = require('../../../out/src/formattingProvider.js');
+        const {ThriftFormattingProvider} = require('../../../out/formattingProvider.js');
         const formatter = new ThriftFormattingProvider();
 
         const testCode = `struct TestStruct {

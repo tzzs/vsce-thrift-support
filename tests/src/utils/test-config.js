@@ -94,7 +94,7 @@ global.vscode = vscode;
 
 // Override Module._load to intercept vscode requires
 // Load the formatting provider
-const { ThriftFormattingProvider } = require('../../../out/src/formattingProvider');
+const { ThriftFormattingProvider } = require('../../../out/formattingProvider');
 
 async function testConfig() {
     const fs = require('fs');

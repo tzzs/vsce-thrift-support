@@ -47,7 +47,7 @@ installVscodeMock(vscode);
 
 
 // Mock require('vscode') inside formatter
-const {ThriftFormattingProvider} = require('../out/src/formattingProvider.js');
+const {ThriftFormattingProvider} = require('../out/formattingProvider.js');
 
 async function debugFormat() {
     const input = `struct User{1:i32 id;2:string name;}`;
