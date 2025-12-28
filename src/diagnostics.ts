@@ -299,7 +299,8 @@ function parseFieldSignature(codeLine: string): {
     return {id, typeText: typeBuf.trim(), name, typeStart, typeEnd};
 }
 
-function isKnownType(typeName: string, definedTypes: Set<string>): boolean {
+// isKnownType checks if a type name is known 
+function isKnownType(typeName: string, definedTypes: Set<string>, includeAliases: Set<string>): boolean {
     if (!typeName) {
         return false;
     }
@@ -310,13 +311,19 @@ function isKnownType(typeName: string, definedTypes: Set<string>): boolean {
     if (definedTypes.has(t)) {
         return true;
     }
-    if (/^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/.test(t)) {
-        return true;
-    } // namespace.Type
+    const namespaced = t.match(/^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/);
+    if (namespaced) {
+        const alias = namespaced[1];
+        const base = namespaced[2];
+        if (!includeAliases.has(alias)) {
+            return false;
+        }
+        return PRIMITIVES.has(base) || definedTypes.has(base);
+    }
     if (parseContainerType(t)) {
         const inner = t.slice(t.indexOf('<') + 1, t.lastIndexOf('>'));
         const parts = splitTopLevelAngles(inner);
-        return parts.every(p => isKnownType(p, definedTypes));
+        return parts.every(p => isKnownType(p, definedTypes, includeAliases));
     }
     return false;
 }
@@ -597,6 +604,22 @@ async function getIncludedFiles(document: vscode.TextDocument): Promise<vscode.U
     return includedFiles;
 }
 
+function parseIncludeAliases(lines: string[]): Set<string> {
+    const aliases = new Set<string>();
+    for (const rawLine of lines) {
+        const trimmedLine = rawLine.trim();
+        const includeMatch = trimmedLine.match(/^include\s+["']([^"']+)["']/);
+        if (includeMatch) {
+            const includePath = includeMatch[1];
+            const fileName = path.basename(includePath, '.thrift');
+            if (fileName) {
+                aliases.add(fileName);
+            }
+        }
+    }
+    return aliases;
+}
+
 // 包含文件类型缓存 - 避免重复分析相同文件
 const includeTypesCache = new Map<string, Map<string, string>>();
 const includeFileTimestamps = new Map<string, number>();
@@ -716,6 +739,8 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
         codeLines.push(stripCommentsFromLine(raw, state));
     }
 
+    const includeAliases = parseIncludeAliases(codeLines);
+
     // Gather defined types in this file (from comment-stripped code) and type kind map
     const typeKind = new Map<string, string>(); // name -> kind
     const typedefDefRe = /^(\s*)typedef\s+([^\s;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/;
@@ -757,8 +782,10 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
 
         // Handle namespaced types (e.g., shared.SharedService)
         if (!parentKind && parentName.includes('.')) {
-            const baseName = parentName.split('.').pop();
-            if (baseName) {
+            const [alias, baseName] = parentName.split('.');
+            if (alias && !includeAliases.has(alias)) {
+                parentKind = undefined;
+            } else if (baseName) {
                 parentKind = typeKind.get(baseName);
                 parentName = baseName;
             }
@@ -925,7 +952,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
                 }
 
                 // Validate type known-ness (including containers)
-                if (!isKnownType(typeText, definedTypes)) {
+                if (!isKnownType(typeText, definedTypes, includeAliases)) {
                     issues.push({
                         message: `Unknown type '${typeText}'`,
                         range: new vscode.Range(lineNo, typeStart, lineNo, typeEnd),
@@ -955,7 +982,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
         if (mTypedef) {
             const baseType = mTypedef[2].trim();
             // The base type itself must be known (resolve containers recursively)
-            if (!isKnownType(baseType, definedTypes) && !PRIMITIVES.has(baseType)) {
+            if (!isKnownType(baseType, definedTypes, includeAliases) && !PRIMITIVES.has(baseType)) {
                 // compute base type range within the line: after 'typedef' keyword and spaces
                 const afterTypedef = line.indexOf('typedef') + 'typedef'.length;
                 let baseStart = afterTypedef;
