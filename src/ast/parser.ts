@@ -257,8 +257,9 @@ export class ThriftParser {
                     name: fieldMatch[4]
                 };
 
-                // Check for default value
-                const defaultValueMatch = codeOnly.match(/=\s*([^,;]+)/);
+                // Check for default value (ignore trailing annotations)
+                const valueTarget = this.stripTrailingAnnotation(codeOnly.replace(/[,;]\s*$/, ''));
+                const defaultValueMatch = valueTarget.match(/=\s*([^,;]+)/);
                 if (defaultValueMatch) {
                     field.defaultValue = defaultValueMatch[1].trim();
                 }
@@ -425,7 +426,7 @@ export class ThriftParser {
                         if (parenCount === 0) {
                             // Look for throws clause or end of declaration
                             let j = i + 1;
-                            while (j < line.length && /\s/.test(line[j])) {j++;} // Skip whitespace
+                            while (j < line.length && /\s/.test(line[j])) { j++; } // Skip whitespace
 
                             // Check if there's a throws clause
                             if (line.substring(j, j + 6) === 'throws') {
@@ -445,7 +446,7 @@ export class ThriftParser {
                             }
 
                             // Find the end of the declaration
-                            while (j < line.length && /\s/.test(line[j])) {j++;} // Skip whitespace
+                            while (j < line.length && /\s/.test(line[j])) { j++; } // Skip whitespace
                             if (j < line.length && (line[j] === ',' || line[j] === ';' || line[j] === '{')) {
                                 funcEndChar = j + 1;
                                 foundEnd = true;
@@ -469,7 +470,7 @@ export class ThriftParser {
                                 if (parenCount === 0) {
                                     // Look for throws clause or end of declaration
                                     let j = i + 1;
-                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) {j++;} // Skip whitespace
+                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) { j++; } // Skip whitespace
 
                                     // Check if there's a throws clause
                                     if (searchLineText.substring(j, j + 6) === 'throws') {
@@ -489,7 +490,7 @@ export class ThriftParser {
                                     }
 
                                     // Find the end of the declaration
-                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) {j++;} // Skip whitespace
+                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) { j++; } // Skip whitespace
                                     if (j < searchLineText.length && (searchLineText[j] === ',' || searchLineText[j] === ';' || searchLineText[j] === '{')) {
                                         funcEndLine = searchLine;
                                         funcEndChar = j + 1;
@@ -546,7 +547,7 @@ export class ThriftParser {
         return this.currentLine;
     }
 
-    private parseConstSignature(trimmedLine: string): {valueType: string; name: string} | null {
+    private parseConstSignature(trimmedLine: string): { valueType: string; name: string } | null {
         const headerRe = /^const\s+/;
         const m = headerRe.exec(trimmedLine);
         if (!m) {
@@ -562,10 +563,10 @@ export class ThriftParser {
         }
         while (i < n) {
             const ch = trimmedLine[i];
-            if (ch === '<') {angle++;}
-            if (ch === '>') {angle = Math.max(0, angle - 1);}
-            if (ch === '(') {paren++;}
-            if (ch === ')') {paren = Math.max(0, paren - 1);}
+            if (ch === '<') { angle++; }
+            if (ch === '>') { angle = Math.max(0, angle - 1); }
+            if (ch === '(') { paren++; }
+            if (ch === ')') { paren = Math.max(0, paren - 1); }
             if (angle === 0 && paren === 0 && /\s/.test(ch)) {
                 break;
             }
@@ -579,7 +580,7 @@ export class ThriftParser {
         if (!nameMatch) {
             return null;
         }
-        return {valueType: typeBuf.trim(), name: nameMatch[1]};
+        return { valueType: typeBuf.trim(), name: nameMatch[1] };
     }
 
     private stripLineComments(line: string): string {
@@ -634,8 +635,71 @@ export class ThriftParser {
         return out;
     }
 
-    private splitTopLevelCommasWithOffsets(text: string): Array<{text: string; start: number}> {
-        const parts: Array<{text: string; start: number}> = [];
+    /**
+     * 处理行尾的注解
+     * @param line 行内容
+     * @returns 去除注解后的行内容
+     */
+    private stripTrailingAnnotation(line: string): string {
+        let trimmed = line.trimEnd();
+        if (!trimmed.endsWith(')')) {
+            return line;
+        }
+        let inS = false;
+        let inD = false;
+        let escaped = false;
+        let depth = 0;
+        for (let i = trimmed.length - 1; i >= 0; i--) {
+            const ch = trimmed[i];
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (ch === '\\') {
+                escaped = true;
+                continue;
+            }
+            if (inS) {
+                if (ch === '\'') {
+                    inS = false;
+                }
+                continue;
+            }
+            if (inD) {
+                if (ch === '"') {
+                    inD = false;
+                }
+                continue;
+            }
+            if (ch === '\'') {
+                inS = true;
+                continue;
+            }
+            if (ch === '"') {
+                inD = true;
+                continue;
+            }
+            if (ch === ')') {
+                depth++;
+                continue;
+            }
+            if (ch === '(') {
+                depth--;
+                if (depth === 0) {
+                    return trimmed.slice(0, i).trimEnd();
+                }
+            }
+        }
+        return line;
+    }
+
+    /**
+     * 分割顶层逗号并保留偏移量
+     * @param text 输入文本
+     * @returns 分割后的文本片段及其起始偏移量数组
+     */
+    private splitTopLevelCommasWithOffsets(text: string): Array<{ text: string; start: number }> {
+        const parts: Array<{ text: string; start: number }> = [];
         let start = 0;
         let depthAngle = 0;
         let depthBracket = 0;
@@ -676,21 +740,21 @@ export class ThriftParser {
                 inD = true;
                 continue;
             }
-            if (ch === '<') {depthAngle++;}
-            if (ch === '>') {depthAngle = Math.max(0, depthAngle - 1);}
-            if (ch === '[') {depthBracket++;}
-            if (ch === ']') {depthBracket = Math.max(0, depthBracket - 1);}
-            if (ch === '{') {depthBrace++;}
-            if (ch === '}') {depthBrace = Math.max(0, depthBrace - 1);}
-            if (ch === '(') {depthParen++;}
-            if (ch === ')') {depthParen = Math.max(0, depthParen - 1);}
+            if (ch === '<') { depthAngle++; }
+            if (ch === '>') { depthAngle = Math.max(0, depthAngle - 1); }
+            if (ch === '[') { depthBracket++; }
+            if (ch === ']') { depthBracket = Math.max(0, depthBracket - 1); }
+            if (ch === '{') { depthBrace++; }
+            if (ch === '}') { depthBrace = Math.max(0, depthBrace - 1); }
+            if (ch === '(') { depthParen++; }
+            if (ch === ')') { depthParen = Math.max(0, depthParen - 1); }
 
             if (ch === ',' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
                 const raw = text.slice(start, i);
                 const leading = raw.match(/^\s*/)?.[0].length ?? 0;
                 const trimmed = raw.trim();
                 if (trimmed) {
-                    parts.push({text: trimmed, start: start + leading});
+                    parts.push({ text: trimmed, start: start + leading });
                 }
                 start = i + 1;
             }
@@ -699,12 +763,12 @@ export class ThriftParser {
         const leading = tail.match(/^\s*/)?.[0].length ?? 0;
         const trimmed = tail.trim();
         if (trimmed) {
-            parts.push({text: trimmed, start: start + leading});
+            parts.push({ text: trimmed, start: start + leading });
         }
         return parts;
     }
 
-    private offsetToPosition(text: string, baseLine: number, baseChar: number, offset: number): {line: number; char: number} {
+    private offsetToPosition(text: string, baseLine: number, baseChar: number, offset: number): { line: number; char: number } {
         let line = baseLine;
         let char = baseChar;
         for (let i = 0; i < offset && i < text.length; i++) {
@@ -715,7 +779,7 @@ export class ThriftParser {
                 char++;
             }
         }
-        return {line, char};
+        return { line, char };
     }
 
     private parseFieldList(text: string, baseLine: number, baseChar: number): nodes.Field[] {
@@ -746,7 +810,7 @@ export class ThriftParser {
         return fields;
     }
 
-    private readParenthesizedText(startLine: number, startChar: number): {text: string; endLine: number; endChar: number} | null {
+    private readParenthesizedText(startLine: number, startChar: number): { text: string; endLine: number; endChar: number } | null {
         let line = startLine;
         let char = startChar;
         let depth = 1;
@@ -762,7 +826,7 @@ export class ThriftParser {
                 } else if (c === ')') {
                     depth--;
                     if (depth === 0) {
-                        return {text, endLine: line, endChar: char};
+                        return { text, endLine: line, endChar: char };
                     }
                     text += c;
                 } else {
@@ -779,7 +843,7 @@ export class ThriftParser {
         return null;
     }
 
-    private findThrowsStartInRange(startLine: number, startChar: number, endLine: number, endChar: number): {line: number; char: number} | null {
+    private findThrowsStartInRange(startLine: number, startChar: number, endLine: number, endChar: number): { line: number; char: number } | null {
         let seenThrows = false;
         for (let line = startLine; line < this.lines.length; line++) {
             if (line > endLine) {
@@ -795,13 +859,13 @@ export class ThriftParser {
                     seenThrows = true;
                     const parenIdx = segment.indexOf('(', idx + 'throws'.length);
                     if (parenIdx !== -1) {
-                        return {line, char: searchStart + parenIdx};
+                        return { line, char: searchStart + parenIdx };
                     }
                 }
             } else {
                 const parenIdx = segment.indexOf('(');
                 if (parenIdx !== -1) {
-                    return {line, char: searchStart + parenIdx};
+                    return { line, char: searchStart + parenIdx };
                 }
             }
         }
@@ -860,12 +924,12 @@ export class ThriftParser {
                 if (!seenEquals) {
                     continue;
                 }
-                if (ch === '{') {depthBrace++;}
-                if (ch === '}') {depthBrace = Math.max(0, depthBrace - 1);}
-                if (ch === '[') {depthBracket++;}
-                if (ch === ']') {depthBracket = Math.max(0, depthBracket - 1);}
-                if (ch === '(') {depthParen++;}
-                if (ch === ')') {depthParen = Math.max(0, depthParen - 1);}
+                if (ch === '{') { depthBrace++; }
+                if (ch === '}') { depthBrace = Math.max(0, depthBrace - 1); }
+                if (ch === '[') { depthBracket++; }
+                if (ch === ']') { depthBracket = Math.max(0, depthBracket - 1); }
+                if (ch === '(') { depthParen++; }
+                if (ch === ')') { depthParen = Math.max(0, depthParen - 1); }
             }
 
             if (seenEquals && depthBrace === 0 && depthBracket === 0 && depthParen === 0) {
