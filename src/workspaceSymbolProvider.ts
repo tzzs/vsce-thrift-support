@@ -4,11 +4,12 @@ import {ThriftFileWatcher} from '../utils/fileWatcher';
 import {CacheManager} from '../utils/cacheManager';
 import {ErrorHandler} from '../utils/errorHandler';
 import {readThriftFile} from '../utils/fileReader';
+import {ThriftParser} from './ast/parser';
+import * as nodes from './ast/nodes';
 
 export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvider {
     private cacheManager = CacheManager.getInstance();
     private fileWatcher: vscode.FileSystemWatcher | undefined;
-    private isScanning: boolean = false;
     private workspaceFileList: string[] = [];
     private lastFileListUpdate: number = 0;
     private readonly FILE_LIST_UPDATE_INTERVAL = 30000; // 30秒更新文件列表
@@ -132,209 +133,120 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
         console.log(`[WorkspaceSymbolProvider] Parsing symbols for: ${path.basename(uri.fsPath)}`);
 
         const text = await readThriftFile(uri);
-
-        const symbols = this.parseSymbolsFromText(text, uri);
+        const ast = ThriftParser.parseContentWithCache(uri.toString(), text);
+        const symbols = this.parseSymbolsFromAst(ast, uri);
 
         // 缓存结果
         this.cacheManager.set('fileSymbols', cacheKey, symbols);
         return symbols;
     }
 
-    private parseSymbolsFromText(text: string, uri: vscode.Uri): vscode.SymbolInformation[] {
+    private parseSymbolsFromAst(ast: nodes.ThriftDocument, uri: vscode.Uri): vscode.SymbolInformation[] {
         const symbols: vscode.SymbolInformation[] = [];
-        const lines = text.split('\n');
-
-        let inBlock = false;
-        let currentType = '';
-        let currentTypeName = '';
-        let braceDepth = 0;
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const trimmed = line.trim();
-
-            // Skip empty lines and comments
-            if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*')) {
-                continue;
-            }
-
-            // Track brace depth
-            if (trimmed.includes('{')) {
-                braceDepth++;
-                inBlock = true;
-            }
-            if (trimmed.includes('}')) {
-                braceDepth--;
-                if (braceDepth === 0) {
-                    inBlock = false;
-                    currentType = '';
-                    currentTypeName = '';
-                }
-            }
-
-            // Parse type definitions
-            const typedefMatch = trimmed.match(/^typedef\s+([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)/);
-            const typeDefMatch = trimmed.match(/^(struct|union|exception|enum|senum|service)\s+([A-Za-z_][A-Za-z0-9_]*)/);
-            const constMatch = trimmed.match(/^const\s+([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)/);
-
-            if (typedefMatch) {
-                const typedefType = typedefMatch[1];
-                const typedefName = typedefMatch[2];
-                const symbol = new vscode.SymbolInformation(
-                    typedefName,
-                    vscode.SymbolKind.TypeParameter,
-                    '', // containerName
-                    new vscode.Location(uri, new vscode.Range(i, 0, i, line.length))
-                );
-                symbols.push(symbol);
-                continue;
-            }
-
-            if (constMatch) {
-                const constType = constMatch[1];
-                const constName = constMatch[2];
-                const symbol = new vscode.SymbolInformation(
-                    constName,
-                    vscode.SymbolKind.Constant,
-                    '', // containerName
-                    new vscode.Location(uri, new vscode.Range(i, 0, i, line.length))
-                );
-                symbols.push(symbol);
-                continue;
-            }
-
-            if (typeDefMatch) {
-                const type = typeDefMatch[1];
-                const name = typeDefMatch[2];
-                const kind = this.getSymbolKind(type);
-
-                const symbol = new vscode.SymbolInformation(
-                    name,
-                    kind,
-                    '', // containerName
-                    new vscode.Location(uri, new vscode.Range(i, 0, i, line.length))
-                );
-
-                symbols.push(symbol);
-
-                if (['struct', 'union', 'exception', 'enum', 'senum', 'service'].includes(type)) {
-                    currentType = type;
-                    currentTypeName = name;
-                }
-                continue;
-            }
-
-            // Parse namespace
-            const namespaceMatch = trimmed.match(/^namespace\s+([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)/);
-            if (namespaceMatch) {
-                const language = namespaceMatch[1];
-                const namespace = namespaceMatch[2];
-                const symbol = new vscode.SymbolInformation(
-                    `namespace ${language}`,
+        for (const node of ast.body) {
+            if (node.type === nodes.ThriftNodeType.Namespace) {
+                symbols.push(new vscode.SymbolInformation(
+                    `namespace ${node.scope}`,
                     vscode.SymbolKind.Namespace,
                     '',
-                    new vscode.Location(uri, new vscode.Range(i, 0, i, line.length))
-                );
-                symbols.push(symbol);
+                    new vscode.Location(uri, node.range)
+                ));
                 continue;
             }
-
-            // Parse include
-            const includeMatch = trimmed.match(/^include\s+["']([^"']+)["']/);
-            if (includeMatch) {
-                const fileName = includeMatch[1];
-                const symbol = new vscode.SymbolInformation(
-                    `include ${fileName}`,
+            if (node.type === nodes.ThriftNodeType.Include) {
+                symbols.push(new vscode.SymbolInformation(
+                    `include ${node.path}`,
                     vscode.SymbolKind.File,
                     '',
-                    new vscode.Location(uri, new vscode.Range(i, 0, i, line.length))
-                );
-                symbols.push(symbol);
+                    new vscode.Location(uri, node.range)
+                ));
                 continue;
             }
+            if (node.type === nodes.ThriftNodeType.Const) {
+                symbols.push(new vscode.SymbolInformation(
+                    node.name || '',
+                    vscode.SymbolKind.Constant,
+                    '',
+                    new vscode.Location(uri, node.range)
+                ));
+                continue;
+            }
+            if (node.type === nodes.ThriftNodeType.Typedef) {
+                symbols.push(new vscode.SymbolInformation(
+                    node.name || '',
+                    vscode.SymbolKind.TypeParameter,
+                    '',
+                    new vscode.Location(uri, node.range)
+                ));
+                continue;
+            }
+            if (node.type === nodes.ThriftNodeType.Struct ||
+                node.type === nodes.ThriftNodeType.Union ||
+                node.type === nodes.ThriftNodeType.Exception ||
+                node.type === nodes.ThriftNodeType.Enum ||
+                node.type === nodes.ThriftNodeType.Service) {
+                const kind = this.getSymbolKind(node.type);
+                symbols.push(new vscode.SymbolInformation(
+                    node.name || '',
+                    kind,
+                    '',
+                    new vscode.Location(uri, node.range)
+                ));
+            }
 
-            // Parse child symbols if we're in a block
-            if (inBlock && currentType) {
-                const childSymbols = this.parseChildSymbols(line, i, currentType, currentTypeName, uri);
-                symbols.push(...childSymbols);
+            if (node.type === nodes.ThriftNodeType.Struct ||
+                node.type === nodes.ThriftNodeType.Union ||
+                node.type === nodes.ThriftNodeType.Exception) {
+                for (const field of node.fields) {
+                    symbols.push(new vscode.SymbolInformation(
+                        field.name || '',
+                        vscode.SymbolKind.Field,
+                        node.name || '',
+                        new vscode.Location(uri, field.range)
+                    ));
+                }
+            }
+
+            if (node.type === nodes.ThriftNodeType.Enum) {
+                for (const member of node.members) {
+                    symbols.push(new vscode.SymbolInformation(
+                        member.name || '',
+                        vscode.SymbolKind.EnumMember,
+                        node.name || '',
+                        new vscode.Location(uri, member.range)
+                    ));
+                }
+            }
+
+            if (node.type === nodes.ThriftNodeType.Service) {
+                for (const fn of node.functions) {
+                    symbols.push(new vscode.SymbolInformation(
+                        fn.name || '',
+                        vscode.SymbolKind.Method,
+                        node.name || '',
+                        new vscode.Location(uri, fn.range)
+                    ));
+                }
             }
         }
 
         return symbols;
     }
 
-    private parseChildSymbols(line: string, lineNumber: number, parentType: string, parentName: string, uri: vscode.Uri): vscode.SymbolInformation[] {
-        const symbols: vscode.SymbolInformation[] = [];
-
-        if (parentType === 'struct' || parentType === 'union' || parentType === 'exception') {
-            // Parse field: 1: required string name,
-            const fieldMatch = line.match(/^(\s*)(\d+)\s*:\s*(?:required|optional)?\s*([^\s,]+(?:\s*<[^>]+>\s*)?)\s+([A-Za-z_][A-Za-z0-9_]*)/);
-            if (fieldMatch) {
-                const fieldId = fieldMatch[2];
-                const fieldType = fieldMatch[3];
-                const fieldName = fieldMatch[4];
-
-                const symbol = new vscode.SymbolInformation(
-                    fieldName,
-                    vscode.SymbolKind.Field,
-                    parentName,
-                    new vscode.Location(uri, new vscode.Range(lineNumber, 0, lineNumber, line.length))
-                );
-
-                symbols.push(symbol);
-            }
-        } else if (parentType === 'enum' || parentType === 'senum') {
-            // Parse enum value: VALUE = 1,
-            const enumMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_]*)\s*(?:=\s*([^,;]+))?[,;]?/);
-            if (enumMatch && !line.includes('}')) {
-                const valueName = enumMatch[2];
-
-                const symbol = new vscode.SymbolInformation(
-                    valueName,
-                    vscode.SymbolKind.EnumMember,
-                    parentName,
-                    new vscode.Location(uri, new vscode.Range(lineNumber, 0, lineNumber, line.length))
-                );
-
-                symbols.push(symbol);
-            }
-        } else if (parentType === 'service') {
-            // Parse service method: ReturnType methodName(1: ParamType param),
-            const methodMatch = line.match(/^(\s*)(oneway\s+)?([A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]+>\s*)?)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(/);
-            if (methodMatch) {
-                const methodName = methodMatch[4];
-
-                const symbol = new vscode.SymbolInformation(
-                    methodName,
-                    vscode.SymbolKind.Method,
-                    parentName,
-                    new vscode.Location(uri, new vscode.Range(lineNumber, 0, lineNumber, line.length))
-                );
-
-                symbols.push(symbol);
-            }
-        }
-
-        return symbols;
-    }
-
-    private getSymbolKind(type: string): vscode.SymbolKind {
+    private getSymbolKind(type: nodes.ThriftNodeType): vscode.SymbolKind {
         switch (type) {
-            case 'struct':
+            case nodes.ThriftNodeType.Struct:
+            case nodes.ThriftNodeType.Union:
                 return vscode.SymbolKind.Struct;
-            case 'union':
-                return vscode.SymbolKind.Struct;
-            case 'exception':
+            case nodes.ThriftNodeType.Exception:
                 return vscode.SymbolKind.Class;
-            case 'enum':
+            case nodes.ThriftNodeType.Enum:
                 return vscode.SymbolKind.Enum;
-            case 'senum':
-                return vscode.SymbolKind.Enum;
-            case 'service':
+            case nodes.ThriftNodeType.Service:
                 return vscode.SymbolKind.Interface;
-            case 'typedef':
+            case nodes.ThriftNodeType.Typedef:
                 return vscode.SymbolKind.TypeParameter;
-            case 'const':
+            case nodes.ThriftNodeType.Const:
                 return vscode.SymbolKind.Constant;
             default:
                 return vscode.SymbolKind.Variable;

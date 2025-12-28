@@ -71,8 +71,6 @@ export class PerformanceMonitor {
         const recentMetrics = this.metrics.slice(-20); // 最近20条记录
         const avgDuration = recentMetrics.reduce((sum, m) => sum + m.duration, 0) / recentMetrics.length;
         const maxDuration = Math.max(...recentMetrics.map(m => m.duration));
-        const minDuration = Math.min(...recentMetrics.map(m => m.duration));
-
         const slowOperations = recentMetrics.filter(m => m.duration > this.slowOperationThreshold);
 
         let report = `## Thrift Support 性能报告\n\n`;

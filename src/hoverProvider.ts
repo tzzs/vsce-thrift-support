@@ -3,6 +3,8 @@ import {ThriftDefinitionProvider} from './definitionProvider';
 import * as path from 'path';
 import {CacheManager} from '../utils/cacheManager';
 import {readThriftFile} from '../utils/fileReader';
+import {ThriftParser} from './ast/parser';
+import {collectIncludes} from './ast/utils';
 import {ErrorHandler} from '../utils/errorHandler';
 
 export class ThriftHoverProvider implements vscode.HoverProvider {
@@ -143,28 +145,23 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             return cached;
         }
 
-        const text = document.getText();
-        const lines = text.split('\n');
+        const ast = ThriftParser.parseWithCache(document);
         const includedFiles: vscode.Uri[] = [];
         const documentDir = path.dirname(document.uri.fsPath);
 
-        for (const line of lines) {
-            const trimmedLine = line.trim();
-            const includeMatch = trimmedLine.match(/^include\s+["']([^"']+)["']/);
-            if (includeMatch) {
-                const includePath = includeMatch[1];
-                let fullPath: string;
-                if (path.isAbsolute(includePath)) {
-                    fullPath = includePath;
-                } else {
-                    fullPath = path.resolve(documentDir, includePath);
-                }
-                try {
-                    const uri = vscode.Uri.file(fullPath);
-                    includedFiles.push(uri);
-                } catch {
-                    // ignore invalid include
-                }
+        for (const includeNode of collectIncludes(ast)) {
+            const includePath = includeNode.path;
+            let fullPath: string;
+            if (path.isAbsolute(includePath)) {
+                fullPath = includePath;
+            } else {
+                fullPath = path.resolve(documentDir, includePath);
+            }
+            try {
+                const uri = vscode.Uri.file(fullPath);
+                includedFiles.push(uri);
+            } catch {
+                // ignore invalid include
             }
         }
 

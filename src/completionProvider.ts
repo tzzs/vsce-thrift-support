@@ -1,9 +1,13 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import {ThriftParser} from './ast/parser';
+import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes';
-import {ErrorHandler} from '../utils/errorHandler';
+import { ErrorHandler } from '../utils/errorHandler';
 
+/**
+ * ThriftCompletionProvider
+ * 提供 Thrift 语言的代码补全功能
+ */
 export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
     // 错误处理器
     private errorHandler = ErrorHandler.getInstance();
@@ -25,7 +29,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         document: vscode.TextDocument,
         position: vscode.Position,
         token: vscode.CancellationToken,
-        context: vscode.CompletionContext
+        _context: vscode.CompletionContext
     ): Promise<vscode.CompletionItem[] | vscode.CompletionList> {
         const thriftDoc = ThriftParser.parseWithCache(document);
         if (token.isCancellationRequested) {
@@ -34,10 +38,6 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         const completions: vscode.CompletionItem[] = [];
 
         // Determine context using AST
-        const offset = document.offsetAt(position);
-        const node = this.findNodeAtOffset(thriftDoc, position); // parser ranges are line-based mostly now, refine if needed.
-        // Actually, our parser tracks line ranges. Let's use the line to find the block we are in.
-
         const line = document.lineAt(position.line).text;
         const beforeCursor = line.substring(0, position.character);
 
@@ -66,7 +66,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         }
 
         // Collect available types and values from AST
-        const {types, values} = this.collectTypesAndValues(thriftDoc);
+        const { types, values } = this.collectTypesAndValues(thriftDoc);
 
         // 3. Inside a block (struct, enum, service)
         const blockNode = this.findBlockNode(thriftDoc, position.line);
@@ -141,27 +141,6 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         return undefined;
     }
 
-    private findNodeAtOffset(doc: nodes.ThriftDocument, position: vscode.Position): nodes.ThriftNode | undefined {
-        // Find the deepest node that contains the position
-        function findDeepestNode(nodesArray: nodes.ThriftNode[]): nodes.ThriftNode | undefined {
-            for (const node of nodesArray) {
-                if (node.range.contains(position)) {
-                    // Check children first
-                    if (node.children) {
-                        const childResult = findDeepestNode(node.children);
-                        if (childResult) {
-                            return childResult;
-                        }
-                    }
-                    return node;
-                }
-            }
-            return undefined;
-        }
-
-        return findDeepestNode(doc.body);
-    }
-
     private collectTypesAndValues(doc: nodes.ThriftDocument) {
         const types: string[] = [];
         const values: string[] = [];
@@ -187,7 +166,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
                 });
             }
         }
-        return {types, values};
+        return { types, values };
     }
 
     private addTypeCompletions(completions: vscode.CompletionItem[], userTypes: string[]) {
@@ -238,7 +217,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
             return false;
         }
 
-        const [, typeName, fieldName] = assignmentMatch;
+        const [, typeName] = assignmentMatch;
 
         // Check if the type is an enum in the document
         for (const node of doc.body) {
@@ -292,7 +271,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
                 component: 'ThriftCompletionProvider',
                 operation: 'provideIncludePathCompletions',
                 filePath: document.uri.fsPath,
-                additionalInfo: {prefix}
+                additionalInfo: { prefix }
             });
         }
 

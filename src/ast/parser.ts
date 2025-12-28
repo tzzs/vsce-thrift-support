@@ -215,8 +215,6 @@ export class ThriftParser {
 
     private parseStructBody(parent: nodes.Struct): number {
         let braceCount = 0;
-        const startLine = this.currentLine;
-
         // Find opening brace
         while (this.currentLine < this.lines.length) {
             const line = this.lines[this.currentLine];
@@ -294,8 +292,6 @@ export class ThriftParser {
 
     private parseEnumBody(parent: nodes.Enum): number {
         let braceCount = 0;
-        const startLine = this.currentLine;
-
         // Find opening brace
         while (this.currentLine < this.lines.length) {
             const line = this.lines[this.currentLine];
@@ -364,8 +360,6 @@ export class ThriftParser {
 
     private parseServiceBody(parent: nodes.Service): number {
         let braceCount = 0;
-        const startLine = this.currentLine;
-
         // Find opening brace
         while (this.currentLine < this.lines.length) {
             const line = this.lines[this.currentLine];

@@ -5,6 +5,8 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import {ThriftParser} from './ast/parser';
+import {collectIncludes} from './ast/utils';
 
 export class ScanningAnalyzer {
     private static instance: ScanningAnalyzer;
@@ -104,15 +106,16 @@ export class ScanningAnalyzer {
 
         // 检查文件内容
         const content = document.getText();
-        const includeMatches = content.match(/^\s*include\s+["\'][^"\']+["\']/gm) || [];
+        const ast = ThriftParser.parseWithCache(document);
+        const includeNodes = collectIncludes(ast);
 
         console.log(`  - 文件大小: ${content.length} 字符`);
-        console.log(`  - include 语句数量: ${includeMatches.length}`);
+        console.log(`  - include 语句数量: ${includeNodes.length}`);
 
-        if (includeMatches.length > 0) {
+        if (includeNodes.length > 0) {
             console.log('  - 发现的 include 文件:');
-            includeMatches.forEach(include => {
-                console.log(`    * ${include.trim()}`);
+            includeNodes.forEach(include => {
+                console.log(`    * include "${include.path}"`);
             });
             console.log('  ⚠️  这些 include 文件会被分析，导致级联扫描！');
         }

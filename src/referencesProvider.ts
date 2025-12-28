@@ -7,7 +7,6 @@ import { ErrorHandler } from '../utils/errorHandler';
 import { readThriftFile } from '../utils/fileReader';
 
 export class ThriftReferencesProvider implements vscode.ReferenceProvider {
-    private readonly REFERENCE_SCAN_INTERVAL = 60000; // 60秒间隔，增加间隔时间
     private isScanning: boolean = false;
     private workspaceFileList: string[] = [];
     private lastFileListUpdate: number = 0;
@@ -32,7 +31,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
     public async provideReferences(
         document: vscode.TextDocument,
         position: vscode.Position,
-        context: vscode.ReferenceContext,
+        _context: vscode.ReferenceContext,
         token: vscode.CancellationToken
     ): Promise<vscode.Location[]> {
 
@@ -63,7 +62,6 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
 
         // 创建缓存键
         const cacheKey = `${document.uri.fsPath}:${symbolName}:${symbolType}`;
-        const now = Date.now();
 
         // 使用缓存管理器检查缓存
         const cacheName = 'references';
@@ -73,7 +71,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         }
 
         // Search in current document
-        const currentDocRefs = await this.findReferencesInDocument(document.uri, document.getText(), symbolName, document.uri.fsPath, token);
+        const currentDocRefs = await this.findReferencesInDocument(document.uri, document.getText(), symbolName, token);
         references.push(...currentDocRefs);
 
         // 限制全局扫描频率，避免频繁触发
@@ -99,7 +97,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                 try {
                     const text = await readThriftFile(file);
 
-                    const refs = await this.findReferencesInDocument(file, text, symbolName, document.uri.fsPath, token);
+                    const refs = await this.findReferencesInDocument(file, text, symbolName, token);
                     references.push(...refs);
                 } catch (error) {
                     this.errorHandler.handleError(error, {
@@ -132,16 +130,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
 
         // Handle namespaced symbols (e.g., "shared.Address")
         if (symbolName.includes('.')) {
-            const parts = symbolName.split('.');
-            if (parts.length === 2) {
-                const namespace = parts[0];
-                const typeName = parts[1];
-
-                // For namespaced symbols, we're interested in the type part
-                // Check if this is a reference to the namespace itself or the type
-                // If we're looking for the full namespaced symbol, treat it as a type
-                return 'type';
-            }
+            return 'type';
         }
 
         // Handle namespace-only references (e.g., when user clicks on "shared" in "shared.Address")
@@ -405,7 +394,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         return findDeepestNode(doc.body);
     }
 
-    private async findReferencesInDocument(uri: vscode.Uri, text: string, symbolName: string, originalNamespace: string = '', token?: vscode.CancellationToken): Promise<vscode.Location[]> {
+    private async findReferencesInDocument(uri: vscode.Uri, text: string, symbolName: string, token?: vscode.CancellationToken): Promise<vscode.Location[]> {
 
         // Check for cancellation immediately
         if (token && token.isCancellationRequested) {
@@ -431,8 +420,6 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         let inFunctionArguments = false;
         let inFunctionThrows = false;
         let currentFunction: nodes.ThriftFunction | null = null;
-        let currentArgument: nodes.Field | null = null;
-        let inServiceFunction = false;
 
         // Context tracking callbacks
         const contextCallback = (node: nodes.ThriftNode, entering: boolean) => {
@@ -442,14 +429,10 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                     currentFunction = node as nodes.ThriftFunction;
                     inFunctionArguments = false;
                     inFunctionThrows = false;
-                    currentArgument = null;
-                    inServiceFunction = true;
                 } else {
                     currentFunction = null;
                     inFunctionArguments = false;
                     inFunctionThrows = false;
-                    currentArgument = null;
-                    inServiceFunction = false;
                 }
             }
 
@@ -460,22 +443,16 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                     if (currentFunction && currentFunction.arguments && currentFunction.arguments.includes(field)) {
                         inFunctionArguments = true;
                         inFunctionThrows = false;
-                        inServiceFunction = true;
-                        currentArgument = field;
                     } else if (currentFunction && currentFunction.throws && currentFunction.throws.includes(field)) {
                         inFunctionArguments = false;
                         inFunctionThrows = true;
-                        inServiceFunction = true;
-                        currentArgument = field;
                     } else {
                         inFunctionArguments = false;
                         inFunctionThrows = false;
-                        currentArgument = null;
                     }
                 } else {
                     inFunctionArguments = false;
                     inFunctionThrows = false;
-                    currentArgument = null;
                 }
             }
 
@@ -568,47 +545,6 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         }, contextCallback);
 
         return references;
-    }
-
-    private logAST(node: nodes.ThriftNode, depth: number): void {
-        const indent = '  '.repeat(depth);
-
-        if (node.children && Array.isArray(node.children)) {
-            node.children.forEach(child => this.logAST(child, depth + 1));
-        }
-
-        // Handle specific node types with nested structures
-        if (node.type === nodes.ThriftNodeType.Document) {
-            const doc = node as nodes.ThriftDocument;
-            if (doc.body && Array.isArray(doc.body)) {
-                doc.body.forEach(child => this.logAST(child, depth + 1));
-            }
-        } else if (node.type === nodes.ThriftNodeType.Struct ||
-            node.type === nodes.ThriftNodeType.Union ||
-            node.type === nodes.ThriftNodeType.Exception) {
-            const struct = node as nodes.Struct;
-            if (struct.fields && Array.isArray(struct.fields)) {
-                struct.fields.forEach(field => this.logAST(field, depth + 1));
-            }
-        } else if (node.type === nodes.ThriftNodeType.Enum) {
-            const enumNode = node as nodes.Enum;
-            if (enumNode.members && Array.isArray(enumNode.members)) {
-                enumNode.members.forEach(member => this.logAST(member, depth + 1));
-            }
-        } else if (node.type === nodes.ThriftNodeType.Service) {
-            const service = node as nodes.Service;
-            if (service.functions && Array.isArray(service.functions)) {
-                service.functions.forEach(func => this.logAST(func, depth + 1));
-            }
-        } else if (node.type === nodes.ThriftNodeType.Function) {
-            const func = node as nodes.ThriftFunction;
-            if (func.arguments && Array.isArray(func.arguments)) {
-                func.arguments.forEach(arg => this.logAST(arg, depth + 1));
-            }
-            if (func.throws && Array.isArray(func.throws)) {
-                func.throws.forEach(throwNode => this.logAST(throwNode, depth + 1));
-            }
-        }
     }
 
     private traverseAST(

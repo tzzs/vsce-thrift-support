@@ -2,7 +2,7 @@
   "name": "thrift-support",
   "displayName": "Thrift Support",
   "description": "Apache Thrift language support: syntax highlighting, formatting, diagnostics, navigation, completion, and rename",
-  "version": "1.0.4",
+  "version": "1.0.11",
   "publisher": "tanzz",
   "icon": "icon.png",
   "repository": {
@@ -139,6 +139,11 @@
           ],
           "default": "preserve",
           "description": "How to format collection values in const declarations: preserve (keep inline), multiline (always expand), auto (expand if line exceeds maxLineLength)"
+        },
+        "thrift.diagnostics.debug": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose diagnostics logging"
         }
       }
     }

@@ -9,7 +9,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     provideDocumentFormattingEdits(
         document: vscode.TextDocument,
         options: vscode.FormattingOptions,
-        token: vscode.CancellationToken
+        _token: vscode.CancellationToken
     ): vscode.TextEdit[] {
         const fullRange = new vscode.Range(
             document.positionAt(0),
@@ -22,7 +22,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         document: vscode.TextDocument,
         range: vscode.Range,
         options: vscode.FormattingOptions,
-        token: vscode.CancellationToken
+        _token: vscode.CancellationToken
     ): vscode.TextEdit[] {
         return this.formatRange(document, range, options);
     }

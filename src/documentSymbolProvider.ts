@@ -3,11 +3,9 @@ import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes';
 import {ThriftFileWatcher} from '../utils/fileWatcher';
 import {CacheManager} from '../utils/cacheManager';
-import {ErrorHandler} from '../utils/errorHandler';
 
 export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
     private cacheManager = CacheManager.getInstance();
-    private errorHandler = ErrorHandler.getInstance();
 
     constructor() {
         // 注册缓存配置
@@ -34,7 +32,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
 
     public provideDocumentSymbols(
         document: vscode.TextDocument,
-        token: vscode.CancellationToken
+        _token: vscode.CancellationToken
     ): vscode.ProviderResult<vscode.SymbolInformation[] | vscode.DocumentSymbol[]> {
         const key = document.uri.toString();
 
@@ -181,6 +179,10 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
     }
 }
 
+/**
+ * 注册 Thrift 文档符号提供者
+ * @param context vscode 扩展上下文
+ */
 export function registerDocumentSymbolProvider(context: vscode.ExtensionContext) {
     const provider = new ThriftDocumentSymbolProvider();
     const disposable = vscode.languages.registerDocumentSymbolProvider('thrift', provider);

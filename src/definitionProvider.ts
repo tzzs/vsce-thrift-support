@@ -1,10 +1,14 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import {ThriftParser} from './ast/parser';
+import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes';
-import {CacheManager} from '../utils/cacheManager';
-import {ErrorHandler} from '../utils/errorHandler';
+import { CacheManager } from '../utils/cacheManager';
+import { ErrorHandler } from '../utils/errorHandler';
 
+/**
+ * ThriftDefinitionProvider
+ * 提供 Thrift 文件中的定义导航功能
+ */
 export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
     // 缓存管理器
     private cacheManager = CacheManager.getInstance();
@@ -38,7 +42,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
     async provideDefinition(
         document: vscode.TextDocument,
         position: vscode.Position,
-        token: vscode.CancellationToken
+        _token: vscode.CancellationToken
     ): Promise<vscode.Definition | undefined> {
         // Check if cursor is on an include statement first
         const includeDefinition = await this.checkIncludeStatement(document, position);
@@ -145,7 +149,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                     component: 'ThriftDefinitionProvider',
                     operation: 'findDefinitionInIncludedFile',
                     filePath: includedFile.fsPath,
-                    additionalInfo: {searchTypeName}
+                    additionalInfo: { searchTypeName }
                 });
                 continue;
             }
@@ -175,9 +179,6 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         // 检查是否在 include 语句中
         const includeMatch = text.match(/^(\s*)include\s+["']([^"']+)["']/);
         if (includeMatch) {
-            const leadingWhitespace = includeMatch[1];
-            const includePath = includeMatch[2];
-
             // 找到整个include语句的位置（包含引号）
             const includeStart = text.indexOf('include');
             const quoteStart = text.indexOf('"') !== -1 ? text.indexOf('"') : text.indexOf("'");
@@ -243,7 +244,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                         component: 'ThriftDefinitionProvider',
                         operation: 'resolveIncludePath',
                         filePath: document.uri.fsPath,
-                        additionalInfo: {includePath}
+                        additionalInfo: { includePath }
                     });
                     return undefined;
                 }
@@ -484,7 +485,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                         component: 'ThriftDefinitionProvider',
                         operation: 'getIncludedFiles',
                         filePath: document.uri.fsPath,
-                        additionalInfo: {includePath}
+                        additionalInfo: { includePath }
                     });
                 }
             }

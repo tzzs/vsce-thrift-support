@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import {PerformanceMonitor} from './performanceMonitor';
-import {ThriftParser} from './ast/parser';
+import { PerformanceMonitor } from './performanceMonitor';
+import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes';
-import {ThriftFileWatcher} from '../utils/fileWatcher';
-import {ErrorHandler} from '../utils/errorHandler';
+import { ThriftFileWatcher } from '../utils/fileWatcher';
+import { ErrorHandler } from '../utils/errorHandler';
 
 export type ThriftIssue = {
     message: string;
@@ -16,6 +16,21 @@ export type ThriftIssue = {
 const PRIMITIVES = new Set<string>([
     'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid', 'slist'
 ]);
+
+function isDiagnosticsDebugEnabled(): boolean {
+    try {
+        return !!vscode.workspace.getConfiguration('thrift').get('diagnostics.debug', false);
+    } catch {
+        return false;
+    }
+}
+
+function logDiagnostics(message: string) {
+    if (!isDiagnosticsDebugEnabled()) {
+        return;
+    }
+    console.log(message);
+}
 
 // New helpers for value/type validation
 const integerTypes = new Set<string>(['byte', 'i8', 'i16', 'i32', 'i64']);
@@ -84,76 +99,6 @@ function splitTopLevelAngles(typeInner: string): string[] {
         parts.push(buf);
     }
     return parts.map(s => s.trim()).filter(Boolean);
-}
-
-function splitTopLevelCommasWithOffsets(text: string): Array<{text: string; start: number}> {
-    const parts: Array<{text: string; start: number}> = [];
-    let start = 0;
-    let depthAngle = 0;
-    let depthBracket = 0;
-    let depthBrace = 0;
-    let depthParen = 0;
-    let inS = false;
-    let inD = false;
-    let escaped = false;
-    for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (inS) {
-            if (!escaped && ch === '\\') {
-                escaped = true;
-                continue;
-            }
-            if (!escaped && ch === '\'') {
-                inS = false;
-            }
-            escaped = false;
-            continue;
-        }
-        if (inD) {
-            if (!escaped && ch === '\\') {
-                escaped = true;
-                continue;
-            }
-            if (!escaped && ch === '"') {
-                inD = false;
-            }
-            escaped = false;
-            continue;
-        }
-        if (ch === '\'') {
-            inS = true;
-            continue;
-        }
-        if (ch === '"') {
-            inD = true;
-            continue;
-        }
-        if (ch === '<') {depthAngle++;}
-        if (ch === '>') {depthAngle = Math.max(0, depthAngle - 1);}
-        if (ch === '[') {depthBracket++;}
-        if (ch === ']') {depthBracket = Math.max(0, depthBracket - 1);}
-        if (ch === '{') {depthBrace++;}
-        if (ch === '}') {depthBrace = Math.max(0, depthBrace - 1);}
-        if (ch === '(') {depthParen++;}
-        if (ch === ')') {depthParen = Math.max(0, depthParen - 1);}
-
-        if (ch === ',' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
-            const raw = text.slice(start, i);
-            const leading = raw.match(/^\s*/)?.[0].length ?? 0;
-            const trimmed = raw.trim();
-            if (trimmed) {
-                parts.push({text: trimmed, start: start + leading});
-            }
-            start = i + 1;
-        }
-    }
-    const tail = text.slice(start);
-    const leading = tail.match(/^\s*/)?.[0].length ?? 0;
-    const trimmed = tail.trim();
-    if (trimmed) {
-        parts.push({text: trimmed, start: start + leading});
-    }
-    return parts;
 }
 
 // Strip Thrift type annotations like `(python.immutable = "")` that can appear after types
@@ -297,212 +242,6 @@ function stripCommentsFromLine(rawLine: string, state: { inBlock: boolean }): st
     return out;
 }
 
-// Parse a struct/union/exception field line to extract id, type and name robustly
-function parseFieldSignature(codeLine: string): {
-    id: number;
-    typeText: string;
-    name: string;
-    typeStart: number;
-    typeEnd: number
-} | null {
-    const headerRe = /^(\s*)(\d+)\s*:\s*(?:required|optional)?\s*/;
-    const m = headerRe.exec(codeLine);
-    if (!m) {
-        return null;
-    }
-    const id = parseInt(m[2], 10);
-    let i = m[0].length;
-    const n = codeLine.length;
-
-    // parse type until we reach whitespace followed by a valid name token, while respecting <...> and (...)
-    let typeBuf = '';
-    let angle = 0;
-    let paren = 0;
-    // skip leading spaces
-    while (i < n && /\s/.test(codeLine[i])) {
-        i++;
-    }
-    const typeStart = i;
-    while (i < n) {
-        const ch = codeLine[i];
-        if (ch === '<') {
-            angle++;
-        }
-        if (ch === '>') {
-            angle = Math.max(0, angle - 1);
-        }
-        if (ch === '(') {
-            paren++;
-        }
-        if (ch === ')') {
-            paren = Math.max(0, paren - 1);
-        }
-
-        // termination: at outer level (no < or () depth) see whitespace then a name token next
-        if (angle === 0 && paren === 0 && /\s/.test(ch)) {
-            // peek next non-space run as potential name
-            let j = i;
-            while (j < n && /\s/.test(codeLine[j])) {
-                j++;
-            }
-            const rest = codeLine.slice(j);
-            const nameM = /^([A-Za-z_][A-Za-z0-9_]*)/.exec(rest);
-            if (nameM) {
-                // stop before the whitespace
-                break;
-            }
-        }
-
-        typeBuf += ch;
-        i++;
-    }
-    const typeEnd = i; // exclusive
-
-    // now parse field name
-    while (i < n && /\s/.test(codeLine[i])) {
-        i++;
-    }
-    const nameM = /^([A-Za-z_][A-Za-z0-9_]*)/.exec(codeLine.slice(i));
-    if (!nameM) {
-        return null;
-    }
-    const name = nameM[1];
-
-    return {id, typeText: typeBuf.trim(), name, typeStart, typeEnd};
-}
-
-// Parse a const declaration line to extract type and name robustly
-function parseConstSignature(codeLine: string): {
-    typeText: string;
-    name: string;
-    typeStart: number;
-    typeEnd: number
-} | null {
-    const headerRe = /^(\s*)const\s+/;
-    const m = headerRe.exec(codeLine);
-    if (!m) {
-        return null;
-    }
-    let i = m[0].length;
-    const n = codeLine.length;
-
-    // parse type until we reach whitespace followed by a valid name token, while respecting <...> and (...)
-    let typeBuf = '';
-    let angle = 0;
-    let paren = 0;
-    while (i < n && /\s/.test(codeLine[i])) {
-        i++;
-    }
-    const typeStart = i;
-    while (i < n) {
-        const ch = codeLine[i];
-        if (ch === '<') {
-            angle++;
-        }
-        if (ch === '>') {
-            angle = Math.max(0, angle - 1);
-        }
-        if (ch === '(') {
-            paren++;
-        }
-        if (ch === ')') {
-            paren = Math.max(0, paren - 1);
-        }
-
-        if (angle === 0 && paren === 0 && /\s/.test(ch)) {
-            let j = i;
-            while (j < n && /\s/.test(codeLine[j])) {
-                j++;
-            }
-            const rest = codeLine.slice(j);
-            const nameM = /^([A-Za-z_][A-Za-z0-9_]*)/.exec(rest);
-            if (nameM) {
-                break;
-            }
-        }
-
-        typeBuf += ch;
-        i++;
-    }
-    const typeEnd = i; // exclusive
-
-    while (i < n && /\s/.test(codeLine[i])) {
-        i++;
-    }
-    const nameM = /^([A-Za-z_][A-Za-z0-9_]*)/.exec(codeLine.slice(i));
-    if (!nameM) {
-        return null;
-    }
-    const name = nameM[1];
-
-    return {typeText: typeBuf.trim(), name, typeStart, typeEnd};
-}
-
-// Parse a service method header line to extract return type and name
-function parseMethodHeaderSignature(codeLine: string): {
-    returnType: string;
-    returnStart: number;
-    returnEnd: number;
-    name: string;
-    nameStart: number;
-    nameEnd: number;
-} | null {
-    let i = 0;
-    const n = codeLine.length;
-    while (i < n && /\s/.test(codeLine[i])) {
-        i++;
-    }
-
-    const onewayToken = 'oneway';
-    if (codeLine.slice(i, i + onewayToken.length) === onewayToken &&
-        /\s/.test(codeLine[i + onewayToken.length] || '')) {
-        i += onewayToken.length;
-        while (i < n && /\s/.test(codeLine[i])) {
-            i++;
-        }
-    }
-
-    let typeBuf = '';
-    let angle = 0;
-    let paren = 0;
-    const returnStart = i;
-    while (i < n) {
-        const ch = codeLine[i];
-        if (ch === '<') {angle++;}
-        if (ch === '>') {angle = Math.max(0, angle - 1);}
-        if (ch === '(') {paren++;}
-        if (ch === ')') {paren = Math.max(0, paren - 1);}
-
-        if (angle === 0 && paren === 0 && /\s/.test(ch)) {
-            break;
-        }
-        typeBuf += ch;
-        i++;
-    }
-    const returnEnd = i;
-    while (i < n && /\s/.test(codeLine[i])) {
-        i++;
-    }
-    const nameStart = i;
-    const nameM = /^([A-Za-z_][A-Za-z0-9_]*)/.exec(codeLine.slice(i));
-    if (!nameM) {
-        return null;
-    }
-    const name = nameM[1];
-    const nameEnd = nameStart + name.length;
-    const rest = codeLine.slice(nameEnd);
-    if (!rest.includes('(')) {
-        return null;
-    }
-    return {
-        returnType: typeBuf.trim(),
-        returnStart,
-        returnEnd,
-        name,
-        nameStart,
-        nameEnd
-    };
-}
 
 // isKnownType checks if a type name is known 
 function isKnownType(typeName: string, definedTypes: Set<string>, includeAliases: Set<string>): boolean {
@@ -689,7 +428,7 @@ function extractDefaultValue(codeLine: string): string | null {
     return buf.trim();
 }
 
-function valueMatchesType(valueRaw: string, typeText: string, definedTypes: Set<string>, kindMap: Map<string, string>): boolean {
+function valueMatchesType(valueRaw: string, typeText: string): boolean {
     const t = stripTypeAnnotations(typeText).trim();
     const v = valueRaw.trim();
 
@@ -741,22 +480,34 @@ function collectTypesFromAst(ast: nodes.ThriftDocument): Map<string, string> {
     for (const node of ast.body) {
         switch (node.type) {
             case nodes.ThriftNodeType.Typedef:
-                typeKind.set(node.name || '', 'typedef');
+                if (node.name) {
+                    typeKind.set(node.name, 'typedef');
+                }
                 break;
             case nodes.ThriftNodeType.Enum:
-                typeKind.set(node.name || '', (node as nodes.Enum).isSenum ? 'senum' : 'enum');
+                if (node.name) {
+                    typeKind.set(node.name, (node as nodes.Enum).isSenum ? 'senum' : 'enum');
+                }
                 break;
             case nodes.ThriftNodeType.Struct:
-                typeKind.set(node.name || '', 'struct');
+                if (node.name) {
+                    typeKind.set(node.name, 'struct');
+                }
                 break;
             case nodes.ThriftNodeType.Union:
-                typeKind.set(node.name || '', 'union');
+                if (node.name) {
+                    typeKind.set(node.name, 'union');
+                }
                 break;
             case nodes.ThriftNodeType.Exception:
-                typeKind.set(node.name || '', 'exception');
+                if (node.name) {
+                    typeKind.set(node.name, 'exception');
+                }
                 break;
             case nodes.ThriftNodeType.Service:
-                typeKind.set(node.name || '', 'service');
+                if (node.name) {
+                    typeKind.set(node.name, 'service');
+                }
                 break;
             default:
                 break;
@@ -765,61 +516,40 @@ function collectTypesFromAst(ast: nodes.ThriftDocument): Map<string, string> {
     return typeKind;
 }
 
-function parseTypesFromContent(content: string): Map<string, string> {
-    const parser = new ThriftParser(content);
-    const ast = parser.parse();
+function parseTypesFromContent(content: string, uri: string): Map<string, string> {
+    const ast = ThriftParser.parseContentWithCache(uri, content);
     return collectTypesFromAst(ast);
 }
 
 // Get included file paths from a Thrift document
 async function getIncludedFiles(document: vscode.TextDocument): Promise<vscode.Uri[]> {
-    const text = document.getText();
-    const lines = text.split('\n');
     const includedFiles: vscode.Uri[] = [];
     const documentDir = path.dirname(document.uri.fsPath);
+    const ast = ThriftParser.parseWithCache(document);
 
-    for (const line of lines) {
-        const trimmedLine = line.trim();
+    for (const node of ast.body) {
+        if (node.type !== nodes.ThriftNodeType.Include) {
+            continue;
+        }
+        const includePath = (node as nodes.Include).path;
+        let fullPath: string;
 
-        // Match include statements: include "filename.thrift"
-        const includeMatch = trimmedLine.match(/^include\s+["']([^"']+)["']/);
-        if (includeMatch) {
-            const includePath = includeMatch[1];
-            let fullPath: string;
+        if (path.isAbsolute(includePath)) {
+            fullPath = includePath;
+        } else {
+            fullPath = path.resolve(documentDir, includePath);
+        }
 
-            if (path.isAbsolute(includePath)) {
-                fullPath = includePath;
-            } else {
-                fullPath = path.resolve(documentDir, includePath);
-            }
-
-            try {
-                const uri = vscode.Uri.file(fullPath);
-                includedFiles.push(uri);
-            } catch (error) {
-                // Invalid path, skip - this is expected for some cases
-                // No need to log as error, this is normal behavior
-            }
+        try {
+            const uri = vscode.Uri.file(fullPath);
+            includedFiles.push(uri);
+        } catch (error) {
+            // Invalid path, skip - this is expected for some cases
+            // No need to log as error, this is normal behavior
         }
     }
 
     return includedFiles;
-}
-
-function parseIncludeAliases(lines: string[]): Set<string> {
-    const aliases = new Set<string>();
-    for (const rawLine of lines) {
-        const trimmedLine = rawLine.trim();
-        const includeMatch = trimmedLine.match(/^include\s+["']([^"']+)["']/);
-        if (includeMatch) {
-            const includePath = includeMatch[1];
-            const fileName = path.basename(includePath, '.thrift');
-            if (fileName) {
-                aliases.add(fileName);
-            }
-        }
-    }
-    return aliases;
 }
 
 // 包含文件类型缓存 - 避免重复分析相同文件
@@ -843,7 +573,7 @@ async function collectIncludedTypes(document: vscode.TextDocument, errorHandler?
             let fileStats;
             try {
                 const stat = await vscode.workspace.fs.stat(includedFile);
-                fileStats = {mtime: stat.mtime, size: stat.size};
+                fileStats = { mtime: stat.mtime, size: stat.size };
             } catch {
                 // 无法获取文件状态，使用缓存或跳过
                 fileStats = null;
@@ -856,13 +586,14 @@ async function collectIncludedTypes(document: vscode.TextDocument, errorHandler?
             // 判断缓存是否有效：时间未过期且文件状态未变化
             const cacheValid = cachedTypes && cachedTime &&
                 (now - cachedTime) < INCLUDE_CACHE_MAX_AGE &&
-                fileStats && cachedStats &&
-                fileStats.mtime === cachedStats.mtime &&
-                fileStats.size === cachedStats.size;
+                (!fileStats || !cachedStats || (
+                    fileStats.mtime === cachedStats.mtime &&
+                    fileStats.size === cachedStats.size
+                ));
 
             if (cacheValid) {
                 // 使用缓存的数据
-                console.log(`[Diagnostics] Using cached types for included file: ${path.basename(includedFile.fsPath)}`);
+                logDiagnostics(`[Diagnostics] Using cached types for included file: ${path.basename(includedFile.fsPath)}`);
                 for (const [name, kind] of cachedTypes) {
                     if (!includedTypes.has(name)) {
                         includedTypes.set(name, kind);
@@ -871,7 +602,7 @@ async function collectIncludedTypes(document: vscode.TextDocument, errorHandler?
                 continue;
             }
 
-            console.log(`[Diagnostics] Analyzing included file: ${path.basename(includedFile.fsPath)} (cache miss)`);
+            logDiagnostics(`[Diagnostics] Analyzing included file: ${path.basename(includedFile.fsPath)} (cache miss)`);
 
             // 缓存无效，重新分析
             // 关键修复: 不要使用 openTextDocument，因为它会触发 onDidOpenTextDocument 事件，导致递归扫描
@@ -886,7 +617,7 @@ async function collectIncludedTypes(document: vscode.TextDocument, errorHandler?
                 text = decoder.decode(content);
             }
 
-            const types = parseTypesFromContent(text);
+            const types = parseTypesFromContent(text, includedFileKey);
 
             // 更新缓存
             includeTypesCache.set(includedFileKey, new Map(types));
@@ -908,7 +639,7 @@ async function collectIncludedTypes(document: vscode.TextDocument, errorHandler?
                     component: 'DiagnosticManager',
                     operation: 'collectIncludedTypes',
                     filePath: includedFile.fsPath,
-                    additionalInfo: {reason: 'includedFileAnalysis'}
+                    additionalInfo: { reason: 'includedFileAnalysis' }
                 });
             }
             continue;
@@ -918,25 +649,13 @@ async function collectIncludedTypes(document: vscode.TextDocument, errorHandler?
     return includedTypes;
 }
 
-// 清理包含文件缓存
-function clearIncludeCache(): void {
-    const now = Date.now();
-    for (const [file, timestamp] of includeFileTimestamps.entries()) {
-        if (now - timestamp > INCLUDE_CACHE_MAX_AGE) {
-            includeTypesCache.delete(file);
-            includeFileTimestamps.delete(file);
-            includeFileStats.delete(file);
-        }
-    }
-}
-
-export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?: Map<string, string>): ThriftIssue[] {
+export function analyzeThriftText(text: string, _uri?: vscode.Uri, includedTypes?: Map<string, string>): ThriftIssue[] {
     const lines = text.split('\n');
     const issues: ThriftIssue[] = [];
 
     // First pass: strip comments for each line with block-comment awareness
     const codeLines: string[] = [];
-    const state = {inBlock: false};
+    const state = { inBlock: false };
     for (const raw of lines) {
         codeLines.push(stripCommentsFromLine(raw, state));
     }
@@ -1095,7 +814,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
                     const lineNo = field.range.start.line;
                     const def = lineNo >= 0 && lineNo < codeLines.length ? extractDefaultValue(codeLines[lineNo]) : null;
                     if (def !== null) {
-                        const ok = valueMatchesType(def, field.fieldType, definedTypes, typeKind);
+                        const ok = valueMatchesType(def, field.fieldType);
                         if (!ok) {
                             issues.push({
                                 message: `Default value does not match declared type`,
@@ -1219,7 +938,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
             }
 
             if (ch === '{' || ch === '(' || ch === '<') {
-                stack.push({ch, line: lineNo, char: i});
+                stack.push({ ch, line: lineNo, char: i });
             } else if (ch === '}' || ch === ')' || ch === '>') {
                 if (ch === '>') {
                     const top = stack[stack.length - 1];
@@ -1237,7 +956,7 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
                         code: 'syntax.unmatchedCloser'
                     });
                 } else {
-                    const pair: Record<string, string> = {'}': '{', ')': '('};
+                    const pair: Record<string, string> = { '}': '{', ')': '(' };
                     if (open.ch !== pair[ch]) {
                         issues.push({
                             message: `Mismatched '${open.ch}' and '${ch}'`,
@@ -1281,11 +1000,11 @@ export class DiagnosticManager {
     }
 
     public scheduleAnalysis(doc: vscode.TextDocument, immediate: boolean = false, skipDependents: boolean = false, triggerSource?: string) {
-        if (doc.languageId !== 'thrift') {return;}
+        if (doc.languageId !== 'thrift') { return; }
 
         const key = this.getDocumentKey(doc);
         const triggerInfo = triggerSource ? ` (triggered by ${triggerSource})` : '';
-        console.log(`[Diagnostics] Schedule analysis for ${path.basename(doc.uri.fsPath)}, immediate=${immediate}, skipDependents=${skipDependents}${triggerInfo}`);
+        logDiagnostics(`[Diagnostics] Schedule analysis for ${path.basename(doc.uri.fsPath)}, immediate=${immediate}, skipDependents=${skipDependents}${triggerInfo}`);
 
         // 清除之前的分析队列
         const existingTimeout = this.analysisQueue.get(key);
@@ -1299,9 +1018,9 @@ export class DiagnosticManager {
         const throttleDelay = lastGap < this.MIN_ANALYSIS_INTERVAL ? this.MIN_ANALYSIS_INTERVAL - lastGap : 0;
 
         // 若正在分析则跳过
-        if (state?.isAnalyzing) {return;}
+        if (state?.isAnalyzing) { return; }
         // 同一版本且无需节流等待，则不重复分析
-        if (state && state.version === doc.version && throttleDelay === 0) {return;}
+        if (state && state.version === doc.version && throttleDelay === 0) { return; }
 
         const baseDelay = immediate ? 0 : this.ANALYSIS_DELAY;
         const delay = Math.max(baseDelay, throttleDelay);
@@ -1317,14 +1036,14 @@ export class DiagnosticManager {
         if (!skipDependents) {
             const dependentFiles = this.getDependentFiles(key);
             if (dependentFiles.length > 0) {
-                console.log(`[Diagnostics] File ${path.basename(doc.uri.fsPath)} changed, scheduling analysis for ${dependentFiles.length} dependent files${triggerInfo}`);
+                logDiagnostics(`[Diagnostics] File ${path.basename(doc.uri.fsPath)} changed, scheduling analysis for ${dependentFiles.length} dependent files${triggerInfo}`);
 
                 // 延迟分析依赖文件，避免立即连锁反应
                 setTimeout(() => {
                     for (const dependentKey of dependentFiles) {
                         const dependentDoc = vscode.workspace.textDocuments.find(d => this.getDocumentKey(d) === dependentKey);
                         if (dependentDoc && dependentDoc.languageId === 'thrift') {
-                            console.log(`[Diagnostics] Scheduling analysis for dependent file: ${path.basename(dependentDoc.uri.fsPath)} (triggered by dependency change)`);
+                            logDiagnostics(`[Diagnostics] Scheduling analysis for dependent file: ${path.basename(dependentDoc.uri.fsPath)} (triggered by dependency change)`);
                             // 使用 skipDependents=true 避免递归分析
                             this.scheduleAnalysis(dependentDoc, false, true, 'dependency');
                         }
@@ -1371,7 +1090,7 @@ export class DiagnosticManager {
             includeTypesCache.delete(docUri);
             includeFileTimestamps.delete(docUri);
             includeFileStats.delete(docUri);
-            console.log(`[Diagnostics] Cleared include cache for: ${path.basename(doc.uri.fsPath)}`);
+            logDiagnostics(`[Diagnostics] Cleared include cache for: ${path.basename(doc.uri.fsPath)}`);
         }
     }
 
@@ -1442,22 +1161,12 @@ export class DiagnosticManager {
         return dependents ? Array.from(dependents) : [];
     }
 
-    private shouldAnalyzeDocument(doc: vscode.TextDocument): boolean {
-        // 保留方法以兼容，但节流逻辑已转移到 scheduleAnalysis 中
-        const key = this.getDocumentKey(doc);
-        const state = this.documentStates.get(key);
-        if (!state) {return true;}
-        if (state.isAnalyzing) {return false;}
-        if (state.version === doc.version) {return false;}
-        return true;
-    }
-
     private async performAnalysis(doc: vscode.TextDocument) {
         const key = this.getDocumentKey(doc);
-        console.log(`[Diagnostics] Starting analysis for ${path.basename(doc.uri.fsPath)}`);
+        logDiagnostics(`[Diagnostics] Starting analysis for ${path.basename(doc.uri.fsPath)}`);
 
         // 更新状态
-        const state = this.documentStates.get(key) || {version: doc.version, isAnalyzing: false};
+        const state = this.documentStates.get(key) || { version: doc.version, isAnalyzing: false };
         state.isAnalyzing = true;
         state.version = doc.version;
         this.documentStates.set(key, state);
@@ -1481,13 +1190,13 @@ export class DiagnosticManager {
                         // 原子性更新诊断信息
                         this.collection.set(doc.uri, diagnostics);
 
-                        console.log(`文档 ${path.basename(doc.uri.fsPath)} 分析完成: ${diagnostics.length} 个问题`);
+                        logDiagnostics(`文档 ${path.basename(doc.uri.fsPath)} 分析完成: ${diagnostics.length} 个问题`);
                     } catch (error) {
                         this.errorHandler.handleError(error, {
                             component: 'DiagnosticManager',
                             operation: 'analyzeDocument',
                             filePath: doc.uri.fsPath,
-                            additionalInfo: {documentVersion: doc.version}
+                            additionalInfo: { documentVersion: doc.version }
                         });
                         // 出错时清空诊断信息，避免显示过时错误
                         this.collection.set(doc.uri, []);
@@ -1504,6 +1213,10 @@ export class DiagnosticManager {
     }
 }
 
+/**
+ * 注册诊断管理器和相关事件监听器
+ * @param context vscode 扩展上下文
+ */
 export function registerDiagnostics(context: vscode.ExtensionContext) {
     const diagnosticManager = new DiagnosticManager();
 
@@ -1512,7 +1225,7 @@ export function registerDiagnostics(context: vscode.ExtensionContext) {
 
     const diagnosticsFileWatcher = fileWatcher.createWatcher('**/*.thrift', () => {
         // 当有任何.thrift文件变化时，清除相关缓存并重新分析
-        console.log(`[Diagnostics] File system watcher triggered, clearing caches and rescheduling analysis`);
+        logDiagnostics(`[Diagnostics] File system watcher triggered, clearing caches and rescheduling analysis`);
 
         // 清除所有包含缓存
         includeTypesCache.clear();
@@ -1562,7 +1275,7 @@ export function registerDiagnostics(context: vscode.ExtensionContext) {
         // 监听文档激活事件 - 这可能是点击文件时触发扫描的原因
         vscode.window.onDidChangeActiveTextEditor(editor => {
             if (editor && editor.document.languageId === 'thrift') {
-                console.log(`[Diagnostics] Active text editor changed to: ${path.basename(editor.document.uri.fsPath)}`);
+                logDiagnostics(`[Diagnostics] Active text editor changed to: ${path.basename(editor.document.uri.fsPath)}`);
                 // 延迟分析，避免立即触发
                 setTimeout(() => {
                     diagnosticManager.scheduleAnalysis(editor.document, false, false, 'documentActivate');

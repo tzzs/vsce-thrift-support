@@ -1,8 +1,11 @@
 import * as vscode from 'vscode';
 import {ThriftReferencesProvider} from './referencesProvider';
 
+/**
+ * ThriftRenameProvider implements the rename symbol functionality for Thrift files
+ */
 export class ThriftRenameProvider implements vscode.RenameProvider {
-    prepareRename(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Range | {
+    prepareRename(document: vscode.TextDocument, position: vscode.Position, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.Range | {
         range: vscode.Range;
         placeholder: string;
     }> {
@@ -14,7 +17,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         return {range: wordRange, placeholder};
     }
 
-    async provideRenameEdits(document: vscode.TextDocument, position: vscode.Position, newName: string, token: vscode.CancellationToken): Promise<vscode.WorkspaceEdit | undefined> {
+    async provideRenameEdits(document: vscode.TextDocument, position: vscode.Position, newName: string, _token: vscode.CancellationToken): Promise<vscode.WorkspaceEdit | undefined> {
         const wordRange = this.getWordRange(document, position);
         if (!wordRange) {
             return undefined;
@@ -30,7 +33,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
             document,
             position,
             {includeDeclaration: true},
-            token
+            _token
         );
 
         if (!references || references.length === 0) {
@@ -65,7 +68,4 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         return undefined;
     }
 
-    private escapeRegExp(s: string): string {
-        return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
 }

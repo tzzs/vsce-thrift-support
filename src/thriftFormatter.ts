@@ -771,7 +771,6 @@ export class ThriftFormatter {
         const indent = this.getIndent(indentLevel, options);
 
         const maxNameWidth = Math.max(...fields.map(f => f.name.length), 0);
-        const maxValueWidth = options.alignEnumValues ? Math.max(...fields.map(f => String(f.value).length)) : 0;
 
         let maxContentWidth = 0;
         const interim: Array<{ base: string; comment: string; hasComma: boolean; hasSemicolon: boolean }> = [];
