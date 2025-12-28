@@ -127,10 +127,11 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                     text = decoder.decode(content);
                 }
 
-                // If we have a namespace, check if this file matches the namespace
+                // If we have a namespace, check either include alias or declared namespace.
                 if (targetNamespace) {
                     const fileName = path.basename(includedFile.fsPath, '.thrift');
-                    if (fileName !== targetNamespace) {
+                    const matchesNamespace = fileName === targetNamespace || this.fileDeclaresNamespace(text, targetNamespace);
+                    if (!matchesNamespace) {
                         continue; // Skip files that don't match the namespace
                     }
                 }
@@ -261,6 +262,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
     ): Promise<vscode.Location | undefined> {
         const text = document.getText();
         const lines = text.split('\n');
+        const decoder = new TextDecoder('utf-8');
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
@@ -277,6 +279,26 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                         document.uri,
                         new vscode.Position(i, 0)
                     );
+                }
+
+                const documentDir = path.dirname(document.uri.fsPath);
+                const resolvedPath = await this.resolveModulePath(includePath, documentDir);
+                if (!resolvedPath) {
+                    continue;
+                }
+
+                try {
+                    const uri = vscode.Uri.file(resolvedPath);
+                    const content = await vscode.workspace.fs.readFile(uri);
+                    const includeText = decoder.decode(content);
+                    if (this.fileDeclaresNamespace(includeText, namespace)) {
+                        return new vscode.Location(
+                            document.uri,
+                            new vscode.Position(i, 0)
+                        );
+                    }
+                } catch {
+                    continue;
                 }
             }
         }
@@ -330,6 +352,12 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
             'list', 'set', 'map', 'void'
         ];
         return primitiveTypes.includes(word);
+    }
+
+    private fileDeclaresNamespace(text: string, namespace: string): boolean {
+        const escaped = namespace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const namespaceRegex = new RegExp(`^\\s*namespace\\s+[A-Za-z0-9_.]+\\s+${escaped}\\b`, 'm');
+        return namespaceRegex.test(text);
     }
 
     private async findDefinitionInDocument(
