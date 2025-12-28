@@ -136,7 +136,7 @@ struct PingResponse {
 service TestService {
     // ping
     PingResponse Ping(
-        1: required string traceInfo,
+        1: required trace.Trace traceInfo,
         2: required PingRequest request
     )
 }
