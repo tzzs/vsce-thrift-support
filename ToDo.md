@@ -7,7 +7,7 @@
 - 折叠与选区扩展（FoldingRange / SelectionRange）
 - 诊断改进：注解“语义不透明”策略生效；字符串字面量内不计数括号；仅当栈顶为 `<` 时匹配 `>`；节流改为延时排队不再直接跳过
 - 格式化回归修复：单行 struct/enum/service 逗号分隔不会丢字段；多行 const 闭合行携带注释不会吞并后续行
-- 缓存与基础设施：新增 `utils/fileWatcher.ts` 单例监听器、`utils/cacheManager.ts` TTL 缓存、`utils/errorHandler.ts` 统一日志/提示；`src/ast/nodes.ts` + `src/ast/parser.ts` 提供缓存化 AST 层（5 分钟 TTL）
+- 缓存与基础设施：新增 `src/utils/fileWatcher.ts` 单例监听器、`src/utils/cacheManager.ts` TTL 缓存、`src/utils/errorHandler.ts` 统一日志/提示；`src/ast/nodes.ts` + `src/ast/parser.ts` 提供缓存化 AST 层（5 分钟 TTL）
 - 测试组织：重构为 `tests/src`（与 src 对齐）/`tests/scenarios`/`tests/utils`/`tests/debug`，保留统一执行器 `tests/run-all-unified.js` 与结构文档
 
 新增进展（2025-12-27）
@@ -52,7 +52,7 @@
 - 折叠/选区：`src/foldingRangeProvider.ts`、`src/selectionRangeProvider.ts`
 - 符号：`src/documentSymbolProvider.ts`、`src/workspaceSymbolProvider.ts`
 - AST 层：`src/ast/nodes.ts`、`src/ast/parser.ts`（带缓存清理 API）
-- 基础设施：`utils/fileWatcher.ts`、`utils/cacheManager.ts`、`utils/errorHandler.ts`
+- 基础设施：`src/utils/fileWatcher.ts`、`src/utils/cacheManager.ts`、`src/utils/errorHandler.ts`
 - 语法高亮（TextMate）：`syntaxes/thrift.tmLanguage.json`
 
 与通用语言插件对比的差距与可增强点

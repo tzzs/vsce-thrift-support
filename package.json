@@ -174,8 +174,7 @@
   "nyc": {
     "include": [
       "src/**/*.ts",
-      "out/**/*.js",
-      "utils/**/*.ts"
+      "out/**/*.js"
     ],
     "exclude": [
       "tests/**",

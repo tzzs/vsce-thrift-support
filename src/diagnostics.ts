@@ -3,8 +3,8 @@ import * as path from 'path';
 import { PerformanceMonitor } from './performanceMonitor';
 import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes';
-import { ThriftFileWatcher } from '../utils/fileWatcher';
-import { ErrorHandler } from '../utils/errorHandler';
+import { ThriftFileWatcher } from './utils/fileWatcher';
+import { ErrorHandler } from './utils/errorHandler';
 
 export type ThriftIssue = {
     message: string;

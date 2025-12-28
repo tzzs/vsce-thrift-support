@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 import {ThriftDefinitionProvider} from './definitionProvider';
 import * as path from 'path';
-import {CacheManager} from '../utils/cacheManager';
-import {readThriftFile} from '../utils/fileReader';
+import {CacheManager} from './utils/cacheManager';
+import {readThriftFile} from './utils/fileReader';
 import {ThriftParser} from './ast/parser';
 import {collectIncludes} from './ast/utils';
-import {ErrorHandler} from '../utils/errorHandler';
+import {ErrorHandler} from './utils/errorHandler';
 
 export class ThriftHoverProvider implements vscode.HoverProvider {
 

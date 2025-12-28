@@ -125,9 +125,9 @@ private readonly CACHE_DURATION = 10000; // 10秒
 
 ### 立即实施（本周）
 
-- [ ] 创建 `utils/fileWatcher.ts` - 统一文件监听器管理
-- [ ] 创建 `utils/cacheManager.ts` - 统一缓存管理
-- [ ] 创建 `utils/fileReader.ts` - 统一文件读取逻辑
+- [ ] 创建 `src/utils/fileWatcher.ts` - 统一文件监听器管理
+- [ ] 创建 `src/utils/cacheManager.ts` - 统一缓存管理
+- [ ] 创建 `src/utils/fileReader.ts` - 统一文件读取逻辑
 - [ ] 重构 `extension.ts` 使用新的工具类
 
 ### 近期实施（本月）
@@ -171,7 +171,7 @@ private readonly CACHE_DURATION = 10000; // 10秒
 #### 1. FileWatcher 工具类
 
 ```typescript
-// utils/fileWatcher.ts
+// src/utils/fileWatcher.ts
 export class ThriftFileWatcher {
     private static instance: ThriftFileWatcher;
     private watchers: Map<string, vscode.FileSystemWatcher> = new Map();
@@ -208,7 +208,7 @@ export class ThriftFileWatcher {
 #### 2. CacheManager 缓存管理器
 
 ```typescript
-// utils/cacheManager.ts
+// src/utils/cacheManager.ts
 export interface CacheConfig {
     maxSize: number;
     ttl: number; // Time to live in milliseconds

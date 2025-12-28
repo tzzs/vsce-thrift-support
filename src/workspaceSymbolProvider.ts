@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import {ThriftFileWatcher} from '../utils/fileWatcher';
-import {CacheManager} from '../utils/cacheManager';
-import {ErrorHandler} from '../utils/errorHandler';
-import {readThriftFile} from '../utils/fileReader';
+import {ThriftFileWatcher} from './utils/fileWatcher';
+import {CacheManager} from './utils/cacheManager';
+import {ErrorHandler} from './utils/errorHandler';
+import {readThriftFile} from './utils/fileReader';
 import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes';
 

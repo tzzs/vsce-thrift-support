@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes';
-import { ThriftFileWatcher } from '../utils/fileWatcher';
-import { CacheManager } from '../utils/cacheManager';
-import { ErrorHandler } from '../utils/errorHandler';
-import { readThriftFile } from '../utils/fileReader';
+import { ThriftFileWatcher } from './utils/fileWatcher';
+import { CacheManager } from './utils/cacheManager';
+import { ErrorHandler } from './utils/errorHandler';
+import { readThriftFile } from './utils/fileReader';
 
 export class ThriftReferencesProvider implements vscode.ReferenceProvider {
     private isScanning: boolean = false;

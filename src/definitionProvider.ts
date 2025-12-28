@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes';
-import { CacheManager } from '../utils/cacheManager';
-import { ErrorHandler } from '../utils/errorHandler';
+import { CacheManager } from './utils/cacheManager';
+import { ErrorHandler } from './utils/errorHandler';
 
 /**
  * ThriftDefinitionProvider

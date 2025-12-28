@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes';
-import {ThriftFileWatcher} from '../utils/fileWatcher';
-import {CacheManager} from '../utils/cacheManager';
+import {ThriftFileWatcher} from './utils/fileWatcher';
+import {CacheManager} from './utils/cacheManager';
 
 export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
     private cacheManager = CacheManager.getInstance();

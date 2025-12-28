@@ -27,7 +27,6 @@
     "test-files"
   ],
   "include": [
-    "src/**/*.ts",
-    "utils/**/*.ts"
+    "src/**/*.ts"
   ]
 }

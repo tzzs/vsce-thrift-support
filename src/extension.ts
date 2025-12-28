@@ -12,7 +12,7 @@ import {registerReferencesProvider} from './referencesProvider';
 import {registerFoldingRangeProvider} from './foldingRangeProvider';
 import {registerSelectionRangeProvider} from './selectionRangeProvider';
 import {PerformanceMonitor} from './performanceMonitor';
-import {ThriftFileWatcher} from '../utils/fileWatcher';
+import {ThriftFileWatcher} from './utils/fileWatcher';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Thrift Support extension is now active!');
