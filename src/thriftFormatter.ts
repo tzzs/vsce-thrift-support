@@ -52,9 +52,9 @@ export class ThriftFormatter {
             let originalLine = lines[i];
             let line = originalLine.trim();
             const isConstStart = constStarts.has(i);
-            const isStructStart = structStarts.has(i);
-            const isEnumStart = enumStarts.has(i);
-            const isServiceStart = serviceStarts.has(i);
+            const isStructStart = structStarts.has(i) || this.isStructStartLine(line);
+            const isEnumStart = enumStarts.has(i) || this.isEnumStartLine(line);
+            const isServiceStart = serviceStarts.has(i) || this.isServiceStartLine(line);
 
             // Flush accumulated struct fields before non-field separators/comments inside struct
             const hasStructField = structFieldIndex.has(i) || this.isStructFieldText(line);
@@ -559,6 +559,74 @@ export class ThriftFormatter {
         return { code: line, comment: '' };
     }
 
+    private splitTrailingAnnotation(source: string): { base: string; annotation: string } {
+        const trimmed = source.trimEnd();
+        if (!trimmed.endsWith(')')) {
+            return { base: source.trim(), annotation: '' };
+        }
+        let inS = false;
+        let inD = false;
+        let escaped = false;
+        const stack: number[] = [];
+        let lastPair: { start: number; end: number } | null = null;
+
+        for (let i = 0; i < trimmed.length; i++) {
+            const ch = trimmed[i];
+            if (inS) {
+                if (!escaped && ch === '\\') {
+                    escaped = true;
+                    continue;
+                }
+                if (!escaped && ch === '\'') {
+                    inS = false;
+                }
+                escaped = false;
+                continue;
+            }
+            if (inD) {
+                if (!escaped && ch === '\\') {
+                    escaped = true;
+                    continue;
+                }
+                if (!escaped && ch === '"') {
+                    inD = false;
+                }
+                escaped = false;
+                continue;
+            }
+            if (ch === '\'') {
+                inS = true;
+                continue;
+            }
+            if (ch === '"') {
+                inD = true;
+                continue;
+            }
+            if (ch === '(') {
+                stack.push(i);
+                continue;
+            }
+            if (ch === ')' && stack.length > 0) {
+                const start = stack.pop() as number;
+                if (stack.length === 0) {
+                    lastPair = { start, end: i };
+                }
+            }
+        }
+
+        if (!lastPair) {
+            return { base: source.trim(), annotation: '' };
+        }
+        const tail = trimmed.slice(lastPair.end + 1).trim();
+        if (tail) {
+            return { base: source.trim(), annotation: '' };
+        }
+        return {
+            base: trimmed.slice(0, lastPair.start).trimEnd(),
+            annotation: trimmed.slice(lastPair.start, lastPair.end + 1)
+        };
+    }
+
     private normalizeType(type: string): string {
         return type
             .replace(/\s+</g, '<')
@@ -578,10 +646,10 @@ export class ThriftFormatter {
             trailing = suffixMatch[2].trim();
         }
         let annotation = '';
-        const annMatch = remainder.match(/^(.*?)(\([^)]*\))\s*$/);
-        if (annMatch) {
-            remainder = annMatch[1].trim();
-            annotation = annMatch[2];
+        const annSplit = this.splitTrailingAnnotation(remainder);
+        if (annSplit.annotation) {
+            remainder = annSplit.base;
+            annotation = annSplit.annotation;
         }
 
         const qualifier = field.requiredness || '';
@@ -637,10 +705,10 @@ export class ThriftFormatter {
         }
 
         let annotation = '';
-        const annMatch = remainder.match(/^(.*?)(\([^)]*\))\s*$/);
-        if (annMatch) {
-            remainder = annMatch[1].trim();
-            annotation = annMatch[2];
+        const annSplit = this.splitTrailingAnnotation(remainder);
+        if (annSplit.annotation) {
+            remainder = annSplit.base;
+            annotation = annSplit.annotation;
         }
 
         const fieldMatch = remainder.match(/^(.+?)\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\s*=\s*(.+))?$/);
@@ -691,6 +759,13 @@ export class ThriftFormatter {
             trailing = suffixMatch[2].trim();
         }
 
+        let annotation = '';
+        const annSplit = this.splitTrailingAnnotation(remainder);
+        if (annSplit.annotation) {
+            remainder = annSplit.base;
+            annotation = annSplit.annotation;
+        }
+
         let value = member.initializer;
         if (!value) {
             const match = remainder.match(/=\s*([^,;]+)\s*$/);
@@ -707,30 +782,44 @@ export class ThriftFormatter {
             name: member.name,
             value: value || '',
             suffix: trailing,
-            comment
+            comment,
+            annotation
         };
     }
 
     private parseEnumFieldText(text: string): EnumField | null {
-        const match = text.match(/^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([-+]?(?:\d+|0x[0-9a-fA-F]+))\s*([,;]?\s*(?:(?:\/\/|#).*)?\s*)$/i);
-        if (!match) {
+        if (!text) {
+            return null;
+        }
+        const { code, comment } = this.splitLineComment(text);
+        let remainder = code.trim();
+
+        let trailing = '';
+        const suffixMatch = remainder.match(/^(.*?)([,;]\s*)$/);
+        if (suffixMatch) {
+            remainder = suffixMatch[1].trim();
+            trailing = suffixMatch[2].trim();
+        }
+
+        let annotation = '';
+        const annSplit = this.splitTrailingAnnotation(remainder);
+        if (annSplit.annotation) {
+            remainder = annSplit.base;
+            annotation = annSplit.annotation;
+        }
+
+        const fieldMatch = remainder.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:=\s*(.+))?$/);
+        if (!fieldMatch) {
             return null;
         }
 
-        const name = match[1];
-        const value = match[2];
-        const suffixAndComment = match[3] || '';
-
-        const commentMatch = suffixAndComment.match(/^([^/#]*)((?:\/\/|#).+)$/);
-        const suffix = commentMatch ? commentMatch[1].trim() : suffixAndComment.trim();
-        const comment = commentMatch ? commentMatch[2] : '';
-
         return {
             line: text.trim(),
-            name,
-            value,
-            suffix,
-            comment
+            name: fieldMatch[1],
+            value: (fieldMatch[2] || '').trim(),
+            suffix: trailing,
+            comment,
+            annotation
         };
     }
 
@@ -790,6 +879,18 @@ export class ThriftFormatter {
 
     private isInlineService(line: string): boolean {
         return /^service\b/.test(line) && line.includes('{') && line.includes('}');
+    }
+
+    private isStructStartLine(line: string): boolean {
+        return /^(struct|union|exception)\b/.test(line) && line.includes('{') && !line.includes('}');
+    }
+
+    private isEnumStartLine(line: string): boolean {
+        return /^(enum|senum)\b/.test(line) && line.includes('{') && !line.includes('}');
+    }
+
+    private isServiceStartLine(line: string): boolean {
+        return /^service\b/.test(line) && line.includes('{') && !line.includes('}');
     }
 
     private formatInlineStructLike(line: string, indentLevel: number, options: ThriftFormattingOptions): string[] | null {
@@ -1199,9 +1300,18 @@ export class ThriftFormatter {
         const indent = this.getIndent(indentLevel, options);
 
         const maxNameWidth = Math.max(...fields.map(f => f.name.length), 0);
+        let maxAnnotationWidth = 0;
+        if (options.alignAnnotations) {
+            fields.forEach(f => {
+                if (f.annotation) {
+                    maxAnnotationWidth = Math.max(maxAnnotationWidth, f.annotation.length);
+                }
+            });
+        }
 
         let maxContentWidth = 0;
-        const interim: Array<{ base: string; comment: string; hasComma: boolean; hasSemicolon: boolean }> = [];
+        let maxAnnoStart = 0;
+        const interim: Array<{ base: string; comment: string; hasComma: boolean; hasSemicolon: boolean; annotation: string }> = [];
 
         for (const f of fields) {
             let hasComma = f.suffix ? /,/.test(f.suffix) : false;
@@ -1224,28 +1334,65 @@ export class ThriftFormatter {
                 base += namePart + ' = ';
             }
 
-            let valueStr = '' + f.value;
-            // if (options.alignEnumValues) {
-            //    valueStr = valueStr.padEnd(maxValueWidth);
-            // }
+            const valueStr = '' + f.value;
             base += valueStr;
 
             if (!hasSemicolon && options.trailingComma !== 'add' && hasComma) {
                 base += ',';
             }
 
-            interim.push({ base, comment: f.comment, hasComma, hasSemicolon });
-            maxContentWidth = Math.max(maxContentWidth, base.length - indent.length);
+            const baseWidth = base.length - indent.length;
+            if (options.alignAnnotations && f.annotation) {
+                maxAnnoStart = Math.max(maxAnnoStart, baseWidth);
+            }
+
+            interim.push({
+                base,
+                comment: f.comment,
+                hasComma,
+                hasSemicolon,
+                annotation: f.annotation || ''
+            });
         }
-        return interim.map(({ base, comment, hasComma, hasSemicolon }) => {
+
+        if (options.alignAnnotations) {
+            interim.forEach(({ base, annotation }) => {
+                let line = base;
+                if (annotation) {
+                    const currentWidth = base.length - indent.length;
+                    const spaces = maxAnnoStart - currentWidth + 1;
+                    line = base + ' '.repeat(Math.max(1, spaces)) + annotation.padEnd(maxAnnotationWidth);
+                }
+                maxContentWidth = Math.max(maxContentWidth, line.length - indent.length);
+            });
+        } else {
+            interim.forEach(({ base, annotation }) => {
+                let line = base;
+                if (annotation) {
+                    line = base + ' ' + annotation;
+                }
+                maxContentWidth = Math.max(maxContentWidth, line.length - indent.length);
+            });
+        }
+
+        return interim.map(({ base, comment, hasComma, hasSemicolon, annotation }) => {
             let line = base;
+            if (annotation) {
+                if (options.alignAnnotations) {
+                    const currentWidth = base.length - indent.length;
+                    const spaces = maxAnnoStart - currentWidth + 1;
+                    line = base + ' '.repeat(Math.max(1, spaces)) + annotation.padEnd(maxAnnotationWidth);
+                } else {
+                    line = base + ' ' + annotation;
+                }
+            }
             if (comment) {
                 if (options.alignComments) {
-                    const currentWidth = base.length - indent.length;
+                    const currentWidth = line.length - indent.length;
                     const pad = Math.max(1, maxContentWidth - currentWidth + 1);
-                    line = base + ' '.repeat(pad) + comment;
+                    line = line + ' '.repeat(pad) + comment;
                 } else {
-                    line = base + ' ' + comment;
+                    line = line + ' ' + comment;
                 }
             }
             if (hasSemicolon) {

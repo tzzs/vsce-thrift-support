@@ -33,6 +33,7 @@ export interface EnumField {
     value: string;
     suffix: string;
     comment: string;
+    annotation?: string;
 }
 
 export interface ConstField {

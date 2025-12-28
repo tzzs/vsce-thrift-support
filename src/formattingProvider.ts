@@ -40,7 +40,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         };
         const text = document.getText(range);
         // Compute initial context from the content before the selection to make range formatting context-aware
-        let initialContext: { indentLevel: number; inStruct: boolean; inEnum: boolean } | undefined;
+        let initialContext: { indentLevel: number; inStruct: boolean; inEnum: boolean; inService: boolean } | undefined;
         if (!(range.start.line === 0 && range.start.character === 0)) {
             initialContext = this.computeInitialContext(document, range.start);
         }
@@ -107,39 +107,84 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     private computeInitialContext(document: vscode.TextDocument, start: vscode.Position): {
         indentLevel: number;
         inStruct: boolean;
-        inEnum: boolean
+        inEnum: boolean;
+        inService: boolean;
     } {
         try {
             const before = document.getText(new vscode.Range(new vscode.Position(0, 0), start));
             if (!before) {
-                return { indentLevel: 0, inStruct: false, inEnum: false };
+                return { indentLevel: 0, inStruct: false, inEnum: false, inService: false };
             }
 
-            // Create a temporary document with only the text before the selection
-            const tempUri = document.uri.with({ path: document.uri.path + '.temp' });
-            const tempDoc = { getText: () => before, uri: tempUri, lineCount: start.line } as vscode.TextDocument;
+            // Parse with AST parser using a synthetic cache key (avoid reliance on uri.with for mocks)
+            const baseKey = document.uri && typeof document.uri.toString === 'function'
+                ? document.uri.toString()
+                : 'inmemory://range';
+            const ast = ThriftParser.parseContentWithCache(`${baseKey}#range`, before);
+            const beforeLines = before.split('\n');
+            const boundaryLine = Math.max(0, beforeLines.length - 1);
 
-            // Parse with AST parser (使用缓存版本)
-            const ast = ThriftParser.parseWithCache(tempDoc);
+            const hasValidRanges = ast.body.some((node: any) => {
+                return node.range &&
+                    typeof node.range.start?.line === 'number' &&
+                    typeof node.range.end?.line === 'number';
+            });
+
+            if (!hasValidRanges) {
+                // Fallback: simple brace-based scan when Range mocks don't expose line numbers
+                const stack: Array<'struct' | 'enum' | 'service'> = [];
+                for (const rawLine of beforeLines) {
+                    const line = rawLine.replace(/\/\/.*$/, '').replace(/#.*$/, '').trim();
+                    if (!line) {
+                        continue;
+                    }
+                    const startMatch = line.match(/^(struct|union|exception|enum|senum|service)\b/);
+                    if (startMatch && line.includes('{')) {
+                        const type = startMatch[1];
+                        if (type === 'enum' || type === 'senum') {
+                            stack.push('enum');
+                        } else if (type === 'service') {
+                            stack.push('service');
+                        } else {
+                            stack.push('struct');
+                        }
+                    }
+                    if (line.includes('}')) {
+                        stack.pop();
+                    }
+                }
+                const inStruct = stack.includes('struct');
+                const inEnum = stack.includes('enum');
+                const inService = stack.includes('service');
+                return {
+                    indentLevel: stack.length,
+                    inStruct,
+                    inEnum,
+                    inService
+                };
+            }
 
             // Count open structs/enums
             let inStruct = false;
             let inEnum = false;
+            let inService = false;
             let indentLevel = 0;
 
-            const stack: Array<'struct' | 'enum'> = [];
+            const stack: Array<'struct' | 'enum' | 'service'> = [];
 
             // Traverse the AST to find open blocks
             const traverse = (node: any) => {
-                if (node.range && node.range.end.line >= start.line) {
-                    // This node ends after our position, check if it's an open block
-                    if ((node.type === 'Struct' || node.type === 'Union' || node.type === 'Exception') &&
-                        node.range.end.line > start.line) {
+                if (node.range && node.range.start.line <= boundaryLine && node.range.end.line >= boundaryLine) {
+                    // This node spans the boundary line, treat it as open context
+                    if (node.type === 'Struct' || node.type === 'Union' || node.type === 'Exception') {
                         stack.push('struct');
                         inStruct = true;
-                    } else if (node.type === 'Enum' && node.range.end.line > start.line) {
+                    } else if (node.type === 'Enum') {
                         stack.push('enum');
                         inEnum = true;
+                    } else if (node.type === 'Service') {
+                        stack.push('service');
+                        inService = true;
                     }
                 }
 
@@ -161,10 +206,11 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             return {
                 indentLevel,
                 inStruct,
-                inEnum
+                inEnum,
+                inService
             };
         } catch (e) {
-            return { indentLevel: 0, inStruct: false, inEnum: false };
+            return { indentLevel: 0, inStruct: false, inEnum: false, inService: false };
         }
     }
 }
