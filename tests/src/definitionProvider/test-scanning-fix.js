@@ -1,7 +1,7 @@
 // Scanning fix verification test
 require('../../require-hook');
 const assert = require('assert');
-const {createVscodeMock, installVscodeMock} = require('../../test-helpers/vscode-mock');
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 
 const readFileCalls = [];
 const openDocCalls = [];

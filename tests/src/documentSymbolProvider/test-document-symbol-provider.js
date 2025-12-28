@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Enhanced vscode mock for document symbol provider testing
-const {createVscodeMock, installVscodeMock} = require('../../test-helpers/vscode-mock');
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 const vscode = createVscodeMock({
     DocumentSymbol: class {
         constructor(name, detail, kind, range, selectionRange) {

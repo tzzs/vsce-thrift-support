@@ -1,6 +1,6 @@
 // Mock vscode module to run formatter without VS Code
 const {ThriftFormattingProvider} = require('../../../out/src/formattingProvider.js');
-const {createVscodeMock, installVscodeMock} = require('../../test-helpers/vscode-mock');
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 
 function runTest() {
     const formatter = new ThriftFormattingProvider();

@@ -2,7 +2,7 @@
 const assert = require('assert');
 // 导入AST解析器
 const {ThriftParser} = require('../../../../out/src/ast/parser.js');
-const {createVscodeMock, installVscodeMock} = require('../../../test-helpers/vscode-mock');
+const {createVscodeMock, installVscodeMock} = require('../../../mock_vscode.js');
 
 Module.prototype.require = originalRequire;
 

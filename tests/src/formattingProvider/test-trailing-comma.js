@@ -1,5 +1,5 @@
 // Mock vscode module
-const {createVscodeMock, installVscodeMock} = require('../../test-helpers/vscode-mock');
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 const vscode = createVscodeMock({
     workspace: {
         getConfiguration: (section) => {

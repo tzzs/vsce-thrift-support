@@ -2,7 +2,7 @@
 require('../../require-hook');
 const assert = require('assert');
 const {ThriftRefactorCodeActionProvider} = require('../../../out/src/codeActionsProvider.js');
-const {createVscodeMock, installVscodeMock} = require('../../test-helpers/vscode-mock');
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 
 function createDoc(languageId = 'thrift', text = 'struct Foo {\n 1: i32 id\n}') {
     const lines = text.split('\n');

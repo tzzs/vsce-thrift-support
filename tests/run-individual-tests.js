@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Mock VSCode API
-const {createVscodeMock, installVscodeMock} = require('./test-helpers/vscode-mock');
+const { createVscodeMock, installVscodeMock } = require('./mock_vscode.js');
 const vscode = createVscodeMock({
     window: {
         showInformationMessage: (...args) => console.log('[Info]', ...args),
@@ -23,11 +23,11 @@ const vscode = createVscodeMock({
     },
     TextEdit: class {
         static replace(range, newText) {
-            return {range, newText};
+            return { range, newText };
         }
     },
     Uri: {
-        file: (fsPath) => ({fsPath, toString: () => `file://${fsPath}`})
+        file: (fsPath) => ({ fsPath, toString: () => `file://${fsPath}` })
     },
     workspace: {
         openTextDocument: async (uri) => {
@@ -37,7 +37,7 @@ const vscode = createVscodeMock({
                 uri,
                 getText: () => text,
                 lineCount: lines.length,
-                lineAt: (line) => ({text: lines[line] || ''}),
+                lineAt: (line) => ({ text: lines[line] || '' }),
                 positionAt: (offset) => {
                     let currentOffset = 0;
                     for (let line = 0; line < lines.length; line++) {
@@ -82,8 +82,8 @@ const vscode = createVscodeMock({
         }
     },
     languages: {
-        registerDocumentFormattingEditProvider: () => {},
-        registerDocumentRangeFormattingEditProvider: () => {}
+        registerDocumentFormattingEditProvider: () => { },
+        registerDocumentRangeFormattingEditProvider: () => { }
     }
 });
 installVscodeMock(vscode);
@@ -98,20 +98,20 @@ const { ThriftFormattingProvider } = require('../out/src/formattingProvider');
 
 async function formatContent(content, options = {}) {
     const tempFile = 'temp-format-test.thrift';
-    
+
     // 确保测试目录存在
     const testDir = path.dirname(tempFile);
     if (!fs.existsSync(testDir)) {
         fs.mkdirSync(testDir, { recursive: true });
     }
-    
+
     fs.writeFileSync(tempFile, content);
-    
+
     try {
         const provider = new ThriftFormattingProvider();
         const uri = vscode.Uri.file(path.resolve(tempFile));
         const document = await vscode.workspace.openTextDocument(uri);
-        
+
         const textLines = document.getText().split('\n');
         const lastLineIndex = Math.max(0, textLines.length - 1);
         const lastLineLength = textLines[lastLineIndex] ? textLines[lastLineIndex].length : 0;
@@ -119,23 +119,23 @@ async function formatContent(content, options = {}) {
             new vscode.Position(0, 0),
             new vscode.Position(lastLineIndex, lastLineLength)
         );
-        
+
         let edits;
         try {
             edits = await provider.provideDocumentRangeFormattingEdits(
-                document, 
-                fullRange, 
+                document,
+                fullRange,
                 {
                     tabSize: options.indentSize || 4,
                     insertSpaces: options.insertSpaces !== false,
                     indentSize: options.indentSize || options.tabSize || 4
-                }, 
+                },
                 {}
             );
         } catch (error) {
             throw error;
         }
-        
+
         // 应用编辑到文本
         let formattedText = document.getText();
         if (edits && edits.length > 0) {
@@ -145,14 +145,14 @@ async function formatContent(content, options = {}) {
                 const bStart = b.range.start.line * 10000 + b.range.start.character;
                 return bStart - aStart;
             });
-            
+
             for (const edit of edits) {
                 const lines = formattedText.split('\n');
                 const startLine = edit.range.start.line;
                 const endLine = edit.range.end.line;
                 const startChar = edit.range.start.character;
                 const endChar = edit.range.end.character;
-                
+
                 if (startLine === endLine) {
                     // 单行编辑
                     const line = lines[startLine] || '';
@@ -162,16 +162,16 @@ async function formatContent(content, options = {}) {
                     const startText = (lines[startLine] || '').substring(0, startChar);
                     const endText = (lines[endLine] || '').substring(endChar);
                     const newLines = edit.newText.split('\n');
-                    
+
                     lines[startLine] = startText + newLines[0];
                     lines.splice(startLine + 1, endLine - startLine, ...newLines.slice(1));
                     lines[lines.length - 1] = lines[lines.length - 1] + endText;
                 }
-                
+
                 formattedText = lines.join('\n');
             }
         }
-        
+
         return formattedText;
     } finally {
         if (fs.existsSync(tempFile)) {
@@ -270,16 +270,16 @@ const tests = [
     1: i32    id,
     2: string name,
 }`;
-            
+
             // 确保测试目录存在
             const testDir = path.dirname(testFile);
             if (!fs.existsSync(testDir)) {
                 fs.mkdirSync(testDir, { recursive: true });
             }
-            
+
             // 创建测试文件
             fs.writeFileSync(testFile, testContent);
-            
+
             try {
                 // 使用格式化提供器格式化文件内容
                 const content = fs.readFileSync(testFile, 'utf8');
@@ -289,10 +289,10 @@ const tests = [
                     alignNames: true,
                     alignAssignments: true
                 });
-                
+
                 // 写回文件
                 fs.writeFileSync(testFile, formatted);
-                
+
                 // 验证结果
                 const result = fs.readFileSync(testFile, 'utf8');
                 if (result.trim() !== expectedContent.trim()) {
@@ -310,29 +310,29 @@ const tests = [
         name: '对齐选项组合测试',
         fn: async () => {
             const input = `struct Config{1:i32 port;2:string host;3:bool enabled;}`;
-            
+
             // 全部对齐
             const expectedAll = `struct Config {
     1: i32    port,
     2: string host,
     3: bool   enabled,
 }`;
-            await assertFormatted(input, expectedAll, { 
-                alignTypes: true, 
-                alignNames: true, 
-                alignAssignments: true 
+            await assertFormatted(input, expectedAll, {
+                alignTypes: true,
+                alignNames: true,
+                alignAssignments: true
             });
-            
+
             // 仅类型对齐
             const expectedTypes = `struct Config {
     1: i32    port,
     2: string host,
     3: bool   enabled,
 }`;
-            await assertFormatted(input, expectedTypes, { 
-                alignTypes: true, 
-                alignNames: false, 
-                alignAssignments: true 
+            await assertFormatted(input, expectedTypes, {
+                alignTypes: true,
+                alignNames: false,
+                alignAssignments: true
             });
         }
     }
@@ -341,14 +341,14 @@ const tests = [
 // Run each test individually
 async function runIndividualTests() {
     console.log('=== 单独运行每个测试 ===\n');
-    
+
     let totalTests = 0;
     let passedTests = 0;
-    
+
     for (const test of tests) {
         totalTests++;
         console.log(`运行测试: ${test.name}`);
-        
+
         try {
             await test.fn();
             console.log(`✓ ${test.name}`);
@@ -359,9 +359,9 @@ async function runIndividualTests() {
         }
         console.log('');
     }
-    
+
     console.log(`=== 测试结果: ${passedTests}/${totalTests} 测试通过 ===`);
-    
+
     if (passedTests === totalTests) {
         console.log('✓ 所有测试通过!');
     } else {

@@ -2,7 +2,7 @@
 const assert = require('assert');
 // Import the diagnostics module
 const {DiagnosticManager} = require('../../../out/src/diagnostics.js');
-const {createVscodeMock, installVscodeMock} = require('../../test-helpers/vscode-mock');
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 Module.prototype.require = originalRequire;
 
 // Create test documents

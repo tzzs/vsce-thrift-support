@@ -1,4 +1,4 @@
-const {createVscodeMock, getWordRangeAtPositionFromText} = require('../test-helpers/vscode-mock');
+const {createVscodeMock, getWordRangeAtPositionFromText} = require('../../mock_vscode.js');
 
 module.exports = createVscodeMock({
     workspace: {

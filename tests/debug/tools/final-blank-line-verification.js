@@ -9,7 +9,7 @@ function runFinalVerification() {
     const formatter = new ThriftFormattingProvider();
     const fs = require('fs');
     const path = require('path');
-const {createVscodeMock, installVscodeMock} = require('../test-helpers/vscode-mock');
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
     const examplePath = path.join(__dirname, '..', 'test-files', 'example.thrift');
     const originalContent = fs.readFileSync(examplePath, 'utf8');
 

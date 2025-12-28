@@ -1,5 +1,5 @@
 // Mock VSCode API
-const {createVscodeMock, installVscodeMock} = require('../test-helpers/vscode-mock');
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 const vscode = createVscodeMock({
     TextEdit: {replace: (range, text) => ({range, newText: text})},
     Range: class {

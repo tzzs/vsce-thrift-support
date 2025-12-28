@@ -7,7 +7,7 @@ try {
     // Intercept require('vscode') to return our mock
     Module.prototype.require = function (id) {
         if (id === 'vscode') {
-            return require('./mock_vscode');
+            return require('../../mock_vscode.js');
         }
         return originalRequire.apply(this, arguments);
     };

@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Minimal VSCode mock matching patterns used by provider
-const {createVscodeMock, installVscodeMock} = require('../../test-helpers/vscode-mock');
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 const vscode = createVscodeMock({
     Position: class {
         constructor(line, character) {

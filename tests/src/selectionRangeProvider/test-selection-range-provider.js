@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Enhanced vscode mock for selection range provider testing
-const {createVscodeMock, installVscodeMock} = require('../../test-helpers/vscode-mock');
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 const vscode = createVscodeMock({
     SelectionRange: class {
         constructor(range) {

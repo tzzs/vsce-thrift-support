@@ -1,7 +1,7 @@
 // 诊断节流机制测试
 const assert = require('assert');
 const Module = require('module');
-const {createVscodeMock, installVscodeMock} = require('../../test-helpers/vscode-mock');
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 const originalRequire = Module.prototype.require;
 
 // VS Code mock

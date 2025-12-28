@@ -4,7 +4,7 @@ const {ThriftRenameProvider} = require('../../../out/src/renameProvider.js');
 
 // Mock the references provider to return simple results
 const referencesProvider = require('../../../out/src/referencesProvider.js');
-const {createVscodeMock, installVscodeMock} = require('../../test-helpers/vscode-mock');
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 const originalThriftReferencesProvider = referencesProvider.ThriftReferencesProvider;
 
 // Create a simple mock that doesn't require full AST parsing

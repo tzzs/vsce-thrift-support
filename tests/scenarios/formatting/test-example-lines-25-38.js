@@ -8,7 +8,7 @@ function runTest() {
     // Read the actual example.thrift file
     const fs = require('fs');
     const path = require('path');
-const {createVscodeMock, installVscodeMock} = require('../../test-helpers/vscode-mock');
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
     const examplePath = path.join(__dirname, '..', '..', '..', 'test-files', 'example.thrift');
     const fullInput = fs.readFileSync(examplePath, 'utf8');
 

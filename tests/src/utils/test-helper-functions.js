@@ -2,7 +2,7 @@
 const assert = require('assert');
 // Import the diagnostics module to access helper functions
 const diagnosticsModule = require('../../../out/src/diagnostics.js');
-const {createVscodeMock, installVscodeMock} = require('../../test-helpers/vscode-mock');
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 Module.prototype.require = originalRequire;
 
 // Since helper functions are not exported, we'll test them indirectly through analyzeThriftText
