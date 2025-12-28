@@ -12,11 +12,12 @@ function run() {
     console.log('\nRunning namespaced extends diagnostics test...');
 
     const text = [
-        'service SharedService {}',
+        'include "shared.thrift"',
         'service UserService extends shared.SharedService {}',
     ].join('\n');
 
-    const issues = analyzeThriftText(text);
+    const includedTypes = new Map([['SharedService', 'service']]);
+    const issues = analyzeThriftText(text, undefined, includedTypes);
 
     assert.strictEqual(findByCode(issues, 'service.extends.unknown').length, 0, 'should recognize namespaced parent service');
     assert.strictEqual(findByCode(issues, 'service.extends.notService').length, 0, 'parent should be recognized as service');

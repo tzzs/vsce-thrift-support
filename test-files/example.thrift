@@ -113,7 +113,7 @@ service UserService extends shared.SharedService {
 const i32          MAX_USERS           = 10000                                   // 最大用户数限制
 const string       DEFAULT_NAMESPACE   = "com.example"                           // 默认命名空间
 const list<string> SUPPORTED_LANGUAGES = ["java", "python", "cpp", "javascript"] // 支持的编程语言列表 // HTTP错误代码映射表
-const map<string, i32> ERROR_CODES = {
+    const map<string, i32> ERROR_CODES = {
     "NOT_FOUND": 404,        // 资源未找到
     "VALIDATION_ERROR": 400, // 数据验证错误
     "INTERNAL_ERROR": 500    // 内部服务器错误

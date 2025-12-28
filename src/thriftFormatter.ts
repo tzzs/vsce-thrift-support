@@ -129,6 +129,20 @@ export class ThriftFormatter {
 
             // Handle const fields
             if (this.parser.isConstStart(line)) {
+                const strippedFirst = line.split(/\/\/|#/)[0].trim();
+                const closesInline = strippedFirst.endsWith('}') || strippedFirst.endsWith(']');
+                if (closesInline) {
+                    const fieldInfo = this.parser.parseConstField(line);
+                    if (fieldInfo) {
+                        if (constFields.length === 0) {
+                            constBlockIndentLevel = (inStruct || inEnum || inService) ? indentLevel : 0;
+                        }
+                        constFields.push(fieldInfo);
+                        inConstBlock = true;
+                    }
+                    continue;
+                }
+
                 let constValue = line;
                 let j = i + 1;
                 while (j < lines.length) {
@@ -144,7 +158,7 @@ export class ThriftFormatter {
                 const fieldInfo = this.parser.parseConstField(constValue);
                 if (fieldInfo) {
                     if (constFields.length === 0) {
-                        constBlockIndentLevel = indentLevel;
+                        constBlockIndentLevel = (inStruct || inEnum || inService) ? indentLevel : 0;
                     }
                     constFields.push(fieldInfo);
                     inConstBlock = true;
@@ -155,7 +169,7 @@ export class ThriftFormatter {
                 const fieldInfo = this.parser.parseConstField(line);
                 if (fieldInfo) {
                     if (constFields.length === 0) {
-                        constBlockIndentLevel = indentLevel;
+                        constBlockIndentLevel = (inStruct || inEnum || inService) ? indentLevel : 0;
                     }
                     constFields.push(fieldInfo);
                     inConstBlock = true;
