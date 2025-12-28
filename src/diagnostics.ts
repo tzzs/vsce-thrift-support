@@ -1,6 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import {PerformanceMonitor} from './performanceMonitor';
+import {ThriftParser} from './ast/parser';
+import * as nodes from './ast/nodes';
 import {ThriftFileWatcher} from '../utils/fileWatcher';
 import {ErrorHandler} from '../utils/errorHandler';
 
@@ -82,6 +84,76 @@ function splitTopLevelAngles(typeInner: string): string[] {
         parts.push(buf);
     }
     return parts.map(s => s.trim()).filter(Boolean);
+}
+
+function splitTopLevelCommasWithOffsets(text: string): Array<{text: string; start: number}> {
+    const parts: Array<{text: string; start: number}> = [];
+    let start = 0;
+    let depthAngle = 0;
+    let depthBracket = 0;
+    let depthBrace = 0;
+    let depthParen = 0;
+    let inS = false;
+    let inD = false;
+    let escaped = false;
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inS) {
+            if (!escaped && ch === '\\') {
+                escaped = true;
+                continue;
+            }
+            if (!escaped && ch === '\'') {
+                inS = false;
+            }
+            escaped = false;
+            continue;
+        }
+        if (inD) {
+            if (!escaped && ch === '\\') {
+                escaped = true;
+                continue;
+            }
+            if (!escaped && ch === '"') {
+                inD = false;
+            }
+            escaped = false;
+            continue;
+        }
+        if (ch === '\'') {
+            inS = true;
+            continue;
+        }
+        if (ch === '"') {
+            inD = true;
+            continue;
+        }
+        if (ch === '<') {depthAngle++;}
+        if (ch === '>') {depthAngle = Math.max(0, depthAngle - 1);}
+        if (ch === '[') {depthBracket++;}
+        if (ch === ']') {depthBracket = Math.max(0, depthBracket - 1);}
+        if (ch === '{') {depthBrace++;}
+        if (ch === '}') {depthBrace = Math.max(0, depthBrace - 1);}
+        if (ch === '(') {depthParen++;}
+        if (ch === ')') {depthParen = Math.max(0, depthParen - 1);}
+
+        if (ch === ',' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
+            const raw = text.slice(start, i);
+            const leading = raw.match(/^\s*/)?.[0].length ?? 0;
+            const trimmed = raw.trim();
+            if (trimmed) {
+                parts.push({text: trimmed, start: start + leading});
+            }
+            start = i + 1;
+        }
+    }
+    const tail = text.slice(start);
+    const leading = tail.match(/^\s*/)?.[0].length ?? 0;
+    const trimmed = tail.trim();
+    if (trimmed) {
+        parts.push({text: trimmed, start: start + leading});
+    }
+    return parts;
 }
 
 // Strip Thrift type annotations like `(python.immutable = "")` that can appear after types
@@ -299,6 +371,139 @@ function parseFieldSignature(codeLine: string): {
     return {id, typeText: typeBuf.trim(), name, typeStart, typeEnd};
 }
 
+// Parse a const declaration line to extract type and name robustly
+function parseConstSignature(codeLine: string): {
+    typeText: string;
+    name: string;
+    typeStart: number;
+    typeEnd: number
+} | null {
+    const headerRe = /^(\s*)const\s+/;
+    const m = headerRe.exec(codeLine);
+    if (!m) {
+        return null;
+    }
+    let i = m[0].length;
+    const n = codeLine.length;
+
+    // parse type until we reach whitespace followed by a valid name token, while respecting <...> and (...)
+    let typeBuf = '';
+    let angle = 0;
+    let paren = 0;
+    while (i < n && /\s/.test(codeLine[i])) {
+        i++;
+    }
+    const typeStart = i;
+    while (i < n) {
+        const ch = codeLine[i];
+        if (ch === '<') {
+            angle++;
+        }
+        if (ch === '>') {
+            angle = Math.max(0, angle - 1);
+        }
+        if (ch === '(') {
+            paren++;
+        }
+        if (ch === ')') {
+            paren = Math.max(0, paren - 1);
+        }
+
+        if (angle === 0 && paren === 0 && /\s/.test(ch)) {
+            let j = i;
+            while (j < n && /\s/.test(codeLine[j])) {
+                j++;
+            }
+            const rest = codeLine.slice(j);
+            const nameM = /^([A-Za-z_][A-Za-z0-9_]*)/.exec(rest);
+            if (nameM) {
+                break;
+            }
+        }
+
+        typeBuf += ch;
+        i++;
+    }
+    const typeEnd = i; // exclusive
+
+    while (i < n && /\s/.test(codeLine[i])) {
+        i++;
+    }
+    const nameM = /^([A-Za-z_][A-Za-z0-9_]*)/.exec(codeLine.slice(i));
+    if (!nameM) {
+        return null;
+    }
+    const name = nameM[1];
+
+    return {typeText: typeBuf.trim(), name, typeStart, typeEnd};
+}
+
+// Parse a service method header line to extract return type and name
+function parseMethodHeaderSignature(codeLine: string): {
+    returnType: string;
+    returnStart: number;
+    returnEnd: number;
+    name: string;
+    nameStart: number;
+    nameEnd: number;
+} | null {
+    let i = 0;
+    const n = codeLine.length;
+    while (i < n && /\s/.test(codeLine[i])) {
+        i++;
+    }
+
+    const onewayToken = 'oneway';
+    if (codeLine.slice(i, i + onewayToken.length) === onewayToken &&
+        /\s/.test(codeLine[i + onewayToken.length] || '')) {
+        i += onewayToken.length;
+        while (i < n && /\s/.test(codeLine[i])) {
+            i++;
+        }
+    }
+
+    let typeBuf = '';
+    let angle = 0;
+    let paren = 0;
+    const returnStart = i;
+    while (i < n) {
+        const ch = codeLine[i];
+        if (ch === '<') {angle++;}
+        if (ch === '>') {angle = Math.max(0, angle - 1);}
+        if (ch === '(') {paren++;}
+        if (ch === ')') {paren = Math.max(0, paren - 1);}
+
+        if (angle === 0 && paren === 0 && /\s/.test(ch)) {
+            break;
+        }
+        typeBuf += ch;
+        i++;
+    }
+    const returnEnd = i;
+    while (i < n && /\s/.test(codeLine[i])) {
+        i++;
+    }
+    const nameStart = i;
+    const nameM = /^([A-Za-z_][A-Za-z0-9_]*)/.exec(codeLine.slice(i));
+    if (!nameM) {
+        return null;
+    }
+    const name = nameM[1];
+    const nameEnd = nameStart + name.length;
+    const rest = codeLine.slice(nameEnd);
+    if (!rest.includes('(')) {
+        return null;
+    }
+    return {
+        returnType: typeBuf.trim(),
+        returnStart,
+        returnEnd,
+        name,
+        nameStart,
+        nameEnd
+    };
+}
+
 // isKnownType checks if a type name is known 
 function isKnownType(typeName: string, definedTypes: Set<string>, includeAliases: Set<string>): boolean {
     if (!typeName) {
@@ -326,6 +531,18 @@ function isKnownType(typeName: string, definedTypes: Set<string>, includeAliases
         return parts.every(p => isKnownType(p, definedTypes, includeAliases));
     }
     return false;
+}
+
+function resolveNamespacedBase(typeName: string, includeAliases: Set<string>): string | null {
+    if (!typeName.includes('.')) {
+        return typeName;
+    }
+    const parts = typeName.split('.');
+    const alias = parts[0];
+    if (!alias || !includeAliases.has(alias)) {
+        return null;
+    }
+    return parts[parts.length - 1] || null;
 }
 
 // Extract default value for a field line (comment-stripped)
@@ -506,32 +723,12 @@ function valueMatchesType(valueRaw: string, typeText: string, definedTypes: Set<
         return true; // content validation is out of scope here
     }
     if (/^set<.+>$/.test(t)) {
-        // Accept both {} and [] as set literals (be lenient for common authoring styles)
-        const isBrace = v.startsWith('{') && v.endsWith('}');
-        const isBracket = v.startsWith('[') && v.endsWith(']');
-        if (!isBrace && !isBracket) {
-            return false;
-        }
-        const inner = v.slice(1, -1).trim();
-        if (inner.length === 0) {
-            return true;
-        } // allow empty set defaults: {} or []
-        // heuristic: set has no ':' at top level
-        const colonTopLevel = isBrace
-            ? /:(?=(?:[^\{]*\{[^\}]*\})*[^\}]*$)/.test(v)
-            : /:(?=(?:[^\[]*\[[^\]]*\])*[^\]]*$)/.test(v);
-        return !colonTopLevel;
+        // Keep set defaults lenient to avoid false positives on complex literals.
+        return true;
     }
     if (/^map<.+>$/.test(t)) {
-        if (!(v.startsWith('{') && v.endsWith('}'))) {
-            return false;
-        }
-        const inner = v.slice(1, -1).trim();
-        if (inner.length === 0) {
-            return true;
-        } // allow empty map defaults: {}
-        // heuristic: map has ':' at top level
-        return /:(?=(?:[^\{]*\{[^\}]*\})*[^\}]*$)/.test(v);
+        // Keep map defaults lenient to avoid false positives on complex literals.
+        return true;
     }
 
     // For typedefs or user types: we can't fully validate value shape here; accept quoted or simple tokens
@@ -539,34 +736,39 @@ function valueMatchesType(valueRaw: string, typeText: string, definedTypes: Set<
 }
 
 // Parse types from a Thrift file content and return a map of type names to their kinds
-function parseTypesFromContent(content: string): Map<string, string> {
+function collectTypesFromAst(ast: nodes.ThriftDocument): Map<string, string> {
     const typeKind = new Map<string, string>();
-    const lines = content.split('\n');
-
-    // Strip comments for each line with block-comment awareness
-    const codeLines: string[] = [];
-    const state = {inBlock: false};
-    for (const raw of lines) {
-        codeLines.push(stripCommentsFromLine(raw, state));
-    }
-
-    const typedefDefRe = /^(\s*)typedef\s+([^\s;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/;
-    const typeDefRe = /^(\s*)(struct|union|exception|enum|senum|service)\s+([A-Za-z_][A-Za-z0-9_]*)/;
-
-    for (let i = 0; i < codeLines.length; i++) {
-        const line = codeLines[i];
-        const mTypedef = line.match(typedefDefRe);
-        if (mTypedef) {
-            typeKind.set(mTypedef[3], 'typedef');
-            continue;
+    for (const node of ast.body) {
+        switch (node.type) {
+            case nodes.ThriftNodeType.Typedef:
+                typeKind.set(node.name || '', 'typedef');
+                break;
+            case nodes.ThriftNodeType.Enum:
+                typeKind.set(node.name || '', (node as nodes.Enum).isSenum ? 'senum' : 'enum');
+                break;
+            case nodes.ThriftNodeType.Struct:
+                typeKind.set(node.name || '', 'struct');
+                break;
+            case nodes.ThriftNodeType.Union:
+                typeKind.set(node.name || '', 'union');
+                break;
+            case nodes.ThriftNodeType.Exception:
+                typeKind.set(node.name || '', 'exception');
+                break;
+            case nodes.ThriftNodeType.Service:
+                typeKind.set(node.name || '', 'service');
+                break;
+            default:
+                break;
         }
-        const mType = line.match(typeDefRe);
-        if (mType) {
-            typeKind.set(mType[3], mType[2]);
-        }
     }
-
     return typeKind;
+}
+
+function parseTypesFromContent(content: string): Map<string, string> {
+    const parser = new ThriftParser(content);
+    const ast = parser.parse();
+    return collectTypesFromAst(ast);
 }
 
 // Get included file paths from a Thrift document
@@ -739,32 +941,22 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
         codeLines.push(stripCommentsFromLine(raw, state));
     }
 
-    const includeAliases = parseIncludeAliases(codeLines);
+    const parser = new ThriftParser(text);
+    const ast = parser.parse();
 
-    // Gather defined types in this file (from comment-stripped code) and type kind map
-    const typeKind = new Map<string, string>(); // name -> kind
-    const typedefDefRe = /^(\s*)typedef\s+([^\s;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/;
-    // 支持 service 扩展父服务为命名空间形式（如 shared.SharedService 或 multi.segment.Name）
-    const typeDefRe = /^(\s*)(struct|union|exception|enum|senum|service)\s+([A-Za-z_][A-Za-z0-9_]*)(?:\s+extends\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*))?/;
-    const serviceExtends: Array<{ lineNo: number; parent: string; col: number }> = [];
-    for (let i = 0; i < codeLines.length; i++) {
-        const line = codeLines[i];
-        const mTypedef = line.match(typedefDefRe);
-        if (mTypedef) {
-            typeKind.set(mTypedef[3], 'typedef'); // alias name
-            continue;
-        }
-        const mType = line.match(typeDefRe);
-        if (mType) {
-            typeKind.set(mType[3], mType[2]);
-            if (mType[2] === 'service' && mType[4]) {
-                const idx = line.indexOf('extends');
-                serviceExtends.push({lineNo: i, parent: mType[4], col: idx >= 0 ? idx : 0});
+    const includeAliases = new Set<string>();
+    for (const node of ast.body) {
+        if (node.type === nodes.ThriftNodeType.Include) {
+            const includePath = (node as nodes.Include).path;
+            const alias = path.basename(includePath, '.thrift');
+            if (alias) {
+                includeAliases.add(alias);
             }
         }
     }
 
-    // Merge with included types if provided
+    const typeKind = collectTypesFromAst(ast);
+
     if (includedTypes) {
         for (const [name, kind] of includedTypes) {
             if (!typeKind.has(name)) {
@@ -775,63 +967,226 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
 
     const definedTypes = new Set<string>([...typeKind.keys()]);
 
-    // Validate service extends
-    for (const ext of serviceExtends) {
-        let parentName = ext.parent;
-        let parentKind = typeKind.get(parentName);
-
-        // Handle namespaced types (e.g., shared.SharedService)
-        if (!parentKind && parentName.includes('.')) {
-            const [alias, baseName] = parentName.split('.');
-            if (alias && !includeAliases.has(alias)) {
-                parentKind = undefined;
-            } else if (baseName) {
-                parentKind = typeKind.get(baseName);
-                parentName = baseName;
+    const findTypeRange = (lineNo: number, typeText: string, fallback: vscode.Range): vscode.Range => {
+        if (lineNo >= 0 && lineNo < lines.length) {
+            const idx = lines[lineNo].indexOf(typeText);
+            if (idx >= 0) {
+                return new vscode.Range(lineNo, idx, lineNo, idx + typeText.length);
             }
         }
+        return fallback;
+    };
 
-        if (!parentKind) {
+    // Validate service extends
+    for (const node of ast.body) {
+        if (node.type !== nodes.ThriftNodeType.Service) {
+            continue;
+        }
+        const serviceNode = node as nodes.Service;
+        if (!serviceNode.extends) {
+            continue;
+        }
+        const parentName = serviceNode.extends;
+        let base = parentName;
+        let parentKind = typeKind.get(parentName);
+        if (!parentKind && parentName.includes('.')) {
+            base = resolveNamespacedBase(parentName, includeAliases) || '';
+            parentKind = base ? typeKind.get(base) : undefined;
+        }
+
+        const lineNo = serviceNode.range.start.line;
+        const lineText = lines[lineNo] || '';
+        const col = lineText.indexOf('extends');
+        const range = col >= 0
+            ? new vscode.Range(lineNo, col, lineNo, col + 'extends'.length)
+            : serviceNode.range;
+
+        if (!base || !parentKind) {
             issues.push({
-                message: `Unknown parent service '${ext.parent}' in extends`,
-                range: new vscode.Range(ext.lineNo, ext.col, ext.lineNo, ext.col + 7),
+                message: `Unknown parent service '${parentName}' in extends`,
+                range,
                 severity: vscode.DiagnosticSeverity.Error,
                 code: 'service.extends.unknown'
             });
         } else if (parentKind !== 'service') {
             issues.push({
-                message: `Parent type '${ext.parent}' is not a service`,
-                range: new vscode.Range(ext.lineNo, ext.col, ext.lineNo, ext.col + 7),
+                message: `Parent type '${parentName}' is not a service`,
+                range,
                 severity: vscode.DiagnosticSeverity.Error,
                 code: 'service.extends.notService'
             });
         }
     }
 
-    // Bracket/angle balance tracking and context
-    const stack: { ch: string; line: number; char: number }[] = [];
-    let braceDepth = 0;
-    const typeCtxStack: string[] = [];
-    let pendingTypeKind: string | null = null;
-    let inFieldBlock = false; // struct/union/exception only
-    let currentFieldIds = new Set<number>();
+    // Validate nodes via AST
+    for (const node of ast.body) {
+        switch (node.type) {
+            case nodes.ThriftNodeType.Typedef: {
+                const typedefNode = node as nodes.Typedef;
+                const baseType = typedefNode.aliasType.trim();
+                if (!isKnownType(baseType, definedTypes, includeAliases) && !PRIMITIVES.has(baseType)) {
+                    const lineNo = typedefNode.range.start.line;
+                    issues.push({
+                        message: `Unknown base type '${baseType}' in typedef`,
+                        range: findTypeRange(lineNo, baseType, typedefNode.range),
+                        severity: vscode.DiagnosticSeverity.Error,
+                        code: 'typedef.unknownBase'
+                    });
+                }
+                break;
+            }
+            case nodes.ThriftNodeType.Const: {
+                const constNode = node as nodes.Const;
+                const constType = constNode.valueType.trim();
+                if (!isKnownType(constType, definedTypes, includeAliases)) {
+                    const lineNo = constNode.range.start.line;
+                    issues.push({
+                        message: `Unknown type '${constType}'`,
+                        range: findTypeRange(lineNo, constType, constNode.range),
+                        severity: vscode.DiagnosticSeverity.Error,
+                        code: 'type.unknown'
+                    });
+                }
+                break;
+            }
+            case nodes.ThriftNodeType.Enum: {
+                const enumNode = node as nodes.Enum;
+                if (!enumNode.isSenum) {
+                    for (const member of enumNode.members) {
+                        if (member.initializer && !isIntegerLiteral(member.initializer)) {
+                            issues.push({
+                                message: `Enum value must be an integer literal`,
+                                range: member.range,
+                                severity: vscode.DiagnosticSeverity.Error,
+                                code: 'enum.valueNotInteger'
+                            });
+                        }
+                    }
+                }
+                break;
+            }
+            case nodes.ThriftNodeType.Struct:
+            case nodes.ThriftNodeType.Union:
+            case nodes.ThriftNodeType.Exception: {
+                const structNode = node as nodes.Struct;
+                const fieldIds = new Set<number>();
+                for (const field of structNode.fields) {
+                    if (fieldIds.has(field.id)) {
+                        issues.push({
+                            message: `Duplicate field id ${field.id}`,
+                            range: field.range,
+                            severity: vscode.DiagnosticSeverity.Error,
+                            code: 'field.duplicateId'
+                        });
+                    } else {
+                        fieldIds.add(field.id);
+                    }
 
-    for (let lineNo = 0; lineNo < codeLines.length; lineNo++) {
-        const rawLine = lines[lineNo];
-        const line = codeLines[lineNo];
+                    if (!isKnownType(field.fieldType, definedTypes, includeAliases)) {
+                        const lineNo = field.range.start.line;
+                        issues.push({
+                            message: `Unknown type '${field.fieldType}'`,
+                            range: findTypeRange(lineNo, field.fieldType, field.range),
+                            severity: vscode.DiagnosticSeverity.Error,
+                            code: 'type.unknown'
+                        });
+                    }
 
-        // detect start of a type declaration to attach upcoming '{'
-        const tStart = line.match(typeDefRe);
-        if (tStart) {
-            pendingTypeKind = tStart[2];
+                    const lineNo = field.range.start.line;
+                    const def = lineNo >= 0 && lineNo < codeLines.length ? extractDefaultValue(codeLines[lineNo]) : null;
+                    if (def !== null) {
+                        const ok = valueMatchesType(def, field.fieldType, definedTypes, typeKind);
+                        if (!ok) {
+                            issues.push({
+                                message: `Default value does not match declared type`,
+                                range: field.range,
+                                severity: vscode.DiagnosticSeverity.Error,
+                                code: 'value.typeMismatch'
+                            });
+                        }
+                    }
+                }
+                break;
+            }
+            case nodes.ThriftNodeType.Service: {
+                const serviceNode = node as nodes.Service;
+                for (const func of serviceNode.functions) {
+                    if (func.oneway) {
+                        if (func.returnType !== 'void') {
+                            issues.push({
+                                message: `oneway methods must return void`,
+                                range: func.range,
+                                severity: vscode.DiagnosticSeverity.Error,
+                                code: 'service.oneway.returnNotVoid'
+                            });
+                        }
+                        if (func.throws.length > 0) {
+                            issues.push({
+                                message: `oneway methods cannot declare throws`,
+                                range: func.range,
+                                severity: vscode.DiagnosticSeverity.Error,
+                                code: 'service.oneway.hasThrows'
+                            });
+                        }
+                    }
+
+                    if (func.returnType !== 'void' && !isKnownType(func.returnType, definedTypes, includeAliases)) {
+                        const lineNo = func.range.start.line;
+                        issues.push({
+                            message: `Unknown return type '${func.returnType}'`,
+                            range: findTypeRange(lineNo, func.returnType, func.range),
+                            severity: vscode.DiagnosticSeverity.Error,
+                            code: 'service.returnType.unknown'
+                        });
+                    }
+
+                    for (const arg of func.arguments) {
+                        if (!isKnownType(arg.fieldType, definedTypes, includeAliases)) {
+                            const lineNo = arg.range.start.line;
+                            issues.push({
+                                message: `Unknown type '${arg.fieldType}'`,
+                                range: findTypeRange(lineNo, arg.fieldType, arg.range),
+                                severity: vscode.DiagnosticSeverity.Error,
+                                code: 'type.unknown'
+                            });
+                        }
+                    }
+
+                    for (const thr of func.throws) {
+                        const base = resolveNamespacedBase(thr.fieldType, includeAliases);
+                        const kind = base ? typeKind.get(base) : undefined;
+                        if (!base || !kind) {
+                            issues.push({
+                                message: `Unknown exception type '${thr.fieldType}' in throws`,
+                                range: thr.range,
+                                severity: vscode.DiagnosticSeverity.Error,
+                                code: 'service.throws.unknown'
+                            });
+                        } else if (kind !== 'exception') {
+                            issues.push({
+                                message: `Type '${thr.fieldType}' in throws is not an exception`,
+                                range: thr.range,
+                                severity: vscode.DiagnosticSeverity.Error,
+                                code: 'service.throws.notException'
+                            });
+                        }
+                    }
+                }
+                break;
+            }
+            default:
+                break;
         }
+    }
 
-        // Track quotes to avoid counting brackets inside string literals
+    // Bracket/angle balance tracking
+    const stack: { ch: string; line: number; char: number }[] = [];
+    for (let lineNo = 0; lineNo < codeLines.length; lineNo++) {
+        const line = codeLines[lineNo];
         let inS = false, inD = false, escaped = false;
         for (let i = 0; i < line.length; i++) {
             const ch = line[i];
 
-            // Handle string literal state
             if (inS) {
                 if (!escaped && ch === '\\') {
                     escaped = true;
@@ -863,24 +1218,10 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
                 continue;
             }
 
-            // Only count brackets when not inside a string
             if (ch === '{' || ch === '(' || ch === '<') {
                 stack.push({ch, line: lineNo, char: i});
-                if (ch === '{') {
-                    braceDepth++;
-                    if (pendingTypeKind) {
-                        typeCtxStack.push(pendingTypeKind);
-                        inFieldBlock = (pendingTypeKind === 'struct' || pendingTypeKind === 'union' || pendingTypeKind === 'exception');
-                        // reset field ids per block
-                        if (inFieldBlock) {
-                            currentFieldIds = new Set<number>();
-                        }
-                        pendingTypeKind = null;
-                    }
-                }
             } else if (ch === '}' || ch === ')' || ch === '>') {
                 if (ch === '>') {
-                    // Only match '>' when the stack top is '<'; otherwise ignore
                     const top = stack[stack.length - 1];
                     if (top && top.ch === '<') {
                         stack.pop();
@@ -905,159 +1246,11 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
                             code: 'syntax.mismatched'
                         });
                     }
-                    if (ch === '}') {
-                        braceDepth = Math.max(0, braceDepth - 1);
-                        const popped = typeCtxStack.pop();
-                        if (popped && (popped === 'struct' || popped === 'union' || popped === 'exception')) {
-                            inFieldBlock = false;
-                        }
-                    }
-                }
-            }
-        }
-
-        // Inside enum block: validate explicit values
-        if (typeCtxStack[typeCtxStack.length - 1] === 'enum') {
-            const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)(?:\s*=\s*([^,;]+))?/);
-            if (m) {
-                const valueRaw = (m[2] || '').trim();
-                if (valueRaw) {
-                    if (!isIntegerLiteral(valueRaw)) {
-                        issues.push({
-                            message: `Enum value must be an integer literal`,
-                            range: new vscode.Range(lineNo, m.index || 0, lineNo, (m.index || 0) + (m[0]?.length || 1)),
-                            severity: vscode.DiagnosticSeverity.Error,
-                            code: 'enum.valueNotInteger'
-                        });
-                    }
-                    // 移除负数限制，允许负整数作为enum值
-                }
-            }
-        }
-
-        // At top-level inside a struct/union/exception block: collect field issues
-        if (inFieldBlock && braceDepth > 0) {
-            const sig = parseFieldSignature(line);
-            if (sig) {
-                const {id, typeText, name, typeStart, typeEnd} = sig;
-                if (currentFieldIds.has(id)) {
-                    issues.push({
-                        message: `Duplicate field id ${id}`,
-                        range: new vscode.Range(lineNo, 0, lineNo, line.length),
-                        severity: vscode.DiagnosticSeverity.Error,
-                        code: 'field.duplicateId'
-                    });
-                } else {
-                    currentFieldIds.add(id);
-                }
-
-                // Validate type known-ness (including containers)
-                if (!isKnownType(typeText, definedTypes, includeAliases)) {
-                    issues.push({
-                        message: `Unknown type '${typeText}'`,
-                        range: new vscode.Range(lineNo, typeStart, lineNo, typeEnd),
-                        severity: vscode.DiagnosticSeverity.Error,
-                        code: 'type.unknown'
-                    });
-                }
-
-                // Validate default value type compatibility if present
-                const def = extractDefaultValue(line);
-                if (def !== null) {
-                    const ok = valueMatchesType(def, typeText, definedTypes, typeKind);
-                    if (!ok) {
-                        issues.push({
-                            message: `Default value does not match declared type`,
-                            range: new vscode.Range(lineNo, 0, lineNo, line.length),
-                            severity: vscode.DiagnosticSeverity.Error,
-                            code: 'value.typeMismatch'
-                        });
-                    }
-                }
-            }
-        }
-
-        // Typedef validation
-        const mTypedef = line.match(typedefDefRe);
-        if (mTypedef) {
-            const baseType = mTypedef[2].trim();
-            // The base type itself must be known (resolve containers recursively)
-            if (!isKnownType(baseType, definedTypes, includeAliases) && !PRIMITIVES.has(baseType)) {
-                // compute base type range within the line: after 'typedef' keyword and spaces
-                const afterTypedef = line.indexOf('typedef') + 'typedef'.length;
-                let baseStart = afterTypedef;
-                while (baseStart < line.length && /\s/.test(line[baseStart])) {
-                    baseStart++;
-                }
-                const baseEnd = baseStart + (mTypedef[2] ? mTypedef[2].length : 0);
-                issues.push({
-                    message: `Unknown base type '${baseType}' in typedef`,
-                    range: new vscode.Range(lineNo, Math.max(0, baseStart), lineNo, Math.max(baseStart, baseEnd)),
-                    severity: vscode.DiagnosticSeverity.Error,
-                    code: 'typedef.unknownBase'
-                });
-            }
-        }
-    }
-
-    // Validate service methods and throws
-    for (let lineNo = 0; lineNo < codeLines.length; lineNo++) {
-        const line = codeLines[lineNo];
-        const m = line.match(/^\s*(oneway\s+)?([A-Za-z_][A-Za-z0-9_]*)\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(([^)]*)\)(\s*throws\s*\(([^)]*)\))?/);
-        if (m) {
-            const isOneway = !!m[1];
-            const returnType = m[2];
-            const throwsPart = m[6];
-
-            if (isOneway) {
-                if (returnType !== 'void') {
-                    issues.push({
-                        message: `oneway methods must return void`,
-                        range: new vscode.Range(lineNo, 0, lineNo, line.length),
-                        severity: vscode.DiagnosticSeverity.Error,
-                        code: 'service.oneway.returnNotVoid'
-                    });
-                }
-                if (throwsPart) {
-                    issues.push({
-                        message: `oneway methods cannot declare throws`,
-                        range: new vscode.Range(lineNo, 0, lineNo, line.length),
-                        severity: vscode.DiagnosticSeverity.Error,
-                        code: 'service.oneway.hasThrows'
-                    });
-                }
-            }
-
-            if (throwsPart) {
-                const exMatches = throwsPart.split(',').map(s => s.trim()).filter(Boolean);
-                for (const ex of exMatches) {
-                    const mEx = ex.match(/\d+\s*:\s*([A-Za-z_][A-Za-z0-9_\.]*)\s+[A-Za-z_][A-Za-z0-9_]*/);
-                    if (mEx) {
-                        const exType = mEx[1].trim();
-                        const base = exType.includes('.') ? exType.split('.').pop()! : exType;
-                        const kind = typeKind.get(base);
-                        if (!kind) {
-                            issues.push({
-                                message: `Unknown exception type '${exType}' in throws`,
-                                range: new vscode.Range(lineNo, 0, lineNo, line.length),
-                                severity: vscode.DiagnosticSeverity.Error,
-                                code: 'service.throws.unknown'
-                            });
-                        } else if (kind !== 'exception') {
-                            issues.push({
-                                message: `Type '${exType}' in throws is not an exception`,
-                                range: new vscode.Range(lineNo, 0, lineNo, line.length),
-                                severity: vscode.DiagnosticSeverity.Error,
-                                code: 'service.throws.notException'
-                            });
-                        }
-                    }
                 }
             }
         }
     }
 
-    // Unclosed openers
     for (const open of stack) {
         issues.push({
             message: `Unclosed '${open.ch}'`,

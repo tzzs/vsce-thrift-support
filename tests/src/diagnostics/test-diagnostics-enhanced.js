@@ -156,6 +156,46 @@ function run() {
     assert.ok(findByCode(issues, 'service.throws.notException').length === 1, 'Non-exception in throws should be flagged');
     assert.ok(findByCode(issues, 'service.throws.unknown').length === 1, 'Unknown exception in throws should be flagged');
 
+    // Test 13b: Service method type validation
+    const serviceTypes = `include "shared.thrift"
+  exception MyError {
+    1: string message
+  }
+  service TestService {
+    shared.MyError ok(1: shared.MyError arg),
+    UnknownType badReturn(),
+    void badArg(1: UnknownType arg),
+    void badNamespaced(1: missing.Type arg)
+  }`;
+    const serviceTypesIncluded = new Map([['MyError', 'exception']]);
+    issues = analyzeThriftText(serviceTypes, undefined, serviceTypesIncluded);
+    assert.ok(findByCode(issues, 'service.returnType.unknown').length === 1, 'Unknown service return type should be flagged');
+    assert.ok(findByCode(issues, 'type.unknown').length === 2, 'Unknown service argument types should be flagged');
+
+    // Test 13c: Const type validation
+    const constTypes = `include "shared.thrift"
+  typedef i32 LocalType
+  const shared.RemoteType ok = 1
+  const LocalType okLocal = 2
+  const UnknownType bad = 3
+  const missing.RemoteType badNamespaced = 4`;
+    const constTypesIncluded = new Map([['RemoteType', 'typedef']]);
+    issues = analyzeThriftText(constTypes, undefined, constTypesIncluded);
+    assert.ok(findByCode(issues, 'type.unknown').length === 2, 'Unknown const types should be flagged');
+
+    // Test 13d: Multiline service method args validation
+    const serviceMultiline = `struct PingResponse {
+    1: i32 id
+  }
+  service TestService {
+    PingResponse Ping(
+      1: required trace.Trace traceInfo,
+      2: required i32 id
+    )
+  }`;
+    issues = analyzeThriftText(serviceMultiline);
+    assert.ok(findByCode(issues, 'type.unknown').length === 1, 'Unknown types in multiline service args should be flagged');
+
     // Test 14: Service extends validation
     const serviceExtends = `service BaseService {
     void baseMethod()

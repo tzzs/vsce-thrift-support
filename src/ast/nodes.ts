@@ -68,6 +68,7 @@ export interface Typedef extends ThriftNodeBase {
 export interface Enum extends ThriftNodeBase {
     type: ThriftNodeType.Enum;
     members: EnumMember[];
+    isSenum?: boolean;
 }
 
 export interface EnumMember extends ThriftNodeBase {

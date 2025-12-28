@@ -156,10 +156,10 @@ export class ThriftParser {
             return this.parseStruct(parent, structMatch[1], structMatch[2]);
         }
 
-        // Enum
-        const enumMatch = trimmed.match(/^enum\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+        // Enum / Senum
+        const enumMatch = trimmed.match(/^(enum|senum)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
         if (enumMatch) {
-            return this.parseEnum(parent, enumMatch[1]);
+            return this.parseEnum(parent, enumMatch[2], enumMatch[1] === 'senum');
         }
 
         // Service
@@ -169,9 +169,9 @@ export class ThriftParser {
         }
 
         // Const
-        const constMatch = trimmed.match(/^const\s+([a-zA-Z0-9_<>]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=/);
-        if (constMatch) {
-            return this.parseConst(parent, constMatch[1], constMatch[2]);
+        const constSig = this.parseConstSignature(trimmed);
+        if (constSig) {
+            return this.parseConst(parent, constSig.valueType, constSig.name);
         }
 
         // Typedef
@@ -273,14 +273,15 @@ export class ThriftParser {
         return this.currentLine;
     }
 
-    private parseEnum(parent: nodes.ThriftNode, name: string): nodes.Enum {
+    private parseEnum(parent: nodes.ThriftNode, name: string, isSenum: boolean): nodes.Enum {
         const startLine = this.currentLine;
         const enumNode: nodes.Enum = {
             type: nodes.ThriftNodeType.Enum,
             name: name,
             range: new vscode.Range(startLine, 0, startLine, 0), // Will be updated
             parent: parent,
-            members: []
+            members: [],
+            isSenum: isSenum
         };
 
         // Parse body
@@ -323,7 +324,7 @@ export class ThriftParser {
             }
 
             // Enum Member: NAME = 1, or just NAME,
-            const memberMatch = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:=\s*(\d+|0x[0-9a-fA-F]+))?/);
+            const memberMatch = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:=\s*([^,;]+))?/);
             if (memberMatch && trimmed && !trimmed.startsWith('//')) {
                 const member: nodes.EnumMember = {
                     type: nodes.ThriftNodeType.EnumMember,
@@ -401,90 +402,14 @@ export class ThriftParser {
 
                 // Parse function arguments
                 const args: nodes.Field[] = [];
+                const throwsFields: nodes.Field[] = [];
 
-                // Find the opening parenthesis
-                let parenStartPos = line.indexOf('(');
+                const parenStartPos = line.indexOf('(');
+                let argResult: { text: string; endLine: number; endChar: number } | null = null;
                 if (parenStartPos !== -1) {
-                    // Parse arguments between parentheses
-                    let argParsingLine = this.currentLine;
-                    let argParsingChar = parenStartPos + 1;
-                    let argParenCount = 1;
-
-                    // Collect argument text
-                    let argText = '';
-                    let inArgParsing = true;
-
-                    while (inArgParsing && argParsingLine < this.lines.length) {
-                        const argLine = this.lines[argParsingLine];
-                        while (argParsingChar < argLine.length && inArgParsing) {
-                            const char = argLine[argParsingChar];
-                            if (char === '(') {
-                                argParenCount++;
-                                argText += char;
-                            } else if (char === ')') {
-                                argParenCount--;
-                                if (argParenCount === 0) {
-                                    inArgParsing = false;
-                                    // Don't add the closing parenthesis to argText
-                                } else {
-                                    argText += char;
-                                }
-                            } else {
-                                argText += char;
-                            }
-                            argParsingChar++;
-                        }
-
-                        if (inArgParsing) {
-                            argParsingLine++;
-                            argParsingChar = 0;
-                            if (argParsingLine < this.lines.length) {
-                                argText += '\n';
-                            }
-                        }
-                    }
-
-                    // Parse individual arguments
-                    if (argText.trim()) {
-                        // Split arguments by comma, but be careful about commas in complex types
-                        const argParts = argText.split(',');
-                        let currentArgText = '';
-                        let parenDepth = 0;
-
-                        for (let i = 0; i < argParts.length; i++) {
-                            currentArgText += argParts[i];
-
-                            // Count parentheses in this part
-                            for (const char of argParts[i]) {
-                                if (char === '(') {parenDepth++;}
-                                if (char === ')') {parenDepth--;}
-                            }
-
-                            // If we're at the top level (no unclosed parentheses), this is a complete argument
-                            if (parenDepth === 0) {
-                                const trimmedArg = currentArgText.trim();
-                                if (trimmedArg) {
-                                    // Parse argument: id: type name
-                                    const argMatch = trimmedArg.match(/^(\d+):\s*(?:(required|optional)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)$/);
-                                    if (argMatch) {
-                                        const argNode: nodes.Field = {
-                                            type: nodes.ThriftNodeType.Field,
-                                            range: new vscode.Range(argParsingLine, 0, argParsingLine, 0), // TODO: Better range calculation
-                                            parent: null as any, // Will be set later
-                                            id: parseInt(argMatch[1]),
-                                            requiredness: (argMatch[2] === 'required' || argMatch[2] === 'optional') ? argMatch[2] : 'required',
-                                            fieldType: argMatch[3].trim(),
-                                            name: argMatch[4]
-                                        };
-                                        args.push(argNode);
-                                    }
-                                }
-                                currentArgText = '';
-                            } else {
-                                // Not at top level, add a comma back for next iteration
-                                currentArgText += ',';
-                            }
-                        }
+                    argResult = this.readParenthesizedText(this.currentLine, parenStartPos + 1);
+                    if (argResult) {
+                        args.push(...this.parseFieldList(argResult.text, this.currentLine, parenStartPos + 1));
                     }
                 }
 
@@ -584,6 +509,19 @@ export class ThriftParser {
                     }
                 }
 
+                const throwsStart = this.findThrowsStartInRange(
+                    argResult ? argResult.endLine : funcStartLine,
+                    argResult ? argResult.endChar + 1 : Math.max(parenStartPos + 1, funcStartChar),
+                    funcEndLine,
+                    funcEndChar
+                );
+                if (throwsStart) {
+                    const throwsResult = this.readParenthesizedText(throwsStart.line, throwsStart.char + 1);
+                    if (throwsResult) {
+                        throwsFields.push(...this.parseFieldList(throwsResult.text, throwsStart.line, throwsStart.char + 1));
+                    }
+                }
+
                 const funcNode: nodes.ThriftFunction = {
                     type: nodes.ThriftNodeType.Function,
                     range: new vscode.Range(funcStartLine, funcStartChar, funcEndLine, funcEndChar),
@@ -592,12 +530,15 @@ export class ThriftParser {
                     returnType: funcMatch[2].trim(),
                     oneway: !!funcMatch[1],
                     arguments: args,
-                    throws: []
+                    throws: throwsFields
                 };
 
                 // Set parent for all arguments
                 args.forEach(arg => {
                     arg.parent = funcNode;
+                });
+                throwsFields.forEach(field => {
+                    field.parent = funcNode;
                 });
 
                 parent.functions.push(funcNode);
@@ -609,12 +550,279 @@ export class ThriftParser {
         return this.currentLine;
     }
 
+    private parseConstSignature(trimmedLine: string): {valueType: string; name: string} | null {
+        const headerRe = /^const\s+/;
+        const m = headerRe.exec(trimmedLine);
+        if (!m) {
+            return null;
+        }
+        let i = m[0].length;
+        const n = trimmedLine.length;
+        let typeBuf = '';
+        let angle = 0;
+        let paren = 0;
+        while (i < n && /\s/.test(trimmedLine[i])) {
+            i++;
+        }
+        while (i < n) {
+            const ch = trimmedLine[i];
+            if (ch === '<') {angle++;}
+            if (ch === '>') {angle = Math.max(0, angle - 1);}
+            if (ch === '(') {paren++;}
+            if (ch === ')') {paren = Math.max(0, paren - 1);}
+            if (angle === 0 && paren === 0 && /\s/.test(ch)) {
+                break;
+            }
+            typeBuf += ch;
+            i++;
+        }
+        while (i < n && /\s/.test(trimmedLine[i])) {
+            i++;
+        }
+        const nameMatch = /^([a-zA-Z_][a-zA-Z0-9_]*)/.exec(trimmedLine.slice(i));
+        if (!nameMatch) {
+            return null;
+        }
+        return {valueType: typeBuf.trim(), name: nameMatch[1]};
+    }
+
+    private splitTopLevelCommasWithOffsets(text: string): Array<{text: string; start: number}> {
+        const parts: Array<{text: string; start: number}> = [];
+        let start = 0;
+        let depthAngle = 0;
+        let depthBracket = 0;
+        let depthBrace = 0;
+        let depthParen = 0;
+        let inS = false;
+        let inD = false;
+        let escaped = false;
+        for (let i = 0; i < text.length; i++) {
+            const ch = text[i];
+            if (inS) {
+                if (!escaped && ch === '\\') {
+                    escaped = true;
+                    continue;
+                }
+                if (!escaped && ch === '\'') {
+                    inS = false;
+                }
+                escaped = false;
+                continue;
+            }
+            if (inD) {
+                if (!escaped && ch === '\\') {
+                    escaped = true;
+                    continue;
+                }
+                if (!escaped && ch === '"') {
+                    inD = false;
+                }
+                escaped = false;
+                continue;
+            }
+            if (ch === '\'') {
+                inS = true;
+                continue;
+            }
+            if (ch === '"') {
+                inD = true;
+                continue;
+            }
+            if (ch === '<') {depthAngle++;}
+            if (ch === '>') {depthAngle = Math.max(0, depthAngle - 1);}
+            if (ch === '[') {depthBracket++;}
+            if (ch === ']') {depthBracket = Math.max(0, depthBracket - 1);}
+            if (ch === '{') {depthBrace++;}
+            if (ch === '}') {depthBrace = Math.max(0, depthBrace - 1);}
+            if (ch === '(') {depthParen++;}
+            if (ch === ')') {depthParen = Math.max(0, depthParen - 1);}
+
+            if (ch === ',' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
+                const raw = text.slice(start, i);
+                const leading = raw.match(/^\s*/)?.[0].length ?? 0;
+                const trimmed = raw.trim();
+                if (trimmed) {
+                    parts.push({text: trimmed, start: start + leading});
+                }
+                start = i + 1;
+            }
+        }
+        const tail = text.slice(start);
+        const leading = tail.match(/^\s*/)?.[0].length ?? 0;
+        const trimmed = tail.trim();
+        if (trimmed) {
+            parts.push({text: trimmed, start: start + leading});
+        }
+        return parts;
+    }
+
+    private offsetToPosition(text: string, baseLine: number, baseChar: number, offset: number): {line: number; char: number} {
+        let line = baseLine;
+        let char = baseChar;
+        for (let i = 0; i < offset && i < text.length; i++) {
+            if (text[i] === '\n') {
+                line++;
+                char = 0;
+            } else {
+                char++;
+            }
+        }
+        return {line, char};
+    }
+
+    private parseFieldList(text: string, baseLine: number, baseChar: number): nodes.Field[] {
+        const fields: nodes.Field[] = [];
+        const segments = this.splitTopLevelCommasWithOffsets(text);
+        for (const seg of segments) {
+            const leading = seg.text.match(/^\s*/)?.[0].length ?? 0;
+            const segmentText = seg.text.trim();
+            const segmentStart = seg.start + leading;
+            const segmentEnd = segmentStart + segmentText.length;
+            const match = segmentText.match(/^(\d+):\s*(?:(required|optional)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+            if (!match) {
+                continue;
+            }
+            const startPos = this.offsetToPosition(text, baseLine, baseChar, segmentStart);
+            const endPos = this.offsetToPosition(text, baseLine, baseChar, segmentEnd);
+            const field: nodes.Field = {
+                type: nodes.ThriftNodeType.Field,
+                range: new vscode.Range(startPos.line, startPos.char, endPos.line, endPos.char),
+                parent: null as any,
+                id: parseInt(match[1]),
+                requiredness: (match[2] === 'required' || match[2] === 'optional') ? match[2] : 'required',
+                fieldType: match[3].trim(),
+                name: match[4]
+            };
+            fields.push(field);
+        }
+        return fields;
+    }
+
+    private readParenthesizedText(startLine: number, startChar: number): {text: string; endLine: number; endChar: number} | null {
+        let line = startLine;
+        let char = startChar;
+        let depth = 1;
+        let text = '';
+
+        while (line < this.lines.length) {
+            const lineText = this.lines[line];
+            while (char < lineText.length) {
+                const c = lineText[char];
+                if (c === '(') {
+                    depth++;
+                    text += c;
+                } else if (c === ')') {
+                    depth--;
+                    if (depth === 0) {
+                        return {text, endLine: line, endChar: char};
+                    }
+                    text += c;
+                } else {
+                    text += c;
+                }
+                char++;
+            }
+            line++;
+            char = 0;
+            if (line < this.lines.length) {
+                text += '\n';
+            }
+        }
+        return null;
+    }
+
+    private findThrowsStartInRange(startLine: number, startChar: number, endLine: number, endChar: number): {line: number; char: number} | null {
+        let seenThrows = false;
+        for (let line = startLine; line < this.lines.length; line++) {
+            if (line > endLine) {
+                break;
+            }
+            const lineText = this.lines[line];
+            const searchStart = line === startLine ? startChar : 0;
+            const searchEnd = line === endLine ? endChar : lineText.length;
+            const segment = lineText.slice(searchStart, searchEnd);
+            if (!seenThrows) {
+                const idx = segment.indexOf('throws');
+                if (idx !== -1) {
+                    seenThrows = true;
+                    const parenIdx = segment.indexOf('(', idx + 'throws'.length);
+                    if (parenIdx !== -1) {
+                        return {line, char: searchStart + parenIdx};
+                    }
+                }
+            } else {
+                const parenIdx = segment.indexOf('(');
+                if (parenIdx !== -1) {
+                    return {line, char: searchStart + parenIdx};
+                }
+            }
+        }
+        return null;
+    }
+
     private parseConst(parent: nodes.ThriftNode, valueType: string, name: string): nodes.Const {
         const startLine = this.currentLine;
         let endLine = this.currentLine;
+        let depthBrace = 0;
+        let depthBracket = 0;
+        let depthParen = 0;
+        let seenEquals = false;
+        let inS = false;
+        let inD = false;
+        let escaped = false;
 
-        // Simple heuristic for multi-line const: keep reading until we see a line ending with ;
-        while (endLine < this.lines.length && !this.lines[endLine].trim().endsWith(';')) {
+        while (endLine < this.lines.length) {
+            const line = this.lines[endLine];
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (inS) {
+                    if (!escaped && ch === '\\') {
+                        escaped = true;
+                        continue;
+                    }
+                    if (!escaped && ch === '\'') {
+                        inS = false;
+                    }
+                    escaped = false;
+                    continue;
+                }
+                if (inD) {
+                    if (!escaped && ch === '\\') {
+                        escaped = true;
+                        continue;
+                    }
+                    if (!escaped && ch === '"') {
+                        inD = false;
+                    }
+                    escaped = false;
+                    continue;
+                }
+                if (ch === '\'') {
+                    inS = true;
+                    continue;
+                }
+                if (ch === '"') {
+                    inD = true;
+                    continue;
+                }
+                if (ch === '=' && !seenEquals) {
+                    seenEquals = true;
+                    continue;
+                }
+                if (!seenEquals) {
+                    continue;
+                }
+                if (ch === '{') {depthBrace++;}
+                if (ch === '}') {depthBrace = Math.max(0, depthBrace - 1);}
+                if (ch === '[') {depthBracket++;}
+                if (ch === ']') {depthBracket = Math.max(0, depthBracket - 1);}
+                if (ch === '(') {depthParen++;}
+                if (ch === ')') {depthParen = Math.max(0, depthParen - 1);}
+            }
+
+            if (seenEquals && depthBrace === 0 && depthBracket === 0 && depthParen === 0) {
+                break;
+            }
             endLine++;
         }
 

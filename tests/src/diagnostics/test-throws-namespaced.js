@@ -12,13 +12,15 @@ function run() {
     console.log('\nRunning namespaced throws diagnostics test...');
 
     const text = [
+        'include "shared.thrift"',
         'exception MyError {}',
         'service S {',
         '  i32 doThing() throws (1: shared.MyError err)',
         '}',
     ].join('\n');
 
-    const issues = analyzeThriftText(text);
+    const includedTypes = new Map([['MyError', 'exception']]);
+    const issues = analyzeThriftText(text, undefined, includedTypes);
 
     assert.strictEqual(findByCode(issues, 'service.throws.unknown').length, 0, 'should recognize namespaced exception in throws');
 
