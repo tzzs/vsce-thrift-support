@@ -1009,12 +1009,27 @@ export class DiagnosticManager {
     /**
      * 安排文档诊断任务（支持节流与依赖触发）。
      */
-    public scheduleAnalysis(doc: vscode.TextDocument, immediate: boolean = false, skipDependents: boolean = false, triggerSource?: string) {
+    public scheduleAnalysis(
+        doc: vscode.TextDocument,
+        immediate: boolean = false,
+        skipDependents: boolean = false,
+        triggerSource?: string,
+        dirtyLineCount?: number
+    ) {
         if (doc.languageId !== 'thrift') { return; }
 
         const key = this.getDocumentKey(doc);
         const triggerInfo = triggerSource ? ` (triggered by ${triggerSource})` : '';
-        logDiagnostics(`[Diagnostics] Schedule analysis for ${path.basename(doc.uri.fsPath)}, immediate=${immediate}, skipDependents=${skipDependents}${triggerInfo}`);
+        const dirtyInfo = dirtyLineCount !== undefined ? `, dirtyLines=${dirtyLineCount}` : '';
+
+        // 增量模式：小改动时避免触发依赖文件连锁分析
+        if (config.incremental.analysisEnabled && dirtyLineCount !== undefined) {
+            if (dirtyLineCount <= config.incremental.maxDirtyLines) {
+                skipDependents = true;
+            }
+        }
+
+        logDiagnostics(`[Diagnostics] Schedule analysis for ${path.basename(doc.uri.fsPath)}, immediate=${immediate}, skipDependents=${skipDependents}${triggerInfo}${dirtyInfo}`);
 
         // 清除之前的分析队列
         const existingTimeout = this.analysisQueue.get(key);
@@ -1273,7 +1288,15 @@ export function registerDiagnostics(context: vscode.ExtensionContext) {
         // 文档内容变更时延迟分析
         vscode.workspace.onDidChangeTextDocument(e => {
             if (e.document.languageId === 'thrift') {
-                diagnosticManager.scheduleAnalysis(e.document, false, false, 'documentChange');
+                let dirtyLines: number | undefined;
+                if (config.incremental.analysisEnabled) {
+                    dirtyLines = e.contentChanges.reduce((acc, change) => {
+                        const affected = change.text.split('\n').length - 1;
+                        const removed = change.range.end.line - change.range.start.line;
+                        return acc + Math.max(affected, removed);
+                    }, 0);
+                }
+                diagnosticManager.scheduleAnalysis(e.document, false, false, 'documentChange', dirtyLines);
             }
         }),
 

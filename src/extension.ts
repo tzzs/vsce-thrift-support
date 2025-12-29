@@ -13,13 +13,18 @@ import {registerFoldingRangeProvider} from './folding-range-provider';
 import {registerSelectionRangeProvider} from './selection-range-provider';
 import {PerformanceMonitor} from './performance-monitor';
 import {ThriftFileWatcher} from './utils/file-watcher';
+import {ErrorHandler} from './utils/error-handler';
 import {config} from './config';
 
 /**
  * 扩展入口，注册所有能力与命令。
  */
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Thrift Support extension is now active!');
+    const errorHandler = ErrorHandler.getInstance();
+    errorHandler.handleInfo('Thrift Support extension is now active!', {
+        component: 'Extension',
+        operation: 'activate'
+    });
 
     // Register formatting provider
     const formattingProvider = new ThriftFormattingProvider();
@@ -311,5 +316,9 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-    console.log('Thrift Support extension is now deactivated!');
+    const errorHandler = ErrorHandler.getInstance();
+    errorHandler.handleInfo('Thrift Support extension is now deactivated!', {
+        component: 'Extension',
+        operation: 'deactivate'
+    });
 }

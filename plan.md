@@ -20,8 +20,8 @@
 
 **进行中**
 
-- 统一错误处理与日志风格：Provider 入口/缓存分支逐步接入 `ErrorHandler`，日志统一到输出通道（剩余零散分支继续收敛）
-- 增量分析/增量格式化：已在配置中预留开关与阈值（增量诊断/增量格式化、最大脏区行数），待实现脏区跟踪与最小化 patch
+- 统一错误处理与日志风格：主要 Provider（Definition/References/WorkspaceSymbol/Completion/Hover 等）入口已接入 `ErrorHandler`，日志输出集中；仍有少量分支待收敛
+- 增量分析/增量格式化：配置已预留开关与阈值（`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines`），诊断在小脏区改动时跳过依赖连锁分析；仍需落地真正的局部解析/最小化 patch
 
 **待规划**
 
