@@ -2,9 +2,12 @@ import * as vscode from 'vscode';
 import {ThriftReferencesProvider} from './referencesProvider';
 
 /**
- * ThriftRenameProvider implements the rename symbol functionality for Thrift files
+ * ThriftRenameProvider：处理 Thrift 文件的符号重命名。
  */
 export class ThriftRenameProvider implements vscode.RenameProvider {
+    /**
+     * 预检查重命名位置，返回可重命名范围与占位符。
+     */
     prepareRename(document: vscode.TextDocument, position: vscode.Position, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.Range | {
         range: vscode.Range;
         placeholder: string;
@@ -17,6 +20,9 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         return {range: wordRange, placeholder};
     }
 
+    /**
+     * 生成重命名的 WorkspaceEdit，尽量使用精确范围替换。
+     */
     async provideRenameEdits(document: vscode.TextDocument, position: vscode.Position, newName: string, _token: vscode.CancellationToken): Promise<vscode.WorkspaceEdit | undefined> {
         const wordRange = this.getWordRange(document, position);
         if (!wordRange) {
@@ -63,6 +69,9 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         return edit;
     }
 
+    /**
+     * 获取当前位置的标识符范围。
+     */
     private getWordRange(document: vscode.TextDocument, position: vscode.Position): vscode.Range | undefined {
         const defaultWordPattern = /[A-Za-z_][A-Za-z0-9_]*/g;
         const line = document.lineAt(position.line).text;
@@ -77,11 +86,17 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         return undefined;
     }
 
+    /**
+     * 获取可稳定比对的 URI 键。
+     */
     private getUriKey(uri: vscode.Uri): string {
         const uriAny = uri as unknown as { fsPath?: string; path?: string; toString?: () => string };
         return uriAny.fsPath || uriAny.path || (uriAny.toString ? uriAny.toString() : '');
     }
 
+    /**
+     * 获取指定 URI 的文档实例（含缓存）。
+     */
     private async getDocumentForUri(
         uri: vscode.Uri,
         fallback: vscode.TextDocument,
@@ -107,6 +122,9 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         }
     }
 
+    /**
+     * 计算精确的替换范围，避免误替换整段。
+     */
     private getReplacementRanges(document: vscode.TextDocument, referenceRange: vscode.Range, oldName: string): vscode.Range[] {
         if (!referenceRange) {
             return [];
@@ -142,6 +160,9 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         return fallbackRange ? [fallbackRange] : [];
     }
 
+    /**
+     * 在指定行内查找匹配单词的范围集合。
+     */
     private findWordRangesInLine(
         lineText: string,
         line: number,
@@ -171,6 +192,9 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         return ranges;
     }
 
+    /**
+     * 转义正则特殊字符。
+     */
     private escapeRegExp(value: string): string {
         return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }

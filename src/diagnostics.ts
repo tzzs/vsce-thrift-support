@@ -5,6 +5,7 @@ import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes';
 import { ThriftFileWatcher } from './utils/fileWatcher';
 import { ErrorHandler } from './utils/errorHandler';
+import { config } from './config';
 
 export type ThriftIssue = {
     message: string;
@@ -556,7 +557,7 @@ async function getIncludedFiles(document: vscode.TextDocument): Promise<vscode.U
 const includeTypesCache = new Map<string, Map<string, string>>();
 const includeFileTimestamps = new Map<string, number>();
 const includeFileStats = new Map<string, { mtime: number, size: number }>();
-const INCLUDE_CACHE_MAX_AGE = 3 * 60 * 1000; // 3分钟缓存
+const INCLUDE_CACHE_MAX_AGE = config.cache.includeTypesMaxAgeMs;
 
 // Collect types from all included files (带智能缓存优化版本)
 async function collectIncludedTypes(document: vscode.TextDocument, errorHandler?: ErrorHandler): Promise<Map<string, string>> {
@@ -649,6 +650,9 @@ async function collectIncludedTypes(document: vscode.TextDocument, errorHandler?
     return includedTypes;
 }
 
+/**
+ * 分析 Thrift 文本并返回诊断问题列表。
+ */
 export function analyzeThriftText(text: string, _uri?: vscode.Uri, includedTypes?: Map<string, string>): ThriftIssue[] {
     const lines = text.split('\n');
     const issues: ThriftIssue[] = [];
@@ -982,12 +986,15 @@ export function analyzeThriftText(text: string, _uri?: vscode.Uri, includedTypes
     return issues;
 }
 
+/**
+ * DiagnosticManager：负责诊断调度、缓存与依赖跟踪。
+ */
 export class DiagnosticManager {
     private collection: vscode.DiagnosticCollection;
     private analysisQueue = new Map<string, NodeJS.Timeout>();
     private documentStates = new Map<string, { version: number; isAnalyzing: boolean; lastAnalysis?: number }>();
-    private readonly ANALYSIS_DELAY = 300; // 300ms
-    private readonly MIN_ANALYSIS_INTERVAL = 1000; // 最少1秒间隔
+    private readonly ANALYSIS_DELAY = config.diagnostics.analysisDelayMs;
+    private readonly MIN_ANALYSIS_INTERVAL = config.diagnostics.minAnalysisIntervalMs;
 
     // 文件依赖跟踪 - key: 文件路径, value: 依赖该文件的其他文件路径集合
     private fileDependencies = new Map<string, Set<string>>();
@@ -999,6 +1006,9 @@ export class DiagnosticManager {
         this.collection = vscode.languages.createDiagnosticCollection('thrift');
     }
 
+    /**
+     * 安排文档诊断任务（支持节流与依赖触发）。
+     */
     public scheduleAnalysis(doc: vscode.TextDocument, immediate: boolean = false, skipDependents: boolean = false, triggerSource?: string) {
         if (doc.languageId !== 'thrift') { return; }
 
@@ -1048,11 +1058,14 @@ export class DiagnosticManager {
                             this.scheduleAnalysis(dependentDoc, false, true, 'dependency');
                         }
                     }
-                }, this.ANALYSIS_DELAY * 2); // 双倍延迟
+                }, this.ANALYSIS_DELAY * config.diagnostics.dependentAnalysisDelayFactor);
             }
         }
     }
 
+    /**
+     * 清理指定文档的诊断与缓存。
+     */
     public clearDocument(doc: vscode.TextDocument) {
         const key = this.getDocumentKey(doc);
 
@@ -1094,6 +1107,9 @@ export class DiagnosticManager {
         }
     }
 
+    /**
+     * 释放所有资源。
+     */
     public dispose() {
         // 清除所有待处理的分析
         for (const timeout of this.analysisQueue.values()) {
@@ -1217,13 +1233,16 @@ export class DiagnosticManager {
  * 注册诊断管理器和相关事件监听器
  * @param context vscode 扩展上下文
  */
+/**
+ * 注册诊断能力与文件监听。
+ */
 export function registerDiagnostics(context: vscode.ExtensionContext) {
     const diagnosticManager = new DiagnosticManager();
 
     // 使用 ThriftFileWatcher 监控.thrift文件变化
     const fileWatcher = ThriftFileWatcher.getInstance();
 
-    const diagnosticsFileWatcher = fileWatcher.createWatcher('**/*.thrift', () => {
+    const diagnosticsFileWatcher = fileWatcher.createWatcher(config.filePatterns.thrift, () => {
         // 当有任何.thrift文件变化时，清除相关缓存并重新分析
         logDiagnostics(`[Diagnostics] File system watcher triggered, clearing caches and rescheduling analysis`);
 

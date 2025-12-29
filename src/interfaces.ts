@@ -1,3 +1,6 @@
+/**
+ * 格式化选项。
+ */
 export interface ThriftFormattingOptions {
     trailingComma: 'preserve' | 'add' | 'remove';
     alignTypes: boolean;
@@ -16,6 +19,9 @@ export interface ThriftFormattingOptions {
     initialContext?: { indentLevel: number; inStruct: boolean; inEnum: boolean; inService?: boolean };
 }
 
+/**
+ * 结构体字段的解析结果。
+ */
 export interface StructField {
     line: string;
     id: string; // The field ID (e.g. "1")
@@ -27,6 +33,9 @@ export interface StructField {
     annotation?: string;
 }
 
+/**
+ * 枚举字段的解析结果。
+ */
 export interface EnumField {
     line: string;
     name: string;
@@ -36,6 +45,9 @@ export interface EnumField {
     annotation?: string;
 }
 
+/**
+ * 常量字段的解析结果。
+ */
 export interface ConstField {
     line: string;
     type: string;

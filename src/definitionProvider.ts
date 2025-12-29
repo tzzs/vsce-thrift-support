@@ -4,10 +4,10 @@ import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes';
 import { CacheManager } from './utils/cacheManager';
 import { ErrorHandler } from './utils/errorHandler';
+import { config } from './config';
 
 /**
- * ThriftDefinitionProvider
- * 提供 Thrift 文件中的定义导航功能
+ * ThriftDefinitionProvider：提供 Thrift 文件中的定义导航。
  */
 export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
     // 缓存管理器
@@ -19,26 +19,31 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
     constructor() {
         // 注册缓存配置
         this.cacheManager.registerCache('definition', {
-            maxSize: 1000,
-            ttl: 10000 // 10秒
+            maxSize: config.cache.definition.maxSize,
+            ttl: config.cache.definition.ttlMs
         });
         this.cacheManager.registerCache('document', {
-            maxSize: 500,
-            ttl: 10000 // 10秒
+            maxSize: config.cache.definitionDocument.maxSize,
+            ttl: config.cache.definitionDocument.ttlMs
         });
         this.cacheManager.registerCache('workspace', {
-            maxSize: 200,
-            ttl: 30000 // 30秒
+            maxSize: config.cache.definitionWorkspace.maxSize,
+            ttl: config.cache.definitionWorkspace.ttlMs
         });
     }
 
-    // 清除缓存
+    /**
+     * 清理定义相关缓存。
+     */
     public clearCache(): void {
         this.cacheManager.clear('definition');
         this.cacheManager.clear('document');
         this.cacheManager.clear('workspace');
     }
 
+    /**
+     * 根据当前位置返回定义位置（含 include 与命名空间处理）。
+     */
     async provideDefinition(
         document: vscode.TextDocument,
         position: vscode.Position,
@@ -505,7 +510,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
 
         // 缓存无效，重新搜索
         const locations: vscode.Location[] = [];
-        const files = await vscode.workspace.findFiles('**/*.thrift');
+        const files = await vscode.workspace.findFiles(config.filePatterns.thrift);
         const decoder = new TextDecoder('utf-8');
 
         for (const file of files) {

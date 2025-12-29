@@ -6,7 +6,11 @@ import { readThriftFile } from './utils/fileReader';
 import { ThriftParser } from './ast/parser';
 import { collectIncludes } from './ast/utils';
 import { ErrorHandler } from './utils/errorHandler';
+import { config } from './config';
 
+/**
+ * ThriftHoverProvider：提供符号悬停文档展示。
+ */
 export class ThriftHoverProvider implements vscode.HoverProvider {
 
     // 使用单例定义提供器，避免重复创建实例
@@ -21,29 +25,36 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
     constructor() {
         // 注册缓存配置
         this.cacheManager.registerCache('hoverIncludes', {
-            maxSize: 200,
-            ttl: 30000 // 30秒
+            maxSize: config.cache.hoverIncludes.maxSize,
+            ttl: config.cache.hoverIncludes.ttlMs
         });
         this.cacheManager.registerCache('hoverContent', {
-            maxSize: 100,
-            ttl: 10000 // 10秒
+            maxSize: config.cache.hoverContent.maxSize,
+            ttl: config.cache.hoverContent.ttlMs
         });
     }
 
-    // 清除缓存的静态方法
+    /**
+     * 清理全局缓存（静态入口）。
+     */
     public static clearCache(): void {
         if (ThriftHoverProvider.definitionProvider) {
             ThriftHoverProvider.definitionProvider.clearCache();
         }
     }
 
-    // 清除缓存的实例方法
+    /**
+     * 清理实例级缓存。
+     */
     public clearCache(): void {
         this.cacheManager.clear('hoverIncludes');
         this.cacheManager.clear('hoverContent');
         ThriftHoverProvider.clearCache();
     }
 
+    /**
+     * 提供当前位置的 Hover 信息。
+     */
     async provideHover(
         document: vscode.TextDocument,
         position: vscode.Position,

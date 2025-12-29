@@ -2,9 +2,15 @@ import { ConstField, EnumField, StructField, ThriftFormattingOptions } from './i
 import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes';
 
+/**
+ * ThriftFormatter：将 Thrift 源码格式化为统一风格。
+ */
 export class ThriftFormatter {
     private reServiceMethod = /^\s*(oneway\s+)?[A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]*>)?\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)(\s*throws\s*\([^)]*\))?\s*[;,]?$/;
 
+    /**
+     * 格式化指定文本内容。
+     */
     public format(content: string, options: ThriftFormattingOptions = {
         trailingComma: 'preserve',
         alignTypes: true,

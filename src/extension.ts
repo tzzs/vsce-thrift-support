@@ -13,7 +13,11 @@ import {registerFoldingRangeProvider} from './foldingRangeProvider';
 import {registerSelectionRangeProvider} from './selectionRangeProvider';
 import {PerformanceMonitor} from './performanceMonitor';
 import {ThriftFileWatcher} from './utils/fileWatcher';
+import {config} from './config';
 
+/**
+ * 扩展入口，注册所有能力与命令。
+ */
 export function activate(context: vscode.ExtensionContext) {
     console.log('Thrift Support extension is now active!');
 
@@ -34,19 +38,17 @@ export function activate(context: vscode.ExtensionContext) {
 
     // 添加文件监听器，当文件改变时清除定义提供器的缓存
     const fileWatcher = ThriftFileWatcher.getInstance();
-    const definitionFileWatcher = fileWatcher.createWatcher('**/*.thrift', () => {
+    const definitionFileWatcher = fileWatcher.createWatcher(config.filePatterns.thrift, () => {
         definitionProvider.clearCache();
     });
     context.subscriptions.push(definitionFileWatcher);
 
     // Register hover provider for showing symbol documentation on hover
     const hoverProvider = new ThriftHoverProvider();
-    context.subscriptions.push(
-        vscode.languages.registerHoverProvider('thrift', hoverProvider)
-    );
+    context.subscriptions.push(vscode.languages.registerHoverProvider('thrift', hoverProvider));
 
     // 添加文件监听器，当文件改变时清除悬停提供器的缓存
-    const hoverFileWatcher = fileWatcher.createWatcher('**/*.thrift', () => {
+    const hoverFileWatcher = fileWatcher.createWatcher(config.filePatterns.thrift, () => {
         ThriftHoverProvider.clearCache();
     });
     context.subscriptions.push(hoverFileWatcher);
@@ -87,7 +89,7 @@ export function activate(context: vscode.ExtensionContext) {
                     vscode.CodeActionKind.Refactor,
                     vscode.CodeActionKind.RefactorExtract,
                     vscode.CodeActionKind.RefactorMove,
-                    vscode.CodeActionKind.QuickFix,
+                    vscode.CodeActionKind.QuickFix
                 ]
             }
         )
@@ -125,10 +127,13 @@ export function activate(context: vscode.ExtensionContext) {
             const selectedText = doc.getText(sel) || undefined;
 
             // Try to infer type from current line if no selection
-            let typeText = selectedText && selectedText.trim().length > 0 ? selectedText.trim() : undefined;
+            let typeText =
+                selectedText && selectedText.trim().length > 0 ? selectedText.trim() : undefined;
             if (!typeText) {
                 // match field: 1: required list<string> items,
-                const m = fullLine.match(/^(\s*)\d+\s*:\s*(?:required|optional)?\s*([^\s,;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/);
+                const m = fullLine.match(
+                    /^(\s*)\d+\s*:\s*(?:required|optional)?\s*([^\s,;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/
+                );
                 if (m) {
                     typeText = m[2];
                 }
@@ -137,7 +142,10 @@ export function activate(context: vscode.ExtensionContext) {
                 return;
             }
 
-            const newTypeName = await vscode.window.showInputBox({prompt: 'New type name', value: 'ExtractedType'});
+            const newTypeName = await vscode.window.showInputBox({
+                prompt: 'New type name',
+                value: 'ExtractedType'
+            });
             if (!newTypeName) {
                 return;
             }
@@ -208,7 +216,9 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             const typeDeclLine = doc.lineAt(startLine).text;
-            const m = typeDeclLine.match(/^\s*(struct|enum|service|typedef)\s+([A-Za-z_][A-Za-z0-9_]*)/);
+            const m = typeDeclLine.match(
+                /^\s*(struct|enum|service|typedef)\s+([A-Za-z_][A-Za-z0-9_]*)/
+            );
             if (!m) {
                 return;
             }
@@ -241,7 +251,9 @@ export function activate(context: vscode.ExtensionContext) {
                 }
             }
 
-            const typeBlock = doc.getText(new vscode.Range(startLine, 0, endLine, doc.lineAt(endLine).text.length));
+            const typeBlock = doc.getText(
+                new vscode.Range(startLine, 0, endLine, doc.lineAt(endLine).text.length)
+            );
 
             const defaultFileName = `${typeName}.thrift`;
             const targetName = await vscode.window.showInputBox({
@@ -259,7 +271,9 @@ export function activate(context: vscode.ExtensionContext) {
             // Guard: avoid silently overwriting an existing file
             try {
                 await vscode.workspace.fs.stat(targetUri);
-                vscode.window.showWarningMessage(`Target file "${targetName}" already exists. Move cancelled to avoid overwriting.`);
+                vscode.window.showWarningMessage(
+                    `Target file "${targetName}" already exists. Move cancelled to avoid overwriting.`
+                );
                 return;
             } catch {
                 // file does not exist, safe to proceed

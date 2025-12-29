@@ -1,30 +1,77 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { ThriftParser } from './ast/parser';
+import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes';
-import { ErrorHandler } from './utils/errorHandler';
+import {ErrorHandler} from './utils/errorHandler';
+import {config} from './config';
 
 /**
- * ThriftCompletionProvider
- * 提供 Thrift 语言的代码补全功能
+ * ThriftCompletionProvider：提供 Thrift 语言代码补全。
  */
 export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
     // 错误处理器
     private errorHandler = ErrorHandler.getInstance();
     private keywords = [
-        'namespace', 'include', 'cpp_include', 'php_include', 'py_module', 'perl_package', 'ruby_namespace',
-        'smalltalk_category', 'smalltalk_prefix', 'java_package', 'cocoa_prefix', 'csharp_namespace',
-        'delphi_namespace', 'cpp_namespace', 'd_namespace', 'c_glib', 'netstd', 'st', 'xsd_all', 'xsd_optional',
-        'xsd_nillable', 'xsd_namespace', 'xsd_attrs', 'const', 'typedef', 'enum', 'senum', 'struct', 'union',
-        'exception', 'extends', 'service', 'oneway', 'void', 'throws', 'optional', 'required', 'async'
+        'namespace',
+        'include',
+        'cpp_include',
+        'php_include',
+        'py_module',
+        'perl_package',
+        'ruby_namespace',
+        'smalltalk_category',
+        'smalltalk_prefix',
+        'java_package',
+        'cocoa_prefix',
+        'csharp_namespace',
+        'delphi_namespace',
+        'cpp_namespace',
+        'd_namespace',
+        'c_glib',
+        'netstd',
+        'st',
+        'xsd_all',
+        'xsd_optional',
+        'xsd_nillable',
+        'xsd_namespace',
+        'xsd_attrs',
+        'const',
+        'typedef',
+        'enum',
+        'senum',
+        'struct',
+        'union',
+        'exception',
+        'extends',
+        'service',
+        'oneway',
+        'void',
+        'throws',
+        'optional',
+        'required',
+        'async'
     ];
 
     private primitives = [
-        'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid', 'slist', 'void'
+        'bool',
+        'byte',
+        'i8',
+        'i16',
+        'i32',
+        'i64',
+        'double',
+        'string',
+        'binary',
+        'uuid',
+        'slist',
+        'void'
     ];
 
     private containers = ['list', 'set', 'map'];
 
+    /**
+     * 根据上下文返回补全项列表。
+     */
     public async provideCompletionItems(
         document: vscode.TextDocument,
         position: vscode.Position,
@@ -53,11 +100,33 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
 
         // 2. Namespace languages
         if (/^\s*namespace\s+\w*$/.test(line)) {
-            const namespaceKeywords = ['c_glib', 'cpp', 'cpp_namespace', 'csharp_namespace', 'd_namespace',
-                'delphi_namespace', 'go', 'java_package', 'js', 'lua', 'netstd', 'perl', 'php', 'py', 'py.twisted',
-                'rb', 'rust', 'scala', 'smalltalk_category', 'smalltalk_prefix', 'st', 'swift', 'xsd'];
+            const namespaceKeywords = [
+                'c_glib',
+                'cpp',
+                'cpp_namespace',
+                'csharp_namespace',
+                'd_namespace',
+                'delphi_namespace',
+                'go',
+                'java_package',
+                'js',
+                'lua',
+                'netstd',
+                'perl',
+                'php',
+                'py',
+                'py.twisted',
+                'rb',
+                'rust',
+                'scala',
+                'smalltalk_category',
+                'smalltalk_prefix',
+                'st',
+                'swift',
+                'xsd'
+            ];
 
-            namespaceKeywords.forEach(keyword => {
+            namespaceKeywords.forEach((keyword) => {
                 const item = new vscode.CompletionItem(keyword, vscode.CompletionItemKind.Keyword);
                 item.detail = 'Namespace language';
                 completions.push(item);
@@ -66,7 +135,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         }
 
         // Collect available types and values from AST
-        const { types, values } = this.collectTypesAndValues(thriftDoc);
+        const {types, values} = this.collectTypesAndValues(thriftDoc);
 
         // 3. Inside a block (struct, enum, service)
         const blockNode = this.findBlockNode(thriftDoc, position.line);
@@ -74,7 +143,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         if (blockNode) {
             if (blockNode.type === nodes.ThriftNodeType.Enum) {
                 // Inside Enum: usually validating or just ensuring syntax, but actually Enum members are defined by user.
-                // We typically assume new line in enum means new member or end. 
+                // We typically assume new line in enum means new member or end.
                 // Context-wise, we might not need to provide much inside an enum definition unless it's assigning values?
                 // Actually, if we are in an enum, we are defining members.
             } else if (nodes.isServiceNode(blockNode)) {
@@ -82,9 +151,20 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
                 // Check if we are at start of line (return type) or after type (name) or throws
                 if (this.isInMethodContext(line, position.character)) {
                     // Common method names/verbs could be suggested?
-                    const commonMethods = ['get', 'set', 'create', 'update', 'delete', 'find', 'list'];
-                    commonMethods.forEach(method => {
-                        const item = new vscode.CompletionItem(method, vscode.CompletionItemKind.Method);
+                    const commonMethods = [
+                        'get',
+                        'set',
+                        'create',
+                        'update',
+                        'delete',
+                        'find',
+                        'list'
+                    ];
+                    commonMethods.forEach((method) => {
+                        const item = new vscode.CompletionItem(
+                            method,
+                            vscode.CompletionItemKind.Method
+                        );
                         completions.push(item);
                     });
 
@@ -97,15 +177,21 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
                 // If after ID, suggest 'required', 'optional' or Types.
 
                 // Heuristic: check if we match "ID :"
-                if (/^\s*\d+\s*:\s*$/.test(beforeCursor) || /^\s*\d+\s*:\s*(required|optional)\s+$/.test(beforeCursor)) {
+                if (
+                    /^\s*\d+\s*:\s*$/.test(beforeCursor) ||
+                    /^\s*\d+\s*:\s*(required|optional)\s+$/.test(beforeCursor)
+                ) {
                     this.addTypeCompletions(completions, types);
                 }
 
                 // If we are typing 'required'/'optional'
                 if (/^\s*\d+\s*:\s*\w*$/.test(beforeCursor) && !beforeCursor.trim().endsWith(':')) {
-                    if (!nodes.isServiceNode(blockNode)) { // Services don't use required/optional usually? 
-                        ['required', 'optional'].forEach(k => {
-                            completions.push(new vscode.CompletionItem(k, vscode.CompletionItemKind.Keyword));
+                    if (!nodes.isServiceNode(blockNode)) {
+                        // Services don't use required/optional usually?
+                        ['required', 'optional'].forEach((k) => {
+                            completions.push(
+                                new vscode.CompletionItem(k, vscode.CompletionItemKind.Keyword)
+                            );
                         });
                     }
                     this.addTypeCompletions(completions, types);
@@ -113,7 +199,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
             }
         } else {
             // Top level: suggest keywords (struct, enum, etc.)
-            this.keywords.forEach(k => {
+            this.keywords.forEach((k) => {
                 completions.push(new vscode.CompletionItem(k, vscode.CompletionItemKind.Keyword));
             });
         }
@@ -147,38 +233,42 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
 
         for (const node of doc.body) {
             if (node.name) {
-                if (nodes.isStructNode(node) ||
+                if (
+                    nodes.isStructNode(node) ||
                     nodes.isEnumNode(node) ||
-                    node.type === nodes.ThriftNodeType.Typedef) {
+                    node.type === nodes.ThriftNodeType.Typedef
+                ) {
                     types.push(node.name);
                 }
-                if (node.type === nodes.ThriftNodeType.Const ||
-                    node.type === nodes.ThriftNodeType.EnumMember) {
+                if (
+                    node.type === nodes.ThriftNodeType.Const ||
+                    node.type === nodes.ThriftNodeType.EnumMember
+                ) {
                     values.push(node.name);
                 }
             }
             // For enums, members are children
             if (nodes.isEnumNode(node)) {
-                node.members.forEach(m => {
+                node.members.forEach((m) => {
                     if (m.name) {
                         values.push(m.name);
                     }
                 });
             }
         }
-        return { types, values };
+        return {types, values};
     }
 
     private addTypeCompletions(completions: vscode.CompletionItem[], userTypes: string[]) {
-        this.primitives.forEach(p => {
+        this.primitives.forEach((p) => {
             completions.push(new vscode.CompletionItem(p, vscode.CompletionItemKind.Keyword));
         });
-        this.containers.forEach(c => {
+        this.containers.forEach((c) => {
             const item = new vscode.CompletionItem(c, vscode.CompletionItemKind.Keyword);
             item.insertText = new vscode.SnippetString(`${c}<\${1:T}>`);
             completions.push(item);
         });
-        userTypes.forEach(t => {
+        userTypes.forEach((t) => {
             completions.push(new vscode.CompletionItem(t, vscode.CompletionItemKind.Class));
         });
     }
@@ -204,7 +294,11 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         return false;
     }
 
-    private isInEnumAssignmentContext(line: string, character: number, doc: nodes.ThriftDocument): boolean {
+    private isInEnumAssignmentContext(
+        line: string,
+        character: number,
+        doc: nodes.ThriftDocument
+    ): boolean {
         const beforeCursor = line.substring(0, character);
 
         // Check if we're in a pattern like "Type fieldName = " or "1: required Type fieldName = "
@@ -212,7 +306,9 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         // "Status status = "
         // "1: required Status status = "
         // "1: optional Status status = "
-        const assignmentMatch = beforeCursor.match(/^\s*(?:\d+\s*:\s*(?:required|optional)\s+)?(\w+)\s+(\w+)\s*=\s*$/);
+        const assignmentMatch = beforeCursor.match(
+            /^\s*(?:\d+\s*:\s*(?:required|optional)\s+)?(\w+)\s+(\w+)\s*=\s*$/
+        );
         if (!assignmentMatch) {
             return false;
         }
@@ -230,7 +326,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
     }
 
     private addEnumValueCompletions(completions: vscode.CompletionItem[], values: string[]) {
-        values.forEach(value => {
+        values.forEach((value) => {
             const item = new vscode.CompletionItem(value, vscode.CompletionItemKind.EnumMember);
             item.detail = 'Enum value';
             completions.push(item);
@@ -247,13 +343,16 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         try {
             const files = await vscode.workspace.findFiles(
                 new vscode.RelativePattern(documentDir, '*.thrift'),
-                '**/node_modules/**'
+                config.filePatterns.excludeNodeModules
             );
 
-            files.forEach(file => {
+            files.forEach((file) => {
                 const fileName = path.basename(file.fsPath);
                 if (fileName !== path.basename(document.uri.fsPath)) {
-                    const item = new vscode.CompletionItem(fileName, vscode.CompletionItemKind.File);
+                    const item = new vscode.CompletionItem(
+                        fileName,
+                        vscode.CompletionItemKind.File
+                    );
                     item.detail = 'Thrift include file';
                     item.insertText = fileName;
                     completions.push(item);
@@ -261,7 +360,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
             });
 
             const commonPaths = ['./', '../'];
-            commonPaths.forEach(p => {
+            commonPaths.forEach((p) => {
                 const item = new vscode.CompletionItem(p, vscode.CompletionItemKind.Folder);
                 item.detail = 'Relative path';
                 completions.push(item);
@@ -271,7 +370,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
                 component: 'ThriftCompletionProvider',
                 operation: 'provideIncludePathCompletions',
                 filePath: document.uri.fsPath,
-                additionalInfo: { prefix }
+                additionalInfo: {prefix}
             });
         }
 
@@ -279,13 +378,21 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
     }
 }
 
+/**
+ * 注册 CompletionProvider。
+ */
 export function registerCompletionProvider(context: vscode.ExtensionContext) {
     const provider = new ThriftCompletionProvider();
 
     const disposable = vscode.languages.registerCompletionItemProvider(
         'thrift',
         provider,
-        '.', '"', "'", ':', ' ', '='
+        '.',
+        '"',
+        "'",
+        ':',
+        ' ',
+        '='
     );
 
     context.subscriptions.push(disposable);

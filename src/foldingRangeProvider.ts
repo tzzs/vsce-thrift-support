@@ -2,7 +2,14 @@ import * as vscode from 'vscode';
 import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes';
 
+/**
+ * ThriftFoldingRangeProvider：提供折叠范围。
+ */
+
 export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
+    /**
+     * 返回文档的折叠范围列表。
+     */
     public provideFoldingRanges(
         document: vscode.TextDocument,
         _context: vscode.FoldingContext,
@@ -210,6 +217,9 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
     }
 }
 
+/**
+ * 注册 FoldingRangeProvider。
+ */
 export function registerFoldingRangeProvider(context: vscode.ExtensionContext) {
     const provider = new ThriftFoldingRangeProvider();
     const disposable = vscode.languages.registerFoldingRangeProvider('thrift', provider);

@@ -3,8 +3,14 @@ import { ThriftFormatter } from './thriftFormatter';
 import { ThriftParser } from './ast/parser';
 import { ThriftFormattingOptions } from './interfaces';
 
+/**
+ * ThriftFormattingProvider：提供文档与选区格式化。
+ */
 export class ThriftFormattingProvider implements vscode.DocumentFormattingEditProvider, vscode.DocumentRangeFormattingEditProvider {
 
+    /**
+     * 格式化整个文档。
+     */
     provideDocumentFormattingEdits(
         document: vscode.TextDocument,
         options: vscode.FormattingOptions,
@@ -17,6 +23,9 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         return this.formatRange(document, fullRange, options);
     }
 
+    /**
+     * 格式化指定范围。
+     */
     provideDocumentRangeFormattingEdits(
         document: vscode.TextDocument,
         range: vscode.Range,

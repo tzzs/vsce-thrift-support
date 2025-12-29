@@ -1,18 +1,30 @@
+/**
+ * 缓存配置项。
+ */
 export interface CacheConfig {
     maxSize: number;
     ttl: number; // Time to live in milliseconds
 }
 
+/**
+ * 缓存条目结构。
+ */
 export interface CacheEntry<T> {
     data: T;
     timestamp: number;
 }
 
+/**
+ * CacheManager：统一缓存注册与读写。
+ */
 export class CacheManager {
     private static instance: CacheManager;
     private caches: Map<string, CacheEntry<any>> = new Map();
     private configs: Map<string, CacheConfig> = new Map();
 
+    /**
+     * 获取单例实例。
+     */
     static getInstance(): CacheManager {
         if (!this.instance) {
             this.instance = new CacheManager();
@@ -20,10 +32,16 @@ export class CacheManager {
         return this.instance;
     }
 
+    /**
+     * 注册缓存配置。
+     */
     registerCache(name: string, config: CacheConfig): void {
         this.configs.set(name, config);
     }
 
+    /**
+     * 写入缓存。
+     */
     set<T>(cacheName: string, key: string, value: T): void {
         const config = this.configs.get(cacheName);
         if (!config) {
@@ -37,6 +55,9 @@ export class CacheManager {
         this.cleanup(cacheName, config);
     }
 
+    /**
+     * 读取缓存（过期自动清除）。
+     */
     get<T>(cacheName: string, key: string): T | undefined {
         const cacheKey = `${cacheName}:${key}`;
         const entry = this.caches.get(cacheKey);
@@ -59,6 +80,9 @@ export class CacheManager {
         return entry.data as T;
     }
 
+    /**
+     * 清理指定缓存名称下的所有条目。
+     */
     clear(cacheName: string): void {
         const prefix = `${cacheName}:`;
         for (const [key] of this.caches) {
@@ -68,11 +92,17 @@ export class CacheManager {
         }
     }
 
+    /**
+     * 删除指定键。
+     */
     delete(cacheName: string, key: string): void {
         const fullKey = `${cacheName}:${key}`;
         this.caches.delete(fullKey);
     }
 
+    /**
+     * 清空所有缓存。
+     */
     clearAll(): void {
         this.caches.clear();
     }

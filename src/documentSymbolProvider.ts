@@ -3,25 +3,31 @@ import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes';
 import {ThriftFileWatcher} from './utils/fileWatcher';
 import {CacheManager} from './utils/cacheManager';
+import {config} from './config';
 
+/**
+ * ThriftDocumentSymbolProvider：提供文档符号与 Outline 支持。
+ */
 export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
     private cacheManager = CacheManager.getInstance();
 
     constructor() {
         // 注册缓存配置
         this.cacheManager.registerCache('documentSymbols', {
-            maxSize: 500,
-            ttl: 10000 // 10秒
+            maxSize: config.cache.documentSymbols.maxSize,
+            ttl: config.cache.documentSymbols.ttlMs
         });
 
         // 监听文件变化，清除缓存
         const fileWatcher = ThriftFileWatcher.getInstance();
-        fileWatcher.createWatcher('**/*.thrift', () => {
+        fileWatcher.createWatcher(config.filePatterns.thrift, () => {
             this.cacheManager.clear('documentSymbols');
         });
     }
 
-    // 清除缓存
+    /**
+     * 清理符号缓存（可按 URI）。
+     */
     public clearCache(uri?: vscode.Uri): void {
         if (uri) {
             this.cacheManager.delete('documentSymbols', uri.toString());
@@ -30,6 +36,9 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
         }
     }
 
+    /**
+     * 返回文档符号列表。
+     */
     public provideDocumentSymbols(
         document: vscode.TextDocument,
         _token: vscode.CancellationToken
@@ -183,6 +192,9 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
  * 注册 Thrift 文档符号提供者
  * @param context vscode 扩展上下文
  */
+/**
+ * 注册 DocumentSymbolProvider 与缓存清理逻辑。
+ */
 export function registerDocumentSymbolProvider(context: vscode.ExtensionContext) {
     const provider = new ThriftDocumentSymbolProvider();
     const disposable = vscode.languages.registerDocumentSymbolProvider('thrift', provider);
@@ -199,7 +211,7 @@ export function registerDocumentSymbolProvider(context: vscode.ExtensionContext)
 
     // 添加文件监听器，当文件改变时清除缓存
     const fileWatcher = ThriftFileWatcher.getInstance();
-    const docSymbolFileWatcher = fileWatcher.createWatcher('**/*.thrift', () => {
+    const docSymbolFileWatcher = fileWatcher.createWatcher(config.filePatterns.thrift, () => {
         // 清除所有缓存，因为文件变化可能影响符号解析
         provider.clearCache();
     });

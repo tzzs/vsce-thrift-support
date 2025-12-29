@@ -3,7 +3,14 @@ import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes';
 import {findSmallestNodeAtPosition, nodePathFromLeaf, positionInRange} from './ast/utils';
 
+/**
+ * ThriftSelectionRangeProvider：提供语法层级选区扩展。
+ */
+
 export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvider {
+    /**
+     * 返回每个位置的 SelectionRange 树。
+     */
     provideSelectionRanges(
         document: vscode.TextDocument,
         positions: vscode.Position[],
@@ -246,6 +253,9 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
     }
 }
 
+/**
+ * 注册 SelectionRangeProvider。
+ */
 export function registerSelectionRangeProvider(context: vscode.ExtensionContext) {
     const provider = new ThriftSelectionRangeProvider();
     const disposable = vscode.languages.registerSelectionRangeProvider('thrift', provider);

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as nodes from './nodes';
+import { config } from '../config';
 
 // AST缓存机制 - 避免重复解析相同内容
 interface ASTCacheEntry {
@@ -9,7 +10,7 @@ interface ASTCacheEntry {
 }
 
 const astCache = new Map<string, ASTCacheEntry>();
-const CACHE_MAX_AGE = 5 * 60 * 1000; // 5分钟缓存
+const CACHE_MAX_AGE = config.cache.astMaxAgeMs;
 
 export class ThriftParser {
     private text: string;
@@ -25,7 +26,9 @@ export class ThriftParser {
         this.lines = this.text.split(/\r?\n/);
     }
 
-    // 带缓存的解析方法
+    /**
+     * 带缓存的解析入口（基于文档内容）。
+     */
     public static parseWithCache(document: vscode.TextDocument): nodes.ThriftDocument {
         const uri = document.uri.toString();
         const content = document.getText();
@@ -50,7 +53,9 @@ export class ThriftParser {
         return ast;
     }
 
-    // 基于内容和URI的缓存解析方法
+    /**
+     * 带缓存的解析入口（基于 URI 与内容）。
+     */
     public static parseContentWithCache(uri: string, content: string): nodes.ThriftDocument {
         const now = Date.now();
 
@@ -73,7 +78,9 @@ export class ThriftParser {
         return ast;
     }
 
-    // 清理过期缓存
+    /**
+     * 清理过期 AST 缓存。
+     */
     public static clearExpiredCache(): void {
         const now = Date.now();
         for (const [uri, entry] of astCache.entries()) {
@@ -83,11 +90,16 @@ export class ThriftParser {
         }
     }
 
-    // 清理特定文档的缓存
+    /**
+     * 清理指定文档的 AST 缓存。
+     */
     public static clearDocumentCache(uri: string): void {
         astCache.delete(uri);
     }
 
+    /**
+     * 解析 Thrift 文本为 AST。
+     */
     public parse(): nodes.ThriftDocument {
         const root: nodes.ThriftDocument = {
             type: nodes.ThriftNodeType.Document,

@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 
+/**
+ * 错误上下文信息。
+ */
 export interface ErrorContext {
     component: string;
     operation: string;
@@ -7,9 +10,15 @@ export interface ErrorContext {
     additionalInfo?: Record<string, any>;
 }
 
+/**
+ * ErrorHandler：统一错误与告警处理。
+ */
 export class ErrorHandler {
     private static instance: ErrorHandler;
 
+    /**
+     * 获取单例实例。
+     */
     static getInstance(): ErrorHandler {
         if (!this.instance) {
             this.instance = new ErrorHandler();
@@ -18,7 +27,7 @@ export class ErrorHandler {
     }
 
     /**
-     * 处理错误并记录日志
+     * 处理错误并记录日志。
      */
     handleError(error: unknown, context: ErrorContext): void {
         const errorMessage = this.getErrorMessage(error);
@@ -37,7 +46,7 @@ export class ErrorHandler {
     }
 
     /**
-     * 处理警告并记录日志
+     * 处理警告并记录日志。
      */
     handleWarning(message: string, context: ErrorContext): void {
         const logMessage = this.formatLogMessage(message, context);
@@ -50,7 +59,7 @@ export class ErrorHandler {
     }
 
     /**
-     * 包装异步函数，自动处理错误
+     * 包装异步函数，自动处理错误。
      */
     async wrapAsync<T>(
         fn: () => Promise<T>,
@@ -69,7 +78,7 @@ export class ErrorHandler {
     }
 
     /**
-     * 包装同步函数，自动处理错误
+     * 包装同步函数，自动处理错误。
      */
     wrapSync<T>(fn: () => T, context: ErrorContext, fallbackValue?: T): T {
         try {

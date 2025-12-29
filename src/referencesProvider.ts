@@ -5,12 +5,16 @@ import { ThriftFileWatcher } from './utils/fileWatcher';
 import { CacheManager } from './utils/cacheManager';
 import { ErrorHandler } from './utils/errorHandler';
 import { readThriftFile } from './utils/fileReader';
+import { config } from './config';
 
+/**
+ * ThriftReferencesProvider：提供引用查找与跨文件扫描。
+ */
 export class ThriftReferencesProvider implements vscode.ReferenceProvider {
     private isScanning: boolean = false;
     private workspaceFileList: string[] = [];
     private lastFileListUpdate: number = 0;
-    private readonly FILE_LIST_UPDATE_INTERVAL = 30000; // 30秒更新文件列表
+    private readonly FILE_LIST_UPDATE_INTERVAL = config.references.fileListUpdateIntervalMs;
 
     // 缓存管理器
     private cacheManager = CacheManager.getInstance();
@@ -18,16 +22,19 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
 
     // AST缓存，用于存储已解析的AST以避免重复解析
     private astCache: Map<string, { ast: nodes.ThriftDocument, timestamp: number }> = new Map();
-    private readonly AST_CACHE_TTL = 5000; // 5秒TTL
+    private readonly AST_CACHE_TTL = config.references.astCacheTtlMs;
 
     constructor() {
         // 注册缓存配置
         this.cacheManager.registerCache('references', {
-            maxSize: 1000,
-            ttl: 10000 // 10秒
+            maxSize: config.cache.references.maxSize,
+            ttl: config.cache.references.ttlMs
         });
     }
 
+    /**
+     * 查找指定符号的所有引用位置。
+     */
     public async provideReferences(
         document: vscode.TextDocument,
         position: vscode.Position,
@@ -120,6 +127,9 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         }
     }
 
+    /**
+     * 清理引用缓存与文件列表缓存。
+     */
     public clearCache(): void {
         this.cacheManager.clear('references');
         this.workspaceFileList = [];
@@ -128,6 +138,9 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         this.astCache.clear();
     }
 
+    /**
+     * 根据 AST 判断符号类型（type/field/method 等）。
+     */
     private async getSymbolType(document: vscode.TextDocument, position: vscode.Position, symbolName: string): Promise<string | null> {
 
         // Handle namespaced symbols (e.g., "shared.Address")
@@ -306,6 +319,9 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         return null;
     }
 
+    /**
+     * 查找包含指定位置的最深 AST 节点。
+     */
     private findNodeAtPosition(doc: nodes.ThriftDocument, position: vscode.Position): nodes.ThriftNode | undefined {
         const rangeContains = (range: vscode.Range | { start: vscode.Position; end: vscode.Position } | undefined, pos: vscode.Position): boolean => {
             if (!range) {
@@ -396,6 +412,9 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         return findDeepestNode(doc.body);
     }
 
+    /**
+     * 在指定文本内查找引用位置。
+     */
     private async findReferencesInDocument(
         uri: vscode.Uri,
         text: string,
@@ -555,6 +574,9 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         return references;
     }
 
+    /**
+     * 遍历 AST，并在进入/退出时更新上下文。
+     */
     private traverseAST(
         node: nodes.ThriftNode,
         callback: (node: nodes.ThriftNode) => void,
@@ -615,12 +637,19 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         }
     }
 
+    /**
+     * 获取工作区 Thrift 文件列表（带节流缓存）。
+     */
     private async getThriftFiles(): Promise<vscode.Uri[]> {
         const now = Date.now();
 
         // 只在需要时更新文件列表，避免频繁扫描
         if ((now - this.lastFileListUpdate) > this.FILE_LIST_UPDATE_INTERVAL || this.workspaceFileList.length === 0) {
-            const files = await vscode.workspace.findFiles('**/*.thrift', '**/node_modules/**', 1000);
+            const files = await vscode.workspace.findFiles(
+                config.filePatterns.thrift,
+                config.filePatterns.excludeNodeModules,
+                config.search.workspaceFileLimit
+            );
             this.workspaceFileList = files.map(f => f.fsPath);
             this.lastFileListUpdate = now;
             return files;
@@ -634,6 +663,9 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
      * 获取带缓存的AST
      * @param document 文档对象
      * @returns 解析后的AST
+     */
+    /**
+     * 获取带 TTL 的 AST 缓存。
      */
     private getCachedAst(document: vscode.TextDocument): nodes.ThriftDocument {
         const cacheKey = document.uri.fsPath;
@@ -656,6 +688,9 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
     }
 }
 
+/**
+ * 注册 ReferencesProvider 与缓存清理。
+ */
 export function registerReferencesProvider(context: vscode.ExtensionContext) {
     const provider = new ThriftReferencesProvider();
     const disposable = vscode.languages.registerReferenceProvider('thrift', provider);
@@ -663,7 +698,7 @@ export function registerReferencesProvider(context: vscode.ExtensionContext) {
 
     // 添加文件监听器，当文件改变时清除缓存
     const fileWatcher = ThriftFileWatcher.getInstance();
-    const referencesFileWatcher = fileWatcher.createWatcher('**/*.thrift', () => {
+    const referencesFileWatcher = fileWatcher.createWatcher(config.filePatterns.thrift, () => {
         provider.clearCache();
     });
     context.subscriptions.push(referencesFileWatcher);

@@ -8,10 +8,10 @@ import { readThriftFile } from './utils/fileReader';
 import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes';
 import { collectIncludes, collectTopLevelTypes } from './ast/utils';
+import { config } from './config';
 
 /**
- * ThriftRefactorCodeActionProvider
- * 提供 Thrift 代码重构和快速修复的代码操作
+ * ThriftRefactorCodeActionProvider：提供重构与 Quick Fix。
  */
 export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvider {
     static readonly providedCodeActionKinds = [
@@ -21,6 +21,9 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
         vscode.CodeActionKind.QuickFix,
     ];
 
+    /**
+     * 返回当前上下文下的 CodeAction 列表。
+     */
     async provideCodeActions(
         document: vscode.TextDocument,
         range: vscode.Range | vscode.Selection,
@@ -57,7 +60,12 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
             if (!includeSet.has(fileName) && !createdNs.has(ns)) {
                 try {
                     // Only propose when the target include file actually exists in the workspace
-                    const files = await vscode.workspace.findFiles(`**/${fileName}`, undefined, 1, token);
+                    const files = await vscode.workspace.findFiles(
+                        `**/${fileName}`,
+                        undefined,
+                        config.search.includeFileLimit,
+                        token
+                    );
                     if (files && files.length > 0) {
                         const fix = new vscode.CodeAction(`Insert include "${fileName}"`, vscode.CodeActionKind.QuickFix);
                         fix.edit = new vscode.WorkspaceEdit();
@@ -135,7 +143,7 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
 
     private async findWorkspaceDefinitions(typeName: string): Promise<Array<{ uri: vscode.Uri }>> {
         const results: Array<{ uri: vscode.Uri }> = [];
-        const files = await vscode.workspace.findFiles('**/*.thrift');
+        const files = await vscode.workspace.findFiles(config.filePatterns.thrift);
         for (const file of files) {
             try {
                 const text = await readThriftFile(file);

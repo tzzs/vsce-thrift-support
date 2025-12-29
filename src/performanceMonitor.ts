@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { config } from './config';
 
 // 性能监控器 - 跟踪慢操作并提供优化建议
 export interface PerformanceMetrics {
@@ -9,12 +10,17 @@ export interface PerformanceMetrics {
     fileSize?: number;
 }
 
+/**
+ * PerformanceMonitor：记录并报告扩展性能指标。
+ */
 export class PerformanceMonitor {
     private static metrics: PerformanceMetrics[] = [];
-    private static slowOperationThreshold = 100; // 100ms 为慢操作阈值
-    private static maxMetrics = 100; // 最多保留100条记录
+    private static slowOperationThreshold = config.performance.slowOperationThresholdMs;
+    private static maxMetrics = config.performance.maxMetrics;
 
-    // 测量操作性能
+    /**
+     * 同步测量指定操作的耗时。
+     */
     public static measure<T>(operation: string, fn: () => T, document?: vscode.TextDocument): T {
         const start = performance.now();
         const result = fn();
@@ -39,7 +45,9 @@ export class PerformanceMonitor {
         return result;
     }
 
-    // 异步版本
+    /**
+     * 异步测量指定操作的耗时。
+     */
     public static async measureAsync<T>(operation: string, fn: () => Promise<T>, document?: vscode.TextDocument): Promise<T> {
         const start = performance.now();
         const result = await fn();
@@ -62,7 +70,9 @@ export class PerformanceMonitor {
         return result;
     }
 
-    // 获取性能报告
+    /**
+     * 生成性能报告文本。
+     */
     public static getPerformanceReport(): string {
         if (this.metrics.length === 0) {
             return '暂无性能数据';
@@ -91,7 +101,9 @@ export class PerformanceMonitor {
         return report;
     }
 
-    // 显示性能报告
+    /**
+     * 打开并展示性能报告。
+     */
     public static async showPerformanceReport(): Promise<void> {
         const report = this.getPerformanceReport();
         const doc = await vscode.workspace.openTextDocument({
@@ -101,12 +113,16 @@ export class PerformanceMonitor {
         await vscode.window.showTextDocument(doc, {preview: true});
     }
 
-    // 清理性能数据
+    /**
+     * 清理所有性能数据。
+     */
     public static clearMetrics(): void {
         this.metrics = [];
     }
 
-    // 获取慢操作统计
+    /**
+     * 统计慢操作的次数与平均耗时。
+     */
     public static getSlowOperationStats(): { operation: string; count: number; avgDuration: number }[] {
         const slowOps = this.metrics.filter(m => m.duration > this.slowOperationThreshold);
         const stats = new Map<string, { count: number; totalDuration: number }>();
