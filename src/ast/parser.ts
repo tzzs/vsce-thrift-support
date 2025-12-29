@@ -200,6 +200,7 @@ export class ThriftParser {
                 nameRange: this.findWordRangeInLine(line, this.currentLine, typedefMatch[2], searchStart),
                 parent: parent,
                 aliasType: typedefMatch[1],
+                aliasTypeRange: this.findTypeRangeInLine(line, this.currentLine, typedefMatch[1].trim(), searchStart),
                 name: typedefMatch[2]
             };
             this.currentLine++;
@@ -266,14 +267,17 @@ export class ThriftParser {
             }
 
             const codeOnly = this.stripLineComments(trimmed);
+            const codeStart = line.indexOf(codeOnly);
             // Field regex: 1: optional string name,
             const fieldMatch = codeOnly.match(/^(\d+):\s*(?:(required|optional)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
             if (fieldMatch) {
                 const nameRange = this.findNameRangeInLine(line, this.currentLine, fieldMatch[4], codeOnly);
+                const typeRange = this.findTypeRangeInLine(line, this.currentLine, fieldMatch[3].trim(), codeStart);
                 const field: nodes.Field = {
                     type: nodes.ThriftNodeType.Field,
                     range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
                     nameRange,
+                    typeRange,
                     parent: parent,
                     id: parseInt(fieldMatch[1]),
                     requiredness: fieldMatch[2] as 'required' | 'optional',
@@ -431,6 +435,7 @@ export class ThriftParser {
                 const funcStartLine = this.currentLine;
                 const funcStartChar = line.indexOf(funcMatch[0]); // Start from the beginning of the function match
                 const funcNameRange = this.findWordRangeInLine(line, funcStartLine, funcMatch[3], funcStartChar);
+                const funcReturnTypeRange = this.findTypeRangeInLine(line, funcStartLine, funcMatch[2].trim(), funcStartChar);
 
                 // Parse function arguments
                 const args: nodes.Field[] = [];
@@ -561,6 +566,7 @@ export class ThriftParser {
                     parent: parent,
                     name: funcMatch[3],
                     returnType: funcMatch[2].trim(),
+                    returnTypeRange: funcReturnTypeRange,
                     oneway: !!funcMatch[1],
                     arguments: args,
                     throws: throwsFields
@@ -831,14 +837,18 @@ export class ThriftParser {
                 continue;
             }
             const nameOffset = this.findWordOffset(segmentText, match[4]);
+            const typeOffset = segmentText.indexOf(match[3].trim());
             const startPos = this.offsetToPosition(text, baseLine, baseChar, segmentStart);
             const endPos = this.offsetToPosition(text, baseLine, baseChar, segmentEnd);
             const nameStart = nameOffset !== null ? this.offsetToPosition(text, baseLine, baseChar, segmentStart + nameOffset) : null;
             const nameEnd = nameOffset !== null ? this.offsetToPosition(text, baseLine, baseChar, segmentStart + nameOffset + match[4].length) : null;
+            const typeStart = typeOffset >= 0 ? this.offsetToPosition(text, baseLine, baseChar, segmentStart + typeOffset) : null;
+            const typeEnd = typeOffset >= 0 ? this.offsetToPosition(text, baseLine, baseChar, segmentStart + typeOffset + match[3].trim().length) : null;
             const field: nodes.Field = {
                 type: nodes.ThriftNodeType.Field,
                 range: new vscode.Range(startPos.line, startPos.char, endPos.line, endPos.char),
                 nameRange: nameStart && nameEnd ? new vscode.Range(nameStart.line, nameStart.char, nameEnd.line, nameEnd.char) : undefined,
+                typeRange: typeStart && typeEnd ? new vscode.Range(typeStart.line, typeStart.char, typeEnd.line, typeEnd.char) : undefined,
                 parent: null as any,
                 id: parseInt(match[1]),
                 requiredness: (match[2] === 'required' || match[2] === 'optional') ? match[2] : 'required',
@@ -987,6 +997,7 @@ export class ThriftParser {
             nameRange: this.findWordRangeInLine(line, startLine, name, searchStart),
             parent: parent,
             valueType: valueType,
+            valueTypeRange: this.findTypeRangeInLine(line, startLine, valueType, searchStart),
             name: name,
             value: '' // TODO: extract value
         };
@@ -1024,6 +1035,17 @@ export class ThriftParser {
         const regex = new RegExp(`\\b${escaped}\\b`, 'g');
         const match = regex.exec(text);
         return match ? match.index : null;
+    }
+
+    private findTypeRangeInLine(line: string, lineNumber: number, typeText: string, searchStart: number): vscode.Range | undefined {
+        if (!typeText) {
+            return undefined;
+        }
+        const idx = line.indexOf(typeText, searchStart);
+        if (idx >= 0) {
+            return new vscode.Range(lineNumber, idx, lineNumber, idx + typeText.length);
+        }
+        return undefined;
     }
 
     private escapeRegExp(value: string): string {

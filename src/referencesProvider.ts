@@ -518,13 +518,13 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             if (node.type === nodes.ThriftNodeType.Function) {
                 const func = node as nodes.ThriftFunction;
                 if (func.returnType === symbolName) {
-                    const location = new vscode.Location(uri, func.range);
+                    const location = new vscode.Location(uri, func.returnTypeRange ?? func.range);
                     references.push(location);
                 }
 
                 // Handle namespaced return types
                 if (func.returnType.includes('.') && func.returnType.endsWith('.' + symbolName)) {
-                    const location = new vscode.Location(uri, func.range);
+                    const location = new vscode.Location(uri, func.returnTypeRange ?? func.range);
                     references.push(location);
                 }
                 return; // Don't process children of Function nodes here as they are handled in traverseAST
@@ -539,7 +539,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                     if (field.fieldType === symbolName) {
                         // We'd need to track the position of the fieldType in the original text
                         // This is a simplified approach - in practice, we'd need more detailed position info
-                        const location = new vscode.Location(uri, field.range);
+                        const location = new vscode.Location(uri, field.typeRange ?? field.range);
                         references.push(location);
                     }
 

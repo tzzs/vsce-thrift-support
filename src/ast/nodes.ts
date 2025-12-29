@@ -76,6 +76,7 @@ export interface Include extends ThriftNodeBase {
 export interface Const extends ThriftNodeBase {
     type: ThriftNodeType.Const;
     valueType: string;
+    valueTypeRange?: vscode.Range;
     value: string;
 }
 
@@ -85,6 +86,7 @@ export interface Const extends ThriftNodeBase {
 export interface Typedef extends ThriftNodeBase {
     type: ThriftNodeType.Typedef;
     aliasType: string;
+    aliasTypeRange?: vscode.Range;
 }
 
 /**
@@ -120,6 +122,7 @@ export interface Field extends ThriftNodeBase {
     id: number;
     requiredness?: 'required' | 'optional';
     fieldType: string;
+    typeRange?: vscode.Range;
     defaultValue?: string;
 }
 
@@ -138,6 +141,7 @@ export interface Service extends ThriftNodeBase {
 export interface ThriftFunction extends ThriftNodeBase {
     type: ThriftNodeType.Function;
     returnType: string;
+    returnTypeRange?: vscode.Range;
     oneway: boolean;
     arguments: Field[];
     throws: Field[];
