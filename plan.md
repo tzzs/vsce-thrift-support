@@ -2,13 +2,31 @@
 
 当前版本：1.0.12（2025-12-29 打包）
 
-本文档列出了在项目审查期间（2025年12月）发现的潜在改进和架构变更建议。这些项目目前不阻塞开发，但对于长期的可维护性和健壮性建议进行实施。
+本文档汇总近期代码审查与演进计划，按“现状 -> 风险 -> 计划 -> 长期方向”分块组织，便于追踪与执行。
 
-## 🆕 代码质量评估结果（2025年12月更新）
+## 1. 概览（当前进度）
 
-基于对 `src` 目录的全面代码审查，发现以下主要问题和优化机会：
+**已完成**
 
-### 🔥 高优先级问题（立即处理）
+- `ThriftFileWatcher` / `CacheManager` / `fileReader.ts` 基础设施落地
+- AST 缓存（5 分钟 TTL）与 Provider 统一使用 AST
+- 诊断节流（300ms 延迟 + 1s 最小间隔）与性能监控
+- References/符号共享缓存与文件列表节流
+
+**进行中**
+
+- Rename 误删定义回归定位与修复
+- 统一错误处理与日志风格（`ErrorHandler` 已引入，待覆盖剩余分支）
+- 增量分析/增量格式化
+
+**待规划**
+
+- 集中配置管理与魔法字符串消除
+- LSP 化与增量索引
+
+## 2. 代码质量评估（问题清单）
+
+### 2.1 高优先级
 
 #### 0. Rename 误删定义回归（仍待处理）
 
@@ -36,7 +54,7 @@
 
 #### 2. 文件读取逻辑重复（✅ 已完成）
 
-**发现:** 多个provider重复实现相同的文件读取逻辑
+**发现:** 多个 provider 重复实现相同的文件读取逻辑
 **代码模式:**
 
 ```typescript
@@ -53,7 +71,7 @@ if (openDoc) {
 **影响:** 代码冗余，性能开销
 **解决方案:** 提取 `fileReader.ts` 工具类（已落地）
 
-### ⚡ 中优先级问题（近期处理）
+### 2.2 中优先级
 
 #### 3. 错误处理不一致（🟡 部分完成）
 
@@ -83,17 +101,10 @@ if (openDoc) {
 private readonly CACHE_DURATION = 10000; // 10秒
 ```
 
-### 📈 性能优化机会
+## 3. 性能优化计划（高优先级）
 
-**发现:** 基于性能监控器的分析结果
+**当前状态:** 用户反馈在编辑大文件时 CPU 占用很高，插件响应卡顿。
 
-- 文件系统操作可以优化 40-50%
-- 缓存机制不足（已补 AST 缓存，仍需更多共享/失效策略）
-- 缺少增量更新机制（待实现）
-
-## 🚀 性能优化计划（2025年12月 - 高优先级）
-
-**当前状态:** 用户反馈在编辑大文件时CPU占用很高，插件响应卡顿。
 **问题分析:**
 
 - 诊断功能每次文档修改都立即触发完整分析（已节流）
@@ -104,106 +115,84 @@ private readonly CACHE_DURATION = 10000; // 10秒
 **性能瓶颈定位:**
 
 1. `src/diagnostics.ts:847-853` - 诊断系统过度频繁触发
-2. `src/ast/parser.ts` - AST解析器缺乏缓存
+2. `src/ast/parser.ts` - AST 解析器缺乏缓存
 3. `src/formattingProvider.ts:100-150` - 格式化上下文计算复杂
 
 **优化建议（进度更新）:**
 
-- ✅ **诊断节流机制:** 已添加 300ms 延迟 + 1s 最小间隔的队列节流
-- ✅ **AST 缓存机制:** 已引入缓存化 AST（5 分钟 TTL）
-- ✅ **包含文件缓存:** References/符号使用共享缓存与文件列表节流
-- ✅ **性能监控:** 已加入慢操作包装与指标
-- ⏳ **增量分析:** 仍待实现（仅分析变更部分）
+- ✅ 诊断节流机制：已添加 300ms 延迟 + 1s 最小间隔的队列节流
+- ✅ AST 缓存机制：已引入缓存化 AST（5 分钟 TTL）
+- ✅ 包含文件缓存：References/符号使用共享缓存与文件列表节流
+- ✅ 性能监控：已加入慢操作包装与指标
+- ⏳ 增量分析：仍待实现（仅分析变更部分）
 
 **实施优先级:**
 
-1. **已完成**（高优先级）：诊断节流 + AST 缓存
-2. **中期改进**（中优先级）：增量格式化 + 并发控制
-3. **长期优化**（低优先级）：Web Worker 支持 + 智能增量分析
+1. 已完成（高优先级）：诊断节流 + AST 缓存
+2. 中期改进（中优先级）：增量格式化 + 并发控制
+3. 长期优化（低优先级）：Web Worker 支持 + 智能增量分析
 
 **预期效果:**
 
-- CPU占用降低60-80%
+- CPU 占用降低 60-80%
 - 大文件编辑响应时间从秒级降至毫秒级
 - 内存使用优化，避免重复计算
 
-## 🔧 代码质量优化任务清单
+## 4. 近期任务清单
 
-### 立即实施（本周）
+### 4.1 立即实施（本周）
 
 - [x] 创建 `src/utils/fileWatcher.ts` - 统一文件监听器管理
 - [x] 创建 `src/utils/cacheManager.ts` - 统一缓存管理
 - [x] 创建 `src/utils/fileReader.ts` - 统一文件读取逻辑
 - [x] 重构 `extension.ts` 使用新的工具类
 
-### 近期实施（本月）
+### 4.2 近期实施（本月）
 
 - [ ] 统一错误处理机制 - 建立标准异常处理流程（已引入 `ErrorHandler`，仍需覆盖剩余分支）
 - [ ] 集中配置管理 - 消除魔法字符串和数字
 - [ ] 优化文件扫描性能 - 实现增量更新
 - [ ] 完善性能监控 - 添加更多性能指标
 
-### 长期规划（下月）
+### 4.3 长期规划（下月）
 
 - [ ] 架构重构 - 考虑依赖注入
 - [ ] 注释标准化 - 统一中英文注释
 - [ ] 代码分割 - 将大文件拆分为小模块
 - [ ] 单元测试覆盖 - 为核心功能添加测试
 
-## 📊 优化效果预期
+## 5. 架构与工具类建议
 
-### 代码质量提升
-
-- **重复代码减少**: 20-30%
-- **代码复杂度降低**: 15-25%
-- **维护难度降低**: 显著减少同步修改需求
-
-### 性能提升
-
-- **文件系统操作优化**: 40-50%
-- **内存使用优化**: 减少重复缓存
-- **响应速度提升**: 大文件处理速度提升30-40%
-
-### 可维护性提升
-
-- **模块化程度**: 更好的职责分离
-- **错误处理**: 统一且完善的异常处理
-- **配置管理**: 集中化的配置管理
-
-## 🏗️ 架构改进建议
-
-### 工具类设计规范
-
-#### 1. FileWatcher 工具类
+### 5.1 FileWatcher 工具类
 
 ```typescript
 // src/utils/fileWatcher.ts
 export class ThriftFileWatcher {
     private static instance: ThriftFileWatcher;
     private watchers: Map<string, vscode.FileSystemWatcher> = new Map();
-    
+
     static getInstance(): ThriftFileWatcher {
         if (!this.instance) {
             this.instance = new ThriftFileWatcher();
         }
         return this.instance;
     }
-    
+
     createWatcher(pattern: string, onChange: () => void): vscode.FileSystemWatcher {
         const key = `thrift-${pattern}`;
         if (this.watchers.has(key)) {
             return this.watchers.get(key)!;
         }
-        
+
         const watcher = vscode.workspace.createFileSystemWatcher(pattern);
         watcher.onDidCreate(onChange);
         watcher.onDidChange(onChange);
         watcher.onDidDelete(onChange);
-        
+
         this.watchers.set(key, watcher);
         return watcher;
     }
-    
+
     dispose(): void {
         this.watchers.forEach(watcher => watcher.dispose());
         this.watchers.clear();
@@ -211,7 +200,7 @@ export class ThriftFileWatcher {
 }
 ```
 
-#### 2. CacheManager 缓存管理器
+### 5.2 CacheManager 缓存管理器
 
 ```typescript
 // src/utils/cacheManager.ts
@@ -224,53 +213,53 @@ export class CacheManager {
     private static instance: CacheManager;
     private caches: Map<string, { data: any, timestamp: number }> = new Map();
     private configs: Map<string, CacheConfig> = new Map();
-    
+
     static getInstance(): CacheManager {
         if (!this.instance) {
             this.instance = new CacheManager();
         }
         return this.instance;
     }
-    
+
     registerCache(name: string, config: CacheConfig): void {
         this.configs.set(name, config);
     }
-    
+
     set<T>(cacheName: string, key: string, value: T): void {
         const config = this.configs.get(cacheName);
         if (!config) {
             throw new Error(`Cache ${cacheName} not registered`);
         }
-        
+
         const cacheKey = `${cacheName}:${key}`;
         this.caches.set(cacheKey, { data: value, timestamp: Date.now() });
-        
+
         // Clean up old entries
         this.cleanup(cacheName, config);
     }
-    
+
     get<T>(cacheName: string, key: string): T | undefined {
         const cacheKey = `${cacheName}:${key}`;
         const entry = this.caches.get(cacheKey);
-        
+
         if (!entry) {
             return undefined;
         }
-        
+
         const config = this.configs.get(cacheName);
         if (!config) {
             return undefined;
         }
-        
+
         // Check if expired
         if (Date.now() - entry.timestamp > config.ttl) {
             this.caches.delete(cacheKey);
             return undefined;
         }
-        
+
         return entry.data as T;
     }
-    
+
     clear(cacheName: string): void {
         const prefix = `${cacheName}:`;
         for (const [key] of this.caches) {
@@ -279,31 +268,31 @@ export class CacheManager {
             }
         }
     }
-    
+
     clearAll(): void {
         this.caches.clear();
     }
-    
+
     private cleanup(cacheName: string, config: CacheConfig): void {
         const prefix = `${cacheName}:`;
         const entries: Array<[string, { data: any, timestamp: number }]> = [];
-        
+
         // Collect all entries for this cache
         for (const [key, value] of this.caches) {
             if (key.startsWith(prefix)) {
                 entries.push([key, value]);
             }
         }
-        
+
         // Sort by timestamp (oldest first)
         entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-        
+
         // Remove oldest entries if over max size
         while (entries.length > config.maxSize) {
             const [key] = entries.shift()!;
             this.caches.delete(key);
         }
-        
+
         // Remove expired entries
         const now = Date.now();
         for (const [key, value] of entries) {
@@ -315,7 +304,7 @@ export class CacheManager {
 }
 ```
 
-#### 3. 配置管理器
+### 5.3 配置管理器
 
 ```typescript
 // utils/configManager.ts
@@ -338,18 +327,18 @@ export interface ThriftConfig {
 export class ConfigManager {
     private static instance: ConfigManager;
     private config: ThriftConfig;
-    
+
     private constructor() {
         this.config = this.loadDefaultConfig();
     }
-    
+
     static getInstance(): ConfigManager {
         if (!this.instance) {
             this.instance = new ConfigManager();
         }
         return this.instance;
     }
-    
+
     private loadDefaultConfig(): ThriftConfig {
         return {
             fileWatcher: {
@@ -367,18 +356,20 @@ export class ConfigManager {
             }
         };
     }
-    
+
     getConfig(): ThriftConfig {
         return this.config;
     }
-    
+
     updateConfig(newConfig: Partial<ThriftConfig>): void {
         this.config = { ...this.config, ...newConfig };
     }
 }
 ```
 
-## 1. 解析器健壮性 (`src/ast/parser.ts`)
+## 6. 深度技术债与长期改进
+
+### 6.1 解析器健壮性（`src/ast/parser.ts`）
 
 **当前状态:** 严重依赖正则表达式来提取字段。
 **问题:** 复杂的嵌套类型或边缘情况的语法（例如：泛型参数中的注释）可能会破坏正则匹配或产生错误结果。
@@ -388,17 +379,17 @@ export class ConfigManager {
 - 如果语法要求变得更复杂，实现一个合适的 Tokenizer/Lexer。
 - **优先级:** 中（关注 bug 报告）。
 
-## 2. 格式化器代码复杂性 (`thriftFormatter.ts`)
+### 6.2 格式化器代码复杂性（`thriftFormatter.ts`）
 
 **当前状态:** `formatConstFields` 约有 200 行；`formatStructFields` 也相当复杂。
 **问题:** 巨大的方法使得代码难以阅读、测试和维护。
 **改进建议:**
 
-- **重构 `formatConstFields`:** 将"内联集合展开"逻辑提取到单独的辅助类或方法中。
-- **重构 `formatStructFields`:** 将对齐计算逻辑与实际的字符串重组分离开来。
+- 重构 `formatConstFields`：将"内联集合展开"逻辑提取到单独的辅助类或方法中。
+- 重构 `formatStructFields`：将对齐计算逻辑与实际的字符串重组分离开来。
 - **优先级:** 低（下次修改这些方法时进行重构）。
 
-## 3. 泛型类型解析 (`thriftFormatter.ts`)
+### 6.3 泛型类型解析（`thriftFormatter.ts`）
 
 **当前状态:** `normalizeGenericsInSignature` 使用计数器手动解析 `<` 和 `>` 的嵌套。
 **问题:** 难以维护且容易出错。
@@ -408,43 +399,41 @@ export class ConfigManager {
 - 在 Parser 和 Formatter 之间复用此逻辑。
 - **优先级:** 中。
 
-## 4. AST 与类型安全
+### 6.4 AST 与类型安全
 
 **当前状态:** 插件操作的是"行"和"正则匹配"，而不是真正的抽象语法树 (AST)。
 **问题:** 如果没有真正的 AST，无法准确支持"查找引用"或"重命名符号"等高级功能。
 **改进建议:**
 
-- 引入轻量级的 AST 模型 (`ThriftDocument`, `ThriftNode`)。
+- 引入轻量级的 AST 模型（`ThriftDocument`, `ThriftNode`）。
 - 在格式化之前将整个文档解析为这种树结构。
 - **优先级:** 高（如果需要改进重命名/跳转定义等功能）。
-- ✅ **已实现:** 已创建 AST 模型并应用于多个组件，带缓存清理 API。
+- ✅ 已实现：已创建 AST 模型并应用于多个组件，带缓存清理 API。
 
-## 5. Provider 代码重构与逻辑统一
+### 6.5 Provider 代码重构与逻辑统一
 
 **当前状态:** `CompletionProvider`, `DocumentSymbolProvider`, 和格式化器的解析逻辑各自实现了独立的、基于正则的解析逻辑。
 **问题:** 逻辑重复导致维护困难，修复一个 bug 可能需要在三个地方修改；且不一致的解析行为会导致不同功能表现不一致。
 **改进建议:**
 
-- 在实现 "4. AST 与类型安全" 后，重构所有 Provider 以依赖统一的 `ThriftDocument` / AST。
+- 在实现 "6.4 AST 与类型安全" 后，重构所有 Provider 以依赖统一的 `ThriftDocument` / AST。
 - 移除各 Provider 中临时的正则解析代码。
 - **优先级:** 高（应与 AST 工作同步进行）。
-- ✅ **已实现:** 已重构 Provider 使用统一的 AST 解析器，并共享缓存与文件节流策略。
+- ✅ 已实现：已重构 Provider 使用统一的 AST 解析器，并共享缓存与文件节流策略。
 
-## 6. LSP (Language Server Protocol) 迁移
+### 6.6 LSP (Language Server Protocol) 迁移
 
-**当前状态:** 所有功能均作为 VS Code 扩展直接实现 (`src/*.ts`)。
+**当前状态:** 所有功能均作为 VS Code 扩展直接实现（`src/*.ts`）。
 **问题:** 扩展主进程负载较重；逻辑无法复用到其他编辑器；难以实现增量编译和高效的跨文件索引。
 **改进建议:**
 
 - 将核心解析、诊断、格式化逻辑迁移到独立的 LSP Server。
 - 客户端仅负责与 VS Code API 对接。
-- **优先级:** 中/低（长期架构目标，见本文“现状与路线图”）。
+- **优先级:** 中/低（长期架构目标）。
 
-## 现状与路线图（原 ToDo.md）
+## 7. 现状能力与路线图
 
-当前版本：1.0.12（2025-12-29 打包）
-
-已完成（基础能力已在主分支提供）
+### 7.1 已完成（基础能力已在主分支提供）
 
 - 自动补全（基础关键字、常见方法名）
 - 文档符号（DocumentSymbolProvider）
@@ -456,7 +445,7 @@ export class ConfigManager {
 - 缓存与基础设施：新增 `src/utils/fileWatcher.ts` 单例监听器、`src/utils/cacheManager.ts` TTL 缓存、`src/utils/errorHandler.ts` 统一日志/提示、`src/utils/fileReader.ts` 文件读取；`src/ast/nodes.ts` + `src/ast/parser.ts` 提供缓存化 AST 层（5 分钟 TTL）
 - 测试组织：重构为 `tests/src`（与 src 对齐）/`tests/scenarios`/`tests/utils`/`tests/debug`，保留统一执行器 `tests/run-all-unified.js` 与结构文档
 
-新增进展（2025-12-27）
+### 7.2 新增进展（2025-12-27）
 
 - CompletionProvider 现已使用 AST 语境，提供 include 路径（当前目录）、命名空间语言关键字、容器 snippet、枚举值/用户类型候选；仍为单文件范围、无排序/注解键候选
 - Workspace / Document Symbol / References 统一使用 `ThriftFileWatcher` + `CacheManager`，加入文件列表节流（30s）和结果 TTL（10-60s），References 共享 AST 缓存避免重复解析
@@ -464,7 +453,7 @@ export class ConfigManager {
 - Code Actions：保留提取/移动类型命令，Quick Fix 已支持自动插入缺失 include（命名空间与未限定两类）并避免覆盖已存在文件
 - 测试：补充诊断节流、moveType 安全、rename/navigation/formatter 回归用例并纳入 `run-all-unified`，覆盖基础能力是否可编译的冒烟测试
 
-待增强与新增（优先级建议）
+### 7.3 待增强与新增（优先级建议）
 
 - Rename 回归：重命名后会导致对应定义被异常删除，需定位原因并修复（仍待处理）
 - CompletionProvider 强化：跨文件/已 include 类型与枚举值、注解键候选、排序与上下文感知、include 路径跨目录/别名、去重与缓存
@@ -481,13 +470,7 @@ export class ConfigManager {
 - 与 Thrift 工具链集成：一键调用编译器生成 Stub；Problems 面板收集编译/生成告警
 - 测试与 CI：端到端/UI（补全、F12、Outline、Refs）、性能基准、大仓库压力测试；为 moveType/extract/formatter/diagnostics 新增回归并接入 `run-all-unified`
 
-建议的近期路线图（按优先级分组）
-
-- P0：CompletionProvider 跨文件/注解键/排序；References 精准度与取消/预览（已共享 AST，待预览/取消）；Document/Workspace Symbols 精确范围与层级展示；持续补齐 formatter/诊断/重构回归并挂入 `run-all-unified.js`
-- P1：Quick Fix 扩展（创建缺失类型/枚举成员、namespace/typedef 修复）、Snippets、Signature Help、Semantic Tokens；Organize Includes + 字段排序配置化
-- P2：LSP 化与增量索引、Inlay Hints、更多诊断与重构、与 thrift 编译器的 Task/Problems 集成、端到端 UI/性能基准
-
-现状速览（我们已具备）
+### 7.4 现状速览（我们已具备）
 
 - 定义跳转与跨文件 include 解析：`src/definitionProvider.ts`
 - 重命名（跨文件）：`src/renameProvider.ts`
@@ -502,7 +485,7 @@ export class ConfigManager {
 - 基础设施：`src/utils/fileWatcher.ts`、`src/utils/cacheManager.ts`、`src/utils/errorHandler.ts`
 - 语法高亮（TextMate）：`syntaxes/thrift.tmLanguage.json`
 
-与通用语言插件对比的差距与可增强点
+### 7.5 与通用语言插件对比的差距与可增强点
 
 1) 智能感知与编辑体验
 
@@ -580,13 +563,13 @@ export class ConfigManager {
 - 性能基准与大仓库压力测试
 - 回归补齐：moveType/extract、格式化（逗号/注释）、诊断节流、AST 缓存清理
 
-建议的增量路线图（优先级）
+### 7.6 建议的增量路线图（优先级）
 
 - P0（可用度）：CompletionProvider（跨文件类型/注解键/排序）、References 预览与上下文过滤、Document/Workspace Symbol 精度/层级、关键回归测试常驻 unified runner
 - P1（效率与体验）：Quick Fix 补齐缺失类型/枚举成员、Snippets、Signature Help、Semantic Tokens、Organize Includes/字段排序配置
 - P2（中长期）：LSP 与增量索引、Inlay Hints、诊断/重构扩展、与 thrift 编译器 Task/Problems 集成、端到端 UI/性能基准
 
-历史更新记录
+## 8. 历史更新记录
 
 - 2025-12-27：补齐 include Quick Fix 与 moveType 覆盖保护；CompletionProvider 引入 AST 语境与 include/枚举/容器 snippet；References/Document/Workspace Symbols 引入缓存与文件列表节流；诊断新增节流+性能监控+依赖追踪；测试补齐诊断/重构回归并挂入 unified runner。
 - 2025-12-26：moveType 增加目标存在检测并避免覆盖；typedef 仅截取声明行；格式化支持单行逗号与 const 闭合行注释；诊断节流改为延迟队列；新增 AST 缓存层与 fileWatcher/cacheManager/errorHandler；测试目录重组 + 统一 runner。
