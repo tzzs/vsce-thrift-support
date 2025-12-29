@@ -439,7 +439,12 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
 
 
         } catch (error) {
-            console.error(`[ERROR] Failed to parse AST:`, error);
+            this.errorHandler.handleError(error, {
+                component: 'ThriftReferencesProvider',
+                operation: 'parseAst',
+                filePath: uri.fsPath,
+                additionalInfo: {symbolName}
+            });
             return references;
         }
 

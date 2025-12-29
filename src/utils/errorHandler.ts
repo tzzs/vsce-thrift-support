@@ -31,7 +31,7 @@ export class ErrorHandler {
      */
     handleError(error: unknown, context: ErrorContext): void {
         const errorMessage = this.getErrorMessage(error);
-        const logMessage = this.formatLogMessage(errorMessage, context);
+        const logMessage = this.formatLogMessage(errorMessage, context, 'error');
 
         // 记录到控制台
         console.error(logMessage);
@@ -49,13 +49,22 @@ export class ErrorHandler {
      * 处理警告并记录日志。
      */
     handleWarning(message: string, context: ErrorContext): void {
-        const logMessage = this.formatLogMessage(message, context);
+        const logMessage = this.formatLogMessage(message, context, 'warning');
 
         // 记录到控制台
         console.warn(logMessage);
 
         // 记录到输出通道（如果可用）
         this.logToOutputChannel(new Error(message), context, 'warning');
+    }
+
+    /**
+     * 记录信息级日志，保持输出风格一致。
+     */
+    handleInfo(message: string, context: ErrorContext): void {
+        const logMessage = this.formatLogMessage(message, context, 'info');
+        console.log(logMessage);
+        this.logToOutputChannel(message, context, 'info');
     }
 
     /**
@@ -102,8 +111,9 @@ export class ErrorHandler {
         return 'Unknown error';
     }
 
-    private formatLogMessage(message: string, context: ErrorContext): string {
-        const baseMessage = `[${context.component}] ${context.operation} failed: ${message}`;
+    private formatLogMessage(message: string, context: ErrorContext, level: 'error' | 'warning' | 'info' = 'error'): string {
+        const verb = level === 'info' ? ':' : ' failed:';
+        const baseMessage = `[${context.component}] ${context.operation}${verb} ${message}`;
         const fileInfo = context.filePath ? ` (file: ${context.filePath})` : '';
         const additionalInfo = context.additionalInfo
             ? ` | Additional: ${JSON.stringify(context.additionalInfo)}`
@@ -131,7 +141,7 @@ export class ErrorHandler {
     private logToOutputChannel(
         error: unknown,
         context: ErrorContext,
-        level: 'error' | 'warning' = 'error'
+        level: 'error' | 'warning' | 'info' = 'error'
     ): void {
         try {
             // 尝试获取输出通道（如果已创建）
@@ -140,11 +150,7 @@ export class ErrorHandler {
             const errorMessage = error instanceof Error ? error.stack || error.message : String(error);
             const logEntry = `[${timestamp}] ${level.toUpperCase()} ${context.component}.${context.operation}\n${errorMessage}\n`;
 
-            if (level === 'error') {
-                channel.appendLine(logEntry);
-            } else {
-                channel.appendLine(logEntry);
-            }
+            channel.appendLine(logEntry);
 
             // 只在需要时显示输出通道
             if (level === 'error') {
