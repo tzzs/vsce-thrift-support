@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { config } from './config';
+import { ErrorHandler } from './utils/error-handler';
 
 // 性能监控器 - 跟踪慢操作并提供优化建议
 export interface PerformanceMetrics {
@@ -17,6 +18,8 @@ export class PerformanceMonitor {
     private static metrics: PerformanceMetrics[] = [];
     private static slowOperationThreshold = config.performance.slowOperationThresholdMs;
     private static maxMetrics = config.performance.maxMetrics;
+    private static errorHandler = ErrorHandler.getInstance();
+    private static component = 'PerformanceMonitor';
 
     /**
      * 同步测量指定操作的耗时。
@@ -151,15 +154,28 @@ export class PerformanceMonitor {
     }
 
     private static warnSlowOperation(metric: PerformanceMetrics): void {
-        console.warn(`[Thrift Support] Slow operation detected: ${metric.operation} took ${metric.duration.toFixed(2)}ms`);
+        this.errorHandler.handleWarning(
+            `Slow operation detected: ${metric.operation} took ${metric.duration.toFixed(2)}ms`,
+            {
+                component: this.component,
+                operation: 'warnSlowOperation',
+                filePath: metric.documentUri
+            }
+        );
 
         // 如果操作特别慢，只在控制台记录，不显示弹窗
         if (metric.duration > 500) {
             const fileInfo = metric.documentUri ? ` in ${vscode.workspace.asRelativePath(metric.documentUri)}` : '';
             const sizeInfo = metric.fileSize ? ` (${(metric.fileSize / 1024).toFixed(1)}KB)` : '';
 
-            // 只在控制台记录，不显示弹窗干扰用户
-            console.warn(`[Thrift Performance] Slow operation: ${metric.operation} took ${metric.duration.toFixed(0)}ms${fileInfo}${sizeInfo}`);
+            this.errorHandler.handleWarning(
+                `Slow operation: ${metric.operation} took ${metric.duration.toFixed(0)}ms${fileInfo}${sizeInfo}`,
+                {
+                    component: this.component,
+                    operation: 'warnSlowOperation',
+                    filePath: metric.documentUri
+                }
+            );
         }
     }
 }

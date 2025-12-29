@@ -17,11 +17,11 @@
 - 配置集中化（`src/config/index.ts`）消除魔法字符串/数字
 - Rename 误删定义回归修复 + 回归测试覆盖
 - AST 类型范围回归测试新增（tests/src/ast/parser/test-type-ranges.js）
+- 错误处理与日志统一：主要 Provider + 性能监控/扫描分析工具使用 `ErrorHandler` 集中输出
 
 **进行中**
 
-- 统一错误处理与日志风格：主要 Provider（Definition/References/WorkspaceSymbol/Completion/Hover 等）入口已接入 `ErrorHandler`，日志输出集中；仍有少量分支待收敛
-- 增量分析/增量格式化：配置已预留开关与阈值（`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines`），诊断在小脏区改动时跳过依赖连锁分析；仍需落地真正的局部解析/最小化 patch
+- 增量分析/增量格式化：配置已预留开关与阈值（`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines`），诊断在小脏区改动时跳过依赖连锁分析；仍需实现局部解析/最小化 patch
 
 **待规划**
 
