@@ -29,11 +29,12 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
 
         // Use the references provider to find all occurrences
         const referencesProvider = new ThriftReferencesProvider();
+        const safeToken = _token ?? ({ isCancellationRequested: false } as vscode.CancellationToken);
         const references = await referencesProvider.provideReferences(
             document,
             position,
             {includeDeclaration: true},
-            _token
+            safeToken
         );
 
         if (!references || references.length === 0) {
@@ -41,14 +42,22 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         }
 
         const edit = new vscode.WorkspaceEdit();
+        const documentCache = new Map<string, vscode.TextDocument>();
 
         // Apply edits for all references
         for (const reference of references) {
-            edit.replace(
-                reference.uri,
-                reference.range,
-                newName
-            );
+            const targetDoc = await this.getDocumentForUri(reference.uri, document, documentCache);
+            if (!targetDoc) {
+                continue;
+            }
+            const ranges = this.getReplacementRanges(targetDoc, reference.range, oldName);
+            for (const range of ranges) {
+                edit.replace(
+                    reference.uri,
+                    range,
+                    newName
+                );
+            }
         }
 
         return edit;
@@ -68,4 +77,101 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         return undefined;
     }
 
+    private getUriKey(uri: vscode.Uri): string {
+        const uriAny = uri as unknown as { fsPath?: string; path?: string; toString?: () => string };
+        return uriAny.fsPath || uriAny.path || (uriAny.toString ? uriAny.toString() : '');
+    }
+
+    private async getDocumentForUri(
+        uri: vscode.Uri,
+        fallback: vscode.TextDocument,
+        cache: Map<string, vscode.TextDocument>
+    ): Promise<vscode.TextDocument | undefined> {
+        const key = this.getUriKey(uri);
+        const fallbackKey = this.getUriKey(fallback.uri as vscode.Uri);
+        if (key && key === fallbackKey) {
+            return fallback;
+        }
+        if (cache.has(key)) {
+            return cache.get(key);
+        }
+        if (!vscode.workspace?.openTextDocument) {
+            return undefined;
+        }
+        try {
+            const doc = await vscode.workspace.openTextDocument(uri);
+            cache.set(key, doc);
+            return doc;
+        } catch {
+            return undefined;
+        }
+    }
+
+    private getReplacementRanges(document: vscode.TextDocument, referenceRange: vscode.Range, oldName: string): vscode.Range[] {
+        if (!referenceRange) {
+            return [];
+        }
+        const sameLine = referenceRange.start.line === referenceRange.end.line;
+        const lineText = document.lineAt(referenceRange.start.line).text;
+        const searchStart = sameLine ? referenceRange.start.character : 0;
+        const commentIndex = lineText.indexOf('//');
+        const lineEnd = sameLine ? referenceRange.end.character : lineText.length;
+        const searchEnd = commentIndex !== -1 ? Math.min(lineEnd, commentIndex) : lineEnd;
+
+        const ranges = this.findWordRangesInLine(
+            lineText,
+            referenceRange.start.line,
+            oldName,
+            searchStart,
+            searchEnd
+        );
+        if (ranges.length > 0) {
+            return ranges;
+        }
+
+        const exactText = document.getText(referenceRange);
+        if (exactText === oldName) {
+            return [referenceRange];
+        }
+
+        const escaped = this.escapeRegExp(oldName);
+        const fallbackRange = document.getWordRangeAtPosition(
+            referenceRange.start,
+            new RegExp(`\\b${escaped}\\b`, 'g')
+        );
+        return fallbackRange ? [fallbackRange] : [];
+    }
+
+    private findWordRangesInLine(
+        lineText: string,
+        line: number,
+        word: string,
+        startChar: number,
+        endChar: number
+    ): vscode.Range[] {
+        const ranges: vscode.Range[] = [];
+        if (!word) {
+            return ranges;
+        }
+        const escaped = this.escapeRegExp(word);
+        const regex = new RegExp(`\\b${escaped}\\b`, 'g');
+        let match: RegExpExecArray | null;
+        while ((match = regex.exec(lineText)) !== null) {
+            const start = match.index;
+            const end = start + match[0].length;
+            if (start >= startChar && end <= endChar) {
+                ranges.push(
+                    new vscode.Range(
+                        new vscode.Position(line, start),
+                        new vscode.Position(line, end)
+                    )
+                );
+            }
+        }
+        return ranges;
+    }
+
+    private escapeRegExp(value: string): string {
+        return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
 }
