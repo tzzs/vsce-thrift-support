@@ -271,8 +271,12 @@ export class ThriftParser {
             // Field regex: 1: optional string name,
             const fieldMatch = codeOnly.match(/^(\d+):\s*(?:(required|optional)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
             if (fieldMatch) {
+                const valueTarget = this.stripTrailingAnnotation(codeOnly.replace(/[,;]\s*$/, ''));
                 const nameRange = this.findNameRangeInLine(line, this.currentLine, fieldMatch[4], codeOnly);
                 const typeRange = this.findTypeRangeInLine(line, this.currentLine, fieldMatch[3].trim(), codeStart);
+                const defaultInfo = this.findDefaultValueRange(valueTarget);
+                const defaultStart = defaultInfo ? codeStart + defaultInfo.start : null;
+                const defaultEnd = defaultInfo ? codeStart + defaultInfo.end : null;
                 const field: nodes.Field = {
                     type: nodes.ThriftNodeType.Field,
                     range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
@@ -282,15 +286,12 @@ export class ThriftParser {
                     id: parseInt(fieldMatch[1]),
                     requiredness: fieldMatch[2] as 'required' | 'optional',
                     fieldType: fieldMatch[3].trim(),
-                    name: fieldMatch[4]
+                    name: fieldMatch[4],
+                    defaultValue: defaultInfo?.value,
+                    defaultValueRange: defaultStart !== null && defaultEnd !== null
+                        ? new vscode.Range(this.currentLine, defaultStart, this.currentLine, defaultEnd)
+                        : undefined
                 };
-
-                // Check for default value (ignore trailing annotations)
-                const valueTarget = this.stripTrailingAnnotation(codeOnly.replace(/[,;]\s*$/, ''));
-                const defaultValueMatch = valueTarget.match(/=\s*([^,;]+)/);
-                if (defaultValueMatch) {
-                    field.defaultValue = defaultValueMatch[1].trim();
-                }
 
                 parent.fields.push(field);
             }
@@ -357,6 +358,8 @@ export class ThriftParser {
             // Enum Member: NAME = 1, or just NAME,
             const memberMatch = codeOnly.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:=\s*([^,;]+))?/);
             if (memberMatch && codeOnly && !codeOnly.startsWith('//')) {
+                const initializer = memberMatch[2]?.trim();
+                const initializerRange = this.findInitializerRange(line, codeOnly, initializer);
                 const nameRange = this.findNameRangeInLine(line, this.currentLine, memberMatch[1], codeOnly);
                 const member: nodes.EnumMember = {
                     type: nodes.ThriftNodeType.EnumMember,
@@ -364,7 +367,8 @@ export class ThriftParser {
                     nameRange,
                     parent: parent,
                     name: memberMatch[1],
-                    initializer: memberMatch[2]
+                    initializer,
+                    initializerRange
                 };
                 parent.members.push(member);
             }
@@ -838,12 +842,15 @@ export class ThriftParser {
             }
             const nameOffset = this.findWordOffset(segmentText, match[4]);
             const typeOffset = segmentText.indexOf(match[3].trim());
+            const defaultInfo = this.findDefaultValueRange(segmentText);
             const startPos = this.offsetToPosition(text, baseLine, baseChar, segmentStart);
             const endPos = this.offsetToPosition(text, baseLine, baseChar, segmentEnd);
             const nameStart = nameOffset !== null ? this.offsetToPosition(text, baseLine, baseChar, segmentStart + nameOffset) : null;
             const nameEnd = nameOffset !== null ? this.offsetToPosition(text, baseLine, baseChar, segmentStart + nameOffset + match[4].length) : null;
             const typeStart = typeOffset >= 0 ? this.offsetToPosition(text, baseLine, baseChar, segmentStart + typeOffset) : null;
             const typeEnd = typeOffset >= 0 ? this.offsetToPosition(text, baseLine, baseChar, segmentStart + typeOffset + match[3].trim().length) : null;
+            const defaultStart = defaultInfo ? this.offsetToPosition(text, baseLine, baseChar, segmentStart + defaultInfo.start) : null;
+            const defaultEnd = defaultInfo ? this.offsetToPosition(text, baseLine, baseChar, segmentStart + defaultInfo.end) : null;
             const field: nodes.Field = {
                 type: nodes.ThriftNodeType.Field,
                 range: new vscode.Range(startPos.line, startPos.char, endPos.line, endPos.char),
@@ -853,11 +860,71 @@ export class ThriftParser {
                 id: parseInt(match[1]),
                 requiredness: (match[2] === 'required' || match[2] === 'optional') ? match[2] : 'required',
                 fieldType: match[3].trim(),
-                name: match[4]
+                name: match[4],
+                defaultValue: defaultInfo?.value,
+                defaultValueRange: defaultStart && defaultEnd ? new vscode.Range(defaultStart.line, defaultStart.char, defaultEnd.line, defaultEnd.char) : undefined
             };
             fields.push(field);
         }
         return fields;
+    }
+
+    /**
+     * 解析字段默认值范围与文本。
+     */
+    private findDefaultValueRange(segmentText: string): { start: number; end: number; value: string } | null {
+        let depthAngle = 0;
+        let depthBracket = 0;
+        let depthBrace = 0;
+        let depthParen = 0;
+        let inS = false;
+        let inD = false;
+        let escaped = false;
+        for (let i = 0; i < segmentText.length; i++) {
+            const ch = segmentText[i];
+            if (inS) {
+                if (!escaped && ch === '\\') {
+                    escaped = true;
+                    continue;
+                }
+                if (!escaped && ch === '\'') {
+                    inS = false;
+                }
+                escaped = false;
+                continue;
+            }
+            if (inD) {
+                if (!escaped && ch === '\\') {
+                    escaped = true;
+                    continue;
+                }
+                if (!escaped && ch === '"') {
+                    inD = false;
+                }
+                escaped = false;
+                continue;
+            }
+            if (ch === '\'') { inS = true; continue; }
+            if (ch === '"') { inD = true; continue; }
+            if (ch === '<') { depthAngle++; continue; }
+            if (ch === '>') { depthAngle = Math.max(0, depthAngle - 1); continue; }
+            if (ch === '[') { depthBracket++; continue; }
+            if (ch === ']') { depthBracket = Math.max(0, depthBracket - 1); continue; }
+            if (ch === '{') { depthBrace++; continue; }
+            if (ch === '}') { depthBrace = Math.max(0, depthBrace - 1); continue; }
+            if (ch === '(') { depthParen++; continue; }
+            if (ch === ')') { depthParen = Math.max(0, depthParen - 1); continue; }
+            if (ch === '=' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
+                const tail = segmentText.slice(i + 1);
+                const leading = tail.match(/^\s*/)?.[0].length ?? 0;
+                const value = tail.slice(leading).trimEnd();
+                const start = i + 1 + leading;
+                const end = start + value.length;
+                return { start, end, value };
+            }
+            escaped = false;
+        }
+        return null;
     }
 
     private readParenthesizedText(startLine: number, startChar: number): { text: string; endLine: number; endChar: number } | null {
@@ -935,6 +1002,8 @@ export class ThriftParser {
         let inS = false;
         let inD = false;
         let escaped = false;
+        let eqLine = -1;
+        let eqChar = -1;
 
         while (endLine < this.lines.length) {
             const line = this.lines[endLine];
@@ -972,6 +1041,10 @@ export class ThriftParser {
                 }
                 if (ch === '=' && !seenEquals) {
                     seenEquals = true;
+                    if (eqLine === -1) {
+                        eqLine = endLine;
+                        eqChar = i;
+                    }
                     continue;
                 }
                 if (!seenEquals) {
@@ -991,6 +1064,7 @@ export class ThriftParser {
             endLine++;
         }
 
+        const valueRangeInfo = this.buildConstValueRange(startLine, endLine, eqLine, eqChar);
         const constNode: nodes.Const = {
             type: nodes.ThriftNodeType.Const,
             range: new vscode.Range(startLine, 0, endLine, this.lines[endLine] ? this.lines[endLine].length : 0),
@@ -999,11 +1073,93 @@ export class ThriftParser {
             valueType: valueType,
             valueTypeRange: this.findTypeRangeInLine(line, startLine, valueType, searchStart),
             name: name,
-            value: '' // TODO: extract value
+            value: valueRangeInfo.value,
+            valueRange: valueRangeInfo.range
         };
 
         this.currentLine = endLine + 1;
         return constNode;
+    }
+
+    private buildConstValueRange(startLine: number, endLine: number, eqLine: number, eqChar: number): { range?: vscode.Range; value: string } {
+        if (eqLine < 0 || eqChar < 0) {
+            return { range: undefined, value: '' };
+        }
+        const start = this.findFirstNonWhitespaceAfter(eqLine, eqChar, endLine);
+        const end = this.findLastNonWhitespaceUpTo(eqLine, endLine);
+        if (!start || !end) {
+            return { range: undefined, value: '' };
+        }
+        const range = new vscode.Range(start.line, start.char, end.line, end.char);
+        return { range, value: this.sliceTextByRange(range) };
+    }
+
+    private findFirstNonWhitespaceAfter(line: number, char: number, limitLine: number): { line: number; char: number } | null {
+        let currentLine = line;
+        let currentChar = char + 1;
+        while (currentLine < this.lines.length && currentLine <= limitLine) {
+            const text = this.lines[currentLine] ?? '';
+            while (currentChar < text.length) {
+                const ch = text[currentChar];
+                if (!/\s/.test(ch)) {
+                    return { line: currentLine, char: currentChar };
+                }
+                currentChar++;
+            }
+            currentLine++;
+            currentChar = 0;
+        }
+        return null;
+    }
+
+    private findLastNonWhitespaceUpTo(startLine: number, endLine: number): { line: number; char: number } | null {
+        for (let line = endLine; line >= startLine; line--) {
+            const text = this.lines[line] ?? '';
+            for (let i = text.length - 1; i >= 0; i--) {
+                const ch = text[i];
+                if (!/\s/.test(ch) && ch !== ';') {
+                    return { line, char: i + 1 };
+                }
+                if (ch === '/' && i > 0 && text[i - 1] === '/') {
+                    break;
+                }
+            }
+        }
+        return null;
+    }
+
+    private sliceTextByRange(range: vscode.Range): string {
+        if (range.start.line === range.end.line) {
+            const line = this.lines[range.start.line] ?? '';
+            return line.slice(range.start.character, range.end.character);
+        }
+        const parts: string[] = [];
+        parts.push((this.lines[range.start.line] ?? '').slice(range.start.character));
+        for (let i = range.start.line + 1; i < range.end.line; i++) {
+            parts.push(this.lines[i] ?? '');
+        }
+        parts.push((this.lines[range.end.line] ?? '').slice(0, range.end.character));
+        return parts.join('\n');
+    }
+
+    private findInitializerRange(line: string, codeOnly: string, initializer?: string): vscode.Range | undefined {
+        if (!initializer) {
+            return undefined;
+        }
+        const codeIndex = line.indexOf(codeOnly);
+        if (codeIndex === -1) {
+            return undefined;
+        }
+        const eqIndex = codeOnly.indexOf('=');
+        if (eqIndex === -1) {
+            return undefined;
+        }
+        const initText = initializer.trim();
+        const afterEq = codeOnly.slice(eqIndex + 1);
+        const leading = afterEq.match(/^\s*/)?.[0].length ?? 0;
+        const startChar = codeIndex + eqIndex + 1 + leading;
+        const endChar = startChar + initText.length;
+        return new vscode.Range(this.currentLine, startChar, this.currentLine, endChar);
     }
 
     private findNameRangeInLine(line: string, lineNumber: number, name: string, codeOnly: string): vscode.Range | undefined {

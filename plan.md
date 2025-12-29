@@ -10,10 +10,13 @@
 
 - `ThriftFileWatcher` / `CacheManager` / `fileReader.ts` 基础设施落地
 - AST 缓存（5 分钟 TTL）与 Provider 统一使用 AST
-- AST `nameRange` 补齐，Rename/References 使用精确范围
+- AST `nameRange` + 类型范围（fieldType/returnType/aliasType/valueType）补齐，Rename/References 使用精确范围
+- AST 默认值/初始化范围：字段默认值、const 值体、enum initializer 精确 range
 - 诊断节流（300ms 延迟 + 1s 最小间隔）与性能监控
 - References/符号共享缓存与文件列表节流
+- 配置集中化（`src/config/index.ts`）消除魔法字符串/数字
 - Rename 误删定义回归修复 + 回归测试覆盖
+- AST 类型范围回归测试新增（tests/src/ast/parser/test-type-ranges.js）
 
 **进行中**
 
@@ -22,7 +25,6 @@
 
 **待规划**
 
-- 集中配置管理与魔法字符串消除
 - LSP 化与增量索引
 
 ## 2. 代码质量评估（问题清单）
@@ -151,7 +153,6 @@ private readonly CACHE_DURATION = 10000; // 10秒
 ### 4.2 近期实施（本月）
 
 - [ ] 统一错误处理机制 - 建立标准异常处理流程（已引入 `ErrorHandler`，仍需覆盖剩余分支）
-- [ ] 集中配置管理 - 消除魔法字符串和数字
 - [ ] 优化文件扫描性能 - 实现增量更新
 - [ ] 完善性能监控 - 添加更多性能指标
 
@@ -414,8 +415,8 @@ export class ConfigManager {
 
 **后续优化方向（建议补齐）:**
 
-- 类型引用的精确 range（`fieldType`/`returnType`/`aliasType`/`valueType`，含 `ns.Type` 分段）
-- 注解键/默认值/枚举 initializer 的 token 级 range
+- ✅ 类型引用的精确 range（`fieldType`/`returnType`/`aliasType`/`valueType`，含 `ns.Type` 分段）
+- ✅ 默认值/枚举 initializer 的 token 级 range；注解键/注解值范围仍待覆盖
 - 函数参数/throws 的 name/type 精确范围
 - 多行声明的稳定 range（避免 line-based 偏移）
 - 解析容错与错误恢复（保留部分 AST，标记无效节点）

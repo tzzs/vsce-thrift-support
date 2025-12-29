@@ -78,6 +78,7 @@ export interface Const extends ThriftNodeBase {
     valueType: string;
     valueTypeRange?: vscode.Range;
     value: string;
+    valueRange?: vscode.Range;
 }
 
 /**
@@ -104,6 +105,7 @@ export interface Enum extends ThriftNodeBase {
 export interface EnumMember extends ThriftNodeBase {
     type: ThriftNodeType.EnumMember;
     initializer?: string;
+    initializerRange?: vscode.Range;
 }
 
 /**
@@ -124,6 +126,7 @@ export interface Field extends ThriftNodeBase {
     fieldType: string;
     typeRange?: vscode.Range;
     defaultValue?: string;
+    defaultValueRange?: vscode.Range;
 }
 
 /**
