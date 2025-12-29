@@ -492,7 +492,7 @@ export class ConfigManager {
 - 重构/Code Actions（基础能力）：`src/code-actions-provider.ts`
 - 诊断与规则校验（含 Thrift 语义约束）：`src/diagnostics.ts`
 - 格式化与对齐策略：`src/formatting-provider.ts`、`src/thrift-formatter.ts`
-- Hover 提示：`src/hoverProvider.ts`
+- Hover 提示：`src/hover-provider.ts`
 - References：`src/references-provider.ts`
 - 折叠/选区：`src/folding-range-provider.ts`、`src/selection-range-provider.ts`
 - 符号：`src/document-symbol-provider.ts`、`src/workspace-symbol-provider.ts`

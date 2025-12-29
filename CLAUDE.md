@@ -61,7 +61,7 @@ npm run publish      # Publish to VS Code Marketplace (requires VSCE_PAT)
 - `src/diagnostics.ts` - Syntax and semantic error detection
 - `src/rename-provider.ts` - Cross-file symbol renaming
 - `src/code-actions-provider.ts` - Refactoring actions (extract type, move type)
-- `src/hoverProvider.ts` - Symbol documentation on hover
+- `src/hover-provider.ts` - Symbol documentation on hover
 
 ### Key Design Patterns
 
