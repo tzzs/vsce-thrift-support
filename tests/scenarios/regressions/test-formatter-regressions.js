@@ -1,5 +1,5 @@
 const assert = require('assert');
-const {ThriftFormatter} = require('../../../out/thriftFormatter');
+const {ThriftFormatter} = require('../../../out/thrift-formatter');
 
 function testSingleLineSplits() {
     const formatter = new ThriftFormatter();

@@ -21,7 +21,14 @@
 ## Coding Style & Naming Conventions
 - Language: TypeScript for extension logic, JavaScript for test runners.
 - Indentation: follow existing TS style; Thrift formatter defaults to 4-space indentation.
-- Naming: files in `tests/` use `test-*.js`; new providers follow the `*Provider.ts` pattern.
+- Naming: files in `tests/` use `test-*.js`; providers follow the `*-provider.ts` pattern.
+- File naming: use `kebab-case`.
+- Type files: `xxx.types.ts`
+- Enums: `xxx.enum.ts`
+- Classes: `xxx-service.ts` / `xxx-controller.tsx`
+- Hooks: `use-xxx.ts`
+- DTOs: `xxx.dto.ts`
+- Barrel exports: `index.ts`
 - Linting: keep ESLint clean before submitting.
 
 ## Testing Guidelines

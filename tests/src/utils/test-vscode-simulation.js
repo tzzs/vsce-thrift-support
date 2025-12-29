@@ -1,5 +1,5 @@
 // Simulate VS Code formatting scenarios more closely
-const {ThriftFormattingProvider} = require('../../../out/formattingProvider.js');
+const {ThriftFormattingProvider} = require('../../../out/formatting-provider.js');
 Module.prototype.require = originalRequire;
 
 function createMockDocument(content) {

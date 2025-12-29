@@ -166,7 +166,7 @@ installVscodeMock(vscode);
 
 
 // Hook require('vscode')
-const {ThriftWorkspaceSymbolProvider} = require('../../../out/workspaceSymbolProvider.js');
+const {ThriftWorkspaceSymbolProvider} = require('../../../out/workspace-symbol-provider.js');
 
 function createMockCancellationToken() {
     return {isCancellationRequested: false};

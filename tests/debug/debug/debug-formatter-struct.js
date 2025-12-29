@@ -1,4 +1,4 @@
-const { ThriftFormatter } = require('../out/thriftFormatter');
+const { ThriftFormatter } = require('../out/thrift-formatter');
 const formatter = new ThriftFormatter();
 
 const testCases = [

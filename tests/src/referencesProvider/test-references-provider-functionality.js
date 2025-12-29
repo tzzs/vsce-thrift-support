@@ -165,12 +165,12 @@ async function run() {
 
     let provider;
     try {
-        const {ThriftReferencesProvider} = require('../../../out/referencesProvider.js');
+        const {ThriftReferencesProvider} = require('../../../out/references-provider.js');
         provider = new ThriftReferencesProvider();
     } catch (error) {
         // Try alternative path
         try {
-            const {ThriftReferencesProvider} = require('../../../out/referencesProvider.js');
+            const {ThriftReferencesProvider} = require('../../../out/references-provider.js');
             provider = new ThriftReferencesProvider();
         } catch (error2) {
             throw new Error(`Failed to load references provider: ${error.message} or ${error2.message}`);

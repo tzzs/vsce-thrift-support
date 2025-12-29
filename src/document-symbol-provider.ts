@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import {ThriftParser} from './ast/parser';
-import * as nodes from './ast/nodes';
-import {ThriftFileWatcher} from './utils/fileWatcher';
-import {CacheManager} from './utils/cacheManager';
+import * as nodes from './ast/nodes.types';
+import {ThriftFileWatcher} from './utils/file-watcher';
+import {CacheManager} from './utils/cache-manager';
 import {config} from './config';
 
 /**
@@ -13,7 +13,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
 
     constructor() {
         // 注册缓存配置
-        this.cacheManager.registerCache('documentSymbols', {
+        this.cache-manager.registerCache('documentSymbols', {
             maxSize: config.cache.documentSymbols.maxSize,
             ttl: config.cache.documentSymbols.ttlMs
         });
@@ -21,7 +21,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
         // 监听文件变化，清除缓存
         const fileWatcher = ThriftFileWatcher.getInstance();
         fileWatcher.createWatcher(config.filePatterns.thrift, () => {
-            this.cacheManager.clear('documentSymbols');
+            this.cache-manager.clear('documentSymbols');
         });
     }
 
@@ -30,9 +30,9 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
      */
     public clearCache(uri?: vscode.Uri): void {
         if (uri) {
-            this.cacheManager.delete('documentSymbols', uri.toString());
+            this.cache-manager.delete('documentSymbols', uri.toString());
         } else {
-            this.cacheManager.clear('documentSymbols');
+            this.cache-manager.clear('documentSymbols');
         }
     }
 
@@ -46,7 +46,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
         const key = document.uri.toString();
 
         // 从缓存管理器获取缓存
-        const cached = this.cacheManager.get<vscode.DocumentSymbol[]>('documentSymbols', key);
+        const cached = this.cache-manager.get<vscode.DocumentSymbol[]>('documentSymbols', key);
         if (cached) {
             return cached;
         }
@@ -64,7 +64,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
         }
 
         // 更新缓存
-        this.cacheManager.set('documentSymbols', key, symbols);
+        this.cache-manager.set('documentSymbols', key, symbols);
 
         return symbols;
     }

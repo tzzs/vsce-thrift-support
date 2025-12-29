@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import * as nodes from './nodes';
+import * as nodes from './nodes.types';
 
 /**
  * 收集 include 节点。

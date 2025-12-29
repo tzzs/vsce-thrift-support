@@ -1,18 +1,18 @@
 import * as vscode from 'vscode';
-import {ThriftFormattingProvider} from './formattingProvider';
-import {ThriftDefinitionProvider} from './definitionProvider';
-import {ThriftHoverProvider} from './hoverProvider';
+import {ThriftFormattingProvider} from './formatting-provider';
+import {ThriftDefinitionProvider} from './definition-provider';
+import {ThriftHoverProvider} from './hover-provider';
 import {registerDiagnostics} from './diagnostics';
-import {ThriftRenameProvider} from './renameProvider';
-import {ThriftRefactorCodeActionProvider} from './codeActionsProvider';
-import {registerCompletionProvider} from './completionProvider';
-import {registerDocumentSymbolProvider} from './documentSymbolProvider';
-import {registerWorkspaceSymbolProvider} from './workspaceSymbolProvider';
-import {registerReferencesProvider} from './referencesProvider';
-import {registerFoldingRangeProvider} from './foldingRangeProvider';
-import {registerSelectionRangeProvider} from './selectionRangeProvider';
-import {PerformanceMonitor} from './performanceMonitor';
-import {ThriftFileWatcher} from './utils/fileWatcher';
+import {ThriftRenameProvider} from './rename-provider';
+import {ThriftRefactorCodeActionProvider} from './code-actions-provider';
+import {registerCompletionProvider} from './completion-provider';
+import {registerDocumentSymbolProvider} from './document-symbol-provider';
+import {registerWorkspaceSymbolProvider} from './workspace-symbol-provider';
+import {registerReferencesProvider} from './references-provider';
+import {registerFoldingRangeProvider} from './folding-range-provider';
+import {registerSelectionRangeProvider} from './selection-range-provider';
+import {PerformanceMonitor} from './performance-monitor';
+import {ThriftFileWatcher} from './utils/file-watcher';
 import {config} from './config';
 
 /**

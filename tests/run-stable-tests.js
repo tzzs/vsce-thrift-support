@@ -9,13 +9,13 @@ const {spawnSync} = require('child_process');
 const path = require('path');
 
 const stableTests = [
-    'tests/src/formattingProvider/test-format-core.js',
-    'tests/src/formattingProvider/test-format-indentation.js',
-    'tests/src/formattingProvider/test-trailing-comma.js',
-    'tests/src/formattingProvider/test-complex-types.js',
-    'tests/src/definitionProvider/test-include-filename-detection.js',
+    'tests/src/formatting-provider/test-format-core.js',
+    'tests/src/formatting-provider/test-format-indentation.js',
+    'tests/src/formatting-provider/test-trailing-comma.js',
+    'tests/src/formatting-provider/test-complex-types.js',
+    'tests/src/definition-provider/test-include-filename-detection.js',
     'tests/src/diagnostics/test-diagnostics-edge-cases.js',
-    'tests/src/thriftFormatter/test-struct-formatting.js'
+    'tests/src/thrift-formatter/test-struct-formatting.js'
 ];
 
 let failed = 0;

@@ -36,7 +36,7 @@ installVscodeMock(vscode);
 
 // Set up module mock before requiring formatter
 // Import the formatter
-const {ThriftFormattingProvider} = require('../../../out/formattingProvider.js');
+const {ThriftFormattingProvider} = require('../../../out/formatting-provider.js');
 
 // Restore original require
 Module.prototype.require = originalRequire;

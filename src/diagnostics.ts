@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { PerformanceMonitor } from './performanceMonitor';
+import { PerformanceMonitor } from './performance-monitor';
 import { ThriftParser } from './ast/parser';
-import * as nodes from './ast/nodes';
-import { ThriftFileWatcher } from './utils/fileWatcher';
-import { ErrorHandler } from './utils/errorHandler';
+import * as nodes from './ast/nodes.types';
+import { ThriftFileWatcher } from './utils/file-watcher';
+import { ErrorHandler } from './utils/error-handler';
 import { config } from './config';
 
 export type ThriftIssue = {
@@ -1208,7 +1208,7 @@ export class DiagnosticManager {
 
                         logDiagnostics(`文档 ${path.basename(doc.uri.fsPath)} 分析完成: ${diagnostics.length} 个问题`);
                     } catch (error) {
-                        this.errorHandler.handleError(error, {
+                        this.error-handler.handleError(error, {
                             component: 'DiagnosticManager',
                             operation: 'analyzeDocument',
                             filePath: doc.uri.fsPath,

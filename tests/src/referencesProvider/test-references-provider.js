@@ -90,7 +90,7 @@ Module._load = function (request, parent, isMain) {
     return originalLoad.apply(this, arguments);
 };
 
-const {ThriftReferencesProvider} = require('../../../out/referencesProvider.js');
+const {ThriftReferencesProvider} = require('../../../out/references-provider.js');
 
 function createMockDocument(text, fileName = 'test.thrift', uri = null) {
     const lines = text.split('\n');

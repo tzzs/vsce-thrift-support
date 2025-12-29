@@ -1,5 +1,5 @@
 // Final verification of blank line behavior
-const {ThriftFormattingProvider} = require('../out/formattingProvider.js');
+const {ThriftFormattingProvider} = require('../out/formatting-provider.js');
 Module.prototype.require = originalRequire;
 
 function runFinalVerification() {

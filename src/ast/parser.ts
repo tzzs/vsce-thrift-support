@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import * as nodes from './nodes';
+import * as nodes from './nodes.types';
 import { config } from '../config';
 
 // AST缓存机制 - 避免重复解析相同内容

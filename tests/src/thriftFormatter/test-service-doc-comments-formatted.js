@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const {ThriftFormatter} = require('../../../out/thriftFormatter.js');
+const {ThriftFormatter} = require('../../../out/thrift-formatter.js');
 
 /**
  * 测试服务中文档注释的缩进 - 格式化文件后检查

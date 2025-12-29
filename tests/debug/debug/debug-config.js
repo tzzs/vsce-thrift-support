@@ -56,7 +56,7 @@ installVscodeMock(vscode);
 
 
 // Mock require('vscode') inside formatter
-const {ThriftFormatter} = require('../out/thriftFormatter.js');
+const {ThriftFormatter} = require('../out/thrift-formatter.js');
 
 async function debugConfig() {
     console.log('=== 调试配置问题 ===');

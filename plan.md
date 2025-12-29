@@ -8,7 +8,7 @@
 
 **已完成**
 
-- `ThriftFileWatcher` / `CacheManager` / `fileReader.ts` 基础设施落地
+- `ThriftFileWatcher` / `CacheManager` / `file-reader.ts` 基础设施落地
 - AST 缓存（5 分钟 TTL）与 Provider 统一使用 AST
 - AST `nameRange` + 类型范围（fieldType/returnType/aliasType/valueType）补齐，Rename/References 使用精确范围
 - AST 默认值/初始化范围：字段默认值、const 值体、enum initializer 精确 range
@@ -44,9 +44,9 @@
 **文件位置:**
 
 - `extension.ts:35,54` - 定义提供器和悬停提供器
-- `referencesProvider.ts:248` - 引用提供器
-- `workspaceSymbolProvider.ts:17` - 工作区符号提供器
-- `documentSymbolProvider.ts:175` - 文档符号提供器
+- `references-provider.ts:248` - 引用提供器
+- `workspace-symbol-provider.ts:17` - 工作区符号提供器
+- `document-symbol-provider.ts:175` - 文档符号提供器
 - `diagnostics.ts:1151` - 诊断提供器
 
 **解决方案:**
@@ -72,7 +72,7 @@ if (openDoc) {
 ```
 
 **影响:** 代码冗余，性能开销
-**解决方案:** 提取 `fileReader.ts` 工具类（已落地）
+**解决方案:** 提取 `file-reader.ts` 工具类（已落地）
 
 ### 2.2 中优先级
 
@@ -119,7 +119,7 @@ private readonly CACHE_DURATION = 10000; // 10秒
 
 1. `src/diagnostics.ts:847-853` - 诊断系统过度频繁触发
 2. `src/ast/parser.ts` - AST 解析器缺乏缓存
-3. `src/formattingProvider.ts:100-150` - 格式化上下文计算复杂
+3. `src/formatting-provider.ts:100-150` - 格式化上下文计算复杂
 
 **优化建议（进度更新）:**
 
@@ -146,9 +146,9 @@ private readonly CACHE_DURATION = 10000; // 10秒
 
 ### 4.1 立即实施（本周）
 
-- [x] 创建 `src/utils/fileWatcher.ts` - 统一文件监听器管理
-- [x] 创建 `src/utils/cacheManager.ts` - 统一缓存管理
-- [x] 创建 `src/utils/fileReader.ts` - 统一文件读取逻辑
+- [x] 创建 `src/utils/file-watcher.ts` - 统一文件监听器管理
+- [x] 创建 `src/utils/cache-manager.ts` - 统一缓存管理
+- [x] 创建 `src/utils/file-reader.ts` - 统一文件读取逻辑
 - [x] 重构 `extension.ts` 使用新的工具类
 
 ### 4.2 近期实施（本月）
@@ -169,7 +169,7 @@ private readonly CACHE_DURATION = 10000; // 10秒
 ### 5.1 FileWatcher 工具类
 
 ```typescript
-// src/utils/fileWatcher.ts
+// src/utils/file-watcher.ts
 export class ThriftFileWatcher {
     private static instance: ThriftFileWatcher;
     private watchers: Map<string, vscode.FileSystemWatcher> = new Map();
@@ -206,7 +206,7 @@ export class ThriftFileWatcher {
 ### 5.2 CacheManager 缓存管理器
 
 ```typescript
-// src/utils/cacheManager.ts
+// src/utils/cache-manager.ts
 export interface CacheConfig {
     maxSize: number;
     ttl: number; // Time to live in milliseconds
@@ -382,7 +382,7 @@ export class ConfigManager {
 - 如果语法要求变得更复杂，实现一个合适的 Tokenizer/Lexer。
 - **优先级:** 中（关注 bug 报告）。
 
-### 6.2 格式化器代码复杂性（`thriftFormatter.ts`）
+### 6.2 格式化器代码复杂性（`thrift-formatter.ts`）
 
 **当前状态:** `formatConstFields` 约有 200 行；`formatStructFields` 也相当复杂。
 **问题:** 巨大的方法使得代码难以阅读、测试和维护。
@@ -392,7 +392,7 @@ export class ConfigManager {
 - 重构 `formatStructFields`：将对齐计算逻辑与实际的字符串重组分离开来。
 - **优先级:** 低（下次修改这些方法时进行重构）。
 
-### 6.3 泛型类型解析（`thriftFormatter.ts`）
+### 6.3 泛型类型解析（`thrift-formatter.ts`）
 
 **当前状态:** `normalizeGenericsInSignature` 使用计数器手动解析 `<` 和 `>` 的嵌套。
 **问题:** 难以维护且容易出错。
@@ -457,7 +457,7 @@ export class ConfigManager {
 - 折叠与选区扩展（FoldingRange / SelectionRange）
 - 诊断改进：注解“语义不透明”策略生效；字符串字面量内不计数括号；仅当栈顶为 `<` 时匹配 `>`；节流改为延时排队不再直接跳过
 - 格式化回归修复：单行 struct/enum/service 逗号分隔不会丢字段；多行 const 闭合行携带注释不会吞并后续行
-- 缓存与基础设施：新增 `src/utils/fileWatcher.ts` 单例监听器、`src/utils/cacheManager.ts` TTL 缓存、`src/utils/errorHandler.ts` 统一日志/提示、`src/utils/fileReader.ts` 文件读取；`src/ast/nodes.ts` + `src/ast/parser.ts` 提供缓存化 AST 层（5 分钟 TTL）
+- 缓存与基础设施：新增 `src/utils/file-watcher.ts` 单例监听器、`src/utils/cache-manager.ts` TTL 缓存、`src/utils/error-handler.ts` 统一日志/提示、`src/utils/file-reader.ts` 文件读取；`src/ast/nodes.types.ts` + `src/ast/parser.ts` 提供缓存化 AST 层（5 分钟 TTL）
 - 测试组织：重构为 `tests/src`（与 src 对齐）/`tests/scenarios`/`tests/utils`/`tests/debug`，保留统一执行器 `tests/run-all-unified.js` 与结构文档
 
 ### 7.2 新增进展（2025-12-27）
@@ -487,17 +487,17 @@ export class ConfigManager {
 
 ### 7.4 现状速览（我们已具备）
 
-- 定义跳转与跨文件 include 解析：`src/definitionProvider.ts`
-- 重命名（跨文件）：`src/renameProvider.ts`
-- 重构/Code Actions（基础能力）：`src/codeActionsProvider.ts`
+- 定义跳转与跨文件 include 解析：`src/definition-provider.ts`
+- 重命名（跨文件）：`src/rename-provider.ts`
+- 重构/Code Actions（基础能力）：`src/code-actions-provider.ts`
 - 诊断与规则校验（含 Thrift 语义约束）：`src/diagnostics.ts`
-- 格式化与对齐策略：`src/formattingProvider.ts`、`src/thriftFormatter.ts`
+- 格式化与对齐策略：`src/formatting-provider.ts`、`src/thrift-formatter.ts`
 - Hover 提示：`src/hoverProvider.ts`
-- References：`src/referencesProvider.ts`
-- 折叠/选区：`src/foldingRangeProvider.ts`、`src/selectionRangeProvider.ts`
-- 符号：`src/documentSymbolProvider.ts`、`src/workspaceSymbolProvider.ts`
-- AST 层：`src/ast/nodes.ts`、`src/ast/parser.ts`（带缓存清理 API）
-- 基础设施：`src/utils/fileWatcher.ts`、`src/utils/cacheManager.ts`、`src/utils/errorHandler.ts`
+- References：`src/references-provider.ts`
+- 折叠/选区：`src/folding-range-provider.ts`、`src/selection-range-provider.ts`
+- 符号：`src/document-symbol-provider.ts`、`src/workspace-symbol-provider.ts`
+- AST 层：`src/ast/nodes.types.ts`、`src/ast/parser.ts`（带缓存清理 API）
+- 基础设施：`src/utils/file-watcher.ts`、`src/utils/cache-manager.ts`、`src/utils/error-handler.ts`
 - 语法高亮（TextMate）：`syntaxes/thrift.tmLanguage.json`
 
 ### 7.5 与通用语言插件对比的差距与可增强点

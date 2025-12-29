@@ -107,7 +107,7 @@ Module._load = function(request, parent, isMain) {
 
 const path = require('path');
 const fs = require('fs');
-const { ThriftFormattingProvider } = require('../out/formattingProvider.js');
+const { ThriftFormattingProvider } = require('../out/formatting-provider.js');
 
 async function debugFormatDetailed() {
     const vscode = vscodeMock; // Use the mock

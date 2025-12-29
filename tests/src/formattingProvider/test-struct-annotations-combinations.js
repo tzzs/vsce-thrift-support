@@ -52,7 +52,7 @@ installVscodeMock(vscode);
 
 
 // Patch module loading to inject our mock vscode
-const {ThriftFormattingProvider} = require('../../../out/formattingProvider.js');
+const {ThriftFormattingProvider} = require('../../../out/formatting-provider.js');
 
 class MockDocument {
     constructor(text) {

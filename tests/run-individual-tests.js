@@ -94,7 +94,7 @@ global.vscode = vscode;
 
 // Override Module._load to intercept vscode requires
 // Load the formatting provider
-const { ThriftFormattingProvider } = require('../out/formattingProvider');
+const { ThriftFormattingProvider } = require('../out/formatting-provider');
 
 async function formatContent(content, options = {}) {
     const tempFile = 'temp-format-test.thrift';

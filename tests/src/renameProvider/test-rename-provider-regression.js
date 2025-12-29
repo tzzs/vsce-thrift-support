@@ -11,7 +11,7 @@ Module._load = function (request, parent, isMain) {
     return originalLoad.apply(this, arguments);
 };
 
-const {ThriftRenameProvider} = require('../../../out/renameProvider.js');
+const {ThriftRenameProvider} = require('../../../out/rename-provider.js');
 
 function createMockDocument(content, filePath) {
     const lines = content.split('\n');

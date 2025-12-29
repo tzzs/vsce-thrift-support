@@ -113,7 +113,7 @@ installVscodeMock(vscode);
 
 // Intercept require calls to provide our mock
 // Import the definition provider
-const {ThriftDefinitionProvider} = require('../../../out/definitionProvider.js');
+const {ThriftDefinitionProvider} = require('../../../out/definition-provider.js');
 
 async function testIncludeNavigation() {
     console.log('Testing include file navigation...');

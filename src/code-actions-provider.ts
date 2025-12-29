@@ -4,9 +4,9 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { readThriftFile } from './utils/fileReader';
+import { readThriftFile } from './utils/file-reader';
 import { ThriftParser } from './ast/parser';
-import * as nodes from './ast/nodes';
+import * as nodes from './ast/nodes.types';
 import { collectIncludes, collectTopLevelTypes } from './ast/utils';
 import { config } from './config';
 

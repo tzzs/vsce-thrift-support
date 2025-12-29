@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import {ThriftFileWatcher} from './utils/fileWatcher';
-import {CacheManager} from './utils/cacheManager';
-import {ErrorHandler} from './utils/errorHandler';
-import {readThriftFile} from './utils/fileReader';
+import {ThriftFileWatcher} from './utils/file-watcher';
+import {CacheManager} from './utils/cache-manager';
+import {ErrorHandler} from './utils/error-handler';
+import {readThriftFile} from './utils/file-reader';
 import {ThriftParser} from './ast/parser';
-import * as nodes from './ast/nodes';
+import * as nodes from './ast/nodes.types';
 import {config} from './config';
 
 /**
@@ -22,11 +22,11 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
 
     constructor() {
         // 注册缓存配置
-        this.cacheManager.registerCache('workspaceSymbols', {
+        this.cache-manager.registerCache('workspaceSymbols', {
             maxSize: config.cache.workspaceSymbols.maxSize,
             ttl: config.cache.workspaceSymbols.ttlMs
         });
-        this.cacheManager.registerCache('fileSymbols', {
+        this.cache-manager.registerCache('fileSymbols', {
             maxSize: config.cache.fileSymbols.maxSize,
             ttl: config.cache.fileSymbols.ttlMs
         });
@@ -35,8 +35,8 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
         const fileWatcher = ThriftFileWatcher.getInstance();
         this.fileWatcher = fileWatcher.createWatcher(config.filePatterns.thrift, () => {
             // Clear all cached symbols when any thrift file changes
-            this.cacheManager.clear('workspaceSymbols');
-            this.cacheManager.clear('fileSymbols');
+            this.cache-manager.clear('workspaceSymbols');
+            this.cache-manager.clear('fileSymbols');
         });
     }
 
@@ -50,7 +50,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
         const cacheKey = query || 'all';
 
         // 先从缓存中获取
-        const cached = this.cacheManager.get<vscode.SymbolInformation[]>('workspaceSymbols', cacheKey);
+        const cached = this.cache-manager.get<vscode.SymbolInformation[]>('workspaceSymbols', cacheKey);
         if (cached) {
             return cached;
         }
@@ -69,7 +69,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
                 const symbols = await this.getSymbolsForFile(file);
                 allSymbols.push(...symbols);
             } catch (error) {
-                this.errorHandler.handleError(error, {
+                this.error-handler.handleError(error, {
                     component: 'ThriftWorkspaceSymbolProvider',
                     operation: 'getSymbolsForFile',
                     filePath: file.fsPath,
@@ -85,7 +85,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
         }
 
         // 缓存结果
-        this.cacheManager.set('workspaceSymbols', cacheKey, filteredSymbols);
+        this.cache-manager.set('workspaceSymbols', cacheKey, filteredSymbols);
 
         return filteredSymbols;
     }
@@ -95,10 +95,10 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
      */
     dispose() {
         if (this.fileWatcher) {
-            this.fileWatcher.dispose();
+            this.file-watcher.dispose();
         }
-        this.cacheManager.clear('workspaceSymbols');
-        this.cacheManager.clear('fileSymbols');
+        this.cache-manager.clear('workspaceSymbols');
+        this.cache-manager.clear('fileSymbols');
     }
 
     private filterSymbols(symbols: vscode.SymbolInformation[], query: string): vscode.SymbolInformation[] {
@@ -139,7 +139,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
         const cacheKey = uri.fsPath;
 
         // 从缓存管理器获取缓存
-        const cached = this.cacheManager.get<vscode.SymbolInformation[]>('fileSymbols', cacheKey);
+        const cached = this.cache-manager.get<vscode.SymbolInformation[]>('fileSymbols', cacheKey);
         if (cached) {
             this.logInfo('getSymbolsForFile', `Using cached symbols for: ${path.basename(uri.fsPath)}`, uri.fsPath);
             return cached;
@@ -152,12 +152,12 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
         const symbols = this.parseSymbolsFromAst(ast, uri);
 
         // 缓存结果
-        this.cacheManager.set('fileSymbols', cacheKey, symbols);
+        this.cache-manager.set('fileSymbols', cacheKey, symbols);
         return symbols;
     }
 
     private logInfo(operation: string, message: string, filePath?: string): void {
-        this.errorHandler.handleInfo(message, {
+        this.error-handler.handleInfo(message, {
             component: this.component,
             operation,
             filePath

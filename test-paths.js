@@ -3,10 +3,10 @@ const path = require('path');
 
 // 测试路径解析
 const testPaths = [
-    '../out/src/formattingProvider.js',
-    './out/src/formattingProvider.js',
-    '../out/src/thriftFormatter.js',
-    './out/src/thriftFormatter.js'
+    '../out/src/formatting-provider.js',
+    './out/src/formatting-provider.js',
+    '../out/src/thrift-formatter.js',
+    './out/src/thrift-formatter.js'
 ];
 
 console.log('当前工作目录:', __dirname);

@@ -34,7 +34,7 @@ const vscode = createVscodeMock({
 installVscodeMock(vscode);
 
 // Import the provider to test (after mocking)
-const {ThriftDefinitionProvider} = require('../../../out/definitionProvider.js');
+const {ThriftDefinitionProvider} = require('../../../out/definition-provider.js');
 
 async function run() {
     console.log('Running scanning fix tests...');

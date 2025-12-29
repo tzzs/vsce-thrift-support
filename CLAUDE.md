@@ -56,11 +56,11 @@ npm run publish      # Publish to VS Code Marketplace (requires VSCE_PAT)
 ### Core Modules Structure
 
 - `src/extension.ts` - Extension entry point, registers all providers and commands
-- `src/formattingProvider.ts` - Document and range formatting with alignment strategies
-- `src/definitionProvider.ts` - Go-to-definition with include resolution
+- `src/formatting-provider.ts` - Document and range formatting with alignment strategies
+- `src/definition-provider.ts` - Go-to-definition with include resolution
 - `src/diagnostics.ts` - Syntax and semantic error detection
-- `src/renameProvider.ts` - Cross-file symbol renaming
-- `src/codeActionsProvider.ts` - Refactoring actions (extract type, move type)
+- `src/rename-provider.ts` - Cross-file symbol renaming
+- `src/code-actions-provider.ts` - Refactoring actions (extract type, move type)
 - `src/hoverProvider.ts` - Symbol documentation on hover
 
 ### Key Design Patterns

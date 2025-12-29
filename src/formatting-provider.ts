@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { ThriftFormatter } from './thriftFormatter';
+import { ThriftFormatter } from './thrift-formatter';
 import { ThriftParser } from './ast/parser';
-import { ThriftFormattingOptions } from './interfaces';
+import { ThriftFormattingOptions } from './interfaces.types';
 
 /**
  * ThriftFormattingProvider：提供文档与选区格式化。

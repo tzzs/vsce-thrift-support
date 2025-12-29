@@ -113,7 +113,7 @@ global.TextDecoder = class {
 };
 
 // Import DefinitionProvider
-const {ThriftDefinitionProvider} = require('../out/definitionProvider.js');
+const {ThriftDefinitionProvider} = require('../out/definition-provider.js');
 
 async function testExternalIncludeNavigation() {
     console.log('Testing External Include Navigation');

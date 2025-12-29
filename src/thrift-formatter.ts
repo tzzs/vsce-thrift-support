@@ -1,6 +1,6 @@
-import { ConstField, EnumField, StructField, ThriftFormattingOptions } from './interfaces';
+import { ConstField, EnumField, StructField, ThriftFormattingOptions } from './interfaces.types';
 import { ThriftParser } from './ast/parser';
-import * as nodes from './ast/nodes';
+import * as nodes from './ast/nodes.types';
 
 /**
  * ThriftFormatter：将 Thrift 源码格式化为统一风格。

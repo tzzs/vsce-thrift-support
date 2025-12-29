@@ -99,7 +99,7 @@ installVscodeMock(vscode);
 
 // Ensure child modules that require('vscode') receive our mock
 // Import the definition provider (will pick up the mocked vscode)
-const {ThriftDefinitionProvider} = require('../../../out/definitionProvider.js');
+const {ThriftDefinitionProvider} = require('../../../out/definition-provider.js');
 // After loading, restore the loader to avoid side effects on other tests
 
 async function testIncludeFilenameDetection() {

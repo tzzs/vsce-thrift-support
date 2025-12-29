@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const thriftFormatter_1 = require("../src/thriftFormatter");
+const thriftFormatter_1 = require("../src/thrift-formatter");
 const formatter = new thriftFormatter_1.ThriftFormatter();
 const input = `
 enum Status {

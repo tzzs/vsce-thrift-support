@@ -31,7 +31,7 @@ thrift-support/
 ├── src/
 │   ├── extension.ts            # 扩展入口，注册能力与命令
 │   ├── formatter.ts            # 格式化核心逻辑
-│   ├── definitionProvider.ts   # 跳转到定义/引用解析
+│   ├── definition-provider.ts   # 跳转到定义/引用解析
 │   ├── codeActions.ts          # 提供抽取类型/移动类型等重构 Code Actions
 │   └── refactor.ts             # 重命名（RenameProvider），与重构命令关联
 ├── syntaxes/
@@ -53,7 +53,7 @@ thrift-support/
     - 负责文档/选区格式化、对齐策略、缩进与行长控制
     - 受配置项影响（如 alignTypes/alignFieldNames/alignComments/trailingComma/indentSize/maxLineLength/collectionStyle 等）
 
-- 定义提供器（Definition Provider）— <mcfile name="definitionProvider.ts" path="src/definitionProvider.ts"></mcfile>
+- 定义提供器（Definition Provider）— <mcfile name="definition-provider.ts" path="src/definition-provider.ts"></mcfile>
     - 解析 include 关系与跨文件符号定位
     - 支持工作区范围的跳转到定义
 
@@ -118,7 +118,7 @@ thrift-support/
         - 基本类型集合包含 `uuid`
         - 改进字段解析：剥离类型后缀注解、跨行注释剥离，避免在注释中做括号/语法检查
         - 以健壮解析提取字段类型与名称，支持嵌套容器与 required/optional 标志
-    - <mcfile name="definitionProvider.ts" path="src/definitionProvider.ts"></mcfile>
+    - <mcfile name="definition-provider.ts" path="src/definition-provider.ts"></mcfile>
         - `isPrimitiveType` 集合包含 `uuid`，防止误将其当作用户类型做“跳转到定义”
     - <mcfile name="thrift.tmLanguage.json" path="syntaxes/thrift.tmLanguage.json"></mcfile>
         - `storage.type.primitive.thrift` 的匹配正则包含 `uuid`，确保语法高亮正确

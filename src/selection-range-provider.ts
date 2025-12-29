@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import {ThriftParser} from './ast/parser';
-import * as nodes from './ast/nodes';
+import * as nodes from './ast/nodes.types';
 import {findSmallestNodeAtPosition, nodePathFromLeaf, positionInRange} from './ast/utils';
 
 /**

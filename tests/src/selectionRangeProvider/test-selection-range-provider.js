@@ -41,7 +41,7 @@ installVscodeMock(vscode);
 
 
 // Hook require('vscode')
-const {ThriftSelectionRangeProvider} = require('../../../out/selectionRangeProvider.js');
+const {ThriftSelectionRangeProvider} = require('../../../out/selection-range-provider.js');
 
 function createMockDocument(text, fileName = 'test.thrift') {
     const lines = text.split('\n');

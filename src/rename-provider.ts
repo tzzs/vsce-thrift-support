@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import {ThriftReferencesProvider} from './referencesProvider';
+import {ThriftReferencesProvider} from './references-provider';
 
 /**
  * ThriftRenameProvider：处理 Thrift 文件的符号重命名。

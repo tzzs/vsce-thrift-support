@@ -85,7 +85,7 @@ Module._load = function (request, parent, isMain) {
 };
 
 // Load the definition provider
-const { ThriftDefinitionProvider } = require('../../../out/definitionProvider.js');
+const { ThriftDefinitionProvider } = require('../../../out/definition-provider.js');
 
 function createMockDocument(text, fileName = 'test.thrift') {
     const lines = text.split('\n');

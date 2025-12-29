@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import {ThriftParser} from './ast/parser';
-import * as nodes from './ast/nodes';
-import {ErrorHandler} from './utils/errorHandler';
+import * as nodes from './ast/nodes.types';
+import {ErrorHandler} from './utils/error-handler';
 import {config} from './config';
 
 /**
@@ -366,7 +366,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
                 completions.push(item);
             });
         } catch (error) {
-            this.errorHandler.handleError(error, {
+            this.error-handler.handleError(error, {
                 component: 'ThriftCompletionProvider',
                 operation: 'provideIncludePathCompletions',
                 filePath: document.uri.fsPath,

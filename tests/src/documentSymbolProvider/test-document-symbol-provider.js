@@ -60,7 +60,7 @@ installVscodeMock(vscode);
 
 
 // Hook require('vscode')
-const {ThriftDocumentSymbolProvider} = require('../../../out/documentSymbolProvider.js');
+const {ThriftDocumentSymbolProvider} = require('../../../out/document-symbol-provider.js');
 
 function createMockDocument(text, fileName = 'test.thrift') {
     const lines = text.split('\n');

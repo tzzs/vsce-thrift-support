@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ThriftParser } from './ast/parser';
-import * as nodes from './ast/nodes';
+import * as nodes from './ast/nodes.types';
 
 /**
  * ThriftFoldingRangeProvider：提供折叠范围。

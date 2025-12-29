@@ -1,7 +1,7 @@
 // CodeActionProvider unit tests with a minimal VSCode mock
 require('../../require-hook');
 const assert = require('assert');
-const {ThriftRefactorCodeActionProvider} = require('../../../out/codeActionsProvider.js');
+const {ThriftRefactorCodeActionProvider} = require('../../../out/code-actions-provider.js');
 const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 
 function createDoc(languageId = 'thrift', text = 'struct Foo {\n 1: i32 id\n}') {

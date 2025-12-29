@@ -49,7 +49,7 @@ installVscodeMock(vscode);
 
 // Mock require('vscode') inside formatter
 // Import the formatter provider (compiled output)
-const {ThriftFormattingProvider} = require('../../../out/formattingProvider.js');
+const {ThriftFormattingProvider} = require('../../../out/formatting-provider.js');
 
 // 测试用例集合
 const testCases = [

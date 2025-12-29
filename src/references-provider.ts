@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import { ThriftParser } from './ast/parser';
-import * as nodes from './ast/nodes';
-import { ThriftFileWatcher } from './utils/fileWatcher';
-import { CacheManager } from './utils/cacheManager';
-import { ErrorHandler } from './utils/errorHandler';
-import { readThriftFile } from './utils/fileReader';
+import * as nodes from './ast/nodes.types';
+import { ThriftFileWatcher } from './utils/file-watcher';
+import { CacheManager } from './utils/cache-manager';
+import { ErrorHandler } from './utils/error-handler';
+import { readThriftFile } from './utils/file-reader';
 import { config } from './config';
 
 /**
@@ -26,7 +26,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
 
     constructor() {
         // 注册缓存配置
-        this.cacheManager.registerCache('references', {
+        this.cache-manager.registerCache('references', {
             maxSize: config.cache.references.maxSize,
             ttl: config.cache.references.ttlMs
         });
@@ -72,7 +72,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
 
         // 使用缓存管理器检查缓存
         const cacheName = 'references';
-        const cachedReferences = this.cacheManager.get<vscode.Location[]>(cacheName, cacheKey);
+        const cachedReferences = this.cache-manager.get<vscode.Location[]>(cacheName, cacheKey);
         if (cachedReferences) {
             return cachedReferences;
         }
@@ -109,7 +109,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                     const refs = await this.findReferencesInDocument(file, text, symbolName, includeDeclaration, token);
                     references.push(...refs);
                 } catch (error) {
-                    this.errorHandler.handleError(error, {
+                    this.error-handler.handleError(error, {
                         component: 'ThriftReferencesProvider',
                         operation: 'findReferencesInFile',
                         filePath: file?.fsPath || 'unknown',
@@ -119,7 +119,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             }
 
             // 缓存结果
-            this.cacheManager.set(cacheName, cacheKey, [...references]);
+            this.cache-manager.set(cacheName, cacheKey, [...references]);
 
             return references;
         } finally {
@@ -131,7 +131,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
      * 清理引用缓存与文件列表缓存。
      */
     public clearCache(): void {
-        this.cacheManager.clear('references');
+        this.cache-manager.clear('references');
         this.workspaceFileList = [];
         this.lastFileListUpdate = 0;
         // Clear AST cache as well
@@ -439,7 +439,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
 
 
         } catch (error) {
-            this.errorHandler.handleError(error, {
+            this.error-handler.handleError(error, {
                 component: 'ThriftReferencesProvider',
                 operation: 'parseAst',
                 filePath: uri.fsPath,
