@@ -40,7 +40,7 @@ class MockThriftReferencesProvider {
 }
 
 // Replace the references provider with our mock
-references-provider.ThriftReferencesProvider = MockThriftReferencesProvider;
+referencesProvider.ThriftReferencesProvider = MockThriftReferencesProvider;
 Module.prototype.require = originalRequire;
 
 function createMockDocument(content) {

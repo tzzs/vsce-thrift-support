@@ -22,11 +22,11 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
 
     constructor() {
         // 注册缓存配置
-        this.cache-manager.registerCache('workspaceSymbols', {
+        this.cacheManager.registerCache('workspaceSymbols', {
             maxSize: config.cache.workspaceSymbols.maxSize,
             ttl: config.cache.workspaceSymbols.ttlMs
         });
-        this.cache-manager.registerCache('fileSymbols', {
+        this.cacheManager.registerCache('fileSymbols', {
             maxSize: config.cache.fileSymbols.maxSize,
             ttl: config.cache.fileSymbols.ttlMs
         });
@@ -35,8 +35,8 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
         const fileWatcher = ThriftFileWatcher.getInstance();
         this.fileWatcher = fileWatcher.createWatcher(config.filePatterns.thrift, () => {
             // Clear all cached symbols when any thrift file changes
-            this.cache-manager.clear('workspaceSymbols');
-            this.cache-manager.clear('fileSymbols');
+            this.cacheManager.clear('workspaceSymbols');
+            this.cacheManager.clear('fileSymbols');
         });
     }
 
@@ -50,7 +50,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
         const cacheKey = query || 'all';
 
         // 先从缓存中获取
-        const cached = this.cache-manager.get<vscode.SymbolInformation[]>('workspaceSymbols', cacheKey);
+        const cached = this.cacheManager.get<vscode.SymbolInformation[]>('workspaceSymbols', cacheKey);
         if (cached) {
             return cached;
         }
@@ -69,7 +69,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
                 const symbols = await this.getSymbolsForFile(file);
                 allSymbols.push(...symbols);
             } catch (error) {
-                this.error-handler.handleError(error, {
+                this.errorHandler.handleError(error, {
                     component: 'ThriftWorkspaceSymbolProvider',
                     operation: 'getSymbolsForFile',
                     filePath: file.fsPath,
@@ -85,7 +85,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
         }
 
         // 缓存结果
-        this.cache-manager.set('workspaceSymbols', cacheKey, filteredSymbols);
+        this.cacheManager.set('workspaceSymbols', cacheKey, filteredSymbols);
 
         return filteredSymbols;
     }
@@ -95,10 +95,10 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
      */
     dispose() {
         if (this.fileWatcher) {
-            this.file-watcher.dispose();
+            this.fileWatcher.dispose();
         }
-        this.cache-manager.clear('workspaceSymbols');
-        this.cache-manager.clear('fileSymbols');
+        this.cacheManager.clear('workspaceSymbols');
+        this.cacheManager.clear('fileSymbols');
     }
 
     private filterSymbols(symbols: vscode.SymbolInformation[], query: string): vscode.SymbolInformation[] {
@@ -139,7 +139,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
         const cacheKey = uri.fsPath;
 
         // 从缓存管理器获取缓存
-        const cached = this.cache-manager.get<vscode.SymbolInformation[]>('fileSymbols', cacheKey);
+        const cached = this.cacheManager.get<vscode.SymbolInformation[]>('fileSymbols', cacheKey);
         if (cached) {
             this.logInfo('getSymbolsForFile', `Using cached symbols for: ${path.basename(uri.fsPath)}`, uri.fsPath);
             return cached;
@@ -152,12 +152,12 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
         const symbols = this.parseSymbolsFromAst(ast, uri);
 
         // 缓存结果
-        this.cache-manager.set('fileSymbols', cacheKey, symbols);
+        this.cacheManager.set('fileSymbols', cacheKey, symbols);
         return symbols;
     }
 
     private logInfo(operation: string, message: string, filePath?: string): void {
-        this.error-handler.handleInfo(message, {
+        this.errorHandler.handleInfo(message, {
             component: this.component,
             operation,
             filePath

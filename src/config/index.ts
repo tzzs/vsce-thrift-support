@@ -101,5 +101,14 @@ export const config = {
         slowOperationThresholdMs: 100,
         /** 最大性能记录条数 */
         maxMetrics: 100
+    },
+    /** 增量能力配置（预留开关，便于后续落地） */
+    incremental: {
+        /** 是否启用增量诊断（仅重新分析脏区） */
+        analysisEnabled: false,
+        /** 是否启用增量格式化（按脏区生成最小化编辑） */
+        formattingEnabled: false,
+        /** 单次允许的最大脏区行数，超限则退回全量 */
+        maxDirtyLines: 200
     }
 };

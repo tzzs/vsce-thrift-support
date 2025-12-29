@@ -366,7 +366,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
                 completions.push(item);
             });
         } catch (error) {
-            this.error-handler.handleError(error, {
+            this.errorHandler.handleError(error, {
                 component: 'ThriftCompletionProvider',
                 operation: 'provideIncludePathCompletions',
                 filePath: document.uri.fsPath,

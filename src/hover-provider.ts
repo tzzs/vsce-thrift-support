@@ -24,11 +24,11 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
 
     constructor() {
         // 注册缓存配置
-        this.cache-manager.registerCache('hoverIncludes', {
+        this.cacheManager.registerCache('hoverIncludes', {
             maxSize: config.cache.hoverIncludes.maxSize,
             ttl: config.cache.hoverIncludes.ttlMs
         });
-        this.cache-manager.registerCache('hoverContent', {
+        this.cacheManager.registerCache('hoverContent', {
             maxSize: config.cache.hoverContent.maxSize,
             ttl: config.cache.hoverContent.ttlMs
         });
@@ -39,7 +39,7 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
      */
     public static clearCache(): void {
         if (ThriftHoverProvider.definitionProvider) {
-            ThriftHoverProvider.definition-provider.clearCache();
+            ThriftHoverProvider.definitionProvider.clearCache();
         }
     }
 
@@ -47,8 +47,8 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
      * 清理实例级缓存。
      */
     public clearCache(): void {
-        this.cache-manager.clear('hoverIncludes');
-        this.cache-manager.clear('hoverContent');
+        this.cacheManager.clear('hoverIncludes');
+        this.cacheManager.clear('hoverContent');
         ThriftHoverProvider.clearCache();
     }
 
@@ -106,7 +106,7 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
 
             return new vscode.Hover(md);
         } catch (error) {
-            this.error-handler.handleError(error, {
+            this.errorHandler.handleError(error, {
                 component: 'ThriftHoverProvider',
                 operation: 'provideHover',
                 filePath: document.uri.fsPath,
@@ -151,7 +151,7 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
         const cacheName = 'hoverIncludes';
 
         // 检查缓存
-        const cached = this.cache-manager.get<vscode.Uri[]>(cacheName, cacheKey);
+        const cached = this.cacheManager.get<vscode.Uri[]>(cacheName, cacheKey);
         if (cached) {
             return cached;
         }
@@ -177,7 +177,7 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
         }
 
         // 缓存结果
-        this.cache-manager.set(cacheName, cacheKey, includedFiles);
+        this.cacheManager.set(cacheName, cacheKey, includedFiles);
         return includedFiles;
     }
 

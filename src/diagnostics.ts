@@ -1208,7 +1208,7 @@ export class DiagnosticManager {
 
                         logDiagnostics(`文档 ${path.basename(doc.uri.fsPath)} 分析完成: ${diagnostics.length} 个问题`);
                     } catch (error) {
-                        this.error-handler.handleError(error, {
+                        this.errorHandler.handleError(error, {
                             component: 'DiagnosticManager',
                             operation: 'analyzeDocument',
                             filePath: doc.uri.fsPath,

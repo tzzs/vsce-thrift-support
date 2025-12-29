@@ -18,15 +18,15 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
 
     constructor() {
         // 注册缓存配置
-        this.cache-manager.registerCache('definition', {
+        this.cacheManager.registerCache('definition', {
             maxSize: config.cache.definition.maxSize,
             ttl: config.cache.definition.ttlMs
         });
-        this.cache-manager.registerCache('document', {
+        this.cacheManager.registerCache('document', {
             maxSize: config.cache.definitionDocument.maxSize,
             ttl: config.cache.definitionDocument.ttlMs
         });
-        this.cache-manager.registerCache('workspace', {
+        this.cacheManager.registerCache('workspace', {
             maxSize: config.cache.definitionWorkspace.maxSize,
             ttl: config.cache.definitionWorkspace.ttlMs
         });
@@ -36,9 +36,9 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
      * 清理定义相关缓存。
      */
     public clearCache(): void {
-        this.cache-manager.clear('definition');
-        this.cache-manager.clear('document');
-        this.cache-manager.clear('workspace');
+        this.cacheManager.clear('definition');
+        this.cacheManager.clear('document');
+        this.cacheManager.clear('workspace');
     }
 
     /**
@@ -150,7 +150,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                     return definition;
                 }
             } catch (error) {
-                this.error-handler.handleError(error, {
+                this.errorHandler.handleError(error, {
                     component: 'ThriftDefinitionProvider',
                     operation: 'findDefinitionInIncludedFile',
                     filePath: includedFile.fsPath,
@@ -245,7 +245,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                     await vscode.workspace.fs.stat(uri);
                     return new vscode.Location(uri, new vscode.Position(0, 0));
                 } catch (error) {
-                    this.error-handler.handleWarning(`Include file not found: ${includePath}`, {
+                    this.errorHandler.handleWarning(`Include file not found: ${includePath}`, {
                         component: 'ThriftDefinitionProvider',
                         operation: 'resolveIncludePath',
                         filePath: document.uri.fsPath,
@@ -374,7 +374,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         const cacheKey = `document_${uri.toString()}_${typeName}`;
 
         // 从缓存管理器获取缓存
-        const cached = this.cache-manager.get<vscode.Location[]>('document', cacheKey);
+        const cached = this.cacheManager.get<vscode.Location[]>('document', cacheKey);
         if (cached && cached.length > 0) {
             return cached[0];
         }
@@ -399,7 +399,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
 
         // 更新缓存
         const locations = foundLocation ? [foundLocation] : [];
-        this.cache-manager.set('document', cacheKey, locations);
+        this.cacheManager.set('document', cacheKey, locations);
 
         return foundLocation;
     }
@@ -486,7 +486,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                     const uri = vscode.Uri.file(fullPath);
                     includedFiles.push(uri);
                 } catch (error) {
-                    this.error-handler.handleWarning(`Invalid include path: ${includePath}`, {
+                    this.errorHandler.handleWarning(`Invalid include path: ${includePath}`, {
                         component: 'ThriftDefinitionProvider',
                         operation: 'getIncludedFiles',
                         filePath: document.uri.fsPath,
@@ -503,7 +503,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         const cacheKey = `workspace_${typeName}`;
 
         // 从缓存管理器获取缓存
-        const cached = this.cache-manager.get<vscode.Location[]>('workspace', cacheKey);
+        const cached = this.cacheManager.get<vscode.Location[]>('workspace', cacheKey);
         if (cached) {
             return cached;
         }
@@ -537,7 +537,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         }
 
         // 更新缓存
-        this.cache-manager.set('workspace', cacheKey, locations);
+        this.cacheManager.set('workspace', cacheKey, locations);
 
         return locations;
     }
