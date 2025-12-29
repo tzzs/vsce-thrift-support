@@ -14,6 +14,7 @@ import {registerSelectionRangeProvider} from './selection-range-provider';
 import {PerformanceMonitor} from './performance-monitor';
 import {ThriftFileWatcher} from './utils/file-watcher';
 import {ErrorHandler} from './utils/error-handler';
+import {IncrementalTracker} from './utils/incremental-tracker';
 import {config} from './config';
 
 /**
@@ -33,6 +34,11 @@ export function activate(context: vscode.ExtensionContext) {
     );
     context.subscriptions.push(
         vscode.languages.registerDocumentRangeFormattingEditProvider('thrift', formattingProvider)
+    );
+    // Track dirty ranges for incremental formatting/analysis
+    const tracker = IncrementalTracker.getInstance();
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeTextDocument(event => tracker.markChanges(event))
     );
 
     // Register definition provider for go-to-definition

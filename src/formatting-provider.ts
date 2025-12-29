@@ -2,11 +2,14 @@ import * as vscode from 'vscode';
 import { ThriftFormatter } from './thrift-formatter';
 import { ThriftParser } from './ast/parser';
 import { ThriftFormattingOptions } from './interfaces.types';
+import { config } from './config';
+import { IncrementalTracker } from './utils/incremental-tracker';
 
 /**
  * ThriftFormattingProvider：提供文档与选区格式化。
  */
 export class ThriftFormattingProvider implements vscode.DocumentFormattingEditProvider, vscode.DocumentRangeFormattingEditProvider {
+    private incrementalTracker = IncrementalTracker.getInstance();
 
     /**
      * 格式化整个文档。
@@ -16,11 +19,19 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         options: vscode.FormattingOptions,
         _token: vscode.CancellationToken
     ): vscode.TextEdit[] {
+        let targetRange: vscode.Range | undefined;
+
+        // 增量格式化：在脏区范围内尝试最小化编辑
+        if (config.incremental.formattingEnabled) {
+            targetRange = this.incrementalTracker.consumeDirtyRange(document);
+        }
+
         const fullRange = new vscode.Range(
             document.positionAt(0),
             document.positionAt(document.getText().length)
         );
-        return this.formatRange(document, fullRange, options);
+
+        return this.formatRange(document, targetRange ?? fullRange, options);
     }
 
     /**
