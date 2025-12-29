@@ -9,7 +9,7 @@
 - 折叠与选区扩展（FoldingRange / SelectionRange）
 - 诊断改进：注解“语义不透明”策略生效；字符串字面量内不计数括号；仅当栈顶为 `<` 时匹配 `>`；节流改为延时排队不再直接跳过
 - 格式化回归修复：单行 struct/enum/service 逗号分隔不会丢字段；多行 const 闭合行携带注释不会吞并后续行
-- 缓存与基础设施：新增 `src/utils/fileWatcher.ts` 单例监听器、`src/utils/cacheManager.ts` TTL 缓存、`src/utils/errorHandler.ts` 统一日志/提示；`src/ast/nodes.ts` + `src/ast/parser.ts` 提供缓存化 AST 层（5 分钟 TTL）
+- 缓存与基础设施：新增 `src/utils/fileWatcher.ts` 单例监听器、`src/utils/cacheManager.ts` TTL 缓存、`src/utils/errorHandler.ts` 统一日志/提示、`src/utils/fileReader.ts` 文件读取；`src/ast/nodes.ts` + `src/ast/parser.ts` 提供缓存化 AST 层（5 分钟 TTL）
 - 测试组织：重构为 `tests/src`（与 src 对齐）/`tests/scenarios`/`tests/utils`/`tests/debug`，保留统一执行器 `tests/run-all-unified.js` 与结构文档
 
 新增进展（2025-12-27）
@@ -22,15 +22,16 @@
 
 待增强与新增（优先级建议）
 
+- Rename 回归：重命名后会导致对应定义被异常删除，需定位原因并修复（仍待处理）
 - CompletionProvider 强化：跨文件/已 include 类型与枚举值、注解键候选、排序与上下文感知、include 路径跨目录/别名、去重与缓存
 - Signature Help（缺失）：服务方法签名、容器类型参数、注解键提示
 - Snippets（缺失）：struct/enum/service/typedef/const/include 常用骨架
 - Inlay Hints（缺失）：字段编号、默认值、typedef 还原基类型等
 - DocumentHighlight（缺失）：同名标识符文档内高亮
 - Document/Workspace Symbol 提升：图标与层级结构、跨文件索引准确度、基于 AST 的精确范围与缓存失效策略
-- References 提升：上下文过滤与预览面板、语义准确性/取消响应、与 diagnostics/definition 共享解析结果
+- References 提升：上下文过滤与预览面板、语义准确性/取消响应、与 diagnostics/definition 共享解析结果（已共享 AST 缓存，仍需精准度/预览/取消）
 - Quick Fix：已支持 include 插入，待补“创建缺失类型/枚举成员”“修复缺失 namespace/typedef”
-- 格式化增强：Organize Includes（排序/去重/规范化路径）、按字段 ID 排序（可选）、格式预览/差异预览命令
+- 格式化增强：Organize Includes（排序/去重/规范化路径）、按字段 ID 排序（可选）、格式预览/差异预览命令（增量格式化仍待）
 - 重构增强：抽取/内联 typedef、跨文件引用变更的预览与批量安全更新
 - 架构与性能：LSP 化与增量索引/缓存；多根工作区与 monorepo 适配
 - 与 Thrift 工具链集成：一键调用编译器生成 Stub；Problems 面板收集编译/生成告警
@@ -38,7 +39,7 @@
 
 建议的近期路线图（按优先级分组）
 
-- P0：CompletionProvider 跨文件/注解键/排序；References 精准度与取消/预览（共享 AST）；Document/Workspace Symbols 精确范围与层级展示；持续补齐 formatter/诊断/重构回归并挂入 `run-all-unified.js`
+- P0：CompletionProvider 跨文件/注解键/排序；References 精准度与取消/预览（已共享 AST，待预览/取消）；Document/Workspace Symbols 精确范围与层级展示；持续补齐 formatter/诊断/重构回归并挂入 `run-all-unified.js`
 - P1：Quick Fix 扩展（创建缺失类型/枚举成员、namespace/typedef 修复）、Snippets、Signature Help、Semantic Tokens；Organize Includes + 字段排序配置化
 - P2：LSP 化与增量索引、Inlay Hints、更多诊断与重构、与 thrift 编译器的 Task/Problems 集成、端到端 UI/性能基准
 
