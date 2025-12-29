@@ -124,9 +124,12 @@ export class ThriftParser {
         // Namespace
         const namespaceMatch = trimmed.match(/^namespace\s+([a-zA-Z0-9_.]+)\s+([a-zA-Z0-9_.]+)/);
         if (namespaceMatch) {
+            const scopeIndex = line.indexOf(namespaceMatch[1]);
+            const searchStart = scopeIndex >= 0 ? scopeIndex + namespaceMatch[1].length : 0;
             const node: nodes.Namespace = {
                 type: nodes.ThriftNodeType.Namespace,
                 range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+                nameRange: this.findWordRangeInLine(line, this.currentLine, namespaceMatch[2], searchStart),
                 parent: parent,
                 scope: namespaceMatch[1],
                 namespace: namespaceMatch[2],
@@ -177,9 +180,12 @@ export class ThriftParser {
         // Typedef
         const typedefMatch = trimmed.match(/^typedef\s+(.+)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
         if (typedefMatch) {
+            const keywordIndex = line.indexOf('typedef');
+            const searchStart = keywordIndex >= 0 ? keywordIndex + 'typedef'.length : 0;
             const node: nodes.Typedef = {
                 type: nodes.ThriftNodeType.Typedef,
                 range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+                nameRange: this.findWordRangeInLine(line, this.currentLine, typedefMatch[2], searchStart),
                 parent: parent,
                 aliasType: typedefMatch[1],
                 name: typedefMatch[2]
@@ -197,11 +203,15 @@ export class ThriftParser {
         const startLine = this.currentLine;
         const type = structType === 'exception' ? nodes.ThriftNodeType.Exception :
             structType === 'union' ? nodes.ThriftNodeType.Union : nodes.ThriftNodeType.Struct;
+        const line = this.lines[startLine];
+        const keywordIndex = line.indexOf(structType);
+        const searchStart = keywordIndex >= 0 ? keywordIndex + structType.length : 0;
 
         const structNode: nodes.Struct = {
             type: type,
             name: name,
             range: new vscode.Range(startLine, 0, startLine, 0), // Will be updated
+            nameRange: this.findWordRangeInLine(line, startLine, name, searchStart),
             parent: parent,
             fields: []
         };
@@ -247,9 +257,11 @@ export class ThriftParser {
             // Field regex: 1: optional string name,
             const fieldMatch = codeOnly.match(/^(\d+):\s*(?:(required|optional)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
             if (fieldMatch) {
+                const nameRange = this.findNameRangeInLine(line, this.currentLine, fieldMatch[4], codeOnly);
                 const field: nodes.Field = {
                     type: nodes.ThriftNodeType.Field,
                     range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+                    nameRange,
                     parent: parent,
                     id: parseInt(fieldMatch[1]),
                     requiredness: fieldMatch[2] as 'required' | 'optional',
@@ -275,10 +287,14 @@ export class ThriftParser {
 
     private parseEnum(parent: nodes.ThriftNode, name: string, isSenum: boolean): nodes.Enum {
         const startLine = this.currentLine;
+        const line = this.lines[startLine];
+        const keywordIndex = line.indexOf(isSenum ? 'senum' : 'enum');
+        const searchStart = keywordIndex >= 0 ? keywordIndex + (isSenum ? 'senum'.length : 'enum'.length) : 0;
         const enumNode: nodes.Enum = {
             type: nodes.ThriftNodeType.Enum,
             name: name,
             range: new vscode.Range(startLine, 0, startLine, 0), // Will be updated
+            nameRange: this.findWordRangeInLine(line, startLine, name, searchStart),
             parent: parent,
             members: [],
             isSenum: isSenum
@@ -325,9 +341,11 @@ export class ThriftParser {
             // Enum Member: NAME = 1, or just NAME,
             const memberMatch = codeOnly.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:=\s*([^,;]+))?/);
             if (memberMatch && codeOnly && !codeOnly.startsWith('//')) {
+                const nameRange = this.findNameRangeInLine(line, this.currentLine, memberMatch[1], codeOnly);
                 const member: nodes.EnumMember = {
                     type: nodes.ThriftNodeType.EnumMember,
                     range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+                    nameRange,
                     parent: parent,
                     name: memberMatch[1],
                     initializer: memberMatch[2]
@@ -343,11 +361,15 @@ export class ThriftParser {
 
     private parseService(parent: nodes.ThriftNode, name: string, extendsClass: string | undefined): nodes.Service {
         const startLine = this.currentLine;
+        const line = this.lines[startLine];
+        const keywordIndex = line.indexOf('service');
+        const searchStart = keywordIndex >= 0 ? keywordIndex + 'service'.length : 0;
         const serviceNode: nodes.Service = {
             type: nodes.ThriftNodeType.Service,
             name: name,
             extends: extendsClass,
             range: new vscode.Range(startLine, 0, startLine, 0), // Will be updated
+            nameRange: this.findWordRangeInLine(line, startLine, name, searchStart),
             parent: parent,
             functions: []
         };
@@ -396,6 +418,7 @@ export class ThriftParser {
                 // Calculate more accurate range for the function declaration
                 const funcStartLine = this.currentLine;
                 const funcStartChar = line.indexOf(funcMatch[0]); // Start from the beginning of the function match
+                const funcNameRange = this.findWordRangeInLine(line, funcStartLine, funcMatch[3], funcStartChar);
 
                 // Parse function arguments
                 const args: nodes.Field[] = [];
@@ -522,6 +545,7 @@ export class ThriftParser {
                 const funcNode: nodes.ThriftFunction = {
                     type: nodes.ThriftNodeType.Function,
                     range: new vscode.Range(funcStartLine, funcStartChar, funcEndLine, funcEndChar),
+                    nameRange: funcNameRange,
                     parent: parent,
                     name: funcMatch[3],
                     returnType: funcMatch[2].trim(),
@@ -794,11 +818,15 @@ export class ThriftParser {
             if (!match) {
                 continue;
             }
+            const nameOffset = this.findWordOffset(segmentText, match[4]);
             const startPos = this.offsetToPosition(text, baseLine, baseChar, segmentStart);
             const endPos = this.offsetToPosition(text, baseLine, baseChar, segmentEnd);
+            const nameStart = nameOffset !== null ? this.offsetToPosition(text, baseLine, baseChar, segmentStart + nameOffset) : null;
+            const nameEnd = nameOffset !== null ? this.offsetToPosition(text, baseLine, baseChar, segmentStart + nameOffset + match[4].length) : null;
             const field: nodes.Field = {
                 type: nodes.ThriftNodeType.Field,
                 range: new vscode.Range(startPos.line, startPos.char, endPos.line, endPos.char),
+                nameRange: nameStart && nameEnd ? new vscode.Range(nameStart.line, nameStart.char, nameEnd.line, nameEnd.char) : undefined,
                 parent: null as any,
                 id: parseInt(match[1]),
                 requiredness: (match[2] === 'required' || match[2] === 'optional') ? match[2] : 'required',
@@ -874,6 +902,9 @@ export class ThriftParser {
 
     private parseConst(parent: nodes.ThriftNode, valueType: string, name: string): nodes.Const {
         const startLine = this.currentLine;
+        const line = this.lines[startLine];
+        const keywordIndex = line.indexOf('const');
+        const searchStart = keywordIndex >= 0 ? keywordIndex + 'const'.length : 0;
         let endLine = this.currentLine;
         let depthBrace = 0;
         let depthBracket = 0;
@@ -941,6 +972,7 @@ export class ThriftParser {
         const constNode: nodes.Const = {
             type: nodes.ThriftNodeType.Const,
             range: new vscode.Range(startLine, 0, endLine, this.lines[endLine] ? this.lines[endLine].length : 0),
+            nameRange: this.findWordRangeInLine(line, startLine, name, searchStart),
             parent: parent,
             valueType: valueType,
             name: name,
@@ -949,5 +981,40 @@ export class ThriftParser {
 
         this.currentLine = endLine + 1;
         return constNode;
+    }
+
+    private findNameRangeInLine(line: string, lineNumber: number, name: string, codeOnly: string): vscode.Range | undefined {
+        const codeIndex = line.indexOf(codeOnly);
+        const searchStart = codeIndex >= 0 ? codeIndex : 0;
+        return this.findWordRangeInLine(line, lineNumber, name, searchStart);
+    }
+
+    private findWordRangeInLine(line: string, lineNumber: number, word: string, searchStart: number): vscode.Range | undefined {
+        if (!word) {
+            return undefined;
+        }
+        const escaped = this.escapeRegExp(word);
+        const regex = new RegExp(`\\b${escaped}\\b`, 'g');
+        let match: RegExpExecArray | null;
+        while ((match = regex.exec(line)) !== null) {
+            if (match.index >= searchStart) {
+                return new vscode.Range(lineNumber, match.index, lineNumber, match.index + word.length);
+            }
+        }
+        return undefined;
+    }
+
+    private findWordOffset(text: string, word: string): number | null {
+        if (!word) {
+            return null;
+        }
+        const escaped = this.escapeRegExp(word);
+        const regex = new RegExp(`\\b${escaped}\\b`, 'g');
+        const match = regex.exec(text);
+        return match ? match.index : null;
+    }
+
+    private escapeRegExp(value: string): string {
+        return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 }

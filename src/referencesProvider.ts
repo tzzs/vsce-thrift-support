@@ -70,8 +70,10 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             return cachedReferences;
         }
 
+        const includeDeclaration = _context?.includeDeclaration !== false;
+
         // Search in current document
-        const currentDocRefs = await this.findReferencesInDocument(document.uri, document.getText(), symbolName, token);
+        const currentDocRefs = await this.findReferencesInDocument(document.uri, document.getText(), symbolName, includeDeclaration, token);
         references.push(...currentDocRefs);
 
         // 限制全局扫描频率，避免频繁触发
@@ -97,7 +99,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                 try {
                     const text = await readThriftFile(file);
 
-                    const refs = await this.findReferencesInDocument(file, text, symbolName, token);
+                    const refs = await this.findReferencesInDocument(file, text, symbolName, includeDeclaration, token);
                     references.push(...refs);
                 } catch (error) {
                     this.errorHandler.handleError(error, {
@@ -394,7 +396,13 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         return findDeepestNode(doc.body);
     }
 
-    private async findReferencesInDocument(uri: vscode.Uri, text: string, symbolName: string, token?: vscode.CancellationToken): Promise<vscode.Location[]> {
+    private async findReferencesInDocument(
+        uri: vscode.Uri,
+        text: string,
+        symbolName: string,
+        includeDeclaration: boolean,
+        token?: vscode.CancellationToken
+    ): Promise<vscode.Location[]> {
 
         // Check for cancellation immediately
         if (token && token.isCancellationRequested) {
@@ -475,9 +483,9 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                 return definitionTypes.includes(n.type);
             };
 
-            if (node.name === symbolName && isDefinitionNode(node)) {
+            if (includeDeclaration && node.name === symbolName && isDefinitionNode(node)) {
                 // Add definition nodes to references
-                const location = new vscode.Location(uri, node.range);
+                const location = new vscode.Location(uri, node.nameRange ?? node.range);
                 references.push(location);
                 return; // Don't process children of definition nodes
             }

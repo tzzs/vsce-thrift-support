@@ -20,6 +20,7 @@ export enum ThriftNodeType {
 export interface ThriftNodeBase {
     type: ThriftNodeType;
     range: vscode.Range;
+    nameRange?: vscode.Range;
     parent?: ThriftNode;
     children?: ThriftNode[];
     name?: string;
