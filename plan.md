@@ -10,12 +10,13 @@
 
 - `ThriftFileWatcher` / `CacheManager` / `fileReader.ts` 基础设施落地
 - AST 缓存（5 分钟 TTL）与 Provider 统一使用 AST
+- AST `nameRange` 补齐，Rename/References 使用精确范围
 - 诊断节流（300ms 延迟 + 1s 最小间隔）与性能监控
 - References/符号共享缓存与文件列表节流
+- Rename 误删定义回归修复 + 回归测试覆盖
 
 **进行中**
 
-- Rename 误删定义回归定位与修复
 - 统一错误处理与日志风格（`ErrorHandler` 已引入，待覆盖剩余分支）
 - 增量分析/增量格式化
 
@@ -28,11 +29,11 @@
 
 ### 2.1 高优先级
 
-#### 0. Rename 误删定义回归（仍待处理）
+#### 0. Rename 误删定义回归（✅ 已完成）
 
 **发现:** 使用 Rename 功能后会导致对应的定义被异常删除，不符合预期。
 **影响:** 直接破坏源码结构，存在数据丢失风险。
-**建议:** 先复现并定位触发路径（尤其是跨文件 rename 与批量 edit 合并处），补充回归测试。
+**建议:** 先复现并定位触发路径（尤其是跨文件 rename 与批量 edit 合并处），补充回归测试（已完成）。
 
 #### 1. 重复代码问题（✅ 已完成）
 
@@ -409,6 +410,18 @@ export class ConfigManager {
 - 在格式化之前将整个文档解析为这种树结构。
 - **优先级:** 高（如果需要改进重命名/跳转定义等功能）。
 - ✅ 已实现：已创建 AST 模型并应用于多个组件，带缓存清理 API。
+- ✅ 已补齐：AST `nameRange`，用于精确引用与重命名范围。
+
+**后续优化方向（建议补齐）:**
+
+- 类型引用的精确 range（`fieldType`/`returnType`/`aliasType`/`valueType`，含 `ns.Type` 分段）
+- 注解键/默认值/枚举 initializer 的 token 级 range
+- 函数参数/throws 的 name/type 精确范围
+- 多行声明的稳定 range（避免 line-based 偏移）
+- 解析容错与错误恢复（保留部分 AST，标记无效节点）
+- AST 增量解析与子树缓存
+- 轻量 tokenizer/lexer 替代正则，提升复杂泛型/注解鲁棒性
+- children/parent 结构一致化，便于通用遍历与索引
 
 ### 6.5 Provider 代码重构与逻辑统一
 
