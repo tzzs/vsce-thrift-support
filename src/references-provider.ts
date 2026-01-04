@@ -12,7 +12,7 @@ import { config } from './config';
  */
 export class ThriftReferencesProvider implements vscode.ReferenceProvider {
     private isScanning: boolean = false;
-    private workspaceFileList: string[] = [];
+    private workspaceFileList: Set<string> = new Set();
     private lastFileListUpdate: number = 0;
     private readonly FILE_LIST_UPDATE_INTERVAL = config.references.fileListUpdateIntervalMs;
 
@@ -131,10 +131,13 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
      * 清理引用缓存与文件列表缓存。
      */
     public clearCache(): void {
-        this.cacheManager.clear('references');
-        this.workspaceFileList = [];
+        this.clearReferenceCaches();
+        this.workspaceFileList = new Set();
         this.lastFileListUpdate = 0;
-        // Clear AST cache as well
+    }
+
+    public clearReferenceCaches(): void {
+        this.cacheManager.clear('references');
         this.astCache.clear();
     }
 
@@ -649,19 +652,38 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         const now = Date.now();
 
         // 只在需要时更新文件列表，避免频繁扫描
-        if ((now - this.lastFileListUpdate) > this.FILE_LIST_UPDATE_INTERVAL || this.workspaceFileList.length === 0) {
+        if ((now - this.lastFileListUpdate) > this.FILE_LIST_UPDATE_INTERVAL || this.workspaceFileList.size === 0) {
             const files = await vscode.workspace.findFiles(
                 config.filePatterns.thrift,
                 config.filePatterns.excludeNodeModules,
                 config.search.workspaceFileLimit
             );
-            this.workspaceFileList = files.map(f => f.fsPath);
+            this.workspaceFileList = new Set(files.map(f => f.fsPath));
             this.lastFileListUpdate = now;
             return files;
         } else {
             // 使用缓存的文件列表
-            return this.workspaceFileList.map(fsPath => vscode.Uri.file(fsPath));
+            return Array.from(this.workspaceFileList, fsPath => vscode.Uri.file(fsPath));
         }
+    }
+
+    public handleFileCreated(uri: vscode.Uri): void {
+        if (!uri?.fsPath) {
+            return;
+        }
+        this.workspaceFileList.add(uri.fsPath);
+        this.lastFileListUpdate = Date.now();
+        this.clearReferenceCaches();
+    }
+
+    public handleFileDeleted(uri: vscode.Uri): void {
+        if (!uri?.fsPath) {
+            return;
+        }
+        this.workspaceFileList.delete(uri.fsPath);
+        this.lastFileListUpdate = Date.now();
+        this.clearReferenceCaches();
+        this.astCache.delete(uri.fsPath);
     }
 
     /**
@@ -703,8 +725,10 @@ export function registerReferencesProvider(context: vscode.ExtensionContext) {
 
     // 添加文件监听器，当文件改变时清除缓存
     const fileWatcher = ThriftFileWatcher.getInstance();
-    const referencesFileWatcher = fileWatcher.createWatcher(config.filePatterns.thrift, () => {
-        provider.clearCache();
+    const referencesFileWatcher = fileWatcher.createWatcherWithEvents(config.filePatterns.thrift, {
+        onCreate: (uri) => provider.handleFileCreated(uri),
+        onDelete: (uri) => provider.handleFileDeleted(uri),
+        onChange: () => provider.clearReferenceCaches()
     });
     context.subscriptions.push(referencesFileWatcher);
 }
