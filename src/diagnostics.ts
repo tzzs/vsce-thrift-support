@@ -672,7 +672,7 @@ function collectIncludedTypesFromCache(includedFiles: vscode.Uri[]): Map<string,
 /**
  * 分析 Thrift 文本并返回诊断问题列表。
  */
-export function analyzeThriftText(text: string, _uri?: vscode.Uri, includedTypes?: Map<string, string>): ThriftIssue[] {
+export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?: Map<string, string>): ThriftIssue[] {
     const lines = text.split('\n');
     const issues: ThriftIssue[] = [];
 
@@ -683,8 +683,9 @@ export function analyzeThriftText(text: string, _uri?: vscode.Uri, includedTypes
         codeLines.push(stripCommentsFromLine(raw, state));
     }
 
-    const parser = new ThriftParser(text);
-    const ast = parser.parse();
+    const ast = uri
+        ? ThriftParser.parseContentWithCache(uri.toString(), text)
+        : new ThriftParser(text).parse();
 
     const includeAliases = new Set<string>();
     for (const node of ast.body) {

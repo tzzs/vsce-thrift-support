@@ -23,12 +23,14 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     ): vscode.TextEdit[] {
         try {
             let targetRange: vscode.Range | undefined;
+            let useMinimalPatch = false;
 
             // 增量格式化：在脏区范围内尝试最小化编辑
             if (config.incremental.formattingEnabled) {
                 const dirtyRange = this.incrementalTracker.consumeDirtyRange(document);
                 if (dirtyRange) {
                     targetRange = this.normalizeFormattingRange(document, dirtyRange);
+                    useMinimalPatch = true;
                 }
             }
 
@@ -37,7 +39,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 document.positionAt(document.getText().length)
             );
 
-            return this.formatRange(document, targetRange ?? fullRange, options);
+            return this.formatRange(document, targetRange ?? fullRange, options, useMinimalPatch);
         } catch (error) {
             this.errorHandler.handleError(error, {
                 component: 'ThriftFormattingProvider',
@@ -73,7 +75,8 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     private formatRange(
         document: vscode.TextDocument,
         range: vscode.Range,
-        options: vscode.FormattingOptions
+        options: vscode.FormattingOptions,
+        useMinimalPatch: boolean = false
     ): vscode.TextEdit[] {
         const config = vscode.workspace.getConfiguration('thrift.format');
         // Backward-compat: also read legacy test namespace if present
@@ -144,7 +147,11 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         const formatter = new ThriftFormatter();
         const formattedText = formatter.formatThriftCode(text, fmtOptions);
 
-        return [vscode.TextEdit.replace(range, formattedText)];
+        if (!useMinimalPatch) {
+            return [vscode.TextEdit.replace(range, formattedText)];
+        }
+
+        return this.buildMinimalEdits(document, range, text, formattedText);
     }
 
     private normalizeFormattingRange(document: vscode.TextDocument, range: vscode.Range): vscode.Range {
@@ -158,6 +165,53 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         const endLineText = document.lineAt(endLine).text;
         const end = new vscode.Position(endLine, endLineText.length);
         return new vscode.Range(start, end);
+    }
+
+    private buildMinimalEdits(
+        document: vscode.TextDocument,
+        range: vscode.Range,
+        originalText: string,
+        formattedText: string
+    ): vscode.TextEdit[] {
+        if (originalText === formattedText) {
+            return [];
+        }
+
+        let prefix = 0;
+        const maxPrefix = Math.min(originalText.length, formattedText.length);
+        while (prefix < maxPrefix && originalText[prefix] === formattedText[prefix]) {
+            prefix += 1;
+        }
+
+        let suffix = 0;
+        const maxSuffix = Math.min(
+            originalText.length - prefix,
+            formattedText.length - prefix
+        );
+        while (
+            suffix < maxSuffix &&
+            originalText[originalText.length - 1 - suffix] === formattedText[formattedText.length - 1 - suffix]
+        ) {
+            suffix += 1;
+        }
+
+        const rangeStartOffset = this.getOffsetAt(document, range.start);
+        const replaceStartOffset = rangeStartOffset + prefix;
+        const replaceEndOffset = rangeStartOffset + (originalText.length - suffix);
+        const replacement = formattedText.substring(prefix, formattedText.length - suffix);
+
+        const start = document.positionAt(replaceStartOffset);
+        const end = document.positionAt(replaceEndOffset);
+        return [vscode.TextEdit.replace(new vscode.Range(start, end), replacement)];
+    }
+
+    private getOffsetAt(document: vscode.TextDocument, position: vscode.Position): number {
+        const docAny = document as vscode.TextDocument & { offsetAt?: (pos: vscode.Position) => number };
+        if (typeof docAny.offsetAt === 'function') {
+            return docAny.offsetAt(position);
+        }
+        const start = new vscode.Position(0, 0);
+        return document.getText(new vscode.Range(start, position)).length;
     }
 
     // Compute initial context (indent level and whether inside struct/enum) from the content before the selection start
