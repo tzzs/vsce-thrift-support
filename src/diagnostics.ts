@@ -1504,7 +1504,9 @@ function findBestContainingMemberRange(ast: nodes.ThriftDocument, dirtyRange: Li
             continue;
         }
         let members: Array<{ range: vscode.Range }> = [];
-        if (node.type === nodes.ThriftNodeType.Enum) {
+        if (node.type === nodes.ThriftNodeType.Struct || node.type === nodes.ThriftNodeType.Union || node.type === nodes.ThriftNodeType.Exception) {
+            members = (node as nodes.Struct).fields;
+        } else if (node.type === nodes.ThriftNodeType.Enum) {
             members = (node as nodes.Enum).members;
         } else if (node.type === nodes.ThriftNodeType.Service) {
             members = (node as nodes.Service).functions;
