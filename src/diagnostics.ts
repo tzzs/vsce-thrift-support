@@ -1051,6 +1051,7 @@ export class DiagnosticManager {
         lastDiagnostics?: vscode.Diagnostic[];
         lastAst?: nodes.ThriftDocument;
         lastAnalysisContext?: AnalysisContext;
+        lastBlockCache?: Map<string, { hash: number; issues: ThriftIssue[] }>;
     }>();
     private readonly ANALYSIS_DELAY = config.diagnostics.analysisDelayMs;
     private readonly MIN_ANALYSIS_INTERVAL = config.diagnostics.minAnalysisIntervalMs;
@@ -1303,15 +1304,29 @@ export class DiagnosticManager {
                         const lines = text.split('\n');
                         let issues: ThriftIssue[] = [];
                         let usedPartial = false;
+                        let blockRange: { startLine: number; endLine: number } | null = null;
 
                         if (state.useIncrementalDiagnostics && state.dirtyRange && state.lastAst && state.lastAnalysisContext) {
-                            const blockRange = findBestContainingRange(state.lastAst, state.dirtyRange);
+                            blockRange = findBestContainingRange(state.lastAst, state.dirtyRange);
                             if (blockRange) {
-                                const partialLines = buildPartialLines(lines, blockRange.startLine, blockRange.endLine);
-                                const partialText = partialLines.join('\n');
-                                const partialKey = `${doc.uri.toString()}#partial:${blockRange.startLine}-${blockRange.endLine}`;
-                                const partialAst = ThriftParser.parseContentWithCache(partialKey, partialText);
-                                issues = analyzeThriftAst(partialAst, partialLines, includedTypes, state.lastAnalysisContext);
+                                const blockKey = `${blockRange.startLine}-${blockRange.endLine}`;
+                                const blockLines = lines.slice(blockRange.startLine, blockRange.endLine + 1).join('\n');
+                                const blockHash = hashText(blockLines);
+                                const cachedBlock = state.lastBlockCache?.get(blockKey);
+                                if (cachedBlock && cachedBlock.hash === blockHash) {
+                                    issues = cachedBlock.issues;
+                                } else {
+                                    const partialLines = buildPartialLines(lines, blockRange.startLine, blockRange.endLine);
+                                    const partialText = partialLines.join('\n');
+                                    const partialKey = `${doc.uri.toString()}#partial:${blockRange.startLine}-${blockRange.endLine}`;
+                                    const partialAst = ThriftParser.parseContentWithCache(partialKey, partialText);
+                                    issues = analyzeThriftAst(partialAst, partialLines, includedTypes, state.lastAnalysisContext);
+                                    if (!state.lastBlockCache) {
+                                        state.lastBlockCache = new Map();
+                                    }
+                                    const blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, blockRange!));
+                                    state.lastBlockCache.set(blockKey, { hash: blockHash, issues: blockIssues });
+                                }
                                 usedPartial = true;
                             }
                         }
@@ -1321,10 +1336,13 @@ export class DiagnosticManager {
                             issues = analyzeThriftAst(ast, lines, includedTypes);
                             state.lastAst = ast;
                             state.lastAnalysisContext = buildAnalysisContext(ast);
+                            state.lastBlockCache = buildBlockCache(ast, lines, issues);
                         }
 
-                        const mergeState = usedPartial
-                            ? state
+                        const mergeState = usedPartial && blockRange
+                            ? { ...state, dirtyRange: blockRange }
+                            : usedPartial
+                                ? state
                             : { ...state, useIncrementalDiagnostics: false };
                         const incrementalDiagnostics = this.mergeIncrementalDiagnostics(
                             issues,
@@ -1413,7 +1431,7 @@ function findBestContainingRange(ast: nodes.ThriftDocument, dirtyRange: { startL
     let best: { startLine: number; endLine: number } | null = null;
     let bestSpan = Number.POSITIVE_INFINITY;
     for (const node of ast.body) {
-        if (node.range.start.line > normalized.endLine || node.range.end.line < normalized.startLine) {
+        if (node.range.start.line > normalized.startLine || node.range.end.line < normalized.endLine) {
             continue;
         }
         const span = node.range.end.line - node.range.start.line;
@@ -1427,6 +1445,28 @@ function findBestContainingRange(ast: nodes.ThriftDocument, dirtyRange: { startL
 
 function buildPartialLines(lines: string[], startLine: number, endLine: number): string[] {
     return lines.map((line, idx) => (idx >= startLine && idx <= endLine) ? line : '');
+}
+
+function buildBlockCache(ast: nodes.ThriftDocument, lines: string[], issues: ThriftIssue[]) {
+    const cache = new Map<string, { hash: number; issues: ThriftIssue[] }>();
+    for (const node of ast.body) {
+        const startLine = node.range.start.line;
+        const endLine = node.range.end.line;
+        const key = `${startLine}-${endLine}`;
+        const blockText = lines.slice(startLine, endLine + 1).join('\n');
+        const blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, { startLine, endLine }));
+        cache.set(key, { hash: hashText(blockText), issues: blockIssues });
+    }
+    return cache;
+}
+
+function hashText(text: string): number {
+    let hash = 5381;
+    for (let i = 0; i < text.length; i++) {
+        hash = ((hash << 5) + hash) + text.charCodeAt(i);
+        hash |= 0;
+    }
+    return hash;
 }
 
 /**

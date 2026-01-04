@@ -81,6 +81,26 @@ async function run() {
         const hasDuplicate = latestDiagnostics.some(diag => /Duplicate field id/.test(diag.message));
         assert.ok(!hasDuplicate, 'Expected duplicate field id diagnostic to be cleared after update');
 
+        const multiChangeText = [
+            'struct A {',
+            '  1: i32 id,',
+            '  2: i32 name,',
+            '}',
+            '',
+            'struct B {',
+            '  1: i32 id,',
+            '}'
+        ].join('\n');
+
+        const multiChangeDoc = createDoc(multiChangeText, 'incremental-merge.thrift', 3);
+        manager.scheduleAnalysis(multiChangeDoc, true, false, 'documentChange', 4, false, { startLine: 1, endLine: 6 }, false);
+        await manager.performAnalysis(multiChangeDoc);
+
+        const hasUnknownAfterMulti = latestDiagnostics.some(diag => /Unknown type/.test(diag.message));
+        assert.ok(!hasUnknownAfterMulti, 'Expected unknown type diagnostic to be cleared after multi-block update');
+        const hasDuplicateAfterMulti = latestDiagnostics.some(diag => /Duplicate field id/.test(diag.message));
+        assert.ok(!hasDuplicateAfterMulti, 'Expected duplicate field id diagnostic to stay cleared after multi-block update');
+
         console.log('✅ Incremental diagnostics merge test passed!');
     } finally {
         config.incremental.analysisEnabled = originalAnalysisEnabled;
