@@ -14,6 +14,8 @@
 - AST 默认值/初始化范围：字段默认值、const 值体、enum initializer 精确 range
 - 诊断节流（300ms 延迟 + 1s 最小间隔）与性能监控
 - References/符号共享缓存与文件列表节流
+- 工作区/引用文件列表增量更新（file watcher create/delete）
+- 性能监控指标扩展（操作统计与内存摘要）
 - 配置集中化（`src/config/index.ts`）消除魔法字符串/数字
 - Rename 误删定义回归修复 + 回归测试覆盖
 - AST 类型范围回归测试新增（tests/src/ast/parser/test-type-ranges.js）
@@ -21,7 +23,7 @@
 
 **进行中**
 
-- 增量分析/增量格式化：配置已预留开关与阈值（`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines`），诊断在小脏区改动时跳过依赖连锁分析；仍需实现局部解析/最小化 patch
+- 增量分析/增量格式化：配置已预留开关与阈值（`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines`），已有脏区跟踪、依赖跳过与 include 缓存复用；仍需实现局部解析与最小化 patch
 
 **待规划**
 
