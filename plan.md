@@ -20,20 +20,23 @@
 - Rename 误删定义回归修复 + 回归测试覆盖
 - AST 类型范围回归测试新增（tests/src/ast/parser/test-type-ranges.js）
 - 错误处理与日志统一：主要 Provider + 性能监控/扫描分析工具使用 `ErrorHandler` 集中输出
+- 增量分析/增量格式化：脏区跟踪、依赖跳过、include 缓存复用、脏区诊断合并、结构性变更回退、块级局部解析与成员级缓存（enum/service/struct/union/exception）、范围合并统一、LRU/TTL 缓存驱逐
 
 **进行中**
 
-- 增量分析/增量格式化：配置已预留开关与阈值（`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines`），已有脏区跟踪、依赖跳过与 include 缓存复用；增量格式化已支持脏区范围与最小化 patch，并已切换为基于 AST 的局部上下文；增量分析已支持脏区诊断合并、结构性变更回退、块级局部解析与成员级缓存（enum/service）
-- 近期明确目标（可落地拆解）：
-  - ✅ 诊断子树缓存：在块内进一步按顶层成员缓存 hash + issues（已覆盖 enum/service）
-  - ✅ 更细粒度合并策略：dirtyRange 跨多个块回退全量，单块内按成员范围合并
-  - ✅ 格式化局部 AST：为格式化添加“局部语法上下文”构建，降低 computeInitialContext 扫描成本
-  - ✅ 统一局部范围判定：增量诊断/格式化共享行范围工具与回退策略，减少分支差异
-  - ✅ 诊断成员范围扩展：struct/union/exception 的 field 级命中与局部解析
+- 暂无（待规划与长期项见下方）
 
 **待规划**
 
 - LSP 化与增量索引
+  - 目标范围：诊断/格式化/补全/跳转/引用/重命名的 LSP 能力矩阵与优先级
+  - 架构拆分：扩展层（UI/命令）与语言服务层（解析/索引/诊断）职责边界
+  - 增量索引：文件级索引结构、dirtyRange 驱动的局部更新策略
+  - 缓存策略：索引缓存的 TTL/LRU/失效条件与清理触发点
+  - 并发模型：后台解析任务队列/取消/限流策略
+  - 测试计划：LSP 端到端测试、增量索引回归用例与基准样例
+  - 里程碑拆分：诊断 → 符号/跳转 → 引用/重命名 → 格式化/补全
+  - 风险与依赖：协议兼容、与现有 AST/缓存体系的衔接方案
 
 ## 2. 代码质量评估（问题清单）
 
@@ -85,7 +88,7 @@ if (openDoc) {
 
 ### 2.2 中优先级
 
-#### 3. 错误处理不一致（🟡 部分完成）
+#### 3. 错误处理不一致（✅ 已完成）
 
 **发现:** 异常处理模式不统一
 
@@ -93,7 +96,7 @@ if (openDoc) {
 - 有些地方直接忽略错误（`continue`）
 - 缺少统一的错误日志记录标准
 
-**建议:** 建立标准异常处理流程，统一错误日志格式（已引入 `ErrorHandler`，仍需覆盖未接入模块：`document-symbol-provider.ts`、`code-actions-provider.ts`、`selection-range-provider.ts`、`folding-range-provider.ts`、`rename-provider.ts`、`formatting-provider.ts`、`thrift-formatter.ts`）
+**建议:** 建立标准异常处理流程，统一错误日志格式（已引入 `ErrorHandler` 并覆盖主要模块）。
 
 #### 4. 架构设计问题
 
@@ -136,8 +139,8 @@ private readonly CACHE_DURATION = 10000; // 10秒
 - ✅ AST 缓存机制：已引入缓存化 AST（5 分钟 TTL）
 - ✅ 包含文件缓存：References/符号使用共享缓存与文件列表节流
 - ✅ 性能监控：已加入慢操作包装与指标
-- ✅ 增量分析：已启用 include 缓存复用、依赖跳过与脏区诊断合并，并完成块级局部解析与成员级缓存（enum/service/struct/union/exception）；已统一行范围判定并加入 LRU/TTL 缓存驱逐
-- ✅ 增量格式化：已支持脏区范围格式化、阈值回退与最小化 patch，且已切换为基于 AST 的局部上下文
+- ✅ 增量分析：include 缓存复用、依赖跳过、脏区诊断合并、结构性变更回退、块级局部解析与成员级缓存、范围统一、LRU/TTL 缓存驱逐
+- ✅ 增量格式化：脏区范围格式化、阈值回退、最小化 patch、基于 AST 的局部上下文
 - ⏳ 配置侧开关：`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines` 已预埋，后续按模块落地
 
 **实施优先级:**
@@ -184,12 +187,7 @@ private readonly CACHE_DURATION = 10000; // 10秒
 
 ### 4.4 增量解析/格式化里程碑（近期）
 
-- [x] 子树级诊断缓存：按 enum/service 成员建立 hash+issues 缓存（struct/union/exception 仍待命中策略补齐）
-- [x] 子树命中策略：dirtyRange → block → member 子树，命中则局部解析，否则回退全量
-- [x] 局部解析缓存驱逐：LRU/TTL 策略避免内存膨胀
-- [x] struct/union/exception 的 field 级命中与局部解析
-- [x] 增量格式化局部上下文：基于 AST 计算更精确的上下文范围
-- [x] 测试补充：新增跨块变更、单块成员变更的单测
+- [x] 里程碑已完成（已并入“已完成/性能优化计划”）
 
 ## 5. 架构与工具类建议
 
