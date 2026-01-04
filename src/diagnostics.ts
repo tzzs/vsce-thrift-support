@@ -6,6 +6,7 @@ import * as nodes from './ast/nodes.types';
 import { ThriftFileWatcher } from './utils/file-watcher';
 import { ErrorHandler } from './utils/error-handler';
 import { config } from './config';
+import { LruCache } from './utils/lru-cache';
 import {
     LineRange,
     collapseLineRanges,
@@ -21,6 +22,12 @@ export type ThriftIssue = {
     severity: vscode.DiagnosticSeverity;
     code?: string;
 };
+
+type BlockCacheValue = { hash: number; issues: ThriftIssue[] };
+type MemberCacheValue = { range: LineRange; hash: number; issues: ThriftIssue[] };
+type BlockCache = LruCache<string, BlockCacheValue>;
+type MemberCache = LruCache<string, MemberCacheValue>;
+type MemberCacheByBlock = LruCache<string, MemberCache>;
 
 const PRIMITIVES = new Set<string>([
     'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid', 'slist'
@@ -1067,8 +1074,8 @@ export class DiagnosticManager {
         lastDiagnostics?: vscode.Diagnostic[];
         lastAst?: nodes.ThriftDocument;
         lastAnalysisContext?: AnalysisContext;
-        lastBlockCache?: Map<string, { hash: number; issues: ThriftIssue[] }>;
-        lastMemberCache?: Map<string, Map<string, { range: LineRange; hash: number; issues: ThriftIssue[] }>>;
+        lastBlockCache?: BlockCache;
+        lastMemberCache?: MemberCacheByBlock;
     }>();
     private readonly ANALYSIS_DELAY = config.diagnostics.analysisDelayMs;
     private readonly MIN_ANALYSIS_INTERVAL = config.diagnostics.minAnalysisIntervalMs;
@@ -1343,7 +1350,7 @@ export class DiagnosticManager {
                                     memberRange = findBestContainingMemberRange(partialAst, state.dirtyRange);
                                     const memberKey = memberRange ? `${memberRange.startLine}-${memberRange.endLine}` : null;
                                     const memberHash = memberRange
-                                        ? hashText(lines.slice(memberRange.startLine, memberRange.endLine + 1).join('\n'))
+                                        ? hashText(partialLines.slice(memberRange.startLine, memberRange.endLine + 1).join('\n'))
                                         : null;
                                     const cachedMember = memberKey
                                         ? state.lastMemberCache?.get(blockKey)?.get(memberKey)
@@ -1363,22 +1370,22 @@ export class DiagnosticManager {
                                     }
                                     if (!memberCacheHit) {
                                         if (!state.lastBlockCache) {
-                                            state.lastBlockCache = new Map();
+                                            state.lastBlockCache = createBlockCache();
                                         }
                                         const blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, blockRange!));
                                         state.lastBlockCache.set(blockKey, { hash: blockHash, issues: blockIssues });
                                         if (!state.lastMemberCache) {
-                                            state.lastMemberCache = new Map();
+                                            state.lastMemberCache = createMemberCacheByBlock();
                                         }
                                         const blockNode = findContainingNode(partialAst, blockRange);
                                         if (blockNode) {
-                                            state.lastMemberCache.set(blockKey, buildMemberCacheForNode(blockNode, lines, issues));
+                                            state.lastMemberCache.set(blockKey, buildMemberCacheForNode(blockNode, partialLines, issues));
                                         }
                                     } else if (memberKey && memberRange && memberHash !== null) {
                                         if (!state.lastMemberCache) {
-                                            state.lastMemberCache = new Map();
+                                            state.lastMemberCache = createMemberCacheByBlock();
                                         }
-                                        const blockMembers = state.lastMemberCache.get(blockKey) ?? new Map();
+                                        const blockMembers = state.lastMemberCache.get(blockKey) ?? createMemberCache();
                                         blockMembers.set(memberKey, { range: memberRange, hash: memberHash, issues });
                                         state.lastMemberCache.set(blockKey, blockMembers);
                                     }
@@ -1551,8 +1558,29 @@ function buildPartialLines(lines: string[], startLine: number, endLine: number):
     return lines.map((line, idx) => (idx >= startLine && idx <= endLine) ? line : '');
 }
 
+function createBlockCache(): BlockCache {
+    return new LruCache<string, BlockCacheValue>(
+        config.cache.diagnosticsBlocks.maxSize,
+        config.cache.diagnosticsBlocks.ttlMs
+    );
+}
+
+function createMemberCacheByBlock(): MemberCacheByBlock {
+    return new LruCache<string, MemberCache>(
+        config.cache.diagnosticsBlocks.maxSize,
+        config.cache.diagnosticsBlocks.ttlMs
+    );
+}
+
+function createMemberCache(): MemberCache {
+    return new LruCache<string, MemberCacheValue>(
+        config.cache.diagnosticsMembers.maxSize,
+        config.cache.diagnosticsMembers.ttlMs
+    );
+}
+
 function buildMemberCache(ast: nodes.ThriftDocument, lines: string[], issues: ThriftIssue[]) {
-    const cache = new Map<string, Map<string, { range: LineRange; hash: number; issues: ThriftIssue[] }>>();
+    const cache = createMemberCacheByBlock();
     for (const node of ast.body) {
         const blockKey = `${node.range.start.line}-${node.range.end.line}`;
         cache.set(blockKey, buildMemberCacheForNode(node, lines, issues));
@@ -1565,7 +1593,7 @@ function buildMemberCacheForNode(
     lines: string[],
     issues: ThriftIssue[]
 ) {
-    const cache = new Map<string, { range: LineRange; hash: number; issues: ThriftIssue[] }>();
+    const cache = createMemberCache();
     let members: Array<{ range: vscode.Range }> = [];
     if (node.type === nodes.ThriftNodeType.Struct || node.type === nodes.ThriftNodeType.Union || node.type === nodes.ThriftNodeType.Exception) {
         members = (node as nodes.Struct).fields;
@@ -1591,7 +1619,7 @@ function buildMemberCacheForNode(
 }
 
 function buildBlockCache(ast: nodes.ThriftDocument, lines: string[], issues: ThriftIssue[]) {
-    const cache = new Map<string, { hash: number; issues: ThriftIssue[] }>();
+    const cache = createBlockCache();
     for (const node of ast.body) {
         const startLine = node.range.start.line;
         const endLine = node.range.end.line;

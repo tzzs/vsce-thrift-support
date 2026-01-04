@@ -34,6 +34,10 @@ export interface CacheConfig {
     definitionDocument: CacheEntry;
     /** Definition（工作区级）缓存配置 */
     definitionWorkspace: CacheEntry;
+    /** Diagnostics block 缓存配置 */
+    diagnosticsBlocks: CacheEntry;
+    /** Diagnostics member 缓存配置 */
+    diagnosticsMembers: CacheEntry;
 }
 
 /** 默认缓存条目配置 */
@@ -51,7 +55,9 @@ export const cacheConfig: CacheConfig = {
     hoverContent: {maxSize: 100, ttlMs: 10000}, // 悬停内容缓存配置
     definition: {maxSize: 1000, ttlMs: 10000}, // 定义缓存配置
     definitionDocument: {maxSize: 500, ttlMs: 10000}, // 定义文档缓存配置
-    definitionWorkspace: {maxSize: 200, ttlMs: 30000} // 定义工作区缓存配置
+    definitionWorkspace: {maxSize: 200, ttlMs: 30000}, // 定义工作区缓存配置
+    diagnosticsBlocks: {maxSize: 200, ttlMs: 5 * 60 * 1000}, // 诊断块级缓存配置
+    diagnosticsMembers: {maxSize: 500, ttlMs: 5 * 60 * 1000} // 诊断成员级缓存配置
 };
 
 /**
