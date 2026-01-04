@@ -650,6 +650,25 @@ async function collectIncludedTypes(document: vscode.TextDocument, errorHandler?
     return includedTypes;
 }
 
+function collectIncludedTypesFromCache(includedFiles: vscode.Uri[]): Map<string, string> | null {
+    const includedTypes = new Map<string, string>();
+    const now = Date.now();
+    for (const includedFile of includedFiles) {
+        const includedFileKey = includedFile.toString();
+        const cachedTypes = includeTypesCache.get(includedFileKey);
+        const cachedTime = includeFileTimestamps.get(includedFileKey);
+        if (!cachedTypes || !cachedTime || (now - cachedTime) >= INCLUDE_CACHE_MAX_AGE) {
+            return null;
+        }
+        for (const [name, kind] of cachedTypes) {
+            if (!includedTypes.has(name)) {
+                includedTypes.set(name, kind);
+            }
+        }
+    }
+    return includedTypes;
+}
+
 /**
  * 分析 Thrift 文本并返回诊断问题列表。
  */
@@ -992,7 +1011,14 @@ export function analyzeThriftText(text: string, _uri?: vscode.Uri, includedTypes
 export class DiagnosticManager {
     private collection: vscode.DiagnosticCollection;
     private analysisQueue = new Map<string, NodeJS.Timeout>();
-    private documentStates = new Map<string, { version: number; isAnalyzing: boolean; lastAnalysis?: number }>();
+    private documentStates = new Map<string, {
+        version: number;
+        isAnalyzing: boolean;
+        lastAnalysis?: number;
+        dirtyLineCount?: number;
+        includesMayChange?: boolean;
+        useCachedIncludes?: boolean;
+    }>();
     private readonly ANALYSIS_DELAY = config.diagnostics.analysisDelayMs;
     private readonly MIN_ANALYSIS_INTERVAL = config.diagnostics.minAnalysisIntervalMs;
 
@@ -1014,7 +1040,8 @@ export class DiagnosticManager {
         immediate: boolean = false,
         skipDependents: boolean = false,
         triggerSource?: string,
-        dirtyLineCount?: number
+        dirtyLineCount?: number,
+        includesMayChange?: boolean
     ) {
         if (doc.languageId !== 'thrift') { return; }
 
@@ -1022,11 +1049,14 @@ export class DiagnosticManager {
         const triggerInfo = triggerSource ? ` (triggered by ${triggerSource})` : '';
         const dirtyInfo = dirtyLineCount !== undefined ? `, dirtyLines=${dirtyLineCount}` : '';
 
+        const useIncremental = config.incremental.analysisEnabled &&
+            dirtyLineCount !== undefined &&
+            dirtyLineCount <= config.incremental.maxDirtyLines &&
+            !includesMayChange;
+
         // 增量模式：小改动时避免触发依赖文件连锁分析
-        if (config.incremental.analysisEnabled && dirtyLineCount !== undefined) {
-            if (dirtyLineCount <= config.incremental.maxDirtyLines) {
-                skipDependents = true;
-            }
+        if (useIncremental) {
+            skipDependents = true;
         }
 
         logDiagnostics(`[Diagnostics] Schedule analysis for ${path.basename(doc.uri.fsPath)}, immediate=${immediate}, skipDependents=${skipDependents}${triggerInfo}${dirtyInfo}`);
@@ -1056,6 +1086,14 @@ export class DiagnosticManager {
         }, delay);
 
         this.analysisQueue.set(key, timeout);
+        this.documentStates.set(key, {
+            version: doc.version,
+            isAnalyzing: state?.isAnalyzing ?? false,
+            lastAnalysis: state?.lastAnalysis,
+            dirtyLineCount,
+            includesMayChange,
+            useCachedIncludes: useIncremental
+        });
 
         // 如果需要分析依赖文件，延迟分析它们（避免连锁反应）
         if (!skipDependents) {
@@ -1210,10 +1248,17 @@ export class DiagnosticManager {
                     try {
                         // Collect types from included files
                         const includedFiles = await getIncludedFiles(doc);
-                        const includedTypes = await collectIncludedTypes(doc, this.errorHandler);
+                        const cachedIncludedTypes = state.useCachedIncludes
+                            ? collectIncludedTypesFromCache(includedFiles)
+                            : null;
+                        const includedTypes = cachedIncludedTypes
+                            ? cachedIncludedTypes
+                            : await collectIncludedTypes(doc, this.errorHandler);
 
-                        // 跟踪文件依赖关系
-                        this.trackFileDependencies(doc, includedFiles);
+                        // 跟踪文件依赖关系（缓存命中时可跳过）
+                        if (!cachedIncludedTypes) {
+                            this.trackFileDependencies(doc, includedFiles);
+                        }
 
                         const issues = analyzeThriftText(doc.getText(), doc.uri, includedTypes);
                         const diagnostics = issues.map(i => new vscode.Diagnostic(i.range, i.message, i.severity));
@@ -1289,14 +1334,26 @@ export function registerDiagnostics(context: vscode.ExtensionContext) {
         vscode.workspace.onDidChangeTextDocument(e => {
             if (e.document.languageId === 'thrift') {
                 let dirtyLines: number | undefined;
+                let includesMayChange = false;
                 if (config.incremental.analysisEnabled) {
                     dirtyLines = e.contentChanges.reduce((acc, change) => {
                         const affected = change.text.split('\n').length - 1;
                         const removed = change.range.end.line - change.range.start.line;
                         return acc + Math.max(affected, removed);
                     }, 0);
+                    includesMayChange = e.contentChanges.some(change => {
+                        if (/\binclude\b/.test(change.text)) {
+                            return true;
+                        }
+                        try {
+                            const lineText = e.document.lineAt(change.range.start.line).text;
+                            return /^\s*include\b/.test(lineText);
+                        } catch {
+                            return false;
+                        }
+                    });
                 }
-                diagnosticManager.scheduleAnalysis(e.document, false, false, 'documentChange', dirtyLines);
+                diagnosticManager.scheduleAnalysis(e.document, false, false, 'documentChange', dirtyLines, includesMayChange);
             }
         }),
 
