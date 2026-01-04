@@ -53,11 +53,11 @@ function run() {
         };
 
         const doc = createDoc('fileA.thrift');
-        manager.scheduleAnalysis(doc, false, false, 'documentChange', 3, false);
+        manager.scheduleAnalysis(doc, false, false, 'documentChange', 3, false, { startLine: 0, endLine: 1 }, false);
         assert.strictEqual(dependentCalls, 0, 'Expected dependents to be skipped for small changes');
 
         doc.version = 2;
-        manager.scheduleAnalysis(doc, false, false, 'documentChange', 3, true);
+        manager.scheduleAnalysis(doc, false, false, 'documentChange', 3, true, { startLine: 0, endLine: 1 }, false);
         assert.strictEqual(dependentCalls, 1, 'Expected dependents when includes may change');
 
         console.log('✅ Incremental analysis scheduling test passed!');

@@ -1019,6 +1019,9 @@ export class DiagnosticManager {
         dirtyLineCount?: number;
         includesMayChange?: boolean;
         useCachedIncludes?: boolean;
+        useIncrementalDiagnostics?: boolean;
+        dirtyRange?: { startLine: number; endLine: number };
+        lastDiagnostics?: vscode.Diagnostic[];
     }>();
     private readonly ANALYSIS_DELAY = config.diagnostics.analysisDelayMs;
     private readonly MIN_ANALYSIS_INTERVAL = config.diagnostics.minAnalysisIntervalMs;
@@ -1042,7 +1045,9 @@ export class DiagnosticManager {
         skipDependents: boolean = false,
         triggerSource?: string,
         dirtyLineCount?: number,
-        includesMayChange?: boolean
+        includesMayChange?: boolean,
+        dirtyRange?: { startLine: number; endLine: number },
+        structuralChange?: boolean
     ) {
         if (doc.languageId !== 'thrift') { return; }
 
@@ -1053,7 +1058,8 @@ export class DiagnosticManager {
         const useIncremental = config.incremental.analysisEnabled &&
             dirtyLineCount !== undefined &&
             dirtyLineCount <= config.incremental.maxDirtyLines &&
-            !includesMayChange;
+            !includesMayChange &&
+            !structuralChange;
 
         // 增量模式：小改动时避免触发依赖文件连锁分析
         if (useIncremental) {
@@ -1093,7 +1099,10 @@ export class DiagnosticManager {
             lastAnalysis: state?.lastAnalysis,
             dirtyLineCount,
             includesMayChange,
-            useCachedIncludes: useIncremental
+            useCachedIncludes: useIncremental,
+            useIncrementalDiagnostics: useIncremental,
+            dirtyRange: dirtyRange ? { ...dirtyRange } : undefined,
+            lastDiagnostics: state?.lastDiagnostics
         });
 
         // 如果需要分析依赖文件，延迟分析它们（避免连锁反应）
@@ -1262,10 +1271,18 @@ export class DiagnosticManager {
                         }
 
                         const issues = analyzeThriftText(doc.getText(), doc.uri, includedTypes);
-                        const diagnostics = issues.map(i => new vscode.Diagnostic(i.range, i.message, i.severity));
+                        const incrementalDiagnostics = this.mergeIncrementalDiagnostics(
+                            issues,
+                            state,
+                            doc
+                        );
+                        const diagnostics = incrementalDiagnostics
+                            ? incrementalDiagnostics
+                            : issues.map(i => new vscode.Diagnostic(i.range, i.message, i.severity));
 
                         // 原子性更新诊断信息
                         this.collection.set(doc.uri, diagnostics);
+                        state.lastDiagnostics = diagnostics;
 
                         logDiagnostics(`文档 ${path.basename(doc.uri.fsPath)} 分析完成: ${diagnostics.length} 个问题`);
                     } catch (error) {
@@ -1288,6 +1305,49 @@ export class DiagnosticManager {
             this.documentStates.set(key, state);
         }
     }
+
+    private mergeIncrementalDiagnostics(
+        issues: ThriftIssue[],
+        state: {
+            useIncrementalDiagnostics?: boolean;
+            dirtyRange?: { startLine: number; endLine: number };
+            lastDiagnostics?: vscode.Diagnostic[];
+        },
+        doc: vscode.TextDocument
+    ): vscode.Diagnostic[] | null {
+        if (!state.useIncrementalDiagnostics || !state.dirtyRange || !state.lastDiagnostics) {
+            return null;
+        }
+
+        const lineRange = normalizeLineRange(state.dirtyRange);
+        if (!lineRange) {
+            return null;
+        }
+
+        const nextDiagnostics = issues
+            .filter(issue => rangeIntersectsLineRange(issue.range, lineRange))
+            .map(issue => new vscode.Diagnostic(issue.range, issue.message, issue.severity));
+
+        const preserved = state.lastDiagnostics.filter(diagnostic => !rangeIntersectsLineRange(diagnostic.range, lineRange));
+        const merged = [...preserved, ...nextDiagnostics];
+
+        logDiagnostics(`[Diagnostics] Incremental merge applied for ${path.basename(doc.uri.fsPath)} (lines ${lineRange.startLine}-${lineRange.endLine})`);
+
+        return merged;
+    }
+}
+
+function normalizeLineRange(range: { startLine: number; endLine: number }) {
+    const startLine = Math.min(range.startLine, range.endLine);
+    const endLine = Math.max(range.startLine, range.endLine);
+    if (!Number.isFinite(startLine) || !Number.isFinite(endLine)) {
+        return null;
+    }
+    return { startLine, endLine };
+}
+
+function rangeIntersectsLineRange(range: vscode.Range, lineRange: { startLine: number; endLine: number }): boolean {
+    return range.start.line <= lineRange.endLine && range.end.line >= lineRange.startLine;
 }
 
 /**
@@ -1336,6 +1396,8 @@ export function registerDiagnostics(context: vscode.ExtensionContext) {
             if (e.document.languageId === 'thrift') {
                 let dirtyLines: number | undefined;
                 let includesMayChange = false;
+                let dirtyRange: { startLine: number; endLine: number } | undefined;
+                let structuralChange = false;
                 if (config.incremental.analysisEnabled) {
                     dirtyLines = e.contentChanges.reduce((acc, change) => {
                         const affected = change.text.split('\n').length - 1;
@@ -1353,8 +1415,46 @@ export function registerDiagnostics(context: vscode.ExtensionContext) {
                             return false;
                         }
                     });
+                    for (const change of e.contentChanges) {
+                        const startLine = change.range.start.line;
+                        const endLine = change.range.end.line + (change.text.split('\n').length - 1);
+                        if (!dirtyRange) {
+                            dirtyRange = { startLine, endLine };
+                        } else {
+                            dirtyRange.startLine = Math.min(dirtyRange.startLine, startLine);
+                            dirtyRange.endLine = Math.max(dirtyRange.endLine, endLine);
+                        }
+
+                        if (startLine !== change.range.end.line || change.text.includes('\n')) {
+                            structuralChange = true;
+                            continue;
+                        }
+
+                        if (/[{}]/.test(change.text) || /\b(struct|union|exception|enum|senum|service|typedef|const|namespace|include)\b/.test(change.text)) {
+                            structuralChange = true;
+                            continue;
+                        }
+
+                        try {
+                            const lineText = e.document.lineAt(change.range.start.line).text;
+                            if (/[{}]/.test(lineText) || /\b(struct|union|exception|enum|senum|service|typedef|const|namespace|include)\b/.test(lineText)) {
+                                structuralChange = true;
+                            }
+                        } catch {
+                            structuralChange = true;
+                        }
+                    }
                 }
-                diagnosticManager.scheduleAnalysis(e.document, false, false, 'documentChange', dirtyLines, includesMayChange);
+                diagnosticManager.scheduleAnalysis(
+                    e.document,
+                    false,
+                    false,
+                    'documentChange',
+                    dirtyLines,
+                    includesMayChange,
+                    dirtyRange,
+                    structuralChange
+                );
             }
         }),
 
