@@ -1,12 +1,14 @@
 import { ConstField, EnumField, StructField, ThriftFormattingOptions } from './interfaces.types';
 import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes.types';
+import { ErrorHandler } from './utils/error-handler';
 
 /**
  * ThriftFormatter：将 Thrift 源码格式化为统一风格。
  */
 export class ThriftFormatter {
     private reServiceMethod = /^\s*(oneway\s+)?[A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]*>)?\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)(\s*throws\s*\([^)]*\))?\s*[;,]?$/;
+    private errorHandler = ErrorHandler.getInstance();
 
     /**
      * 格式化指定文本内容。
@@ -27,40 +29,41 @@ export class ThriftFormatter {
         insertSpaces: true,
         tabSize: 4
     }): string {
-        const lines = content.split(/\r?\n/);
-        const ast = new ThriftParser(content).parse();
-        const astIndex = this.buildAstIndex(ast);
-        const {
-            structStarts,
-            structFieldIndex,
-            enumStarts,
-            enumMemberIndex,
-            serviceStarts,
-            constStarts,
-            constEnds
-        } = astIndex;
-        const formattedLines: string[] = [];
-        let indentLevel = (options.initialContext && typeof options.initialContext.indentLevel === 'number')
-            ? options.initialContext.indentLevel : 0;
-        let inStruct = !!(options.initialContext && options.initialContext.inStruct);
-        let inEnum = !!(options.initialContext && options.initialContext.inEnum);
-        let inService = !!(options.initialContext && options.initialContext.inService);
-        let serviceIndentLevel = (options.initialContext && typeof options.initialContext.indentLevel === 'number')
-            ? options.initialContext.indentLevel : 0;
-        let structFields: StructField[] = [];
-        let enumFields: EnumField[] = [];
-        let constFields: ConstField[] = [];
-        let inConstBlock = false;
-        // Track the indent level where the current const block started, so flushing uses the correct base indent
-        let constBlockIndentLevel: number | null = null;
+        try {
+            const lines = content.split(/\r?\n/);
+            const ast = new ThriftParser(content).parse();
+            const astIndex = this.buildAstIndex(ast);
+            const {
+                structStarts,
+                structFieldIndex,
+                enumStarts,
+                enumMemberIndex,
+                serviceStarts,
+                constStarts,
+                constEnds
+            } = astIndex;
+            const formattedLines: string[] = [];
+            let indentLevel = (options.initialContext && typeof options.initialContext.indentLevel === 'number')
+                ? options.initialContext.indentLevel : 0;
+            let inStruct = !!(options.initialContext && options.initialContext.inStruct);
+            let inEnum = !!(options.initialContext && options.initialContext.inEnum);
+            let inService = !!(options.initialContext && options.initialContext.inService);
+            let serviceIndentLevel = (options.initialContext && typeof options.initialContext.indentLevel === 'number')
+                ? options.initialContext.indentLevel : 0;
+            let structFields: StructField[] = [];
+            let enumFields: EnumField[] = [];
+            let constFields: ConstField[] = [];
+            let inConstBlock = false;
+            // Track the indent level where the current const block started, so flushing uses the correct base indent
+            let constBlockIndentLevel: number | null = null;
 
-        for (let i = 0; i < lines.length; i++) {
-            let originalLine = lines[i];
-            let line = originalLine.trim();
-            const isConstStart = constStarts.has(i);
-            const isStructStart = structStarts.has(i) || this.isStructStartLine(line);
-            const isEnumStart = enumStarts.has(i) || this.isEnumStartLine(line);
-            const isServiceStart = serviceStarts.has(i) || this.isServiceStartLine(line);
+            for (let i = 0; i < lines.length; i++) {
+                let originalLine = lines[i];
+                let line = originalLine.trim();
+                const isConstStart = constStarts.has(i);
+                const isStructStart = structStarts.has(i) || this.isStructStartLine(line);
+                const isEnumStart = enumStarts.has(i) || this.isEnumStartLine(line);
+                const isServiceStart = serviceStarts.has(i) || this.isServiceStartLine(line);
 
             // Flush accumulated struct fields before non-field separators/comments inside struct
             const hasStructField = structFieldIndex.has(i) || this.isStructFieldText(line);
@@ -442,8 +445,16 @@ export class ThriftFormatter {
             formattedLines.push(...formattedFields);
         }
 
-        const cleaned = formattedLines.map(l => l.replace(/\s+$/g, ''));
-        return cleaned.join('\n');
+            const cleaned = formattedLines.map(l => l.replace(/\s+$/g, ''));
+            return cleaned.join('\n');
+        } catch (error) {
+            this.errorHandler.handleError(error, {
+                component: 'ThriftFormatter',
+                operation: 'format',
+                additionalInfo: { contentLength: content.length }
+            });
+            return content;
+        }
     }
 
     private buildAstIndex(ast: nodes.ThriftDocument): {

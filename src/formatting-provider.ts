@@ -4,12 +4,14 @@ import { ThriftParser } from './ast/parser';
 import { ThriftFormattingOptions } from './interfaces.types';
 import { config } from './config';
 import { IncrementalTracker } from './utils/incremental-tracker';
+import { ErrorHandler } from './utils/error-handler';
 
 /**
  * ThriftFormattingProvider：提供文档与选区格式化。
  */
 export class ThriftFormattingProvider implements vscode.DocumentFormattingEditProvider, vscode.DocumentRangeFormattingEditProvider {
     private incrementalTracker = IncrementalTracker.getInstance();
+    private errorHandler = ErrorHandler.getInstance();
 
     /**
      * 格式化整个文档。
@@ -19,19 +21,28 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         options: vscode.FormattingOptions,
         _token: vscode.CancellationToken
     ): vscode.TextEdit[] {
-        let targetRange: vscode.Range | undefined;
+        try {
+            let targetRange: vscode.Range | undefined;
 
-        // 增量格式化：在脏区范围内尝试最小化编辑
-        if (config.incremental.formattingEnabled) {
-            targetRange = this.incrementalTracker.consumeDirtyRange(document);
+            // 增量格式化：在脏区范围内尝试最小化编辑
+            if (config.incremental.formattingEnabled) {
+                targetRange = this.incrementalTracker.consumeDirtyRange(document);
+            }
+
+            const fullRange = new vscode.Range(
+                document.positionAt(0),
+                document.positionAt(document.getText().length)
+            );
+
+            return this.formatRange(document, targetRange ?? fullRange, options);
+        } catch (error) {
+            this.errorHandler.handleError(error, {
+                component: 'ThriftFormattingProvider',
+                operation: 'provideDocumentFormattingEdits',
+                filePath: document.uri.fsPath
+            });
+            return [];
         }
-
-        const fullRange = new vscode.Range(
-            document.positionAt(0),
-            document.positionAt(document.getText().length)
-        );
-
-        return this.formatRange(document, targetRange ?? fullRange, options);
     }
 
     /**
@@ -43,7 +54,17 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         options: vscode.FormattingOptions,
         _token: vscode.CancellationToken
     ): vscode.TextEdit[] {
-        return this.formatRange(document, range, options);
+        try {
+            return this.formatRange(document, range, options);
+        } catch (error) {
+            this.errorHandler.handleError(error, {
+                component: 'ThriftFormattingProvider',
+                operation: 'provideDocumentRangeFormattingEdits',
+                filePath: document.uri.fsPath,
+                additionalInfo: { range: range.toString() }
+            });
+            return [];
+        }
     }
 
     private formatRange(

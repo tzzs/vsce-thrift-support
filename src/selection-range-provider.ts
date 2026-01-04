@@ -2,12 +2,14 @@ import * as vscode from 'vscode';
 import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes.types';
 import {findSmallestNodeAtPosition, nodePathFromLeaf, positionInRange} from './ast/utils';
+import {ErrorHandler} from './utils/error-handler';
 
 /**
  * ThriftSelectionRangeProvider：提供语法层级选区扩展。
  */
 
 export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvider {
+    private errorHandler = ErrorHandler.getInstance();
     /**
      * 返回每个位置的 SelectionRange 树。
      */
@@ -23,9 +25,18 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
                 break;
             }
 
-            const selectionRange = this.getSelectionRanges(document, position);
-            if (selectionRange) {
-                result.push(selectionRange);
+            try {
+                const selectionRange = this.getSelectionRanges(document, position);
+                if (selectionRange) {
+                    result.push(selectionRange);
+                }
+            } catch (error) {
+                this.errorHandler.handleError(error, {
+                    component: 'ThriftSelectionRangeProvider',
+                    operation: 'provideSelectionRanges',
+                    filePath: document.uri.fsPath,
+                    additionalInfo: { position: position.toString() }
+                });
             }
         }
 

@@ -4,12 +4,14 @@ import * as nodes from './ast/nodes.types';
 import {ThriftFileWatcher} from './utils/file-watcher';
 import {CacheManager} from './utils/cache-manager';
 import {config} from './config';
+import {ErrorHandler} from './utils/error-handler';
 
 /**
  * ThriftDocumentSymbolProvider：提供文档符号与 Outline 支持。
  */
 export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
     private cacheManager = CacheManager.getInstance();
+    private errorHandler = ErrorHandler.getInstance();
 
     constructor() {
         // 注册缓存配置
@@ -43,30 +45,39 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
         document: vscode.TextDocument,
         _token: vscode.CancellationToken
     ): vscode.ProviderResult<vscode.SymbolInformation[] | vscode.DocumentSymbol[]> {
-        const key = document.uri.toString();
+        try {
+            const key = document.uri.toString();
 
-        // 从缓存管理器获取缓存
-        const cached = this.cacheManager.get<vscode.DocumentSymbol[]>('documentSymbols', key);
-        if (cached) {
-            return cached;
-        }
-
-        // 缓存无效，重新解析
-        const parser = new ThriftParser(document);
-        const thriftDoc = parser.parse();
-        const symbols: vscode.DocumentSymbol[] = [];
-
-        for (const node of thriftDoc.body) {
-            const sym = this.createSymbol(node);
-            if (sym) {
-                symbols.push(sym);
+            // 从缓存管理器获取缓存
+            const cached = this.cacheManager.get<vscode.DocumentSymbol[]>('documentSymbols', key);
+            if (cached) {
+                return cached;
             }
+
+            // 缓存无效，重新解析
+            const parser = new ThriftParser(document);
+            const thriftDoc = parser.parse();
+            const symbols: vscode.DocumentSymbol[] = [];
+
+            for (const node of thriftDoc.body) {
+                const sym = this.createSymbol(node);
+                if (sym) {
+                    symbols.push(sym);
+                }
+            }
+
+            // 更新缓存
+            this.cacheManager.set('documentSymbols', key, symbols);
+
+            return symbols;
+        } catch (error) {
+            this.errorHandler.handleError(error, {
+                component: 'ThriftDocumentSymbolProvider',
+                operation: 'provideDocumentSymbols',
+                filePath: document.uri.fsPath
+            });
+            return [];
         }
-
-        // 更新缓存
-        this.cacheManager.set('documentSymbols', key, symbols);
-
-        return symbols;
     }
 
     private createSymbol(node: nodes.ThriftNode): vscode.DocumentSymbol | null {

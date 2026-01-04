@@ -36,10 +36,11 @@
 **发现:** 使用 Rename 功能后会导致对应的定义被异常删除，不符合预期。
 **影响:** 直接破坏源码结构，存在数据丢失风险。
 **建议:** 先复现并定位触发路径（尤其是跨文件 rename 与批量 edit 合并处），补充回归测试（已完成）。
+**证据:** 已有回归测试覆盖（`tests/src/rename-provider/test-rename-provider-regression.js`）。
 
 #### 1. 重复代码问题（✅ 已完成）
 
-**发现:** 6处 `createFileSystemWatcher('**/*.thrift')` 重复，12处 `clearCache()` 重复调用
+**发现:** 6 处 `createFileSystemWatcher('**/*.thrift')` 重复，12 处 `clearCache()` 重复调用
 **影响:** 维护困难，修改需要在多个地方同步
 **文件位置:**
 
@@ -61,7 +62,7 @@
 **代码模式:**
 
 ```typescript
-const openDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === file.toString());
+const openDoc = vscode.workspace.textDocuments.find((d) => d.uri.toString() === file.toString());
 let text = '';
 if (openDoc) {
     text = openDoc.getText();
@@ -84,7 +85,7 @@ if (openDoc) {
 - 有些地方直接忽略错误（`continue`）
 - 缺少统一的错误日志记录标准
 
-**建议:** 建立标准异常处理流程，统一错误日志格式（已引入 `ErrorHandler`，仍需覆盖剩余分支）
+**建议:** 建立标准异常处理流程，统一错误日志格式（已引入 `ErrorHandler`，仍需覆盖未接入模块：`document-symbol-provider.ts`、`code-actions-provider.ts`、`selection-range-provider.ts`、`folding-range-provider.ts`、`rename-provider.ts`、`formatting-provider.ts`、`thrift-formatter.ts`）
 
 #### 4. 架构设计问题
 
@@ -154,7 +155,15 @@ private readonly CACHE_DURATION = 10000; // 10秒
 
 ### 4.2 近期实施（本月）
 
-- [ ] 统一错误处理机制 - 建立标准异常处理流程（已引入 `ErrorHandler`，仍需覆盖剩余分支）
+- [x] 统一错误处理机制 - 建立标准异常处理流程（已引入 `ErrorHandler`，覆盖主要 Provider 与格式化径）
+- [x] Definition of Done: 关键路径异常通过 `ErrorHandler` 记录（含来源标签/栈/可读消息），对用户示遵循统一文案与节流策略。
+- [x] `src/document-symbol-provider.ts`：新增 ErrorHandler 并统一 try/catch 日志
+- [x] `src/code-actions-provider.ts`：新增 ErrorHandler 并统一 try/catch 日志
+- [x] `src/selection-range-provider.ts`：新增 ErrorHandler 并统一 try/catch 日志
+- [x] `src/folding-range-provider.ts`：新增 ErrorHandler 并统一 try/catch 日志
+- [x] `src/rename-provider.ts`：新增 ErrorHandler 并统一 try/catch 日志
+- [x] `src/formatting-provider.ts`：新增 ErrorHandler 并统一 try/catch 日志
+- [x] `src/thrift-formatter.ts`：新增 ErrorHandler 并统一 try/catch 日志
 - [ ] 优化文件扫描性能 - 实现增量更新
 - [ ] 完善性能监控 - 添加更多性能指标
 
@@ -198,7 +207,7 @@ export class ThriftFileWatcher {
     }
 
     dispose(): void {
-        this.watchers.forEach(watcher => watcher.dispose());
+        this.watchers.forEach((watcher) => watcher.dispose());
         this.watchers.clear();
     }
 }
@@ -215,7 +224,7 @@ export interface CacheConfig {
 
 export class CacheManager {
     private static instance: CacheManager;
-    private caches: Map<string, { data: any, timestamp: number }> = new Map();
+    private caches: Map<string, {data: any; timestamp: number}> = new Map();
     private configs: Map<string, CacheConfig> = new Map();
 
     static getInstance(): CacheManager {
@@ -236,7 +245,7 @@ export class CacheManager {
         }
 
         const cacheKey = `${cacheName}:${key}`;
-        this.caches.set(cacheKey, { data: value, timestamp: Date.now() });
+        this.caches.set(cacheKey, {data: value, timestamp: Date.now()});
 
         // Clean up old entries
         this.cleanup(cacheName, config);
@@ -279,7 +288,7 @@ export class CacheManager {
 
     private cleanup(cacheName: string, config: CacheConfig): void {
         const prefix = `${cacheName}:`;
-        const entries: Array<[string, { data: any, timestamp: number }]> = [];
+        const entries: Array<[string, {data: any; timestamp: number}]> = [];
 
         // Collect all entries for this cache
         for (const [key, value] of this.caches) {
@@ -318,9 +327,9 @@ export interface ThriftConfig {
         ignorePattern?: string[];
     };
     cache: {
-        definition: { maxSize: number; ttl: number };
-        hover: { maxSize: number; ttl: number };
-        diagnostics: { maxSize: number; ttl: number };
+        definition: {maxSize: number; ttl: number};
+        hover: {maxSize: number; ttl: number};
+        diagnostics: {maxSize: number; ttl: number};
     };
     performance: {
         slowOperationThreshold: number;
@@ -350,9 +359,9 @@ export class ConfigManager {
                 ignorePattern: ['**/node_modules/**', '**/.git/**']
             },
             cache: {
-                definition: { maxSize: 100, ttl: 10 * 60 * 1000 }, // 10 minutes
-                hover: { maxSize: 50, ttl: 5 * 60 * 1000 }, // 5 minutes
-                diagnostics: { maxSize: 200, ttl: 30 * 1000 } // 30 seconds
+                definition: {maxSize: 100, ttl: 10 * 60 * 1000}, // 10 minutes
+                hover: {maxSize: 50, ttl: 5 * 60 * 1000}, // 5 minutes
+                diagnostics: {maxSize: 200, ttl: 30 * 1000} // 30 seconds
             },
             performance: {
                 slowOperationThreshold: 100, // 100ms
@@ -366,7 +375,7 @@ export class ConfigManager {
     }
 
     updateConfig(newConfig: Partial<ThriftConfig>): void {
-        this.config = { ...this.config, ...newConfig };
+        this.config = {...this.config, ...newConfig};
     }
 }
 ```

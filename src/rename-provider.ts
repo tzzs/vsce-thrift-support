@@ -1,10 +1,12 @@
 import * as vscode from 'vscode';
 import {ThriftReferencesProvider} from './references-provider';
+import {ErrorHandler} from './utils/error-handler';
 
 /**
  * ThriftRenameProvider：处理 Thrift 文件的符号重命名。
  */
 export class ThriftRenameProvider implements vscode.RenameProvider {
+    private errorHandler = ErrorHandler.getInstance();
     /**
      * 预检查重命名位置，返回可重命名范围与占位符。
      */
@@ -12,61 +14,81 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         range: vscode.Range;
         placeholder: string;
     }> {
-        const wordRange = this.getWordRange(document, position);
-        if (!wordRange) {
-            return Promise.reject('No symbol to rename at cursor');
+        try {
+            const wordRange = this.getWordRange(document, position);
+            if (!wordRange) {
+                return Promise.reject('No symbol to rename at cursor');
+            }
+            const placeholder = document.getText(wordRange);
+            return {range: wordRange, placeholder};
+        } catch (error) {
+            this.errorHandler.handleError(error, {
+                component: 'ThriftRenameProvider',
+                operation: 'prepareRename',
+                filePath: document.uri.fsPath,
+                additionalInfo: { position: position.toString() }
+            });
+            return Promise.reject('Rename failed');
         }
-        const placeholder = document.getText(wordRange);
-        return {range: wordRange, placeholder};
     }
 
     /**
      * 生成重命名的 WorkspaceEdit，尽量使用精确范围替换。
      */
     async provideRenameEdits(document: vscode.TextDocument, position: vscode.Position, newName: string, _token: vscode.CancellationToken): Promise<vscode.WorkspaceEdit | undefined> {
-        const wordRange = this.getWordRange(document, position);
-        if (!wordRange) {
-            return undefined;
-        }
-        const oldName = document.getText(wordRange);
-        if (!oldName || oldName === newName) {
-            return undefined;
-        }
-
-        // Use the references provider to find all occurrences
-        const referencesProvider = new ThriftReferencesProvider();
-        const safeToken = _token ?? ({ isCancellationRequested: false } as vscode.CancellationToken);
-        const references = await referencesProvider.provideReferences(
-            document,
-            position,
-            {includeDeclaration: true},
-            safeToken
-        );
-
-        if (!references || references.length === 0) {
-            return undefined;
-        }
-
-        const edit = new vscode.WorkspaceEdit();
-        const documentCache = new Map<string, vscode.TextDocument>();
-
-        // Apply edits for all references
-        for (const reference of references) {
-            const targetDoc = await this.getDocumentForUri(reference.uri, document, documentCache);
-            if (!targetDoc) {
-                continue;
+        try {
+            const wordRange = this.getWordRange(document, position);
+            if (!wordRange) {
+                return undefined;
             }
-            const ranges = this.getReplacementRanges(targetDoc, reference.range, oldName);
-            for (const range of ranges) {
-                edit.replace(
-                    reference.uri,
-                    range,
-                    newName
-                );
+            const oldName = document.getText(wordRange);
+            if (!oldName || oldName === newName) {
+                return undefined;
             }
-        }
 
-        return edit;
+            // Use the references provider to find all occurrences
+            const referencesProvider = new ThriftReferencesProvider();
+            const safeToken = _token ?? ({ isCancellationRequested: false } as vscode.CancellationToken);
+            const references = await referencesProvider.provideReferences(
+                document,
+                position,
+                {includeDeclaration: true},
+                safeToken
+            );
+
+            if (!references || references.length === 0) {
+                return undefined;
+            }
+
+            const edit = new vscode.WorkspaceEdit();
+            const documentCache = new Map<string, vscode.TextDocument>();
+
+            // Apply edits for all references
+            for (const reference of references) {
+                const targetDoc = await this.getDocumentForUri(reference.uri, document, documentCache);
+                if (!targetDoc) {
+                    continue;
+                }
+                const ranges = this.getReplacementRanges(targetDoc, reference.range, oldName);
+                for (const range of ranges) {
+                    edit.replace(
+                        reference.uri,
+                        range,
+                        newName
+                    );
+                }
+            }
+
+            return edit;
+        } catch (error) {
+            this.errorHandler.handleError(error, {
+                component: 'ThriftRenameProvider',
+                operation: 'provideRenameEdits',
+                filePath: document.uri.fsPath,
+                additionalInfo: { position: position.toString(), newName }
+            });
+            return undefined;
+        }
     }
 
     /**
@@ -118,6 +140,11 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
             cache.set(key, doc);
             return doc;
         } catch {
+            this.errorHandler.handleWarning('Failed to open document for rename', {
+                component: 'ThriftRenameProvider',
+                operation: 'getDocumentForUri',
+                filePath: this.getUriKey(uri)
+            });
             return undefined;
         }
     }

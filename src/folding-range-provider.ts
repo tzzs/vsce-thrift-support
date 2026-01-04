@@ -1,12 +1,14 @@
 import * as vscode from 'vscode';
 import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes.types';
+import { ErrorHandler } from './utils/error-handler';
 
 /**
  * ThriftFoldingRangeProvider：提供折叠范围。
  */
 
 export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
+    private errorHandler = ErrorHandler.getInstance();
     /**
      * 返回文档的折叠范围列表。
      */
@@ -15,36 +17,45 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
         _context: vscode.FoldingContext,
         token: vscode.CancellationToken
     ): vscode.ProviderResult<vscode.FoldingRange[]> {
-        const ranges: vscode.FoldingRange[] = [];
-        const text = document.getText();
-        const lines = text.split('\n');
+        try {
+            const ranges: vscode.FoldingRange[] = [];
+            const text = document.getText();
+            const lines = text.split('\n');
 
-        if (lines.length === 0) {
-            return ranges;
-        }
-
-        const ast = ThriftParser.parseWithCache(document);
-        for (const node of ast.body) {
-            if (token.isCancellationRequested) {
+            if (lines.length === 0) {
                 return ranges;
             }
-            if (node.type === nodes.ThriftNodeType.Struct ||
-                node.type === nodes.ThriftNodeType.Union ||
-                node.type === nodes.ThriftNodeType.Exception ||
-                node.type === nodes.ThriftNodeType.Enum ||
-                node.type === nodes.ThriftNodeType.Service) {
-                const range = this.getTypeBlockRange(node, lines);
-                if (range) {
-                    ranges.push(range);
+
+            const ast = ThriftParser.parseWithCache(document);
+            for (const node of ast.body) {
+                if (token.isCancellationRequested) {
+                    return ranges;
+                }
+                if (node.type === nodes.ThriftNodeType.Struct ||
+                    node.type === nodes.ThriftNodeType.Union ||
+                    node.type === nodes.ThriftNodeType.Exception ||
+                    node.type === nodes.ThriftNodeType.Enum ||
+                    node.type === nodes.ThriftNodeType.Service) {
+                    const range = this.getTypeBlockRange(node, lines);
+                    if (range) {
+                        ranges.push(range);
+                    }
                 }
             }
+
+            ranges.push(...this.collectBlockCommentRanges(lines, token));
+            ranges.push(...this.collectParenthesisRanges(lines, token));
+            ranges.push(...this.collectBracketRanges(lines, token));
+
+            return ranges;
+        } catch (error) {
+            this.errorHandler.handleError(error, {
+                component: 'ThriftFoldingRangeProvider',
+                operation: 'provideFoldingRanges',
+                filePath: document.uri.fsPath
+            });
+            return [];
         }
-
-        ranges.push(...this.collectBlockCommentRanges(lines, token));
-        ranges.push(...this.collectParenthesisRanges(lines, token));
-        ranges.push(...this.collectBracketRanges(lines, token));
-
-        return ranges;
     }
 
     private getTypeBlockRange(node: nodes.ThriftNode, lines: string[]): vscode.FoldingRange | undefined {
