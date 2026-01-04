@@ -11,6 +11,19 @@ export interface PerformanceMetrics {
     fileSize?: number;
 }
 
+export interface OperationStats {
+    operation: string;
+    count: number;
+    avgDuration: number;
+    minDuration: number;
+    maxDuration: number;
+    p95Duration: number;
+    slowCount: number;
+    lastDuration: number;
+    lastTimestamp: number;
+    avgFileSize?: number;
+}
+
 /**
  * PerformanceMonitor：记录并报告扩展性能指标。
  */
@@ -85,6 +98,7 @@ export class PerformanceMonitor {
         const avgDuration = recentMetrics.reduce((sum, m) => sum + m.duration, 0) / recentMetrics.length;
         const maxDuration = Math.max(...recentMetrics.map(m => m.duration));
         const slowOperations = recentMetrics.filter(m => m.duration > this.slowOperationThreshold);
+        const opStats = this.getOperationStats();
 
         let report = `## Thrift Support 性能报告\n\n`;
         report += `**统计时间:** ${new Date().toLocaleString()}\n`;
@@ -92,6 +106,22 @@ export class PerformanceMonitor {
         report += `**平均响应时间:** ${avgDuration.toFixed(2)}ms\n`;
         report += `**最大响应时间:** ${maxDuration.toFixed(2)}ms\n`;
         report += `**慢操作数 (>${this.slowOperationThreshold}ms):** ${slowOperations.length}\n\n`;
+
+        if (typeof process !== 'undefined' && typeof process.memoryUsage === 'function') {
+            const mem = process.memoryUsage();
+            report += `**内存占用:** rss ${(mem.rss / 1024 / 1024).toFixed(1)}MB, heap ${(mem.heapUsed / 1024 / 1024).toFixed(1)}MB\n\n`;
+        }
+
+        if (opStats.length > 0) {
+            report += `### 操作统计\n`;
+            opStats.forEach(stat => {
+                const sizeInfo = typeof stat.avgFileSize === 'number'
+                    ? `, avgFile=${(stat.avgFileSize / 1024).toFixed(1)}KB`
+                    : '';
+                report += `- **${stat.operation}**: count=${stat.count}, avg=${stat.avgDuration.toFixed(2)}ms, p95=${stat.p95Duration.toFixed(2)}ms, max=${stat.maxDuration.toFixed(2)}ms, slow=${stat.slowCount}${sizeInfo}\n`;
+            });
+            report += '\n';
+        }
 
         if (slowOperations.length > 0) {
             report += `### 慢操作详情\n`;
@@ -144,6 +174,61 @@ export class PerformanceMonitor {
         }));
     }
 
+    /**
+     * 汇总每个操作的统计信息。
+     */
+    public static getOperationStats(): OperationStats[] {
+        const stats = new Map<string, OperationStats>();
+
+        for (const metric of this.metrics) {
+            const existing = stats.get(metric.operation);
+            if (!existing) {
+                stats.set(metric.operation, {
+                    operation: metric.operation,
+                    count: 1,
+                    avgDuration: metric.duration,
+                    minDuration: metric.duration,
+                    maxDuration: metric.duration,
+                    p95Duration: metric.duration,
+                    slowCount: metric.duration > this.slowOperationThreshold ? 1 : 0,
+                    lastDuration: metric.duration,
+                    lastTimestamp: metric.timestamp,
+                    avgFileSize: typeof metric.fileSize === 'number' ? metric.fileSize : undefined
+                });
+            } else {
+                existing.count += 1;
+                existing.avgDuration += metric.duration;
+                existing.minDuration = Math.min(existing.minDuration, metric.duration);
+                existing.maxDuration = Math.max(existing.maxDuration, metric.duration);
+                existing.slowCount += metric.duration > this.slowOperationThreshold ? 1 : 0;
+                existing.lastDuration = metric.duration;
+                existing.lastTimestamp = metric.timestamp;
+                if (typeof metric.fileSize === 'number') {
+                    const prev = typeof existing.avgFileSize === 'number' ? existing.avgFileSize : 0;
+                    existing.avgFileSize = prev + metric.fileSize;
+                }
+            }
+        }
+
+        const result: OperationStats[] = [];
+        for (const stat of stats.values()) {
+            const durations = this.metrics
+                .filter(m => m.operation === stat.operation)
+                .map(m => m.duration)
+                .sort((a, b) => a - b);
+            stat.avgDuration = stat.avgDuration / stat.count;
+            stat.p95Duration = this.percentile(durations, 0.95);
+            if (typeof stat.avgFileSize === 'number') {
+                stat.avgFileSize = stat.avgFileSize / stat.count;
+            }
+            result.push(stat);
+        }
+
+        // Sort by count desc, then avg duration desc
+        result.sort((a, b) => (b.count - a.count) || (b.avgDuration - a.avgDuration));
+        return result;
+    }
+
     private static recordMetric(metric: PerformanceMetrics): void {
         this.metrics.push(metric);
 
@@ -177,5 +262,13 @@ export class PerformanceMonitor {
                 }
             );
         }
+    }
+
+    private static percentile(values: number[], p: number): number {
+        if (values.length === 0) {
+            return 0;
+        }
+        const index = Math.min(values.length - 1, Math.max(0, Math.ceil(values.length * p) - 1));
+        return values[index];
     }
 }
