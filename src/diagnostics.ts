@@ -6,6 +6,14 @@ import * as nodes from './ast/nodes.types';
 import { ThriftFileWatcher } from './utils/file-watcher';
 import { ErrorHandler } from './utils/error-handler';
 import { config } from './config';
+import {
+    LineRange,
+    collapseLineRanges,
+    lineRangeFromChange,
+    normalizeLineRange,
+    rangeContainsLineRange,
+    rangeIntersectsLineRange
+} from './utils/line-range';
 
 export type ThriftIssue = {
     message: string;
@@ -708,7 +716,7 @@ function analyzeThriftAst(
     lines: string[],
     includedTypes?: Map<string, string>,
     context?: AnalysisContext,
-    analysisScope?: { startLine: number; endLine: number }
+    analysisScope?: LineRange
 ): ThriftIssue[] {
     const issues: ThriftIssue[] = [];
 
@@ -1055,12 +1063,12 @@ export class DiagnosticManager {
         includesMayChange?: boolean;
         useCachedIncludes?: boolean;
         useIncrementalDiagnostics?: boolean;
-        dirtyRange?: { startLine: number; endLine: number };
+        dirtyRange?: LineRange;
         lastDiagnostics?: vscode.Diagnostic[];
         lastAst?: nodes.ThriftDocument;
         lastAnalysisContext?: AnalysisContext;
         lastBlockCache?: Map<string, { hash: number; issues: ThriftIssue[] }>;
-        lastMemberCache?: Map<string, Map<string, { range: { startLine: number; endLine: number }; hash: number; issues: ThriftIssue[] }>>;
+        lastMemberCache?: Map<string, Map<string, { range: LineRange; hash: number; issues: ThriftIssue[] }>>;
     }>();
     private readonly ANALYSIS_DELAY = config.diagnostics.analysisDelayMs;
     private readonly MIN_ANALYSIS_INTERVAL = config.diagnostics.minAnalysisIntervalMs;
@@ -1085,7 +1093,7 @@ export class DiagnosticManager {
         triggerSource?: string,
         dirtyLineCount?: number,
         includesMayChange?: boolean,
-        dirtyRange?: { startLine: number; endLine: number },
+        dirtyRange?: LineRange,
         structuralChange?: boolean
     ) {
         if (doc.languageId !== 'thrift') { return; }
@@ -1313,8 +1321,8 @@ export class DiagnosticManager {
                         const lines = text.split('\n');
                         let issues: ThriftIssue[] = [];
                         let usedPartial = false;
-                        let blockRange: { startLine: number; endLine: number } | null = null;
-                        let memberRange: { startLine: number; endLine: number } | null = null;
+                        let blockRange: LineRange | null = null;
+                        let memberRange: LineRange | null = null;
 
                         if (state.useIncrementalDiagnostics && state.dirtyRange && state.lastAst && state.lastAnalysisContext) {
                             blockRange = findBestContainingRange(state.lastAst, state.dirtyRange);
@@ -1437,7 +1445,7 @@ export class DiagnosticManager {
         issues: ThriftIssue[],
         state: {
             useIncrementalDiagnostics?: boolean;
-            dirtyRange?: { startLine: number; endLine: number };
+            dirtyRange?: LineRange;
             lastDiagnostics?: vscode.Diagnostic[];
         },
         doc: vscode.TextDocument
@@ -1464,29 +1472,12 @@ export class DiagnosticManager {
     }
 }
 
-function normalizeLineRange(range: { startLine: number; endLine: number }) {
-    const startLine = Math.min(range.startLine, range.endLine);
-    const endLine = Math.max(range.startLine, range.endLine);
-    if (!Number.isFinite(startLine) || !Number.isFinite(endLine)) {
-        return null;
-    }
-    return { startLine, endLine };
-}
-
-function rangeIntersectsLineRange(range: vscode.Range, lineRange: { startLine: number; endLine: number }): boolean {
-    return range.start.line <= lineRange.endLine && range.end.line >= lineRange.startLine;
-}
-
-function rangeContainsLineRange(range: vscode.Range, lineRange: { startLine: number; endLine: number }): boolean {
-    return range.start.line <= lineRange.startLine && range.end.line >= lineRange.endLine;
-}
-
-function findBestContainingRange(ast: nodes.ThriftDocument, dirtyRange: { startLine: number; endLine: number }) {
+function findBestContainingRange(ast: nodes.ThriftDocument, dirtyRange: LineRange) {
     const normalized = normalizeLineRange(dirtyRange);
     if (!normalized) {
         return null;
     }
-    let best: { startLine: number; endLine: number } | null = null;
+    let best: LineRange | null = null;
     let bestSpan = Number.POSITIVE_INFINITY;
     for (const node of ast.body) {
         if (node.range.start.line > normalized.startLine || node.range.end.line < normalized.endLine) {
@@ -1501,12 +1492,12 @@ function findBestContainingRange(ast: nodes.ThriftDocument, dirtyRange: { startL
     return best;
 }
 
-function findBestContainingMemberRange(ast: nodes.ThriftDocument, dirtyRange: { startLine: number; endLine: number }) {
+function findBestContainingMemberRange(ast: nodes.ThriftDocument, dirtyRange: LineRange) {
     const normalized = normalizeLineRange(dirtyRange);
     if (!normalized) {
         return null;
     }
-    let best: { startLine: number; endLine: number } | null = null;
+    let best: LineRange | null = null;
     let bestSpan = Number.POSITIVE_INFINITY;
     for (const node of ast.body) {
         if (!rangeContainsLineRange(node.range, normalized)) {
@@ -1534,7 +1525,7 @@ function findBestContainingMemberRange(ast: nodes.ThriftDocument, dirtyRange: { 
     return best;
 }
 
-function findContainingNode(ast: nodes.ThriftDocument, targetRange: { startLine: number; endLine: number }) {
+function findContainingNode(ast: nodes.ThriftDocument, targetRange: LineRange) {
     const normalized = normalizeLineRange(targetRange);
     if (!normalized) {
         return null;
@@ -1559,7 +1550,7 @@ function buildPartialLines(lines: string[], startLine: number, endLine: number):
 }
 
 function buildMemberCache(ast: nodes.ThriftDocument, lines: string[], issues: ThriftIssue[]) {
-    const cache = new Map<string, Map<string, { range: { startLine: number; endLine: number }; hash: number; issues: ThriftIssue[] }>>();
+    const cache = new Map<string, Map<string, { range: LineRange; hash: number; issues: ThriftIssue[] }>>();
     for (const node of ast.body) {
         const blockKey = `${node.range.start.line}-${node.range.end.line}`;
         cache.set(blockKey, buildMemberCacheForNode(node, lines, issues));
@@ -1572,7 +1563,7 @@ function buildMemberCacheForNode(
     lines: string[],
     issues: ThriftIssue[]
 ) {
-    const cache = new Map<string, { range: { startLine: number; endLine: number }; hash: number; issues: ThriftIssue[] }>();
+    const cache = new Map<string, { range: LineRange; hash: number; issues: ThriftIssue[] }>();
     let members: Array<{ range: vscode.Range }> = [];
     if (node.type === nodes.ThriftNodeType.Struct || node.type === nodes.ThriftNodeType.Union || node.type === nodes.ThriftNodeType.Exception) {
         members = (node as nodes.Struct).fields;
@@ -1665,7 +1656,8 @@ export function registerDiagnostics(context: vscode.ExtensionContext) {
             if (e.document.languageId === 'thrift') {
                 let dirtyLines: number | undefined;
                 let includesMayChange = false;
-                let dirtyRange: { startLine: number; endLine: number } | undefined;
+                let dirtyRange: LineRange | undefined;
+                const dirtyRanges: LineRange[] = [];
                 let structuralChange = false;
                 if (config.incremental.analysisEnabled) {
                     dirtyLines = e.contentChanges.reduce((acc, change) => {
@@ -1686,15 +1678,10 @@ export function registerDiagnostics(context: vscode.ExtensionContext) {
                     });
                     for (const change of e.contentChanges) {
                         const startLine = change.range.start.line;
-                        const endLine = change.range.end.line + (change.text.split('\n').length - 1);
-                        if (!dirtyRange) {
-                            dirtyRange = { startLine, endLine };
-                        } else {
-                            dirtyRange.startLine = Math.min(dirtyRange.startLine, startLine);
-                            dirtyRange.endLine = Math.max(dirtyRange.endLine, endLine);
-                        }
+                        const endLine = change.range.end.line;
+                        dirtyRanges.push(lineRangeFromChange(change));
 
-                        if (startLine !== change.range.end.line || change.text.includes('\n')) {
+                        if (startLine !== endLine || change.text.includes('\n')) {
                             structuralChange = true;
                             continue;
                         }
@@ -1713,6 +1700,7 @@ export function registerDiagnostics(context: vscode.ExtensionContext) {
                             structuralChange = true;
                         }
                     }
+                    dirtyRange = collapseLineRanges(dirtyRanges) ?? undefined;
                 }
                 diagnosticManager.scheduleAnalysis(
                     e.document,

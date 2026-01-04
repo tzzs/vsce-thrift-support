@@ -23,12 +23,13 @@
 
 **进行中**
 
-- 增量分析/增量格式化：配置已预留开关与阈值（`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines`），已有脏区跟踪、依赖跳过与 include 缓存复用；增量格式化已支持脏区范围与最小化 patch，增量分析已支持脏区诊断合并、结构性变更回退与块级局部解析
+- 增量分析/增量格式化：配置已预留开关与阈值（`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines`），已有脏区跟踪、依赖跳过与 include 缓存复用；增量格式化已支持脏区范围与最小化 patch，并已切换为基于 AST 的局部上下文；增量分析已支持脏区诊断合并、结构性变更回退、块级局部解析与成员级缓存（enum/service）
 - 近期明确目标（可落地拆解）：
-  - 诊断子树缓存：在块内进一步按顶层成员（field/enum member/function）缓存 hash + issues，更新时只重算受影响子树
-  - 更细粒度合并策略：当 dirtyRange 跨多个块时，自动回退全量；单块内多子树只刷新对应子树范围
-  - 格式化局部 AST：为格式化添加“局部语法上下文”构建，降低 computeInitialContext 的扫描成本
-  - 统一局部范围判定：增量诊断/格式化共享 normalizeRange 工具与回退策略，减少分支差异
+  - ✅ 诊断子树缓存：在块内进一步按顶层成员缓存 hash + issues（已覆盖 enum/service）
+  - ✅ 更细粒度合并策略：dirtyRange 跨多个块回退全量，单块内按成员范围合并
+  - ✅ 格式化局部 AST：为格式化添加“局部语法上下文”构建，降低 computeInitialContext 扫描成本
+  - ✅ 统一局部范围判定：增量诊断/格式化共享行范围工具与回退策略，减少分支差异
+  - ⏳ 诊断成员范围扩展：struct/union/exception 的 field 级命中与局部解析
 
 **待规划**
 
@@ -135,8 +136,8 @@ private readonly CACHE_DURATION = 10000; // 10秒
 - ✅ AST 缓存机制：已引入缓存化 AST（5 分钟 TTL）
 - ✅ 包含文件缓存：References/符号使用共享缓存与文件列表节流
 - ✅ 性能监控：已加入慢操作包装与指标
-- ⏳ 增量分析：已启用 include 缓存复用、依赖跳过与脏区诊断合并，并完成块级局部解析；下一步子树级缓存（field/enum member/function）
-- ⏳ 增量格式化：已支持脏区范围格式化、阈值回退与最小化 patch；下一步局部 AST/上下文构建降低扫描成本
+- ⏳ 增量分析：已启用 include 缓存复用、依赖跳过与脏区诊断合并，并完成块级局部解析与成员级缓存（enum/service）；已统一行范围判定，下一步补齐 struct/union/exception 的 field 命中 + 缓存驱逐
+- ✅ 增量格式化：已支持脏区范围格式化、阈值回退与最小化 patch，且已切换为基于 AST 的局部上下文
 - ⏳ 配置侧开关：`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines` 已预埋，后续按模块落地
 
 **实施优先级:**
@@ -183,9 +184,10 @@ private readonly CACHE_DURATION = 10000; // 10秒
 
 ### 4.4 增量解析/格式化里程碑（近期）
 
-- [x] 子树级诊断缓存：按 struct/enum/service 内成员建立 hash+issues 缓存
+- [x] 子树级诊断缓存：按 enum/service 成员建立 hash+issues 缓存（struct/union/exception 仍待命中策略补齐）
 - [x] 子树命中策略：dirtyRange → block → member 子树，命中则局部解析，否则回退全量
 - [ ] 局部解析缓存驱逐：LRU/TTL 策略避免内存膨胀
+- [ ] struct/union/exception 的 field 级命中与局部解析
 - [x] 增量格式化局部上下文：基于 AST 计算更精确的上下文范围
 - [x] 测试补充：新增跨块变更、单块成员变更的单测
 

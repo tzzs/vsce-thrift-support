@@ -5,6 +5,7 @@ import { ThriftFormattingOptions } from './interfaces.types';
 import { config } from './config';
 import { IncrementalTracker } from './utils/incremental-tracker';
 import { ErrorHandler } from './utils/error-handler';
+import { lineRangeToVscodeRange } from './utils/line-range';
 
 /**
  * ThriftFormattingProvider：提供文档与选区格式化。
@@ -29,7 +30,10 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             if (config.incremental.formattingEnabled) {
                 const dirtyRange = this.incrementalTracker.consumeDirtyRange(document);
                 if (dirtyRange) {
-                    targetRange = this.normalizeFormattingRange(document, dirtyRange);
+                    targetRange = this.normalizeFormattingRange(
+                        document,
+                        lineRangeToVscodeRange(document, dirtyRange)
+                    );
                     useMinimalPatch = true;
                 }
             }
