@@ -89,7 +89,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         // Compute initial context from the content before the selection to make range formatting context-aware
         let initialContext: { indentLevel: number; inStruct: boolean; inEnum: boolean; inService: boolean } | undefined;
         if (!(range.start.line === 0 && range.start.character === 0)) {
-            initialContext = this.computeInitialContext(document, range.start);
+            initialContext = this.computeInitialContext(document, range.start, useMinimalPatch);
         }
         // Unified control with backward-compatible fallback to fine-grained legacy keys
         const cfgAlignNames = getOpt('alignNames', undefined);
@@ -215,25 +215,34 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     }
 
     // Compute initial context (indent level and whether inside struct/enum) from the content before the selection start
-    private computeInitialContext(document: vscode.TextDocument, start: vscode.Position): {
+    private computeInitialContext(
+        document: vscode.TextDocument,
+        start: vscode.Position,
+        useCachedAst: boolean = false
+    ): {
         indentLevel: number;
         inStruct: boolean;
         inEnum: boolean;
         inService: boolean;
     } {
         try {
-            const before = document.getText(new vscode.Range(new vscode.Position(0, 0), start));
-            if (!before) {
-                return { indentLevel: 0, inStruct: false, inEnum: false, inService: false };
+            let ast: any;
+            let beforeLines: string[] | null = null;
+            let boundaryLine = start.line;
+            if (useCachedAst) {
+                ast = ThriftParser.parseWithCache(document);
+            } else {
+                const before = document.getText(new vscode.Range(new vscode.Position(0, 0), start));
+                if (!before) {
+                    return { indentLevel: 0, inStruct: false, inEnum: false, inService: false };
+                }
+                const baseKey = document.uri && typeof document.uri.toString === 'function'
+                    ? document.uri.toString()
+                    : 'inmemory://range';
+                ast = ThriftParser.parseContentWithCache(`${baseKey}#range`, before);
+                beforeLines = before.split('\n');
+                boundaryLine = Math.max(0, beforeLines.length - 1);
             }
-
-            // Parse with AST parser using a synthetic cache key (avoid reliance on uri.with for mocks)
-            const baseKey = document.uri && typeof document.uri.toString === 'function'
-                ? document.uri.toString()
-                : 'inmemory://range';
-            const ast = ThriftParser.parseContentWithCache(`${baseKey}#range`, before);
-            const beforeLines = before.split('\n');
-            const boundaryLine = Math.max(0, beforeLines.length - 1);
 
             const hasValidRanges = ast.body.some((node: any) => {
                 return node.range &&
@@ -242,6 +251,10 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             });
 
             if (!hasValidRanges) {
+                if (!beforeLines) {
+                    const before = document.getText(new vscode.Range(new vscode.Position(0, 0), start));
+                    beforeLines = before.split('\n');
+                }
                 // Fallback: simple brace-based scan when Range mocks don't expose line numbers
                 const stack: Array<'struct' | 'enum' | 'service'> = [];
                 for (const rawLine of beforeLines) {

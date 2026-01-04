@@ -183,11 +183,11 @@ private readonly CACHE_DURATION = 10000; // 10秒
 
 ### 4.4 增量解析/格式化里程碑（近期）
 
-- [ ] 子树级诊断缓存：按 struct/enum/service 内成员建立 hash+issues 缓存
-- [ ] 子树命中策略：dirtyRange → block → member 子树，命中则局部解析，否则回退全量
+- [x] 子树级诊断缓存：按 struct/enum/service 内成员建立 hash+issues 缓存
+- [x] 子树命中策略：dirtyRange → block → member 子树，命中则局部解析，否则回退全量
 - [ ] 局部解析缓存驱逐：LRU/TTL 策略避免内存膨胀
-- [ ] 增量格式化局部上下文：基于 AST 计算更精确的上下文范围
-- [ ] 测试补充：新增跨块变更、单块多子树变更、缓存命中/失效的单测
+- [x] 增量格式化局部上下文：基于 AST 计算更精确的上下文范围
+- [x] 测试补充：新增跨块变更、单块成员变更的单测
 
 ## 5. 架构与工具类建议
 

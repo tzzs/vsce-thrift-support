@@ -707,7 +707,8 @@ function analyzeThriftAst(
     ast: nodes.ThriftDocument,
     lines: string[],
     includedTypes?: Map<string, string>,
-    context?: AnalysisContext
+    context?: AnalysisContext,
+    analysisScope?: { startLine: number; endLine: number }
 ): ThriftIssue[] {
     const issues: ThriftIssue[] = [];
 
@@ -1017,6 +1018,13 @@ function analyzeThriftAst(
         });
     }
 
+    if (analysisScope) {
+        const normalized = normalizeLineRange(analysisScope);
+        if (normalized) {
+            return issues.filter(issue => rangeIntersectsLineRange(issue.range, normalized));
+        }
+    }
+
     return issues;
 }
 
@@ -1052,6 +1060,7 @@ export class DiagnosticManager {
         lastAst?: nodes.ThriftDocument;
         lastAnalysisContext?: AnalysisContext;
         lastBlockCache?: Map<string, { hash: number; issues: ThriftIssue[] }>;
+        lastMemberCache?: Map<string, Map<string, { range: { startLine: number; endLine: number }; hash: number; issues: ThriftIssue[] }>>;
     }>();
     private readonly ANALYSIS_DELAY = config.diagnostics.analysisDelayMs;
     private readonly MIN_ANALYSIS_INTERVAL = config.diagnostics.minAnalysisIntervalMs;
@@ -1305,6 +1314,7 @@ export class DiagnosticManager {
                         let issues: ThriftIssue[] = [];
                         let usedPartial = false;
                         let blockRange: { startLine: number; endLine: number } | null = null;
+                        let memberRange: { startLine: number; endLine: number } | null = null;
 
                         if (state.useIncrementalDiagnostics && state.dirtyRange && state.lastAst && state.lastAnalysisContext) {
                             blockRange = findBestContainingRange(state.lastAst, state.dirtyRange);
@@ -1315,17 +1325,55 @@ export class DiagnosticManager {
                                 const cachedBlock = state.lastBlockCache?.get(blockKey);
                                 if (cachedBlock && cachedBlock.hash === blockHash) {
                                     issues = cachedBlock.issues;
+                                    memberRange = findBestContainingMemberRange(state.lastAst, state.dirtyRange);
                                 } else {
+                                    let memberCacheHit = false;
                                     const partialLines = buildPartialLines(lines, blockRange.startLine, blockRange.endLine);
                                     const partialText = partialLines.join('\n');
                                     const partialKey = `${doc.uri.toString()}#partial:${blockRange.startLine}-${blockRange.endLine}`;
                                     const partialAst = ThriftParser.parseContentWithCache(partialKey, partialText);
-                                    issues = analyzeThriftAst(partialAst, partialLines, includedTypes, state.lastAnalysisContext);
-                                    if (!state.lastBlockCache) {
-                                        state.lastBlockCache = new Map();
+                                    memberRange = findBestContainingMemberRange(partialAst, state.dirtyRange);
+                                    const memberKey = memberRange ? `${memberRange.startLine}-${memberRange.endLine}` : null;
+                                    const memberHash = memberRange
+                                        ? hashText(lines.slice(memberRange.startLine, memberRange.endLine + 1).join('\n'))
+                                        : null;
+                                    const cachedMember = memberKey
+                                        ? state.lastMemberCache?.get(blockKey)?.get(memberKey)
+                                        : null;
+
+                                    if (cachedMember && cachedMember.hash === memberHash) {
+                                        issues = cachedMember.issues;
+                                        memberCacheHit = true;
+                                    } else {
+                                        issues = analyzeThriftAst(
+                                            partialAst,
+                                            partialLines,
+                                            includedTypes,
+                                            state.lastAnalysisContext,
+                                            memberRange ?? undefined
+                                        );
                                     }
-                                    const blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, blockRange!));
-                                    state.lastBlockCache.set(blockKey, { hash: blockHash, issues: blockIssues });
+                                    if (!memberCacheHit) {
+                                        if (!state.lastBlockCache) {
+                                            state.lastBlockCache = new Map();
+                                        }
+                                        const blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, blockRange!));
+                                        state.lastBlockCache.set(blockKey, { hash: blockHash, issues: blockIssues });
+                                        if (!state.lastMemberCache) {
+                                            state.lastMemberCache = new Map();
+                                        }
+                                        const blockNode = findContainingNode(partialAst, blockRange);
+                                        if (blockNode) {
+                                            state.lastMemberCache.set(blockKey, buildMemberCacheForNode(blockNode, lines, issues));
+                                        }
+                                    } else if (memberKey && memberRange && memberHash !== null) {
+                                        if (!state.lastMemberCache) {
+                                            state.lastMemberCache = new Map();
+                                        }
+                                        const blockMembers = state.lastMemberCache.get(blockKey) ?? new Map();
+                                        blockMembers.set(memberKey, { range: memberRange, hash: memberHash, issues });
+                                        state.lastMemberCache.set(blockKey, blockMembers);
+                                    }
                                 }
                                 usedPartial = true;
                             }
@@ -1337,10 +1385,16 @@ export class DiagnosticManager {
                             state.lastAst = ast;
                             state.lastAnalysisContext = buildAnalysisContext(ast);
                             state.lastBlockCache = buildBlockCache(ast, lines, issues);
+                            state.lastMemberCache = buildMemberCache(ast, lines, issues);
                         }
 
-                        const mergeState = usedPartial && blockRange
-                            ? { ...state, dirtyRange: blockRange }
+                        const mergeRange = memberRange ?? blockRange;
+                        if (usedPartial && mergeRange) {
+                            issues = issues.filter(issue => rangeIntersectsLineRange(issue.range, mergeRange));
+                        }
+
+                        const mergeState = usedPartial && mergeRange
+                            ? { ...state, dirtyRange: mergeRange }
                             : usedPartial
                                 ? state
                             : { ...state, useIncrementalDiagnostics: false };
@@ -1423,6 +1477,10 @@ function rangeIntersectsLineRange(range: vscode.Range, lineRange: { startLine: n
     return range.start.line <= lineRange.endLine && range.end.line >= lineRange.startLine;
 }
 
+function rangeContainsLineRange(range: vscode.Range, lineRange: { startLine: number; endLine: number }): boolean {
+    return range.start.line <= lineRange.startLine && range.end.line >= lineRange.endLine;
+}
+
 function findBestContainingRange(ast: nodes.ThriftDocument, dirtyRange: { startLine: number; endLine: number }) {
     const normalized = normalizeLineRange(dirtyRange);
     if (!normalized) {
@@ -1443,8 +1501,100 @@ function findBestContainingRange(ast: nodes.ThriftDocument, dirtyRange: { startL
     return best;
 }
 
+function findBestContainingMemberRange(ast: nodes.ThriftDocument, dirtyRange: { startLine: number; endLine: number }) {
+    const normalized = normalizeLineRange(dirtyRange);
+    if (!normalized) {
+        return null;
+    }
+    let best: { startLine: number; endLine: number } | null = null;
+    let bestSpan = Number.POSITIVE_INFINITY;
+    for (const node of ast.body) {
+        if (!rangeContainsLineRange(node.range, normalized)) {
+            continue;
+        }
+        let members: Array<{ range: vscode.Range }> = [];
+        if (node.type === nodes.ThriftNodeType.Enum) {
+            members = (node as nodes.Enum).members;
+        } else if (node.type === nodes.ThriftNodeType.Service) {
+            members = (node as nodes.Service).functions;
+        } else {
+            continue;
+        }
+        for (const member of members) {
+            if (!rangeContainsLineRange(member.range, normalized)) {
+                continue;
+            }
+            const span = member.range.end.line - member.range.start.line;
+            if (span < bestSpan) {
+                bestSpan = span;
+                best = { startLine: member.range.start.line, endLine: member.range.end.line };
+            }
+        }
+    }
+    return best;
+}
+
+function findContainingNode(ast: nodes.ThriftDocument, targetRange: { startLine: number; endLine: number }) {
+    const normalized = normalizeLineRange(targetRange);
+    if (!normalized) {
+        return null;
+    }
+    let best: nodes.ThriftDocument['body'][number] | null = null;
+    let bestSpan = Number.POSITIVE_INFINITY;
+    for (const node of ast.body) {
+        if (!rangeContainsLineRange(node.range, normalized)) {
+            continue;
+        }
+        const span = node.range.end.line - node.range.start.line;
+        if (span < bestSpan) {
+            bestSpan = span;
+            best = node;
+        }
+    }
+    return best;
+}
+
 function buildPartialLines(lines: string[], startLine: number, endLine: number): string[] {
     return lines.map((line, idx) => (idx >= startLine && idx <= endLine) ? line : '');
+}
+
+function buildMemberCache(ast: nodes.ThriftDocument, lines: string[], issues: ThriftIssue[]) {
+    const cache = new Map<string, Map<string, { range: { startLine: number; endLine: number }; hash: number; issues: ThriftIssue[] }>>();
+    for (const node of ast.body) {
+        const blockKey = `${node.range.start.line}-${node.range.end.line}`;
+        cache.set(blockKey, buildMemberCacheForNode(node, lines, issues));
+    }
+    return cache;
+}
+
+function buildMemberCacheForNode(
+    node: nodes.ThriftDocument['body'][number],
+    lines: string[],
+    issues: ThriftIssue[]
+) {
+    const cache = new Map<string, { range: { startLine: number; endLine: number }; hash: number; issues: ThriftIssue[] }>();
+    let members: Array<{ range: vscode.Range }> = [];
+    if (node.type === nodes.ThriftNodeType.Struct || node.type === nodes.ThriftNodeType.Union || node.type === nodes.ThriftNodeType.Exception) {
+        members = (node as nodes.Struct).fields;
+    } else if (node.type === nodes.ThriftNodeType.Enum) {
+        members = (node as nodes.Enum).members;
+    } else if (node.type === nodes.ThriftNodeType.Service) {
+        members = (node as nodes.Service).functions;
+    }
+
+    for (const member of members) {
+        const startLine = member.range.start.line;
+        const endLine = member.range.end.line;
+        const memberText = lines.slice(startLine, endLine + 1).join('\n');
+        const memberIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, { startLine, endLine }));
+        const key = `${startLine}-${endLine}`;
+        cache.set(key, {
+            range: { startLine, endLine },
+            hash: hashText(memberText),
+            issues: memberIssues
+        });
+    }
+    return cache;
 }
 
 function buildBlockCache(ast: nodes.ThriftDocument, lines: string[], issues: ThriftIssue[]) {

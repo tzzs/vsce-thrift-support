@@ -101,6 +101,32 @@ async function run() {
         const hasDuplicateAfterMulti = latestDiagnostics.some(diag => /Duplicate field id/.test(diag.message));
         assert.ok(!hasDuplicateAfterMulti, 'Expected duplicate field id diagnostic to stay cleared after multi-block update');
 
+        const serviceText = [
+            'service Api {',
+            '  void a(1: UnknownType foo)',
+            '  void b(1: UnknownType bar)',
+            '}'
+        ].join('\n');
+
+        const serviceDoc = createDoc(serviceText, 'incremental-merge-service.thrift', 1);
+        await manager.performAnalysis(serviceDoc);
+        const initialUnknownCount = latestDiagnostics.filter(diag => /Unknown type/.test(diag.message)).length;
+        assert.strictEqual(initialUnknownCount, 2, 'Expected two unknown type diagnostics in service');
+
+        const updatedServiceText = [
+            'service Api {',
+            '  void a(1: i32 foo)',
+            '  void b(1: UnknownType bar)',
+            '}'
+        ].join('\n');
+
+        const updatedServiceDoc = createDoc(updatedServiceText, 'incremental-merge-service.thrift', 2);
+        manager.scheduleAnalysis(updatedServiceDoc, true, false, 'documentChange', 1, false, { startLine: 1, endLine: 1 }, false);
+        await manager.performAnalysis(updatedServiceDoc);
+
+        const remainingUnknownCount = latestDiagnostics.filter(diag => /Unknown type/.test(diag.message)).length;
+        assert.strictEqual(remainingUnknownCount, 1, 'Expected unknown type diagnostic outside dirty member to be preserved');
+
         console.log('✅ Incremental diagnostics merge test passed!');
     } finally {
         config.incremental.analysisEnabled = originalAnalysisEnabled;
