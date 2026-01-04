@@ -14,7 +14,7 @@ import {config} from './config';
 export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvider {
     private cacheManager = CacheManager.getInstance();
     private fileWatcher: vscode.FileSystemWatcher | undefined;
-    private workspaceFileList: string[] = [];
+    private workspaceFileList: Set<string> = new Set();
     private lastFileListUpdate: number = 0;
     private readonly FILE_LIST_UPDATE_INTERVAL = config.workspaceSymbols.fileListUpdateIntervalMs;
     private errorHandler = ErrorHandler.getInstance();
@@ -33,10 +33,14 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
 
         // Watch for changes to Thrift files
         const fileWatcher = ThriftFileWatcher.getInstance();
-        this.fileWatcher = fileWatcher.createWatcher(config.filePatterns.thrift, () => {
-            // Clear all cached symbols when any thrift file changes
-            this.cacheManager.clear('workspaceSymbols');
-            this.cacheManager.clear('fileSymbols');
+        this.fileWatcher = fileWatcher.createWatcherWithEvents(config.filePatterns.thrift, {
+            onCreate: (uri) => this.handleFileCreated(uri),
+            onDelete: (uri) => this.handleFileDeleted(uri),
+            onChange: () => {
+                // Clear all cached symbols when any thrift file changes
+                this.cacheManager.clear('workspaceSymbols');
+                this.cacheManager.clear('fileSymbols');
+            }
         });
     }
 
@@ -117,21 +121,21 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
         const now = Date.now();
 
         // 只在需要时更新文件列表，避免频繁扫描
-        if ((now - this.lastFileListUpdate) > this.FILE_LIST_UPDATE_INTERVAL || this.workspaceFileList.length === 0) {
+        if ((now - this.lastFileListUpdate) > this.FILE_LIST_UPDATE_INTERVAL || this.workspaceFileList.size === 0) {
             this.logInfo('updateFileList', 'Updating workspace file list...');
             const files = await vscode.workspace.findFiles(
                 config.filePatterns.thrift,
                 config.filePatterns.excludeNodeModules,
                 config.search.workspaceFileLimit
             );
-            this.workspaceFileList = files.map(f => f.fsPath);
+            this.workspaceFileList = new Set(files.map(f => f.fsPath));
             this.lastFileListUpdate = now;
             this.logInfo('updateFileList', `Found ${files.length} Thrift files`);
             return files;
         } else {
             // 使用缓存的文件列表
-            this.logInfo('updateFileList', `Using cached file list (${this.workspaceFileList.length} files)`);
-            return this.workspaceFileList.map(fsPath => vscode.Uri.file(fsPath));
+            this.logInfo('updateFileList', `Using cached file list (${this.workspaceFileList.size} files)`);
+            return Array.from(this.workspaceFileList, fsPath => vscode.Uri.file(fsPath));
         }
     }
 
@@ -162,6 +166,25 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
             operation,
             filePath
         });
+    }
+
+    private handleFileCreated(uri: vscode.Uri): void {
+        if (!uri?.fsPath) {
+            return;
+        }
+        this.workspaceFileList.add(uri.fsPath);
+        this.lastFileListUpdate = Date.now();
+        this.cacheManager.clear('workspaceSymbols');
+    }
+
+    private handleFileDeleted(uri: vscode.Uri): void {
+        if (!uri?.fsPath) {
+            return;
+        }
+        this.workspaceFileList.delete(uri.fsPath);
+        this.lastFileListUpdate = Date.now();
+        this.cacheManager.clear('workspaceSymbols');
+        this.cacheManager.delete('fileSymbols', uri.fsPath);
     }
 
     private parseSymbolsFromAst(ast: nodes.ThriftDocument, uri: vscode.Uri): vscode.SymbolInformation[] {

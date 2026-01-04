@@ -164,7 +164,7 @@ private readonly CACHE_DURATION = 10000; // 10秒
 - [x] `src/rename-provider.ts`：新增 ErrorHandler 并统一 try/catch 日志
 - [x] `src/formatting-provider.ts`：新增 ErrorHandler 并统一 try/catch 日志
 - [x] `src/thrift-formatter.ts`：新增 ErrorHandler 并统一 try/catch 日志
-- [ ] 优化文件扫描性能 - 实现增量更新
+- [x] 优化文件扫描性能 - 实现增量更新（基于 file watcher 的增量文件列表维护，保留周期性全量兜底）
 - [ ] 完善性能监控 - 添加更多性能指标
 
 ### 4.3 长期规划（下月）

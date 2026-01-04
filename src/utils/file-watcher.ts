@@ -41,6 +41,38 @@ export class ThriftFileWatcher {
     }
 
     /**
+     * 创建或复用监听器，并分别挂载事件回调（支持增量更新场景）。
+     */
+    createWatcherWithEvents(
+        pattern: string,
+        handlers: {
+            onCreate?: (uri: vscode.Uri) => void;
+            onChange?: (uri: vscode.Uri) => void;
+            onDelete?: (uri: vscode.Uri) => void;
+        }
+    ): vscode.FileSystemWatcher {
+        const key = `thrift-${pattern}`;
+        const register = (watcher: vscode.FileSystemWatcher) => {
+            if (handlers.onCreate) {
+                watcher.onDidCreate(handlers.onCreate);
+            }
+            if (handlers.onChange) {
+                watcher.onDidChange(handlers.onChange);
+            }
+            if (handlers.onDelete) {
+                watcher.onDidDelete(handlers.onDelete);
+            }
+            return watcher;
+        };
+        if (this.watchers.has(key)) {
+            return register(this.watchers.get(key)!);
+        }
+        const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+        this.watchers.set(key, watcher);
+        return register(watcher);
+    }
+
+    /**
      * 释放所有监听器。
      */
     dispose(): void {
