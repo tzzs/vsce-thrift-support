@@ -26,7 +26,10 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
 
             // 增量格式化：在脏区范围内尝试最小化编辑
             if (config.incremental.formattingEnabled) {
-                targetRange = this.incrementalTracker.consumeDirtyRange(document);
+                const dirtyRange = this.incrementalTracker.consumeDirtyRange(document);
+                if (dirtyRange) {
+                    targetRange = this.normalizeFormattingRange(document, dirtyRange);
+                }
             }
 
             const fullRange = new vscode.Range(
@@ -142,6 +145,19 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         const formattedText = formatter.formatThriftCode(text, fmtOptions);
 
         return [vscode.TextEdit.replace(range, formattedText)];
+    }
+
+    private normalizeFormattingRange(document: vscode.TextDocument, range: vscode.Range): vscode.Range {
+        const totalLines = typeof document.lineCount === 'number'
+            ? document.lineCount
+            : document.getText().split('\n').length;
+        const lastLine = Math.max(0, totalLines - 1);
+        const startLine = Math.min(Math.max(range.start.line, 0), lastLine);
+        const endLine = Math.min(Math.max(range.end.line, startLine), lastLine);
+        const start = new vscode.Position(startLine, 0);
+        const endLineText = document.lineAt(endLine).text;
+        const end = new vscode.Position(endLine, endLineText.length);
+        return new vscode.Range(start, end);
     }
 
     // Compute initial context (indent level and whether inside struct/enum) from the content before the selection start

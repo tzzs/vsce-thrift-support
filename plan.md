@@ -23,7 +23,7 @@
 
 **进行中**
 
-- 增量分析/增量格式化：配置已预留开关与阈值（`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines`），已有脏区跟踪、依赖跳过与 include 缓存复用；仍需实现局部解析与最小化 patch
+- 增量分析/增量格式化：配置已预留开关与阈值（`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines`），已有脏区跟踪、依赖跳过与 include 缓存复用；增量格式化已支持脏区范围格式化，仍需实现局部解析与最小化 patch
 
 **待规划**
 
@@ -131,7 +131,7 @@ private readonly CACHE_DURATION = 10000; // 10秒
 - ✅ 包含文件缓存：References/符号使用共享缓存与文件列表节流
 - ✅ 性能监控：已加入慢操作包装与指标
 - ⏳ 增量分析：仍待实现（仅分析变更部分）
-- ⏳ 增量格式化：计划分层（标记脏区 → AST 局部解析 → 格式化最小化 patch），需要与缓存/依赖跟踪联动
+- ⏳ 增量格式化：已支持脏区范围格式化与阈值回退；仍需 AST 局部解析 + 最小化 patch，需与缓存/依赖跟踪联动
 - ⏳ 配置侧开关：`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines` 已预埋，后续按模块落地
 
 **实施优先级:**
