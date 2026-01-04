@@ -2,13 +2,18 @@ import { ConstField, EnumField, StructField, ThriftFormattingOptions } from './i
 import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes.types';
 import { ErrorHandler } from './utils/error-handler';
+import { CoreDependencies } from './utils/dependencies';
 
 /**
  * ThriftFormatter：将 Thrift 源码格式化为统一风格。
  */
 export class ThriftFormatter {
     private reServiceMethod = /^\s*(oneway\s+)?[A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]*>)?\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)(\s*throws\s*\([^)]*\))?\s*[;,]?$/;
-    private errorHandler = ErrorHandler.getInstance();
+    private errorHandler: ErrorHandler;
+
+    constructor(deps?: Partial<CoreDependencies>) {
+        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+    }
 
     /**
      * 格式化指定文本内容。

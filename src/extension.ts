@@ -12,23 +12,23 @@ import {registerReferencesProvider} from './references-provider';
 import {registerFoldingRangeProvider} from './folding-range-provider';
 import {registerSelectionRangeProvider} from './selection-range-provider';
 import {PerformanceMonitor} from './performance-monitor';
-import {ThriftFileWatcher} from './utils/file-watcher';
 import {ErrorHandler} from './utils/error-handler';
-import {IncrementalTracker} from './utils/incremental-tracker';
+import {createCoreDependencies} from './utils/dependencies';
 import {config} from './config';
 
 /**
  * 扩展入口，注册所有能力与命令。
  */
 export function activate(context: vscode.ExtensionContext) {
-    const errorHandler = ErrorHandler.getInstance();
+    const deps = createCoreDependencies();
+    const errorHandler = deps.errorHandler;
     errorHandler.handleInfo('Thrift Support extension is now active!', {
         component: 'Extension',
         operation: 'activate'
     });
 
     // Register formatting provider
-    const formattingProvider = new ThriftFormattingProvider();
+    const formattingProvider = new ThriftFormattingProvider(deps);
     context.subscriptions.push(
         vscode.languages.registerDocumentFormattingEditProvider('thrift', formattingProvider)
     );
@@ -36,26 +36,26 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.languages.registerDocumentRangeFormattingEditProvider('thrift', formattingProvider)
     );
     // Track dirty ranges for incremental formatting/analysis
-    const tracker = IncrementalTracker.getInstance();
+    const tracker = deps.incrementalTracker;
     context.subscriptions.push(
         vscode.workspace.onDidChangeTextDocument(event => tracker.markChanges(event))
     );
 
     // Register definition provider for go-to-definition
-    const definitionProvider = new ThriftDefinitionProvider();
+    const definitionProvider = new ThriftDefinitionProvider(deps);
     context.subscriptions.push(
         vscode.languages.registerDefinitionProvider('thrift', definitionProvider)
     );
 
     // 添加文件监听器，当文件改变时清除定义提供器的缓存
-    const fileWatcher = ThriftFileWatcher.getInstance();
+    const fileWatcher = deps.fileWatcher;
     const definitionFileWatcher = fileWatcher.createWatcher(config.filePatterns.thrift, () => {
         definitionProvider.clearCache();
     });
     context.subscriptions.push(definitionFileWatcher);
 
     // Register hover provider for showing symbol documentation on hover
-    const hoverProvider = new ThriftHoverProvider();
+    const hoverProvider = new ThriftHoverProvider(deps);
     context.subscriptions.push(vscode.languages.registerHoverProvider('thrift', hoverProvider));
 
     // 添加文件监听器，当文件改变时清除悬停提供器的缓存
@@ -65,36 +65,36 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(hoverFileWatcher);
 
     // Register diagnostics (syntax/type/duplicate id/unknown type)
-    registerDiagnostics(context);
+    registerDiagnostics(context, deps);
 
     // Register completion provider for auto-completion
-    registerCompletionProvider(context);
+    registerCompletionProvider(context, deps);
 
     // Register document symbol provider for outline view
-    registerDocumentSymbolProvider(context);
+    registerDocumentSymbolProvider(context, deps);
 
     // Register workspace symbol provider for symbol search (Ctrl+T)
-    registerWorkspaceSymbolProvider(context);
+    registerWorkspaceSymbolProvider(context, deps);
 
     // Register references provider for finding references
-    registerReferencesProvider(context);
+    registerReferencesProvider(context, deps);
 
     // Register folding range provider for code folding
-    registerFoldingRangeProvider(context);
+    registerFoldingRangeProvider(context, deps);
 
     // Register selection range provider for smart selection
-    registerSelectionRangeProvider(context);
+    registerSelectionRangeProvider(context, deps);
 
     // Register rename provider
     context.subscriptions.push(
-        vscode.languages.registerRenameProvider('thrift', new ThriftRenameProvider())
+        vscode.languages.registerRenameProvider('thrift', new ThriftRenameProvider(deps))
     );
 
     // Register code actions provider (extract/move type + quick fixes)
     context.subscriptions.push(
         vscode.languages.registerCodeActionsProvider(
             'thrift',
-            new ThriftRefactorCodeActionProvider(),
+            new ThriftRefactorCodeActionProvider(deps),
             {
                 providedCodeActionKinds: [
                     vscode.CodeActionKind.Refactor,

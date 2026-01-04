@@ -5,15 +5,21 @@ import {ThriftFileWatcher} from './utils/file-watcher';
 import {CacheManager} from './utils/cache-manager';
 import {config} from './config';
 import {ErrorHandler} from './utils/error-handler';
+import {CoreDependencies} from './utils/dependencies';
 
 /**
  * ThriftDocumentSymbolProvider：提供文档符号与 Outline 支持。
  */
 export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
-    private cacheManager = CacheManager.getInstance();
-    private errorHandler = ErrorHandler.getInstance();
+    private cacheManager: CacheManager;
+    private errorHandler: ErrorHandler;
+    private fileWatcher: ThriftFileWatcher;
 
-    constructor() {
+    constructor(deps?: Partial<CoreDependencies>) {
+        this.cacheManager = deps?.cacheManager ?? CacheManager.getInstance();
+        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+        this.fileWatcher = deps?.fileWatcher ?? ThriftFileWatcher.getInstance();
+
         // 注册缓存配置
         this.cacheManager.registerCache('documentSymbols', {
             maxSize: config.cache.documentSymbols.maxSize,
@@ -21,8 +27,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
         });
 
         // 监听文件变化，清除缓存
-        const fileWatcher = ThriftFileWatcher.getInstance();
-        fileWatcher.createWatcher(config.filePatterns.thrift, () => {
+        this.fileWatcher.createWatcher(config.filePatterns.thrift, () => {
             this.cacheManager.clear('documentSymbols');
         });
     }
@@ -206,8 +211,8 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
 /**
  * 注册 DocumentSymbolProvider 与缓存清理逻辑。
  */
-export function registerDocumentSymbolProvider(context: vscode.ExtensionContext) {
-    const provider = new ThriftDocumentSymbolProvider();
+export function registerDocumentSymbolProvider(context: vscode.ExtensionContext, deps?: Partial<CoreDependencies>) {
+    const provider = new ThriftDocumentSymbolProvider(deps);
     const disposable = vscode.languages.registerDocumentSymbolProvider('thrift', provider);
     context.subscriptions.push(disposable);
 
@@ -221,7 +226,7 @@ export function registerDocumentSymbolProvider(context: vscode.ExtensionContext)
     context.subscriptions.push(changeDisposable);
 
     // 添加文件监听器，当文件改变时清除缓存
-    const fileWatcher = ThriftFileWatcher.getInstance();
+    const fileWatcher = deps?.fileWatcher ?? ThriftFileWatcher.getInstance();
     const docSymbolFileWatcher = fileWatcher.createWatcher(config.filePatterns.thrift, () => {
         // 清除所有缓存，因为文件变化可能影响符号解析
         provider.clearCache();

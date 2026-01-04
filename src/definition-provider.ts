@@ -4,6 +4,7 @@ import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes.types';
 import { CacheManager } from './utils/cache-manager';
 import { ErrorHandler } from './utils/error-handler';
+import { CoreDependencies } from './utils/dependencies';
 import { config } from './config';
 
 /**
@@ -11,12 +12,15 @@ import { config } from './config';
  */
 export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
     // 缓存管理器
-    private cacheManager = CacheManager.getInstance();
+    private cacheManager: CacheManager;
 
     // 错误处理器
-    private errorHandler = ErrorHandler.getInstance();
+    private errorHandler: ErrorHandler;
 
-    constructor() {
+    constructor(deps?: Partial<CoreDependencies>) {
+        this.cacheManager = deps?.cacheManager ?? CacheManager.getInstance();
+        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+
         // 注册缓存配置
         this.cacheManager.registerCache('definition', {
             maxSize: config.cache.definition.maxSize,

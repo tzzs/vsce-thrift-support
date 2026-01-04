@@ -3,13 +3,18 @@ import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes.types';
 import {findSmallestNodeAtPosition, nodePathFromLeaf, positionInRange} from './ast/utils';
 import {ErrorHandler} from './utils/error-handler';
+import {CoreDependencies} from './utils/dependencies';
 
 /**
  * ThriftSelectionRangeProvider：提供语法层级选区扩展。
  */
 
 export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvider {
-    private errorHandler = ErrorHandler.getInstance();
+    private errorHandler: ErrorHandler;
+
+    constructor(deps?: Partial<CoreDependencies>) {
+        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+    }
     /**
      * 返回每个位置的 SelectionRange 树。
      */
@@ -267,8 +272,8 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
 /**
  * 注册 SelectionRangeProvider。
  */
-export function registerSelectionRangeProvider(context: vscode.ExtensionContext) {
-    const provider = new ThriftSelectionRangeProvider();
+export function registerSelectionRangeProvider(context: vscode.ExtensionContext, deps?: Partial<CoreDependencies>) {
+    const provider = new ThriftSelectionRangeProvider(deps);
     const disposable = vscode.languages.registerSelectionRangeProvider('thrift', provider);
     context.subscriptions.push(disposable);
 }

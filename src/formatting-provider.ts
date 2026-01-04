@@ -5,14 +5,20 @@ import { ThriftFormattingOptions } from './interfaces.types';
 import { config } from './config';
 import { IncrementalTracker } from './utils/incremental-tracker';
 import { ErrorHandler } from './utils/error-handler';
+import { CoreDependencies } from './utils/dependencies';
 import { lineRangeToVscodeRange } from './utils/line-range';
 
 /**
  * ThriftFormattingProvider：提供文档与选区格式化。
  */
 export class ThriftFormattingProvider implements vscode.DocumentFormattingEditProvider, vscode.DocumentRangeFormattingEditProvider {
-    private incrementalTracker = IncrementalTracker.getInstance();
-    private errorHandler = ErrorHandler.getInstance();
+    private incrementalTracker: IncrementalTracker;
+    private errorHandler: ErrorHandler;
+
+    constructor(deps?: Partial<CoreDependencies>) {
+        this.incrementalTracker = deps?.incrementalTracker ?? IncrementalTracker.getInstance();
+        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+    }
 
     /**
      * 格式化整个文档。
@@ -148,7 +154,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             initialContext
         };
 
-        const formatter = new ThriftFormatter();
+        const formatter = new ThriftFormatter({ errorHandler: this.errorHandler });
         const formattedText = formatter.formatThriftCode(text, fmtOptions);
 
         if (!useMinimalPatch) {

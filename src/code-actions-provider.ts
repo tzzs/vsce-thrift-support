@@ -10,6 +10,7 @@ import * as nodes from './ast/nodes.types';
 import { collectIncludes, collectTopLevelTypes } from './ast/utils';
 import { config } from './config';
 import { ErrorHandler } from './utils/error-handler';
+import { CoreDependencies } from './utils/dependencies';
 
 /**
  * ThriftRefactorCodeActionProvider：提供重构与 Quick Fix。
@@ -21,7 +22,11 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
         vscode.CodeActionKind.RefactorMove,
         vscode.CodeActionKind.QuickFix,
     ];
-    private errorHandler = ErrorHandler.getInstance();
+    private errorHandler: ErrorHandler;
+
+    constructor(deps?: Partial<CoreDependencies>) {
+        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+    }
 
     /**
      * 返回当前上下文下的 CodeAction 列表。

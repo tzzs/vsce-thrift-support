@@ -7,6 +7,7 @@ import { ThriftFileWatcher } from './utils/file-watcher';
 import { ErrorHandler } from './utils/error-handler';
 import { config } from './config';
 import { LruCache } from './utils/lru-cache';
+import { CoreDependencies } from './utils/dependencies';
 import {
     LineRange,
     collapseLineRanges,
@@ -1084,9 +1085,10 @@ export class DiagnosticManager {
     private fileDependencies = new Map<string, Set<string>>();
     // 反向依赖跟踪 - key: 文件路径, value: 该文件包含的其他文件路径集合
     private fileIncludes = new Map<string, Set<string>>();
-    private errorHandler = ErrorHandler.getInstance();
+    private errorHandler: ErrorHandler;
 
-    constructor() {
+    constructor(errorHandler?: ErrorHandler) {
+        this.errorHandler = errorHandler ?? ErrorHandler.getInstance();
         this.collection = vscode.languages.createDiagnosticCollection('thrift');
     }
 
@@ -1647,11 +1649,11 @@ function hashText(text: string): number {
 /**
  * 注册诊断能力与文件监听。
  */
-export function registerDiagnostics(context: vscode.ExtensionContext) {
-    const diagnosticManager = new DiagnosticManager();
+export function registerDiagnostics(context: vscode.ExtensionContext, deps?: Partial<CoreDependencies>) {
+    const diagnosticManager = new DiagnosticManager(deps?.errorHandler);
 
     // 使用 ThriftFileWatcher 监控.thrift文件变化
-    const fileWatcher = ThriftFileWatcher.getInstance();
+    const fileWatcher = deps?.fileWatcher ?? ThriftFileWatcher.getInstance();
 
     const diagnosticsFileWatcher = fileWatcher.createWatcher(config.filePatterns.thrift, () => {
         // 当有任何.thrift文件变化时，清除相关缓存并重新分析

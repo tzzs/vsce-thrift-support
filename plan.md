@@ -24,7 +24,7 @@
 
 **进行中**
 
-- 暂无（待规划与长期项见下方）
+- 架构设计问题：剩余模块的单例替换与注入迁移（`performance-monitor.ts`、`scanning-analyzer.ts` 等）
 
 **待规划**
 
@@ -100,13 +100,26 @@ if (openDoc) {
 
 **建议:** 建立标准异常处理流程，统一错误日志格式（已引入 `ErrorHandler` 并覆盖主要模块）。
 
-#### 2.2.2 架构设计问题
+#### 2.2.2 架构设计问题（🟡 部分完成）
 
 **发现:**
 
 - 单例模式滥用（静态方法和属性）
 - 配置管理分散
 - 魔法字符串和魔法数字硬编码
+
+**当前状态:**
+
+- 配置/魔法字符串已集中至 `src/config/index.ts`，明显重复已收敛
+- 已引入轻量依赖构造层并在入口下发依赖，核心 Provider 与 `DiagnosticManager` 已改为构造注入
+- 单例模式仍存在于基础工具类/静态入口（`ThriftFileWatcher`、`CacheManager`、`IncrementalTracker`、`ErrorHandler` 等）
+
+**建议（待办拆解）:**
+
+- ✅ 引入简单的依赖构造/注入层，统一在入口创建并下发依赖
+- ✅ 先从 `DiagnosticManager` 与核心 Provider 开始替换 `getInstance()` 调用
+- [ ] 扩展到剩余模块（`performance-monitor.ts`、`scanning-analyzer.ts` 等）
+- [ ] 逐步收敛静态单例入口，保留可测试的构造注入
 
 **具体案例:**
 

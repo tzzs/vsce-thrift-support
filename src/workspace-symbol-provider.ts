@@ -7,20 +7,24 @@ import {readThriftFile} from './utils/file-reader';
 import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes.types';
 import {config} from './config';
+import {CoreDependencies} from './utils/dependencies';
 
 /**
  * ThriftWorkspaceSymbolProvider：提供全局符号搜索。
  */
 export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvider {
-    private cacheManager = CacheManager.getInstance();
+    private cacheManager: CacheManager;
     private fileWatcher: vscode.FileSystemWatcher | undefined;
     private workspaceFileList: Set<string> = new Set();
     private lastFileListUpdate: number = 0;
     private readonly FILE_LIST_UPDATE_INTERVAL = config.workspaceSymbols.fileListUpdateIntervalMs;
-    private errorHandler = ErrorHandler.getInstance();
+    private errorHandler: ErrorHandler;
     private readonly component = 'ThriftWorkspaceSymbolProvider';
 
-    constructor() {
+    constructor(deps?: Partial<CoreDependencies>) {
+        this.cacheManager = deps?.cacheManager ?? CacheManager.getInstance();
+        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+
         // 注册缓存配置
         this.cacheManager.registerCache('workspaceSymbols', {
             maxSize: config.cache.workspaceSymbols.maxSize,
@@ -32,7 +36,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
         });
 
         // Watch for changes to Thrift files
-        const fileWatcher = ThriftFileWatcher.getInstance();
+        const fileWatcher = deps?.fileWatcher ?? ThriftFileWatcher.getInstance();
         this.fileWatcher = fileWatcher.createWatcherWithEvents(config.filePatterns.thrift, {
             onCreate: (uri) => this.handleFileCreated(uri),
             onDelete: (uri) => this.handleFileDeleted(uri),
@@ -303,8 +307,8 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
 /**
  * 注册 WorkspaceSymbolProvider。
  */
-export function registerWorkspaceSymbolProvider(context: vscode.ExtensionContext) {
-    const provider = new ThriftWorkspaceSymbolProvider();
+export function registerWorkspaceSymbolProvider(context: vscode.ExtensionContext, deps?: Partial<CoreDependencies>) {
+    const provider = new ThriftWorkspaceSymbolProvider(deps);
     const disposable = vscode.languages.registerWorkspaceSymbolProvider(provider);
     context.subscriptions.push(disposable);
     context.subscriptions.push(provider); // for dispose()

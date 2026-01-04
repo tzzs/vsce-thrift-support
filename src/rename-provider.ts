@@ -1,12 +1,17 @@
 import * as vscode from 'vscode';
 import {ThriftReferencesProvider} from './references-provider';
 import {ErrorHandler} from './utils/error-handler';
+import {CoreDependencies} from './utils/dependencies';
 
 /**
  * ThriftRenameProvider：处理 Thrift 文件的符号重命名。
  */
 export class ThriftRenameProvider implements vscode.RenameProvider {
-    private errorHandler = ErrorHandler.getInstance();
+    private errorHandler: ErrorHandler;
+
+    constructor(deps?: Partial<CoreDependencies>) {
+        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+    }
     /**
      * 预检查重命名位置，返回可重命名范围与占位符。
      */

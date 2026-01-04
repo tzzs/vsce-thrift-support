@@ -6,6 +6,7 @@ import { CacheManager } from './utils/cache-manager';
 import { ErrorHandler } from './utils/error-handler';
 import { readThriftFile } from './utils/file-reader';
 import { config } from './config';
+import { CoreDependencies } from './utils/dependencies';
 
 /**
  * ThriftReferencesProvider：提供引用查找与跨文件扫描。
@@ -17,14 +18,17 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
     private readonly FILE_LIST_UPDATE_INTERVAL = config.references.fileListUpdateIntervalMs;
 
     // 缓存管理器
-    private cacheManager = CacheManager.getInstance();
-    private errorHandler = ErrorHandler.getInstance();
+    private cacheManager: CacheManager;
+    private errorHandler: ErrorHandler;
 
     // AST缓存，用于存储已解析的AST以避免重复解析
     private astCache: Map<string, { ast: nodes.ThriftDocument, timestamp: number }> = new Map();
     private readonly AST_CACHE_TTL = config.references.astCacheTtlMs;
 
-    constructor() {
+    constructor(deps?: Partial<CoreDependencies>) {
+        this.cacheManager = deps?.cacheManager ?? CacheManager.getInstance();
+        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+
         // 注册缓存配置
         this.cacheManager.registerCache('references', {
             maxSize: config.cache.references.maxSize,
@@ -718,13 +722,13 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
 /**
  * 注册 ReferencesProvider 与缓存清理。
  */
-export function registerReferencesProvider(context: vscode.ExtensionContext) {
-    const provider = new ThriftReferencesProvider();
+export function registerReferencesProvider(context: vscode.ExtensionContext, deps?: Partial<CoreDependencies>) {
+    const provider = new ThriftReferencesProvider(deps);
     const disposable = vscode.languages.registerReferenceProvider('thrift', provider);
     context.subscriptions.push(disposable);
 
     // 添加文件监听器，当文件改变时清除缓存
-    const fileWatcher = ThriftFileWatcher.getInstance();
+    const fileWatcher = deps?.fileWatcher ?? ThriftFileWatcher.getInstance();
     const referencesFileWatcher = fileWatcher.createWatcherWithEvents(config.filePatterns.thrift, {
         onCreate: (uri) => provider.handleFileCreated(uri),
         onDelete: (uri) => provider.handleFileDeleted(uri),

@@ -3,6 +3,7 @@ import * as path from 'path';
 import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes.types';
 import {ErrorHandler} from './utils/error-handler';
+import {CoreDependencies} from './utils/dependencies';
 import {config} from './config';
 
 /**
@@ -10,7 +11,7 @@ import {config} from './config';
  */
 export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
     // 错误处理器
-    private errorHandler = ErrorHandler.getInstance();
+    private errorHandler: ErrorHandler;
     private keywords = [
         'namespace',
         'include',
@@ -68,6 +69,10 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
     ];
 
     private containers = ['list', 'set', 'map'];
+
+    constructor(deps?: Partial<CoreDependencies>) {
+        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+    }
 
     /**
      * 根据上下文返回补全项列表。
@@ -381,8 +386,8 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
 /**
  * 注册 CompletionProvider。
  */
-export function registerCompletionProvider(context: vscode.ExtensionContext) {
-    const provider = new ThriftCompletionProvider();
+export function registerCompletionProvider(context: vscode.ExtensionContext, deps?: Partial<CoreDependencies>) {
+    const provider = new ThriftCompletionProvider(deps);
 
     const disposable = vscode.languages.registerCompletionItemProvider(
         'thrift',

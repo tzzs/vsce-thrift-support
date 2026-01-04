@@ -7,6 +7,7 @@ import { ThriftParser } from './ast/parser';
 import { collectIncludes } from './ast/utils';
 import { ErrorHandler } from './utils/error-handler';
 import { config } from './config';
+import { CoreDependencies } from './utils/dependencies';
 
 /**
  * ThriftHoverProvider：提供符号悬停文档展示。
@@ -17,12 +18,15 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
     private static definitionProvider: ThriftDefinitionProvider | null = null;
 
     // 缓存管理器
-    private cacheManager = CacheManager.getInstance();
+    private cacheManager: CacheManager;
 
     // 错误处理器
-    private errorHandler = ErrorHandler.getInstance();
+    private errorHandler: ErrorHandler;
 
-    constructor() {
+    constructor(deps?: Partial<CoreDependencies>) {
+        this.cacheManager = deps?.cacheManager ?? CacheManager.getInstance();
+        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+
         // 注册缓存配置
         this.cacheManager.registerCache('hoverIncludes', {
             maxSize: config.cache.hoverIncludes.maxSize,
@@ -118,7 +122,10 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
 
     private getDefinitionProvider(): ThriftDefinitionProvider {
         if (!ThriftHoverProvider.definitionProvider) {
-            ThriftHoverProvider.definitionProvider = new ThriftDefinitionProvider();
+            ThriftHoverProvider.definitionProvider = new ThriftDefinitionProvider({
+                cacheManager: this.cacheManager,
+                errorHandler: this.errorHandler
+            });
         }
         return ThriftHoverProvider.definitionProvider;
     }
