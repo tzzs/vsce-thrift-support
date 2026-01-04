@@ -475,6 +475,14 @@ function valueMatchesType(valueRaw: string, typeText: string): boolean {
     return true;
 }
 
+function isValidDefaultValue(typeText: string, valueText: string): boolean {
+    const value = valueText.trim();
+    if (!value) {
+        return true;
+    }
+    return valueMatchesType(value, typeText);
+}
+
 // Parse types from a Thrift file content and return a map of type names to their kinds
 function collectTypesFromAst(ast: nodes.ThriftDocument): Map<string, string> {
     const typeKind = new Map<string, string>();
@@ -669,24 +677,12 @@ function collectIncludedTypesFromCache(includedFiles: vscode.Uri[]): Map<string,
     return includedTypes;
 }
 
-/**
- * 分析 Thrift 文本并返回诊断问题列表。
- */
-export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?: Map<string, string>): ThriftIssue[] {
-    const lines = text.split('\n');
-    const issues: ThriftIssue[] = [];
+interface AnalysisContext {
+    includeAliases: Set<string>;
+    typeKind: Map<string, string>;
+}
 
-    // First pass: strip comments for each line with block-comment awareness
-    const codeLines: string[] = [];
-    const state = { inBlock: false };
-    for (const raw of lines) {
-        codeLines.push(stripCommentsFromLine(raw, state));
-    }
-
-    const ast = uri
-        ? ThriftParser.parseContentWithCache(uri.toString(), text)
-        : new ThriftParser(text).parse();
-
+function collectIncludeAliasesFromAst(ast: nodes.ThriftDocument): Set<string> {
     const includeAliases = new Set<string>();
     for (const node of ast.body) {
         if (node.type === nodes.ThriftNodeType.Include) {
@@ -697,8 +693,35 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
             }
         }
     }
+    return includeAliases;
+}
 
-    const typeKind = collectTypesFromAst(ast);
+function buildAnalysisContext(ast: nodes.ThriftDocument): AnalysisContext {
+    return {
+        includeAliases: collectIncludeAliasesFromAst(ast),
+        typeKind: collectTypesFromAst(ast)
+    };
+}
+
+function analyzeThriftAst(
+    ast: nodes.ThriftDocument,
+    lines: string[],
+    includedTypes?: Map<string, string>,
+    context?: AnalysisContext
+): ThriftIssue[] {
+    const issues: ThriftIssue[] = [];
+
+    // First pass: strip comments for each line with block-comment awareness
+    const codeLines: string[] = [];
+    const state = { inBlock: false };
+    for (const raw of lines) {
+        codeLines.push(stripCommentsFromLine(raw, state));
+    }
+
+    const includeAliases = context?.includeAliases ?? collectIncludeAliasesFromAst(ast);
+    const typeKind = context?.typeKind
+        ? new Map(context.typeKind)
+        : collectTypesFromAst(ast);
 
     if (includedTypes) {
         for (const [name, kind] of includedTypes) {
@@ -821,81 +844,72 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
                             severity: vscode.DiagnosticSeverity.Error,
                             code: 'field.duplicateId'
                         });
-                    } else {
-                        fieldIds.add(field.id);
                     }
+                    fieldIds.add(field.id);
 
                     if (!isKnownType(field.fieldType, definedTypes, includeAliases)) {
-                        const lineNo = field.range.start.line;
                         issues.push({
                             message: `Unknown type '${field.fieldType}'`,
-                            range: findTypeRange(lineNo, field.fieldType, field.range),
+                            range: field.typeRange || field.range,
                             severity: vscode.DiagnosticSeverity.Error,
                             code: 'type.unknown'
                         });
                     }
 
-                    const lineNo = field.range.start.line;
-                    const def = lineNo >= 0 && lineNo < codeLines.length ? extractDefaultValue(codeLines[lineNo]) : null;
-                    if (def !== null) {
-                        const ok = valueMatchesType(def, field.fieldType);
-                        if (!ok) {
-                            issues.push({
-                                message: `Default value does not match declared type`,
-                                range: field.range,
-                                severity: vscode.DiagnosticSeverity.Error,
-                                code: 'value.typeMismatch'
-                            });
-                        }
+                    if (field.defaultValue && !isValidDefaultValue(field.fieldType, field.defaultValue)) {
+                        issues.push({
+                            message: `Invalid default value '${field.defaultValue}' for type '${field.fieldType}'`,
+                            range: field.defaultValueRange || field.range,
+                            severity: vscode.DiagnosticSeverity.Warning,
+                            code: 'value.typeMismatch'
+                        });
                     }
                 }
                 break;
             }
             case nodes.ThriftNodeType.Service: {
                 const serviceNode = node as nodes.Service;
-                for (const func of serviceNode.functions) {
-                    if (func.oneway) {
-                        if (func.returnType !== 'void') {
+                for (const fn of serviceNode.functions) {
+                    if (fn.oneway) {
+                        if (fn.returnType.trim() !== 'void') {
                             issues.push({
-                                message: `oneway methods must return void`,
-                                range: func.range,
+                                message: `oneway method '${fn.name}' must return void`,
+                                range: fn.range,
                                 severity: vscode.DiagnosticSeverity.Error,
                                 code: 'service.oneway.returnNotVoid'
                             });
                         }
-                        if (func.throws.length > 0) {
+                        if (fn.throws && fn.throws.length > 0) {
                             issues.push({
-                                message: `oneway methods cannot declare throws`,
-                                range: func.range,
+                                message: `oneway method '${fn.name}' must not declare throws`,
+                                range: fn.range,
                                 severity: vscode.DiagnosticSeverity.Error,
                                 code: 'service.oneway.hasThrows'
                             });
                         }
                     }
-
-                    if (func.returnType !== 'void' && !isKnownType(func.returnType, definedTypes, includeAliases)) {
-                        const lineNo = func.range.start.line;
+                    if (!isKnownType(fn.returnType, definedTypes, includeAliases)) {
+                        const lineNo = fn.range.start.line;
                         issues.push({
-                            message: `Unknown return type '${func.returnType}'`,
-                            range: findTypeRange(lineNo, func.returnType, func.range),
+                            message: `Unknown return type '${fn.returnType}'`,
+                            range: findTypeRange(lineNo, fn.returnType, fn.range),
                             severity: vscode.DiagnosticSeverity.Error,
                             code: 'service.returnType.unknown'
                         });
                     }
 
-                    for (const arg of func.arguments) {
+                    for (const arg of fn.arguments) {
                         if (!isKnownType(arg.fieldType, definedTypes, includeAliases)) {
-                            const lineNo = arg.range.start.line;
                             issues.push({
                                 message: `Unknown type '${arg.fieldType}'`,
-                                range: findTypeRange(lineNo, arg.fieldType, arg.range),
+                                range: arg.typeRange || arg.range,
                                 severity: vscode.DiagnosticSeverity.Error,
                                 code: 'type.unknown'
                             });
                         }
                     }
 
-                    for (const thr of func.throws) {
+                    for (const thr of fn.throws) {
                         const base = resolveNamespacedBase(thr.fieldType, includeAliases);
                         const kind = base ? typeKind.get(base) : undefined;
                         if (!base || !kind) {
@@ -1007,6 +1021,19 @@ export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?
 }
 
 /**
+ * 分析 Thrift 文本并返回诊断问题列表。
+ */
+export function analyzeThriftText(text: string, uri?: vscode.Uri, includedTypes?: Map<string, string>): ThriftIssue[] {
+    const lines = text.split('\n');
+    const ast = uri
+        ? ThriftParser.parseContentWithCache(uri.toString(), text)
+        : new ThriftParser(text).parse();
+
+    return analyzeThriftAst(ast, lines, includedTypes);
+}
+
+
+/**
  * DiagnosticManager：负责诊断调度、缓存与依赖跟踪。
  */
 export class DiagnosticManager {
@@ -1022,6 +1049,8 @@ export class DiagnosticManager {
         useIncrementalDiagnostics?: boolean;
         dirtyRange?: { startLine: number; endLine: number };
         lastDiagnostics?: vscode.Diagnostic[];
+        lastAst?: nodes.ThriftDocument;
+        lastAnalysisContext?: AnalysisContext;
     }>();
     private readonly ANALYSIS_DELAY = config.diagnostics.analysisDelayMs;
     private readonly MIN_ANALYSIS_INTERVAL = config.diagnostics.minAnalysisIntervalMs;
@@ -1270,10 +1299,36 @@ export class DiagnosticManager {
                             this.trackFileDependencies(doc, includedFiles);
                         }
 
-                        const issues = analyzeThriftText(doc.getText(), doc.uri, includedTypes);
+                        const text = doc.getText();
+                        const lines = text.split('\n');
+                        let issues: ThriftIssue[] = [];
+                        let usedPartial = false;
+
+                        if (state.useIncrementalDiagnostics && state.dirtyRange && state.lastAst && state.lastAnalysisContext) {
+                            const blockRange = findBestContainingRange(state.lastAst, state.dirtyRange);
+                            if (blockRange) {
+                                const partialLines = buildPartialLines(lines, blockRange.startLine, blockRange.endLine);
+                                const partialText = partialLines.join('\n');
+                                const partialKey = `${doc.uri.toString()}#partial:${blockRange.startLine}-${blockRange.endLine}`;
+                                const partialAst = ThriftParser.parseContentWithCache(partialKey, partialText);
+                                issues = analyzeThriftAst(partialAst, partialLines, includedTypes, state.lastAnalysisContext);
+                                usedPartial = true;
+                            }
+                        }
+
+                        if (!usedPartial) {
+                            const ast = ThriftParser.parseContentWithCache(doc.uri.toString(), text);
+                            issues = analyzeThriftAst(ast, lines, includedTypes);
+                            state.lastAst = ast;
+                            state.lastAnalysisContext = buildAnalysisContext(ast);
+                        }
+
+                        const mergeState = usedPartial
+                            ? state
+                            : { ...state, useIncrementalDiagnostics: false };
                         const incrementalDiagnostics = this.mergeIncrementalDiagnostics(
                             issues,
-                            state,
+                            mergeState,
                             doc
                         );
                         const diagnostics = incrementalDiagnostics
@@ -1348,6 +1403,30 @@ function normalizeLineRange(range: { startLine: number; endLine: number }) {
 
 function rangeIntersectsLineRange(range: vscode.Range, lineRange: { startLine: number; endLine: number }): boolean {
     return range.start.line <= lineRange.endLine && range.end.line >= lineRange.startLine;
+}
+
+function findBestContainingRange(ast: nodes.ThriftDocument, dirtyRange: { startLine: number; endLine: number }) {
+    const normalized = normalizeLineRange(dirtyRange);
+    if (!normalized) {
+        return null;
+    }
+    let best: { startLine: number; endLine: number } | null = null;
+    let bestSpan = Number.POSITIVE_INFINITY;
+    for (const node of ast.body) {
+        if (node.range.start.line > normalized.endLine || node.range.end.line < normalized.startLine) {
+            continue;
+        }
+        const span = node.range.end.line - node.range.start.line;
+        if (span < bestSpan) {
+            bestSpan = span;
+            best = { startLine: node.range.start.line, endLine: node.range.end.line };
+        }
+    }
+    return best;
+}
+
+function buildPartialLines(lines: string[], startLine: number, endLine: number): string[] {
+    return lines.map((line, idx) => (idx >= startLine && idx <= endLine) ? line : '');
 }
 
 /**
