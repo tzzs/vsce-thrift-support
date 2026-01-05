@@ -114,7 +114,7 @@ thrift-support/
 
 - 背景：自 Apache Thrift IDL 0.23 起，uuid 被纳入内建基础类型（BaseType）。
 - 代码同步点：
-    - <mcfile name="diagnostics.ts" path="src/diagnostics.ts"></mcfile>
+    - <mcfile name="diagnostics/index.ts" path="src/diagnostics/index.ts"></mcfile>
         - 基本类型集合包含 `uuid`
         - 改进字段解析：剥离类型后缀注解、跨行注释剥离，避免在注释中做括号/语法检查
         - 以健壮解析提取字段类型与名称，支持嵌套容器与 required/optional 标志

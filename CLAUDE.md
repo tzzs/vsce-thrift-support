@@ -58,7 +58,7 @@ npm run publish      # Publish to VS Code Marketplace (requires VSCE_PAT)
 - `src/extension.ts` - Extension entry point, registers all providers and commands
 - `src/formatting-provider.ts` - Document and range formatting with alignment strategies
 - `src/definition-provider.ts` - Go-to-definition with include resolution
-- `src/diagnostics.ts` - Syntax and semantic error detection
+- `src/diagnostics/index.ts` - Syntax and semantic error detection
 - `src/rename-provider.ts` - Cross-file symbol renaming
 - `src/code-actions-provider.ts` - Refactoring actions (extract type, move type)
 - `src/hover-provider.ts` - Symbol documentation on hover
