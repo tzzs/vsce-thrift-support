@@ -259,6 +259,72 @@ function stripCommentsFromLine(rawLine: string, state: { inBlock: boolean }): st
     return out;
 }
 
+function stripStringLiterals(rawLine: string): string {
+    let out = '';
+    let inS = false;
+    let inD = false;
+    let escaped = false;
+
+    for (let i = 0; i < rawLine.length; i++) {
+        const ch = rawLine[i];
+
+        if (escaped) {
+            escaped = false;
+            continue;
+        }
+        if (inS) {
+            if (ch === '\\') {
+                escaped = true;
+                continue;
+            }
+            if (ch === '\'') {
+                inS = false;
+            }
+            continue;
+        }
+        if (inD) {
+            if (ch === '\\') {
+                escaped = true;
+                continue;
+            }
+            if (ch === '"') {
+                inD = false;
+            }
+            continue;
+        }
+
+        if (ch === '\'') {
+            inS = true;
+            continue;
+        }
+        if (ch === '"') {
+            inD = true;
+            continue;
+        }
+
+        out += ch;
+    }
+
+    return out;
+}
+
+const STRUCTURAL_TOKEN_PATTERN = /\b(struct|union|exception|enum|senum|service|typedef|const|namespace|include)\b/;
+const STRUCTURAL_CHAR_PATTERN = /[{}]/;
+
+function sanitizeStructuralText(rawLine: string): string {
+    const withoutComments = stripCommentsFromLine(rawLine, { inBlock: false });
+    return stripStringLiterals(withoutComments);
+}
+
+function hasStructuralTokens(rawLine: string): boolean {
+    const sanitized = sanitizeStructuralText(rawLine);
+    return STRUCTURAL_CHAR_PATTERN.test(sanitized) || STRUCTURAL_TOKEN_PATTERN.test(sanitized);
+}
+
+function includesKeyword(rawLine: string): boolean {
+    return /\binclude\b/.test(sanitizeStructuralText(rawLine));
+}
+
 
 // isKnownType checks if a type name is known 
 function isKnownType(typeName: string, definedTypes: Set<string>, includeAliases: Set<string>): boolean {
@@ -1752,12 +1818,12 @@ export function registerDiagnostics(context: vscode.ExtensionContext, deps?: Par
                         return acc + Math.max(affected, removed);
                     }, 0);
                     includesMayChange = e.contentChanges.some(change => {
-                        if (/\binclude\b/.test(change.text)) {
+                        if (includesKeyword(change.text)) {
                             return true;
                         }
                         try {
                             const lineText = e.document.lineAt(change.range.start.line).text;
-                            return /^\s*include\b/.test(lineText);
+                            return includesKeyword(lineText);
                         } catch {
                             return false;
                         }
@@ -1772,14 +1838,14 @@ export function registerDiagnostics(context: vscode.ExtensionContext, deps?: Par
                             continue;
                         }
 
-                        if (/[{}]/.test(change.text) || /\b(struct|union|exception|enum|senum|service|typedef|const|namespace|include)\b/.test(change.text)) {
+                        if (hasStructuralTokens(change.text)) {
                             structuralChange = true;
                             continue;
                         }
 
                         try {
                             const lineText = e.document.lineAt(change.range.start.line).text;
-                            if (/[{}]/.test(lineText) || /\b(struct|union|exception|enum|senum|service|typedef|const|namespace|include)\b/.test(lineText)) {
+                            if (hasStructuralTokens(lineText)) {
                                 structuralChange = true;
                             }
                         } catch {
