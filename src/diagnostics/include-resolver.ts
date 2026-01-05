@@ -10,6 +10,9 @@ const includeFileTimestamps = new Map<string, number>();
 const includeFileStats = new Map<string, { mtime: number; size: number }>();
 const INCLUDE_CACHE_MAX_AGE = config.cache.includeTypesMaxAgeMs;
 
+/**
+ * 收集 AST 内定义的类型与类型类别。
+ */
 export function collectTypesFromAst(ast: nodes.ThriftDocument): Map<string, string> {
     const typeKind = new Map<string, string>();
     for (const node of ast.body) {
@@ -56,6 +59,9 @@ function parseTypesFromContent(content: string, uri: string): Map<string, string
     return collectTypesFromAst(ast);
 }
 
+/**
+ * 解析 include 语句，返回包含文件的 URI 列表。
+ */
 export async function getIncludedFiles(document: vscode.TextDocument): Promise<vscode.Uri[]> {
     const includedFiles: vscode.Uri[] = [];
     const documentDir = path.dirname(document.uri.fsPath);
@@ -85,6 +91,9 @@ export async function getIncludedFiles(document: vscode.TextDocument): Promise<v
     return includedFiles;
 }
 
+/**
+ * 收集 include 文件中的类型信息（带缓存与文件状态校验）。
+ */
 export async function collectIncludedTypes(
     document: vscode.TextDocument,
     errorHandler?: ErrorHandler,
@@ -173,6 +182,9 @@ export async function collectIncludedTypes(
     return includedTypes;
 }
 
+/**
+ * 尝试直接从缓存获取 include 类型信息，若缓存失效返回 null。
+ */
 export function collectIncludedTypesFromCache(includedFiles: vscode.Uri[]): Map<string, string> | null {
     const includedTypes = new Map<string, string>();
     const now = Date.now();
@@ -192,12 +204,18 @@ export function collectIncludedTypesFromCache(includedFiles: vscode.Uri[]): Map<
     return includedTypes;
 }
 
+/**
+ * 清空 include 类型缓存。
+ */
 export function clearIncludeCaches(): void {
     includeTypesCache.clear();
     includeFileTimestamps.clear();
     includeFileStats.clear();
 }
 
+/**
+ * 清除指定 URI 的 include 缓存条目。
+ */
 export function clearIncludeCacheForDocument(docUri: string): boolean {
     if (!includeTypesCache.has(docUri)) {
         return false;
