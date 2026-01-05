@@ -133,7 +133,7 @@ class StandaloneScanningAnalyzer {
 3. 提供用户配置选项控制扫描行为
 
 💡 立即行动:
-修改 src/diagnostics.ts 文件，移除或延迟 onDidChangeActiveTextEditor 中的自动分析逻辑。
+修改 src/diagnostics/index.ts 文件，移除或延迟 onDidChangeActiveTextEditor 中的自动分析逻辑。
         `;
 
         return report;

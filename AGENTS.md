@@ -7,6 +7,7 @@
 - `tests/`: Node-based test scripts (most files follow `tests/test-*.js`).
 - `test-files/` and `test-thrift/`: fixture Thrift files used by tests.
 - `out/`: compiled JS output from `tsc` (generated).
+- Diagnostics entrypoint lives at `src/diagnostics/index.ts` (avoid `src/diagnostics.ts`).
 
 ## Build, Test, and Development Commands
 - `npm install`: install dependencies (Node 22.18.0 is expected).
