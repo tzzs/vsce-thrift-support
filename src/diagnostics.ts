@@ -12,6 +12,7 @@ import {
     LineRange,
     collapseLineRanges,
     lineRangeFromChange,
+    mergeLineRanges,
     normalizeLineRange,
     rangeContainsLineRange,
     rangeIntersectsLineRange
@@ -1144,6 +1145,7 @@ export class DiagnosticManager {
         useCachedIncludes?: boolean;
         useIncrementalDiagnostics?: boolean;
         dirtyRange?: LineRange;
+        dirtyRanges?: LineRange[];
         lastDiagnostics?: vscode.Diagnostic[];
         lastAst?: nodes.ThriftDocument;
         lastAnalysisContext?: AnalysisContext;
@@ -1181,7 +1183,8 @@ export class DiagnosticManager {
         dirtyLineCount?: number,
         includesMayChange?: boolean,
         dirtyRange?: LineRange,
-        structuralChange?: boolean
+        structuralChange?: boolean,
+        dirtyRanges?: LineRange[]
     ) {
         if (doc.languageId !== 'thrift') { return; }
 
@@ -1236,6 +1239,7 @@ export class DiagnosticManager {
             useCachedIncludes: useIncremental,
             useIncrementalDiagnostics: useIncremental,
             dirtyRange: dirtyRange ? { ...dirtyRange } : undefined,
+            dirtyRanges: dirtyRanges?.map(range => ({ ...range })) ?? state?.dirtyRanges,
             lastDiagnostics: state?.lastDiagnostics
         });
 
@@ -1460,7 +1464,10 @@ export class DiagnosticManager {
                         let memberRange: LineRange | null = null;
 
                         if (state.useIncrementalDiagnostics && state.dirtyRange && state.lastAst && state.lastAnalysisContext) {
-                            blockRange = findBestContainingRange(state.lastAst, state.dirtyRange);
+                            const changeRanges = state.dirtyRanges?.length
+                                ? state.dirtyRanges
+                                : [state.dirtyRange];
+                            blockRange = findBestContainingRangeForChanges(state.lastAst, changeRanges);
                             if (blockRange) {
                                 const blockKey = `${blockRange.startLine}-${blockRange.endLine}`;
                                 const blockLines = lines.slice(blockRange.startLine, blockRange.endLine + 1).join('\n');
@@ -1468,14 +1475,14 @@ export class DiagnosticManager {
                                 const cachedBlock = state.lastBlockCache?.get(blockKey);
                                 if (cachedBlock && cachedBlock.hash === blockHash) {
                                     issues = cachedBlock.issues;
-                                    memberRange = findBestContainingMemberRange(state.lastAst, state.dirtyRange);
+                                    memberRange = findBestContainingMemberRangeForChanges(state.lastAst, changeRanges);
                                 } else {
                                     let memberCacheHit = false;
                                     const partialLines = buildPartialLines(lines, blockRange.startLine, blockRange.endLine);
                                     const partialText = partialLines.join('\n');
                                     const partialKey = `${doc.uri.toString()}#partial:${blockRange.startLine}-${blockRange.endLine}`;
                                     const partialAst = ThriftParser.parseContentWithCache(partialKey, partialText);
-                                    memberRange = findBestContainingMemberRange(partialAst, state.dirtyRange);
+                                    memberRange = findBestContainingMemberRangeForChanges(partialAst, changeRanges);
                                     const memberKey = memberRange ? `${memberRange.startLine}-${memberRange.endLine}` : null;
                                     const memberHash = memberRange
                                         ? hashText(partialLines.slice(memberRange.startLine, memberRange.endLine + 1).join('\n'))
@@ -1627,6 +1634,27 @@ function findBestContainingRange(ast: nodes.ThriftDocument, dirtyRange: LineRang
     return best;
 }
 
+function findBestContainingRangeForChanges(ast: nodes.ThriftDocument, dirtyRanges: LineRange[]) {
+    const merged = mergeLineRanges(dirtyRanges);
+    if (!merged.length) {
+        return null;
+    }
+    let best: LineRange | null = null;
+    let bestSpan = Number.POSITIVE_INFINITY;
+    for (const node of ast.body) {
+        const containsAll = merged.every(range => rangeContainsLineRange(node.range, range));
+        if (!containsAll) {
+            continue;
+        }
+        const span = node.range.end.line - node.range.start.line;
+        if (span < bestSpan) {
+            bestSpan = span;
+            best = { startLine: node.range.start.line, endLine: node.range.end.line };
+        }
+    }
+    return best;
+}
+
 function findBestContainingMemberRange(ast: nodes.ThriftDocument, dirtyRange: LineRange) {
     const normalized = normalizeLineRange(dirtyRange);
     if (!normalized) {
@@ -1650,6 +1678,43 @@ function findBestContainingMemberRange(ast: nodes.ThriftDocument, dirtyRange: Li
         }
         for (const member of members) {
             if (!rangeContainsLineRange(member.range, normalized)) {
+                continue;
+            }
+            const span = member.range.end.line - member.range.start.line;
+            if (span < bestSpan) {
+                bestSpan = span;
+                best = { startLine: member.range.start.line, endLine: member.range.end.line };
+            }
+        }
+    }
+    return best;
+}
+
+function findBestContainingMemberRangeForChanges(ast: nodes.ThriftDocument, dirtyRanges: LineRange[]) {
+    const merged = mergeLineRanges(dirtyRanges);
+    if (!merged.length) {
+        return null;
+    }
+    let best: LineRange | null = null;
+    let bestSpan = Number.POSITIVE_INFINITY;
+    for (const node of ast.body) {
+        const containsAll = merged.every(range => rangeContainsLineRange(node.range, range));
+        if (!containsAll) {
+            continue;
+        }
+        let members: Array<{ range: vscode.Range }> = [];
+        if (node.type === nodes.ThriftNodeType.Struct || node.type === nodes.ThriftNodeType.Union || node.type === nodes.ThriftNodeType.Exception) {
+            members = (node as nodes.Struct).fields;
+        } else if (node.type === nodes.ThriftNodeType.Enum) {
+            members = (node as nodes.Enum).members;
+        } else if (node.type === nodes.ThriftNodeType.Service) {
+            members = (node as nodes.Service).functions;
+        } else {
+            continue;
+        }
+        for (const member of members) {
+            const memberContainsAll = merged.every(range => rangeContainsLineRange(member.range, range));
+            if (!memberContainsAll) {
                 continue;
             }
             const span = member.range.end.line - member.range.start.line;
@@ -1816,6 +1881,7 @@ export function registerDiagnostics(context: vscode.ExtensionContext, deps?: Par
                 let includesMayChange = false;
                 let dirtyRange: LineRange | undefined;
                 const dirtyRanges: LineRange[] = [];
+                let mergedDirtyRanges: LineRange[] | undefined;
                 let structuralChange = false;
                 if (config.incremental.analysisEnabled) {
                     dirtyLines = e.contentChanges.reduce((acc, change) => {
@@ -1858,7 +1924,8 @@ export function registerDiagnostics(context: vscode.ExtensionContext, deps?: Par
                             structuralChange = true;
                         }
                     }
-                    dirtyRange = collapseLineRanges(dirtyRanges) ?? undefined;
+                    mergedDirtyRanges = mergeLineRanges(dirtyRanges);
+                    dirtyRange = collapseLineRanges(mergedDirtyRanges) ?? undefined;
                 }
                 diagnosticManager.scheduleAnalysis(
                     e.document,
@@ -1868,7 +1935,8 @@ export function registerDiagnostics(context: vscode.ExtensionContext, deps?: Par
                     dirtyLines,
                     includesMayChange,
                     dirtyRange,
-                    structuralChange
+                    structuralChange,
+                    mergedDirtyRanges
                 );
             }
         }),
