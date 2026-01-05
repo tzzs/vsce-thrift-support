@@ -1,22 +1,29 @@
-// Mock vscode module to run formatter without VS Code
+const fs = require('fs');
+const path = require('path');
+
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
+
+const vscode = createVscodeMock({
+    TextEdit: {replace: (range, text) => ({range, newText: text})},
+    workspace: {
+        getConfiguration: (_section) => ({get: (_key, def) => def})
+    }
+});
+installVscodeMock(vscode);
+
 const {ThriftFormattingProvider} = require('../../../out/formatting-provider.js');
-Module.prototype.require = originalRequire;
 
 function runTest() {
     const formatter = new ThriftFormattingProvider();
 
-    // Read the full example.thrift file
-    const fs = require('fs');
-    const path = require('path');
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
     const examplePath = path.join(__dirname, '..', '..', '..', 'test-files', 'example.thrift');
     const fullInput = fs.readFileSync(examplePath, 'utf8');
 
     console.log('Testing full file formatting...');
 
-    // Find User struct in original file
     const inputLines = fullInput.split('\n');
-    let userStructStart = -1, userStructEnd = -1;
+    let userStructStart = -1;
+    let userStructEnd = -1;
 
     for (let i = 0; i < inputLines.length; i++) {
         if (inputLines[i].includes('struct User {')) {
@@ -30,33 +37,28 @@ const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 
     console.log(`User struct found at lines ${userStructStart + 1}-${userStructEnd + 1}`);
 
-    // Show original User struct
     console.log('\nOriginal User struct:');
     for (let i = userStructStart; i <= userStructEnd; i++) {
         const line = inputLines[i];
         console.log(`Line ${i + 1}: "${line}" ${line.trim() === '' ? '(BLANK)' : ''}`);
     }
 
-    const mockDoc = {
-        getText: () => fullInput,
-        positionAt: (offset) => {
-            const lines = fullInput.substring(0, offset).split('\n');
-            return {line: lines.length - 1, character: lines[lines.length - 1].length};
-        },
-    };
-    const fullRange = {start: {line: 0, character: 0}, end: {line: 9999, character: 0}};
-    const options = {insertSpaces: true, tabSize: 2};
+    const uri = vscode.Uri.file(examplePath);
+    const doc = vscode.createTextDocument(fullInput, uri);
+    doc.languageId = 'thrift';
+    doc.uri = uri;
+    doc.lineCount = inputLines.length;
 
-    const edits = formatter.provideDocumentFormattingEdits(mockDoc, options);
+    const edits = formatter.provideDocumentFormattingEdits(doc, {insertSpaces: true, tabSize: 2});
     if (!edits || edits.length === 0) {
         console.error('No edits returned');
         process.exit(1);
     }
     const output = edits[0].newText;
 
-    // Find User struct in formatted output
     const outputLines = output.split('\n');
-    let outputUserStructStart = -1, outputUserStructEnd = -1;
+    let outputUserStructStart = -1;
+    let outputUserStructEnd = -1;
 
     for (let i = 0; i < outputLines.length; i++) {
         if (outputLines[i].includes('struct User {')) {
@@ -70,29 +72,27 @@ const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 
     console.log(`\nFormatted User struct found at lines ${outputUserStructStart + 1}-${outputUserStructEnd + 1}`);
 
-    // Show formatted User struct
     console.log('\nFormatted User struct:');
     for (let i = outputUserStructStart; i <= outputUserStructEnd; i++) {
         const line = outputLines[i];
         console.log(`Line ${i + 1}: "${line}" ${line.trim() === '' ? '(BLANK)' : ''}`);
     }
 
-    // Compare blank line positions within User struct
     const originalUserLines = inputLines.slice(userStructStart, userStructEnd + 1);
     const formattedUserLines = outputLines.slice(outputUserStructStart, outputUserStructEnd + 1);
 
-    let originalBlankPositions = [];
-    let formattedBlankPositions = [];
+    const originalBlankPositions = [];
+    const formattedBlankPositions = [];
 
     for (let i = 0; i < originalUserLines.length; i++) {
         if (originalUserLines[i].trim() === '') {
-            originalBlankPositions.push(i + 1); // 1-based
+            originalBlankPositions.push(i + 1);
         }
     }
 
     for (let i = 0; i < formattedUserLines.length; i++) {
         if (formattedUserLines[i].trim() === '') {
-            formattedBlankPositions.push(i + 1); // 1-based
+            formattedBlankPositions.push(i + 1);
         }
     }
 
@@ -102,7 +102,6 @@ const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
     if (JSON.stringify(originalBlankPositions) !== JSON.stringify(formattedBlankPositions)) {
         console.error('❌ Blank line positions changed in User struct after full file formatting');
 
-        // Show detailed comparison
         console.log('\nDetailed User struct comparison:');
         const maxLines = Math.max(originalUserLines.length, formattedUserLines.length);
         for (let i = 0; i < maxLines; i++) {
@@ -123,7 +122,6 @@ const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 
     console.log('✅ Full file formatting preserves User struct blank lines correctly');
 
-    // Write formatted output to a temp file for manual inspection
     const outputPath = path.join(__dirname, '..', '..', '..', 'test-files', 'example-formatted.thrift');
     fs.writeFileSync(outputPath, output, 'utf8');
     console.log(`\nFormatted output written to: ${outputPath}`);

@@ -1,56 +1,29 @@
-// Simulate VS Code formatting scenarios more closely
+const fs = require('fs');
+const path = require('path');
+
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
+
+const vscode = createVscodeMock({
+    TextEdit: {replace: (range, text) => ({range, newText: text})},
+    workspace: {
+        getConfiguration: (_section) => ({get: (_key, def) => def})
+    }
+});
+installVscodeMock(vscode);
+
 const {ThriftFormattingProvider} = require('../../../out/formatting-provider.js');
-Module.prototype.require = originalRequire;
 
-function createMockDocument(content) {
-    const lines = content.split('\n');
-    return {
-        getText: (range) => {
-            if (!range) return content;
-            const startLine = range.start.line;
-            const endLine = range.end.line;
-            const startChar = range.start.character || 0;
-            const endChar = range.end.character || lines[endLine]?.length || 0;
-
-            if (startLine === endLine) {
-                return lines[startLine]?.substring(startChar, endChar) || '';
-            }
-
-            const result = [];
-            for (let i = startLine; i <= endLine; i++) {
-                if (i === startLine) {
-                    result.push(lines[i]?.substring(startChar) || '');
-                } else if (i === endLine) {
-                    result.push(lines[i]?.substring(0, endChar) || '');
-                } else {
-                    result.push(lines[i] || '');
-                }
-            }
-            return result.join('\n');
-        },
-        positionAt: (offset) => {
-            let currentOffset = 0;
-            for (let i = 0; i < lines.length; i++) {
-                const lineLength = lines[i].length + 1; // +1 for newline
-                if (currentOffset + lineLength > offset) {
-                    return new vscode.Position(i, offset - currentOffset);
-                }
-                currentOffset += lineLength;
-            }
-            return new vscode.Position(lines.length - 1, lines[lines.length - 1]?.length || 0);
-        },
-        lineCount: lines.length,
-        lineAt: (line) => ({
-            text: lines[line] || '',
-            range: new vscode.Range(line, 0, line, lines[line]?.length || 0),
-        }),
-    };
+function createMockDocument(content, filePath) {
+    const uri = vscode.Uri.file(filePath);
+    const doc = vscode.createTextDocument(content, uri);
+    doc.languageId = 'thrift';
+    doc.uri = uri;
+    doc.lineCount = content.split('\n').length;
+    return doc;
 }
 
 function findStructRange(lines, structName) {
-    // Use a robust regex to match struct header with flexible whitespace
     const startPattern = new RegExp(`\\bstruct\\s+${structName}\\s*\\{`);
-    // Find the starting line index of the struct
     let start = -1;
     for (let i = 0; i < lines.length; i++) {
         const line = (lines[i] || '').trimEnd();
@@ -60,7 +33,6 @@ function findStructRange(lines, structName) {
         }
     }
     if (start === -1) return {start: -1, end: -1};
-    // Walk forward to find the matching closing brace by tracking depth
     let depth = 0;
     for (let i = start; i < lines.length; i++) {
         const line = lines[i] || '';
@@ -82,17 +54,13 @@ function runTest() {
     console.log('🔍 Testing VS Code formatting scenarios...\n');
 
     const formatter = new ThriftFormattingProvider();
-    const fs = require('fs');
-    const path = require('path');
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
     const examplePath = path.join(__dirname, '..', '..', 'test-files', 'example.thrift');
     const originalContent = fs.readFileSync(examplePath, 'utf8');
 
-    // Test 1: Format entire document (like Ctrl+Shift+I or format on save)
     console.log('📄 Test 1: Format entire document');
     console.log('='.repeat(50));
 
-    const mockDoc1 = createMockDocument(originalContent);
+    const mockDoc1 = createMockDocument(originalContent, examplePath);
     const options = {insertSpaces: true, tabSize: 2};
 
     const edits1 = formatter.provideDocumentFormattingEdits(mockDoc1, options);
@@ -101,10 +69,8 @@ const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
         process.exit(1);
     }
 
-    // Apply all returned edits to produce the final formatted content
-    const formattedContent = applyEditsToContent(originalContent, edits1)
+    const formattedContent = applyEditsToContent(originalContent, edits1);
 
-    // Extract User struct from both versions
     const originalLines = originalContent.split('\n');
     const formattedLines = formattedContent.split('\n');
 
@@ -114,11 +80,11 @@ const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
     console.log(`Original User struct: lines ${origRange.start + 1}-${origRange.end + 1}`);
     console.log(`Formatted User struct: lines ${formRange.start + 1}-${formRange.end + 1}`);
 
-    // Compare blank lines in User struct
     const origUserLines = originalLines.slice(origRange.start, origRange.end + 1);
     const formUserLines = formattedLines.slice(formRange.start, formRange.end + 1);
 
-    let origBlanks = [], formBlanks = [];
+    const origBlanks = [];
+    const formBlanks = [];
     origUserLines.forEach((line, i) => {
         if (line.trim() === '') origBlanks.push(i + 1);
     });
@@ -151,12 +117,11 @@ const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 
     console.log('✅ Document formatting preserves blank lines\n');
 
-    // Test 2: Format selected range (lines 25-38)
     console.log('📝 Test 2: Format selected range (lines 25-38)');
     console.log('='.repeat(50));
 
-    const mockDoc2 = createMockDocument(originalContent);
-    const range = new vscode.Range(24, 0, 37, originalLines[37]?.length || 0); // 0-indexed
+    const mockDoc2 = createMockDocument(originalContent, examplePath);
+    const range = new vscode.Range(24, 0, 37, originalLines[37]?.length || 0);
 
     const edits2 = formatter.provideDocumentRangeFormattingEdits(mockDoc2, range, options);
     if (!edits2 || edits2.length === 0) {
@@ -164,15 +129,15 @@ const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
         process.exit(1);
     }
 
-    // Apply all range edits to the selected range content
-    const rangeOriginalText = mockDoc2.getText(range)
-    const localEdits2 = rebaseEditsToRange(edits2, range)
-    const rangeFormattedText = applyEditsToContent(rangeOriginalText, localEdits2)
+    const rangeOriginalText = mockDoc2.getText(range);
+    const localEdits2 = rebaseEditsToRange(edits2, range);
+    const rangeFormattedText = applyEditsToContent(rangeOriginalText, localEdits2);
 
     const rangeOrigLines = rangeOriginalText.split('\n');
     const rangeFormLines = rangeFormattedText.split('\n');
 
-    let rangeOrigBlanks = [], rangeFormBlanks = [];
+    const rangeOrigBlanks = [];
+    const rangeFormBlanks = [];
     rangeOrigLines.forEach((line, i) => {
         if (line.trim() === '') rangeOrigBlanks.push(i + 1);
     });
@@ -208,13 +173,12 @@ const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 
 runTest();
 
-
 function toOffsetsIndex(lines) {
     const offsets = new Array(lines.length + 1);
     let sum = 0;
     for (let i = 0; i < lines.length; i++) {
         offsets[i] = sum;
-        sum += (lines[i]?.length || 0) + 1; // +1 for newline
+        sum += (lines[i]?.length || 0) + 1;
     }
     offsets[lines.length] = sum;
     return offsets;
@@ -232,7 +196,6 @@ function applyEditsToContent(content, edits) {
     if (!edits || edits.length === 0) return content;
     const lines = content.split('\n');
     const offsets = toOffsetsIndex(lines);
-    // Decorate edits with start/end offsets
     const expanded = edits.map(e => {
         const s = e.range.start || {line: 0, character: 0};
         const ed = e.range.end || {line: lines.length - 1, character: (lines[lines.length - 1]?.length || 0)};
@@ -242,7 +205,6 @@ function applyEditsToContent(content, edits) {
             newText: e.newText || ''
         };
     });
-    // Sort by start offset descending to avoid messing up ranges while replacing
     expanded.sort((a, b) => b.start - a.start);
     let result = content;
     for (const e of expanded) {
@@ -251,7 +213,6 @@ function applyEditsToContent(content, edits) {
     return result;
 }
 
-// Rebase document-based edits to be relative to a given range's start line/char
 function rebaseEditsToRange(edits, baseRange) {
     const baseLine = baseRange.start?.line || 0;
     const baseChar = baseRange.start?.character || 0;
