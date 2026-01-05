@@ -325,6 +325,12 @@ function includesKeyword(rawLine: string): boolean {
     return /\binclude\b/.test(sanitizeStructuralText(rawLine));
 }
 
+export const diagnosticsTestUtils = {
+    includesKeyword,
+    hasStructuralTokens,
+    sanitizeStructuralText
+};
+
 
 // isKnownType checks if a type name is known 
 function isKnownType(typeName: string, definedTypes: Set<string>, includeAliases: Set<string>): boolean {
