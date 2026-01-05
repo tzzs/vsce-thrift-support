@@ -158,7 +158,8 @@
     "package": "npx @vscode/vsce package",
     "publish": "npx @vscode/vsce publish",
     "test": "node tests/run-all-unified.js",
-    "coverage": "nyc --reporter=text-summary node tests/run-all-unified.js"
+    "coverage": "nyc --reporter=text-summary node tests/run-all-unified.js",
+    "perf:benchmark": "node tests/perf/run-performance-benchmark.js"
   },
   "devDependencies": {
     "@types/node": "16.x",

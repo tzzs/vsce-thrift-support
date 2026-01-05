@@ -10,7 +10,8 @@
 
 - [x] 配置侧开关落地：`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines` 默认启用（不对用户暴露设置项）
 - [x] 增量分析与增量格式化回归用例补齐（诊断、格式化、范围合并、结构性变更）
-- [ ] 性能基准：大文件编辑与频繁改动的 CPU/内存对比数据
+- [x] 性能基准脚本与文档：新增 `tests/perf/run-performance-benchmark.js` 与 `docs/performance-benchmark.md`
+- [x] 采集基准数据并归档（CPU/内存对比）：baseline structs=120, fields=30, iterations=10; diagnostics full avg 10.19ms (min 6.90 / max 14.64); diagnostics incremental avg 15.47ms (min 6.57 / max 75.01); formatting full avg 28.45ms (min 20.00 / max 56.35); formatting incremental avg 2.06ms (min 0.17 / max 17.22)
 
 ### 1.2 代码健康
 
