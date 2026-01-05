@@ -8,8 +8,8 @@
 
 ### 1.1 稳定性与性能
 
-- [x] 配置侧开关落地：`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines` 与设置项联动
-- [ ] 增量分析与增量格式化回归用例补齐（诊断、格式化、范围合并、结构性变更）
+- [x] 配置侧开关落地：`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines` 默认启用（不对用户暴露设置项）
+- [x] 增量分析与增量格式化回归用例补齐（诊断、格式化、范围合并、结构性变更）
 - [ ] 性能基准：大文件编辑与频繁改动的 CPU/内存对比数据
 
 ### 1.2 代码健康

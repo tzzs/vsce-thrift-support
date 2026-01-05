@@ -144,21 +144,6 @@
           "type": "boolean",
           "default": false,
           "description": "Enable verbose diagnostics logging"
-        },
-        "thrift.incremental.analysisEnabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable incremental diagnostics analysis based on dirty ranges"
-        },
-        "thrift.incremental.formattingEnabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable incremental formatting based on dirty ranges"
-        },
-        "thrift.incremental.maxDirtyLines": {
-          "type": "number",
-          "default": 200,
-          "description": "Maximum dirty line count to allow incremental analysis/formatting"
         }
       }
     }

@@ -110,12 +110,12 @@ export const config = {
         /** 最大性能记录条数 */
         maxMetrics: 100
     },
-    /** 增量能力配置（预留开关，便于后续落地） */
+    /** 增量能力配置（默认启用，不暴露给用户配置） */
     incremental: {
         /** 是否启用增量诊断（仅重新分析脏区） */
-        analysisEnabled: false,
+        analysisEnabled: true,
         /** 是否启用增量格式化（按脏区生成最小化编辑） */
-        formattingEnabled: false,
+        formattingEnabled: true,
         /** 单次允许的最大脏区行数，超限则退回全量 */
         maxDirtyLines: 200
     }

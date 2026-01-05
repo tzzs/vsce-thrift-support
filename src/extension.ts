@@ -15,22 +15,6 @@ import {ErrorHandler} from './utils/error-handler';
 import {createCoreDependencies} from './utils/dependencies';
 import {config} from './config';
 
-function syncIncrementalConfig(): void {
-    const incrementalConfig = vscode.workspace.getConfiguration('thrift.incremental');
-    config.incremental.analysisEnabled = incrementalConfig.get(
-        'analysisEnabled',
-        config.incremental.analysisEnabled
-    );
-    config.incremental.formattingEnabled = incrementalConfig.get(
-        'formattingEnabled',
-        config.incremental.formattingEnabled
-    );
-    config.incremental.maxDirtyLines = incrementalConfig.get(
-        'maxDirtyLines',
-        config.incremental.maxDirtyLines
-    );
-}
-
 /**
  * 扩展入口，注册所有能力与命令。
  */
@@ -42,14 +26,6 @@ export function activate(context: vscode.ExtensionContext) {
         operation: 'activate'
     });
     const performanceMonitor = deps.performanceMonitor;
-    syncIncrementalConfig();
-    context.subscriptions.push(
-        vscode.workspace.onDidChangeConfiguration(event => {
-            if (event.affectsConfiguration('thrift.incremental')) {
-                syncIncrementalConfig();
-            }
-        })
-    );
 
     // Register formatting provider
     const formattingProvider = new ThriftFormattingProvider(deps);
