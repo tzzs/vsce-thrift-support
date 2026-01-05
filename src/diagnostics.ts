@@ -30,6 +30,14 @@ import {
     buildPartialLines,
     hashText
 } from './diagnostics/utils';
+import {
+    clearIncludeCacheForDocument,
+    clearIncludeCaches,
+    collectIncludedTypes,
+    collectIncludedTypesFromCache,
+    collectTypesFromAst,
+    getIncludedFiles
+} from './diagnostics/include-resolver';
 import type {
     BlockCache,
     BlockCacheValue,
@@ -447,198 +455,6 @@ function isValidDefaultValue(typeText: string, valueText: string): boolean {
 }
 
 // Parse types from a Thrift file content and return a map of type names to their kinds
-function collectTypesFromAst(ast: nodes.ThriftDocument): Map<string, string> {
-    const typeKind = new Map<string, string>();
-    for (const node of ast.body) {
-        switch (node.type) {
-            case nodes.ThriftNodeType.Typedef:
-                if (node.name) {
-                    typeKind.set(node.name, 'typedef');
-                }
-                break;
-            case nodes.ThriftNodeType.Enum:
-                if (node.name) {
-                    typeKind.set(node.name, (node as nodes.Enum).isSenum ? 'senum' : 'enum');
-                }
-                break;
-            case nodes.ThriftNodeType.Struct:
-                if (node.name) {
-                    typeKind.set(node.name, 'struct');
-                }
-                break;
-            case nodes.ThriftNodeType.Union:
-                if (node.name) {
-                    typeKind.set(node.name, 'union');
-                }
-                break;
-            case nodes.ThriftNodeType.Exception:
-                if (node.name) {
-                    typeKind.set(node.name, 'exception');
-                }
-                break;
-            case nodes.ThriftNodeType.Service:
-                if (node.name) {
-                    typeKind.set(node.name, 'service');
-                }
-                break;
-            default:
-                break;
-        }
-    }
-    return typeKind;
-}
-
-function parseTypesFromContent(content: string, uri: string): Map<string, string> {
-    const ast = ThriftParser.parseContentWithCache(uri, content);
-    return collectTypesFromAst(ast);
-}
-
-// Get included file paths from a Thrift document
-async function getIncludedFiles(document: vscode.TextDocument): Promise<vscode.Uri[]> {
-    const includedFiles: vscode.Uri[] = [];
-    const documentDir = path.dirname(document.uri.fsPath);
-    const ast = ThriftParser.parseWithCache(document);
-
-    for (const node of ast.body) {
-        if (node.type !== nodes.ThriftNodeType.Include) {
-            continue;
-        }
-        const includePath = (node as nodes.Include).path;
-        let fullPath: string;
-
-        if (path.isAbsolute(includePath)) {
-            fullPath = includePath;
-        } else {
-            fullPath = path.resolve(documentDir, includePath);
-        }
-
-        try {
-            const uri = vscode.Uri.file(fullPath);
-            includedFiles.push(uri);
-        } catch (error) {
-            // Invalid path, skip - this is expected for some cases
-            // No need to log as error, this is normal behavior
-        }
-    }
-
-    return includedFiles;
-}
-
-// 包含文件类型缓存 - 避免重复分析相同文件
-const includeTypesCache = new Map<string, Map<string, string>>();
-const includeFileTimestamps = new Map<string, number>();
-const includeFileStats = new Map<string, { mtime: number, size: number }>();
-const INCLUDE_CACHE_MAX_AGE = config.cache.includeTypesMaxAgeMs;
-
-// Collect types from all included files (带智能缓存优化版本)
-async function collectIncludedTypes(document: vscode.TextDocument, errorHandler?: ErrorHandler): Promise<Map<string, string>> {
-    const includedTypes = new Map<string, string>();
-    const includedFiles = await getIncludedFiles(document);
-    const now = Date.now();
-    const decoder = new TextDecoder('utf-8');
-
-    for (const includedFile of includedFiles) {
-        try {
-            const includedFileKey = includedFile.toString();
-
-            // 检查文件状态是否发生变化
-            let fileStats;
-            try {
-                const stat = await vscode.workspace.fs.stat(includedFile);
-                fileStats = { mtime: stat.mtime, size: stat.size };
-            } catch {
-                // 无法获取文件状态，使用缓存或跳过
-                fileStats = null;
-            }
-
-            const cachedStats = includeFileStats.get(includedFileKey);
-            const cachedTypes = includeTypesCache.get(includedFileKey);
-            const cachedTime = includeFileTimestamps.get(includedFileKey);
-
-            // 判断缓存是否有效：时间未过期且文件状态未变化
-            const cacheValid = cachedTypes && cachedTime &&
-                (now - cachedTime) < INCLUDE_CACHE_MAX_AGE &&
-                (!fileStats || !cachedStats || (
-                    fileStats.mtime === cachedStats.mtime &&
-                    fileStats.size === cachedStats.size
-                ));
-
-            if (cacheValid) {
-                // 使用缓存的数据
-                logDiagnostics(`[Diagnostics] Using cached types for included file: ${path.basename(includedFile.fsPath)}`);
-                for (const [name, kind] of cachedTypes) {
-                    if (!includedTypes.has(name)) {
-                        includedTypes.set(name, kind);
-                    }
-                }
-                continue;
-            }
-
-            logDiagnostics(`[Diagnostics] Analyzing included file: ${path.basename(includedFile.fsPath)} (cache miss)`);
-
-            // 缓存无效，重新分析
-            // 关键修复: 不要使用 openTextDocument，因为它会触发 onDidOpenTextDocument 事件，导致递归扫描
-            // 只有当文档已经在编辑器中打开时才使用 TextDocument，否则直接读取文件内容
-            let text = '';
-            const openDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === includedFileKey);
-
-            if (openDoc) {
-                text = openDoc.getText();
-            } else {
-                const content = await vscode.workspace.fs.readFile(includedFile);
-                text = decoder.decode(content);
-            }
-
-            const types = parseTypesFromContent(text, includedFileKey);
-
-            // 更新缓存
-            includeTypesCache.set(includedFileKey, new Map(types));
-            includeFileTimestamps.set(includedFileKey, now);
-            if (fileStats) {
-                includeFileStats.set(includedFileKey, fileStats);
-            }
-
-            // Add types from this included file
-            for (const [name, kind] of types) {
-                if (!includedTypes.has(name)) {
-                    includedTypes.set(name, kind);
-                }
-            }
-        } catch (error) {
-            // File might not exist or be accessible, skip
-            if (errorHandler) {
-                errorHandler.handleError(error, {
-                    component: 'DiagnosticManager',
-                    operation: 'collectIncludedTypes',
-                    filePath: includedFile.fsPath,
-                    additionalInfo: { reason: 'includedFileAnalysis' }
-                });
-            }
-            continue;
-        }
-    }
-
-    return includedTypes;
-}
-
-function collectIncludedTypesFromCache(includedFiles: vscode.Uri[]): Map<string, string> | null {
-    const includedTypes = new Map<string, string>();
-    const now = Date.now();
-    for (const includedFile of includedFiles) {
-        const includedFileKey = includedFile.toString();
-        const cachedTypes = includeTypesCache.get(includedFileKey);
-        const cachedTime = includeFileTimestamps.get(includedFileKey);
-        if (!cachedTypes || !cachedTime || (now - cachedTime) >= INCLUDE_CACHE_MAX_AGE) {
-            return null;
-        }
-        for (const [name, kind] of cachedTypes) {
-            if (!includedTypes.has(name)) {
-                includedTypes.set(name, kind);
-            }
-        }
-    }
-    return includedTypes;
-}
 
 interface AnalysisContext {
     includeAliases: Set<string>;
@@ -1222,10 +1038,7 @@ export class DiagnosticManager {
 
         // 清除包含文件缓存（如果这个文件是被包含的文件）
         const docUri = doc.uri.toString();
-        if (includeTypesCache.has(docUri)) {
-            includeTypesCache.delete(docUri);
-            includeFileTimestamps.delete(docUri);
-            includeFileStats.delete(docUri);
+        if (clearIncludeCacheForDocument(docUri)) {
             logDiagnostics(`[Diagnostics] Cleared include cache for: ${path.basename(doc.uri.fsPath)}`);
         }
     }
@@ -1323,7 +1136,7 @@ export class DiagnosticManager {
                             : null;
                         const includedTypes = cachedIncludedTypes
                             ? cachedIncludedTypes
-                            : await collectIncludedTypes(doc, this.errorHandler);
+                            : await collectIncludedTypes(doc, this.errorHandler, logDiagnostics);
 
                         // 跟踪文件依赖关系（缓存命中时可跳过）
                         if (!cachedIncludedTypes) {
@@ -1579,9 +1392,7 @@ export function registerDiagnostics(context: vscode.ExtensionContext, deps?: Par
         logDiagnostics(`[Diagnostics] File system watcher triggered, clearing caches and rescheduling analysis`);
 
         // 清除所有包含缓存
-        includeTypesCache.clear();
-        includeFileTimestamps.clear();
-        includeFileStats.clear();
+        clearIncludeCaches();
 
         // 重新分析所有打开的thrift文档
         vscode.workspace.textDocuments.forEach(doc => {
