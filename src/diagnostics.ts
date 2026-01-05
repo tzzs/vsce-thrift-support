@@ -29,7 +29,7 @@ import {
     stripCommentsFromLine,
     buildPartialLines,
     hashText
-} from './diagnostics/diagnostics-utils';
+} from './diagnostics/utils';
 import type {
     BlockCache,
     BlockCacheValue,
@@ -37,10 +37,10 @@ import type {
     MemberCacheByBlock,
     MemberCacheValue,
     ThriftIssue
-} from './diagnostics/diagnostics-types';
+} from './diagnostics/types';
 
-export type { ThriftIssue } from './diagnostics/diagnostics-types';
-export { diagnosticsTestUtils } from './diagnostics/diagnostics-utils';
+export type { ThriftIssue } from './diagnostics/types';
+export { diagnosticsTestUtils } from './diagnostics/utils';
 
 const PRIMITIVES = new Set<string>([
     'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid', 'slist'
