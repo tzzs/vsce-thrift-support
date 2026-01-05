@@ -11,7 +11,6 @@ import {registerWorkspaceSymbolProvider} from './workspace-symbol-provider';
 import {registerReferencesProvider} from './references-provider';
 import {registerFoldingRangeProvider} from './folding-range-provider';
 import {registerSelectionRangeProvider} from './selection-range-provider';
-import {PerformanceMonitor} from './performance-monitor';
 import {ErrorHandler} from './utils/error-handler';
 import {createCoreDependencies} from './utils/dependencies';
 import {config} from './config';
@@ -26,6 +25,7 @@ export function activate(context: vscode.ExtensionContext) {
         component: 'Extension',
         operation: 'activate'
     });
+    const performanceMonitor = deps.performanceMonitor;
 
     // Register formatting provider
     const formattingProvider = new ThriftFormattingProvider(deps);
@@ -308,14 +308,14 @@ export function activate(context: vscode.ExtensionContext) {
     // Register performance monitoring commands
     context.subscriptions.push(
         vscode.commands.registerCommand('thrift.showPerformanceReport', () => {
-            PerformanceMonitor.showPerformanceReport();
+            performanceMonitor.showPerformanceReport();
         })
     );
 
     // Add command to clear performance data
     context.subscriptions.push(
         vscode.commands.registerCommand('thrift.clearPerformanceData', () => {
-            PerformanceMonitor.clearMetrics();
+            performanceMonitor.clearMetrics();
             vscode.window.showInformationMessage('Thrift Support: Performance metrics cleared');
         })
     );

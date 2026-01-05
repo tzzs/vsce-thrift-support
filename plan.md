@@ -21,10 +21,11 @@
 - AST 类型范围回归测试新增（tests/src/ast/parser/test-type-ranges.js）
 - 错误处理与日志统一：主要 Provider + 性能监控/扫描分析工具使用 `ErrorHandler` 集中输出
 - 增量分析/增量格式化：脏区跟踪、依赖跳过、include 缓存复用、脏区诊断合并、结构性变更回退、块级局部解析与成员级缓存（enum/service/struct/union/exception）、范围合并统一、LRU/TTL 缓存驱逐
+- PerformanceMonitor 改为实例注入，从依赖构造层统一下发
 
 **进行中**
 
-- 架构设计问题：剩余模块的单例替换与注入迁移（`performance-monitor.ts`、`scanning-analyzer.ts` 等）
+- 暂无
 
 **待规划**
 
@@ -111,14 +112,14 @@ if (openDoc) {
 **当前状态:**
 
 - 配置/魔法字符串已集中至 `src/config/index.ts`，明显重复已收敛
-- 已引入轻量依赖构造层并在入口下发依赖，核心 Provider 与 `DiagnosticManager` 已改为构造注入
+- 已引入轻量依赖构造层并在入口下发依赖，核心 Provider、`DiagnosticManager`、`ScanningAnalyzer`、`PerformanceMonitor` 已改为构造注入
 - 单例模式仍存在于基础工具类/静态入口（`ThriftFileWatcher`、`CacheManager`、`IncrementalTracker`、`ErrorHandler` 等）
 
 **建议（待办拆解）:**
 
 - ✅ 引入简单的依赖构造/注入层，统一在入口创建并下发依赖
 - ✅ 先从 `DiagnosticManager` 与核心 Provider 开始替换 `getInstance()` 调用
-- [ ] 扩展到剩余模块（`performance-monitor.ts`、`scanning-analyzer.ts` 等）
+- [x] 扩展到剩余模块（`PerformanceMonitor` 的实例化重构）
 - [ ] 逐步收敛静态单例入口，保留可测试的构造注入
 
 **具体案例:**

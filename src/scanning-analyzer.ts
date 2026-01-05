@@ -8,19 +8,16 @@ import * as path from 'path';
 import {ThriftParser} from './ast/parser';
 import {collectIncludes} from './ast/utils';
 import {ErrorHandler} from './utils/error-handler';
+import {CoreDependencies} from './utils/dependencies';
 
 export class ScanningAnalyzer {
-    private static instance: ScanningAnalyzer;
     private analysisLog: string[] = [];
     private eventTriggerMap: Map<string, number> = new Map();
-    private errorHandler = ErrorHandler.getInstance();
+    private errorHandler: ErrorHandler;
     private readonly component = 'ScanningAnalyzer';
 
-    public static getInstance(): ScanningAnalyzer {
-        if (!ScanningAnalyzer.instance) {
-            ScanningAnalyzer.instance = new ScanningAnalyzer();
-        }
-        return ScanningAnalyzer.instance;
+    constructor(deps?: Partial<CoreDependencies>) {
+        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
     }
 
     /**
@@ -223,4 +220,8 @@ export class ScanningAnalyzer {
 }
 
 // 导出分析器
-export const scanningAnalyzer = ScanningAnalyzer.getInstance();
+export function createScanningAnalyzer(deps?: Partial<CoreDependencies>) {
+    return new ScanningAnalyzer(deps);
+}
+
+export const scanningAnalyzer = createScanningAnalyzer();

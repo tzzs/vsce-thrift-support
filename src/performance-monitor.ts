@@ -27,17 +27,34 @@ export interface OperationStats {
 /**
  * PerformanceMonitor：记录并报告扩展性能指标。
  */
+export interface PerformanceMonitorOptions {
+    errorHandler?: ErrorHandler;
+    slowOperationThreshold?: number;
+    maxMetrics?: number;
+}
+
 export class PerformanceMonitor {
-    private static metrics: PerformanceMetrics[] = [];
-    private static slowOperationThreshold = config.performance.slowOperationThresholdMs;
-    private static maxMetrics = config.performance.maxMetrics;
-    private static errorHandler = ErrorHandler.getInstance();
-    private static component = 'PerformanceMonitor';
+    private metrics: PerformanceMetrics[] = [];
+    private slowOperationThreshold: number;
+    private maxMetrics: number;
+    private errorHandler: ErrorHandler;
+    private readonly component = 'PerformanceMonitor';
+
+    constructor(options: PerformanceMonitorOptions = {}) {
+        this.errorHandler = options.errorHandler ?? ErrorHandler.getInstance();
+        this.slowOperationThreshold =
+            options.slowOperationThreshold ?? config.performance.slowOperationThresholdMs;
+        this.maxMetrics = options.maxMetrics ?? config.performance.maxMetrics;
+    }
+
+    public setErrorHandler(errorHandler: ErrorHandler): void {
+        this.errorHandler = errorHandler;
+    }
 
     /**
      * 同步测量指定操作的耗时。
      */
-    public static measure<T>(operation: string, fn: () => T, document?: vscode.TextDocument): T {
+    public measure<T>(operation: string, fn: () => T, document?: vscode.TextDocument): T {
         const start = performance.now();
         const result = fn();
         const duration = performance.now() - start;
@@ -64,7 +81,7 @@ export class PerformanceMonitor {
     /**
      * 异步测量指定操作的耗时。
      */
-    public static async measureAsync<T>(operation: string, fn: () => Promise<T>, document?: vscode.TextDocument): Promise<T> {
+    public async measureAsync<T>(operation: string, fn: () => Promise<T>, document?: vscode.TextDocument): Promise<T> {
         const start = performance.now();
         const result = await fn();
         const duration = performance.now() - start;
@@ -89,7 +106,7 @@ export class PerformanceMonitor {
     /**
      * 生成性能报告文本。
      */
-    public static getPerformanceReport(): string {
+    public getPerformanceReport(): string {
         if (this.metrics.length === 0) {
             return '暂无性能数据';
         }
@@ -137,7 +154,7 @@ export class PerformanceMonitor {
     /**
      * 打开并展示性能报告。
      */
-    public static async showPerformanceReport(): Promise<void> {
+    public async showPerformanceReport(): Promise<void> {
         const report = this.getPerformanceReport();
         const doc = await vscode.workspace.openTextDocument({
             content: report,
@@ -149,14 +166,14 @@ export class PerformanceMonitor {
     /**
      * 清理所有性能数据。
      */
-    public static clearMetrics(): void {
+    public clearMetrics(): void {
         this.metrics = [];
     }
 
     /**
      * 统计慢操作的次数与平均耗时。
      */
-    public static getSlowOperationStats(): { operation: string; count: number; avgDuration: number }[] {
+    public getSlowOperationStats(): { operation: string; count: number; avgDuration: number }[] {
         const slowOps = this.metrics.filter(m => m.duration > this.slowOperationThreshold);
         const stats = new Map<string, { count: number; totalDuration: number }>();
 
@@ -177,7 +194,7 @@ export class PerformanceMonitor {
     /**
      * 汇总每个操作的统计信息。
      */
-    public static getOperationStats(): OperationStats[] {
+    public getOperationStats(): OperationStats[] {
         const stats = new Map<string, OperationStats>();
 
         for (const metric of this.metrics) {
@@ -229,7 +246,7 @@ export class PerformanceMonitor {
         return result;
     }
 
-    private static recordMetric(metric: PerformanceMetrics): void {
+    private recordMetric(metric: PerformanceMetrics): void {
         this.metrics.push(metric);
 
         // 限制记录数量，避免内存泄漏
@@ -238,7 +255,7 @@ export class PerformanceMonitor {
         }
     }
 
-    private static warnSlowOperation(metric: PerformanceMetrics): void {
+    private warnSlowOperation(metric: PerformanceMetrics): void {
         this.errorHandler.handleWarning(
             `Slow operation detected: ${metric.operation} took ${metric.duration.toFixed(2)}ms`,
             {
@@ -264,7 +281,7 @@ export class PerformanceMonitor {
         }
     }
 
-    private static percentile(values: number[], p: number): number {
+    private percentile(values: number[], p: number): number {
         if (values.length === 0) {
             return 0;
         }
@@ -272,3 +289,9 @@ export class PerformanceMonitor {
         return values[index];
     }
 }
+
+export function createPerformanceMonitor(options: PerformanceMonitorOptions = {}): PerformanceMonitor {
+    return new PerformanceMonitor(options);
+}
+
+export const performanceMonitor = createPerformanceMonitor();

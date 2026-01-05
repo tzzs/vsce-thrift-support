@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { PerformanceMonitor } from './performance-monitor';
+import { PerformanceMonitor, performanceMonitor } from './performance-monitor';
 import { ThriftParser } from './ast/parser';
 import * as nodes from './ast/nodes.types';
 import { ThriftFileWatcher } from './utils/file-watcher';
@@ -1086,9 +1086,11 @@ export class DiagnosticManager {
     // 反向依赖跟踪 - key: 文件路径, value: 该文件包含的其他文件路径集合
     private fileIncludes = new Map<string, Set<string>>();
     private errorHandler: ErrorHandler;
+    private performanceMonitor: PerformanceMonitor;
 
-    constructor(errorHandler?: ErrorHandler) {
+    constructor(errorHandler?: ErrorHandler, performanceMonitorInstance?: PerformanceMonitor) {
         this.errorHandler = errorHandler ?? ErrorHandler.getInstance();
+        this.performanceMonitor = performanceMonitorInstance ?? performanceMonitor;
         this.collection = vscode.languages.createDiagnosticCollection('thrift');
     }
 
@@ -1308,7 +1310,7 @@ export class DiagnosticManager {
 
         try {
             // 使用性能监控包装分析过程
-            await PerformanceMonitor.measureAsync(
+            await this.performanceMonitor.measureAsync(
                 'Thrift诊断分析',
                 async () => {
                     try {
@@ -1650,7 +1652,7 @@ function hashText(text: string): number {
  * 注册诊断能力与文件监听。
  */
 export function registerDiagnostics(context: vscode.ExtensionContext, deps?: Partial<CoreDependencies>) {
-    const diagnosticManager = new DiagnosticManager(deps?.errorHandler);
+    const diagnosticManager = new DiagnosticManager(deps?.errorHandler, deps?.performanceMonitor);
 
     // 使用 ThriftFileWatcher 监控.thrift文件变化
     const fileWatcher = deps?.fileWatcher ?? ThriftFileWatcher.getInstance();
