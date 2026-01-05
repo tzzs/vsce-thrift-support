@@ -1,16 +1,10 @@
 import * as vscode from 'vscode';
 import * as nodes from './nodes.types';
-import { config } from '../config';
-
-// AST缓存机制 - 避免重复解析相同内容
-interface ASTCacheEntry {
-    content: string;
-    ast: nodes.ThriftDocument;
-    timestamp: number;
-}
-
-const astCache = new Map<string, ASTCacheEntry>();
-const CACHE_MAX_AGE = config.cache.astMaxAgeMs;
+import {
+    clearAstCacheForDocument,
+    clearExpiredAstCache,
+    parseWithAstCache
+} from './cache';
 
 export class ThriftParser {
     private text: string;
@@ -32,69 +26,34 @@ export class ThriftParser {
     public static parseWithCache(document: vscode.TextDocument): nodes.ThriftDocument {
         const uri = document.uri.toString();
         const content = document.getText();
-        const now = Date.now();
-
-        // 检查缓存
-        const cached = astCache.get(uri);
-        if (cached && cached.content === content && (now - cached.timestamp) < CACHE_MAX_AGE) {
-            return cached.ast;
-        }
-
-        // 解析并缓存
-        const parser = new ThriftParser(content);
-        const ast = parser.parse();
-
-        astCache.set(uri, {
-            content,
-            ast,
-            timestamp: now
+        return parseWithAstCache(uri, content, () => {
+            const parser = new ThriftParser(content);
+            return parser.parse();
         });
-
-        return ast;
     }
 
     /**
      * 带缓存的解析入口（基于 URI 与内容）。
      */
     public static parseContentWithCache(uri: string, content: string): nodes.ThriftDocument {
-        const now = Date.now();
-
-        // 检查缓存
-        const cached = astCache.get(uri);
-        if (cached && cached.content === content && (now - cached.timestamp) < CACHE_MAX_AGE) {
-            return cached.ast;
-        }
-
-        // 解析并缓存
-        const parser = new ThriftParser(content);
-        const ast = parser.parse();
-
-        astCache.set(uri, {
-            content,
-            ast,
-            timestamp: now
+        return parseWithAstCache(uri, content, () => {
+            const parser = new ThriftParser(content);
+            return parser.parse();
         });
-
-        return ast;
     }
 
     /**
      * 清理过期 AST 缓存。
      */
     public static clearExpiredCache(): void {
-        const now = Date.now();
-        for (const [uri, entry] of astCache.entries()) {
-            if (now - entry.timestamp > CACHE_MAX_AGE) {
-                astCache.delete(uri);
-            }
-        }
+        clearExpiredAstCache();
     }
 
     /**
      * 清理指定文档的 AST 缓存。
      */
     public static clearDocumentCache(uri: string): void {
-        astCache.delete(uri);
+        clearAstCacheForDocument(uri);
     }
 
     /**
