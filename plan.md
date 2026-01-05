@@ -24,6 +24,7 @@
 - PerformanceMonitor 改为实例注入，从依赖构造层统一下发
 - DI 接线测试补齐：PerformanceMonitor 实例注入 + 诊断侧性能监控注入
 - 静态单例入口收敛：核心流程改为实例化依赖注入，避免直接调用 `getInstance()`
+- CacheManager 驱逐策略优化：按缓存分桶管理，过期清理与上限淘汰成本下降
 
 **进行中**
 
