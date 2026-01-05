@@ -10,7 +10,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
     private errorHandler: ErrorHandler;
 
     constructor(deps?: Partial<CoreDependencies>) {
-        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+        this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
     }
     /**
      * 预检查重命名位置，返回可重命名范围与占位符。

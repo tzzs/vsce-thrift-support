@@ -1089,7 +1089,7 @@ export class DiagnosticManager {
     private performanceMonitor: PerformanceMonitor;
 
     constructor(errorHandler?: ErrorHandler, performanceMonitorInstance?: PerformanceMonitor) {
-        this.errorHandler = errorHandler ?? ErrorHandler.getInstance();
+        this.errorHandler = errorHandler ?? new ErrorHandler();
         this.performanceMonitor = performanceMonitorInstance ?? performanceMonitor;
         this.collection = vscode.languages.createDiagnosticCollection('thrift');
     }
@@ -1655,7 +1655,7 @@ export function registerDiagnostics(context: vscode.ExtensionContext, deps?: Par
     const diagnosticManager = new DiagnosticManager(deps?.errorHandler, deps?.performanceMonitor);
 
     // 使用 ThriftFileWatcher 监控.thrift文件变化
-    const fileWatcher = deps?.fileWatcher ?? ThriftFileWatcher.getInstance();
+    const fileWatcher = deps?.fileWatcher ?? new ThriftFileWatcher();
 
     const diagnosticsFileWatcher = fileWatcher.createWatcher(config.filePatterns.thrift, () => {
         // 当有任何.thrift文件变化时，清除相关缓存并重新分析

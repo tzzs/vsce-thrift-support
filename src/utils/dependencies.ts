@@ -13,12 +13,12 @@ export interface CoreDependencies {
 }
 
 export function createCoreDependencies(): CoreDependencies {
-    const errorHandler = ErrorHandler.getInstance();
+    const errorHandler = new ErrorHandler();
     return {
-        cacheManager: CacheManager.getInstance(),
+        cacheManager: new CacheManager(),
         errorHandler,
-        fileWatcher: ThriftFileWatcher.getInstance(),
-        incrementalTracker: IncrementalTracker.getInstance(),
+        fileWatcher: new ThriftFileWatcher(),
+        incrementalTracker: new IncrementalTracker(),
         performanceMonitor: createPerformanceMonitor({ errorHandler })
     };
 }

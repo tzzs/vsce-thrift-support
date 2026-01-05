@@ -13,7 +13,7 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
     private errorHandler: ErrorHandler;
 
     constructor(deps?: Partial<CoreDependencies>) {
-        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+        this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
     }
     /**
      * 返回每个位置的 SelectionRange 树。

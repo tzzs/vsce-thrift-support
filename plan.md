@@ -22,6 +22,8 @@
 - 错误处理与日志统一：主要 Provider + 性能监控/扫描分析工具使用 `ErrorHandler` 集中输出
 - 增量分析/增量格式化：脏区跟踪、依赖跳过、include 缓存复用、脏区诊断合并、结构性变更回退、块级局部解析与成员级缓存（enum/service/struct/union/exception）、范围合并统一、LRU/TTL 缓存驱逐
 - PerformanceMonitor 改为实例注入，从依赖构造层统一下发
+- DI 接线测试补齐：PerformanceMonitor 实例注入 + 诊断侧性能监控注入
+- 静态单例入口收敛：核心流程改为实例化依赖注入，避免直接调用 `getInstance()`
 
 **进行中**
 
@@ -101,7 +103,7 @@ if (openDoc) {
 
 **建议:** 建立标准异常处理流程，统一错误日志格式（已引入 `ErrorHandler` 并覆盖主要模块）。
 
-#### 2.2.2 架构设计问题（🟡 部分完成）
+#### 2.2.2 架构设计问题（✅ 已完成）
 
 **发现:**
 
@@ -113,14 +115,15 @@ if (openDoc) {
 
 - 配置/魔法字符串已集中至 `src/config/index.ts`，明显重复已收敛
 - 已引入轻量依赖构造层并在入口下发依赖，核心 Provider、`DiagnosticManager`、`ScanningAnalyzer`、`PerformanceMonitor` 已改为构造注入
-- 单例模式仍存在于基础工具类/静态入口（`ThriftFileWatcher`、`CacheManager`、`IncrementalTracker`、`ErrorHandler` 等）
+- 静态 `getInstance()` 调用已从核心路径移除，保留兼容入口
+- 注入接线测试已补齐（PerformanceMonitor/Diagnostics）
 
 **建议（待办拆解）:**
 
 - ✅ 引入简单的依赖构造/注入层，统一在入口创建并下发依赖
 - ✅ 先从 `DiagnosticManager` 与核心 Provider 开始替换 `getInstance()` 调用
 - [x] 扩展到剩余模块（`PerformanceMonitor` 的实例化重构）
-- [ ] 逐步收敛静态单例入口，保留可测试的构造注入
+- [x] 逐步收敛静态单例入口，保留可测试的构造注入
 
 **具体案例:**
 

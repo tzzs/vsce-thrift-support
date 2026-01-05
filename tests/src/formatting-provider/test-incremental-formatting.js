@@ -31,8 +31,8 @@ function run() {
     config.incremental.maxDirtyLines = 2;
 
     try {
-        const tracker = IncrementalTracker.getInstance();
-        const provider = new ThriftFormattingProvider();
+        const tracker = new IncrementalTracker();
+        const provider = new ThriftFormattingProvider({incrementalTracker: tracker});
 
         const text = [
             'struct A {',

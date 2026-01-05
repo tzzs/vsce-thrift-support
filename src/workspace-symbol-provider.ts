@@ -22,8 +22,8 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
     private readonly component = 'ThriftWorkspaceSymbolProvider';
 
     constructor(deps?: Partial<CoreDependencies>) {
-        this.cacheManager = deps?.cacheManager ?? CacheManager.getInstance();
-        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+        this.cacheManager = deps?.cacheManager ?? new CacheManager();
+        this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
 
         // 注册缓存配置
         this.cacheManager.registerCache('workspaceSymbols', {
@@ -36,7 +36,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
         });
 
         // Watch for changes to Thrift files
-        const fileWatcher = deps?.fileWatcher ?? ThriftFileWatcher.getInstance();
+        const fileWatcher = deps?.fileWatcher ?? new ThriftFileWatcher();
         this.fileWatcher = fileWatcher.createWatcherWithEvents(config.filePatterns.thrift, {
             onCreate: (uri) => this.handleFileCreated(uri),
             onDelete: (uri) => this.handleFileDeleted(uri),

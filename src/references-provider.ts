@@ -26,8 +26,8 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
     private readonly AST_CACHE_TTL = config.references.astCacheTtlMs;
 
     constructor(deps?: Partial<CoreDependencies>) {
-        this.cacheManager = deps?.cacheManager ?? CacheManager.getInstance();
-        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+        this.cacheManager = deps?.cacheManager ?? new CacheManager();
+        this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
 
         // 注册缓存配置
         this.cacheManager.registerCache('references', {
@@ -728,7 +728,7 @@ export function registerReferencesProvider(context: vscode.ExtensionContext, dep
     context.subscriptions.push(disposable);
 
     // 添加文件监听器，当文件改变时清除缓存
-    const fileWatcher = deps?.fileWatcher ?? ThriftFileWatcher.getInstance();
+    const fileWatcher = deps?.fileWatcher ?? new ThriftFileWatcher();
     const referencesFileWatcher = fileWatcher.createWatcherWithEvents(config.filePatterns.thrift, {
         onCreate: (uri) => provider.handleFileCreated(uri),
         onDelete: (uri) => provider.handleFileDeleted(uri),

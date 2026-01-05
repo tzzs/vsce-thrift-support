@@ -25,7 +25,7 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
     private errorHandler: ErrorHandler;
 
     constructor(deps?: Partial<CoreDependencies>) {
-        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+        this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
     }
 
     /**

@@ -24,8 +24,8 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
     private errorHandler: ErrorHandler;
 
     constructor(deps?: Partial<CoreDependencies>) {
-        this.cacheManager = deps?.cacheManager ?? CacheManager.getInstance();
-        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+        this.cacheManager = deps?.cacheManager ?? new CacheManager();
+        this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
 
         // 注册缓存配置
         this.cacheManager.registerCache('hoverIncludes', {

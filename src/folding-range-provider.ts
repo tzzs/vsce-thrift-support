@@ -12,7 +12,7 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
     private errorHandler: ErrorHandler;
 
     constructor(deps?: Partial<CoreDependencies>) {
-        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+        this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
     }
     /**
      * 返回文档的折叠范围列表。

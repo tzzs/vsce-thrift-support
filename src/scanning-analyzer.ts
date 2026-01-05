@@ -17,7 +17,7 @@ export class ScanningAnalyzer {
     private readonly component = 'ScanningAnalyzer';
 
     constructor(deps?: Partial<CoreDependencies>) {
-        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+        this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
     }
 
     /**

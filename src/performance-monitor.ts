@@ -41,7 +41,7 @@ export class PerformanceMonitor {
     private readonly component = 'PerformanceMonitor';
 
     constructor(options: PerformanceMonitorOptions = {}) {
-        this.errorHandler = options.errorHandler ?? ErrorHandler.getInstance();
+        this.errorHandler = options.errorHandler ?? new ErrorHandler();
         this.slowOperationThreshold =
             options.slowOperationThreshold ?? config.performance.slowOperationThresholdMs;
         this.maxMetrics = options.maxMetrics ?? config.performance.maxMetrics;

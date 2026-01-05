@@ -322,7 +322,7 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-    const errorHandler = ErrorHandler.getInstance();
+    const errorHandler = new ErrorHandler();
     errorHandler.handleInfo('Thrift Support extension is now deactivated!', {
         component: 'Extension',
         operation: 'deactivate'

@@ -71,7 +71,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
     private containers = ['list', 'set', 'map'];
 
     constructor(deps?: Partial<CoreDependencies>) {
-        this.errorHandler = deps?.errorHandler ?? ErrorHandler.getInstance();
+        this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
     }
 
     /**
