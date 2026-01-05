@@ -15,7 +15,7 @@ const vscode = createVscodeMock({
 });
 installVscodeMock(vscode);
 
-const {PerformanceMonitor} = require('../../../out/performance-monitor.js');
+const {createPerformanceMonitor} = require('../../../out/performance-monitor.js');
 
 function assert(condition, message) {
     if (!condition) {
@@ -30,13 +30,14 @@ function findStat(stats, name) {
 async function run() {
     console.log('=== Running PerformanceMonitor Tests ===\n');
 
-    PerformanceMonitor.clearMetrics();
+    const monitor = createPerformanceMonitor();
+    monitor.clearMetrics();
 
-    PerformanceMonitor.measure('opA', () => 1);
-    PerformanceMonitor.measure('opA', () => 2);
-    PerformanceMonitor.measure('opB', () => 3);
+    monitor.measure('opA', () => 1);
+    monitor.measure('opA', () => 2);
+    monitor.measure('opB', () => 3);
 
-    const stats = PerformanceMonitor.getOperationStats();
+    const stats = monitor.getOperationStats();
     const opA = findStat(stats, 'opA');
     const opB = findStat(stats, 'opB');
 
@@ -46,12 +47,25 @@ async function run() {
     assert(opA.p95Duration >= opA.minDuration, 'Expected p95 >= min duration');
     assert(opA.maxDuration >= opA.p95Duration, 'Expected max >= p95 duration');
 
-    const report = PerformanceMonitor.getPerformanceReport();
+    const report = monitor.getPerformanceReport();
     assert(report.includes('操作统计'), 'Expected report to include operation stats');
     assert(report.includes('opA'), 'Expected report to include opA');
 
-    PerformanceMonitor.clearMetrics();
-    const emptyReport = PerformanceMonitor.getPerformanceReport();
+    monitor.clearMetrics();
+    const emptyReport = monitor.getPerformanceReport();
+
+    const warnings = [];
+    const fakeErrorHandler = {
+        handleWarning: (message, context) => {
+            warnings.push({message, context});
+        }
+    };
+    const injectedMonitor = createPerformanceMonitor({
+        errorHandler: fakeErrorHandler,
+        slowOperationThreshold: 0
+    });
+    injectedMonitor.measure('slow-op', () => 1);
+    assert(warnings.length > 0, 'Expected injected error handler to receive warning');
     assert(emptyReport === '暂无性能数据', 'Expected empty report when no metrics exist');
 
     console.log('✅ PerformanceMonitor tests passed!');
