@@ -98,6 +98,8 @@ export const config = {
         analysisDelayMs: 300,
         /** 最小分析间隔（毫秒） */
         minAnalysisIntervalMs: 1000,
+        /** 并发诊断分析上限 */
+        maxConcurrentAnalyses: 1,
         /** 依赖文件分析延迟倍数 */
         dependentAnalysisDelayFactor: 2
     },

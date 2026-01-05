@@ -1080,6 +1080,10 @@ export class DiagnosticManager {
     }>();
     private readonly ANALYSIS_DELAY = config.diagnostics.analysisDelayMs;
     private readonly MIN_ANALYSIS_INTERVAL = config.diagnostics.minAnalysisIntervalMs;
+    private readonly MAX_CONCURRENT_ANALYSES = Math.max(1, config.diagnostics.maxConcurrentAnalyses);
+    private inFlightAnalyses = 0;
+    private analysisWaiters: Array<() => void> = [];
+    private pendingAnalyses = new Set<string>();
 
     // 文件依赖跟踪 - key: 文件路径, value: 依赖该文件的其他文件路径集合
     private fileDependencies = new Map<string, Set<string>>();
@@ -1147,7 +1151,7 @@ export class DiagnosticManager {
 
         const timeout = setTimeout(() => {
             this.analysisQueue.delete(key);
-            this.performAnalysis(doc);
+            this.enqueueAnalysis(doc);
         }, delay);
 
         this.analysisQueue.set(key, timeout);
@@ -1181,6 +1185,54 @@ export class DiagnosticManager {
                     }
                 }, this.ANALYSIS_DELAY * config.diagnostics.dependentAnalysisDelayFactor);
             }
+        }
+    }
+
+    private enqueueAnalysis(doc: vscode.TextDocument): void {
+        const key = this.getDocumentKey(doc);
+        if (this.pendingAnalyses.has(key)) {
+            return;
+        }
+        this.pendingAnalyses.add(key);
+        void this.runWithLimit(async () => {
+            try {
+                await this.performAnalysis(doc);
+            } finally {
+                this.pendingAnalyses.delete(key);
+            }
+        });
+    }
+
+    private async runWithLimit<T>(task: () => Promise<T>): Promise<T> {
+        if (this.MAX_CONCURRENT_ANALYSES <= 0) {
+            return task();
+        }
+        await this.acquireSlot();
+        try {
+            return await task();
+        } finally {
+            this.releaseSlot();
+        }
+    }
+
+    private acquireSlot(): Promise<void> {
+        if (this.inFlightAnalyses < this.MAX_CONCURRENT_ANALYSES) {
+            this.inFlightAnalyses += 1;
+            return Promise.resolve();
+        }
+        return new Promise(resolve => {
+            this.analysisWaiters.push(() => {
+                this.inFlightAnalyses += 1;
+                resolve();
+            });
+        });
+    }
+
+    private releaseSlot(): void {
+        this.inFlightAnalyses = Math.max(0, this.inFlightAnalyses - 1);
+        const next = this.analysisWaiters.shift();
+        if (next) {
+            next();
         }
     }
 
