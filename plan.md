@@ -21,6 +21,7 @@
 - AST 类型范围回归测试新增（tests/src/ast/parser/test-type-ranges.js）
 - 错误处理与日志统一：主要 Provider + 性能监控/扫描分析工具使用 `ErrorHandler` 集中输出
 - 增量分析/增量格式化：脏区跟踪、依赖跳过、include 缓存复用、脏区诊断合并、结构性变更回退、块级局部解析与成员级缓存（enum/service/struct/union/exception）、范围合并统一、LRU/TTL 缓存驱逐
+- 增量分析脏区合并优化：多段脏区统一合并后在最小包含块内分析，避免跨块变更误判与范围漂移
 - PerformanceMonitor 改为实例注入，从依赖构造层统一下发
 - DI 接线测试补齐：PerformanceMonitor 实例注入 + 诊断侧性能监控注入
 - 静态单例入口收敛：核心流程改为实例化依赖注入，避免直接调用 `getInstance()`
@@ -162,6 +163,7 @@ private readonly CACHE_DURATION = 10000; // 10秒
 - ✅ 包含文件缓存：References/符号使用共享缓存与文件列表节流
 - ✅ 性能监控：已加入慢操作包装与指标
 - ✅ 增量分析：include 缓存复用、依赖跳过、脏区诊断合并、结构性变更回退、块级局部解析与成员级缓存、范围统一、LRU/TTL 缓存驱逐
+- ✅ 脏区范围合并：多段 dirty ranges 合并后使用最小包含块判定局部分析范围
 - ✅ 增量格式化：脏区范围格式化、阈值回退、最小化 patch、基于 AST 的局部上下文
 - ⏳ 配置侧开关：`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines` 已预埋，后续按模块落地
 
