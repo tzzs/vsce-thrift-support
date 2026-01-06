@@ -727,6 +727,10 @@ export class ThriftParser {
                 // Find the end of the function declaration (either , or ; or {)
                 let parenCount = 0;
                 let foundEnd = false;
+                if (argResult) {
+                    funcEndLine = argResult.endLine;
+                    funcEndChar = this.lines[argResult.endLine] ? this.lines[argResult.endLine].length : 0;
+                }
 
                 // Look for the end of function declaration on the same line first
                 for (let i = funcStartChar; i < line.length; i++) {

@@ -105,3 +105,36 @@ export function tokenizeLine(line: string): Token[] {
     }
     return tokens;
 }
+
+/**
+ * Tokenize multi-line Thrift text with absolute offsets.
+ * @param text - Text content.
+ * @returns Tokens found in the text.
+ */
+export function tokenizeText(text: string): Token[] {
+    const tokens: Token[] = [];
+    let lineStart = 0;
+    for (let i = 0; i <= text.length; i++) {
+        if (i === text.length || text[i] === '\n') {
+            const line = text.slice(lineStart, i);
+            const lineTokens = tokenizeLine(line);
+            for (const token of lineTokens) {
+                tokens.push({
+                    ...token,
+                    start: token.start + lineStart,
+                    end: token.end + lineStart
+                });
+            }
+            if (i < text.length) {
+                tokens.push({
+                    type: 'whitespace',
+                    value: '\n',
+                    start: i,
+                    end: i + 1
+                });
+            }
+            lineStart = i + 1;
+        }
+    }
+    return tokens;
+}
