@@ -36,6 +36,7 @@
 - Tests are Node scripts under `tests/` and rely on fixture files under `test-files/`.
 - Prefer adding focused scripts (e.g., `tests/test-<feature>.js`) and wire them into `npm run test:all` if needed.
 - Run at least `npm run test` and any relevant targeted script before PR.
+- All commits must pass `npm run test` (full test suite) before submitting.
 
 ## Commit & Pull Request Guidelines
 - Commit messages follow Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`) per `DEVELOPMENT.md`.

@@ -22,6 +22,19 @@
 ### 1.2 代码健康
 
 - [ ] 代码分割：拆分大文件，降低模块复杂度
+  - [x] formatter 拆分为 `src/formatter/*`（core/indent/line-handlers/struct-content 等模块）
+  - [x] formatter 单测迁移并拆分至 `tests/src/formatter/*`
+  - [x] references provider 拆分为 `src/references/*`，单测迁移至 `tests/src/references/*`
+  - [ ] 继续拆分其他大文件（按诊断/格式化/解析优先级逐步推进）
+  - [ ] 待拆分清单（按当前文件规模排序，均为未开始）
+  - [ ] `src/ast/parser.ts`（≈697 行）
+  - [ ] `src/ast/parser-helpers.ts`（≈645 行）
+  - [ ] `src/diagnostics/manager.ts`（≈558 行）
+  - [ ] `src/definition-provider.ts`（≈548 行）
+  - [ ] `src/completion-provider.ts`（≈404 行）
+  - [ ] `src/diagnostics/rules/analyzer.ts`（≈373 行）
+  - [ ] `src/formatting-provider.ts`（≈350 行）
+  - [ ] `src/extension.ts`（≈330 行）
 - [x] 单元测试覆盖：补齐 line-range 与增量相关回归并接入 `run-all-unified`
 - [ ] 注释标准化：统一中英文注释规则（仅在必要处）
 
