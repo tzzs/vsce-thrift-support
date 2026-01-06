@@ -1,7 +1,7 @@
 const assert = require('assert');
 
 const {ThriftParser} = require('../../../out/ast/parser.js');
-const {buildAstIndex} = require('../../../out/thrift-formatter/ast-index.js');
+const {buildAstIndex} = require('../../../out/formatter/ast-index.js');
 
 function run() {
     console.log('\nRunning thrift formatter AST index tests...');

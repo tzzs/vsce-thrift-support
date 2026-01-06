@@ -15,7 +15,7 @@ const stableTests = [
     'tests/src/formatting-provider/test-complex-types.js',
     'tests/src/definition-provider/test-include-filename-detection.js',
     'tests/src/diagnostics/test-diagnostics-edge-cases.js',
-    'tests/src/thrift-formatter/test-struct-formatting.js'
+    'tests/src/formatter/test-struct-formatting.js'
 ];
 
 let failed = 0;

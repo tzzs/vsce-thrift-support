@@ -9,7 +9,7 @@ const {
     parseStructFieldText,
     splitLineComment,
     splitTrailingAnnotation
-} = require('../../../out/thrift-formatter/field-parser.js');
+} = require('../../../out/formatter/field-parser.js');
 
 function run() {
     console.log('\nRunning thrift formatter field parser tests...');

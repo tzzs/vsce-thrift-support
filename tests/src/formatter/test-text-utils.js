@@ -3,7 +3,7 @@ const assert = require('assert');
 const {
     normalizeGenericsInSignature,
     splitTopLevelParts
-} = require('../../../out/thrift-formatter/text-utils.js');
+} = require('../../../out/formatter/text-utils.js');
 
 function run() {
     console.log('\nRunning thrift formatter text utils tests...');

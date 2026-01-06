@@ -1,28 +1,21 @@
 const assert = require('assert');
 
 const {
-    formatInlineEnum,
-    formatInlineService,
-    formatInlineStructLike,
-    isInlineEnum,
-    isInlineService,
-    isInlineStructLike
-} = require('../../../out/thrift-formatter/inline-format.js');
+    formatSingleLineEnum,
+    formatSingleLineService,
+    formatSingleLineStruct
+} = require('../../../out/formatter/single-line-format.js');
 const {
     normalizeGenericsInSignature,
     splitTopLevelParts
-} = require('../../../out/thrift-formatter/text-utils.js');
+} = require('../../../out/formatter/text-utils.js');
 const {
     parseEnumFieldText,
     parseStructFieldText
-} = require('../../../out/thrift-formatter/field-parser.js');
+} = require('../../../out/formatter/field-parser.js');
 
 function run() {
-    console.log('\nRunning thrift formatter inline format tests...');
-
-    assert.strictEqual(isInlineStructLike('struct User {1: i32 id}'), true, 'Expected inline struct detection');
-    assert.strictEqual(isInlineEnum('enum Status {ACTIVE = 1}'), true, 'Expected inline enum detection');
-    assert.strictEqual(isInlineService('service S { i32 ping(1:i32 id) }'), true, 'Expected inline service detection');
+    console.log('\nRunning thrift formatter single-line format tests...');
 
     const options = { insertSpaces: true, indentSize: 2, tabSize: 2 };
     const deps = {
@@ -38,7 +31,7 @@ function run() {
         splitTopLevelParts
     };
 
-    const structLines = formatInlineStructLike(
+    const structLines = formatSingleLineStruct(
         'struct User {1: i32 id, 2: string name}',
         0,
         options,
@@ -47,10 +40,10 @@ function run() {
     assert.deepStrictEqual(
         structLines,
         ['struct User {', '  1: i32 id', '  2: string name', '}'],
-        'Expected inline struct to split into multiline output'
+        'Expected single-line struct to expand into multi-line output'
     );
 
-    const enumLines = formatInlineEnum(
+    const enumLines = formatSingleLineEnum(
         'enum Status { ACTIVE = 1, INACTIVE = 2 }',
         0,
         options,
@@ -59,27 +52,30 @@ function run() {
     assert.deepStrictEqual(
         enumLines,
         ['enum Status {', '  ACTIVE = 1', '  INACTIVE = 2', '}'],
-        'Expected inline enum to split into multiline output'
+        'Expected single-line enum to expand into multi-line output'
     );
 
-    const serviceLines = formatInlineService(
-        'service S { map < string , i32 > ping(1: i32 id) }',
+    const serviceLines = formatSingleLineService(
+        'service Api { map < string , i32 > ping(1: i32 id) }',
         0,
         options,
         deps
     );
     assert.deepStrictEqual(
         serviceLines,
-        ['service S {', '  map<string,i32> ping(1: i32 id)', '}'],
-        'Expected inline service to normalize generics and split into multiline output'
+        ['service Api {', '  map<string,i32> ping(1: i32 id)', '}'],
+        'Expected single-line service to normalize generics and expand'
     );
 
-    console.log('✅ Thrift formatter inline format tests passed!');
+    const nullStruct = formatSingleLineStruct('struct User {', 0, options, deps);
+    assert.strictEqual(nullStruct, null, 'Expected non-inline struct to return null');
+
+    console.log('✅ Thrift formatter single-line format tests passed!');
 }
 
 try {
     run();
 } catch (err) {
-    console.error('❌ Thrift formatter inline format tests failed:', err);
+    console.error('❌ Thrift formatter single-line format tests failed:', err);
     process.exit(1);
 }
