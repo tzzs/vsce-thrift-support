@@ -25,6 +25,7 @@
   - [x] formatter 拆分为 `src/formatter/*`（core/indent/line-handlers/struct-content 等模块）
   - [x] formatter 单测迁移并拆分至 `tests/src/formatter/*`
   - [x] references provider 拆分为 `src/references/*`，单测迁移至 `tests/src/references/*`
+  - [x] formatting provider 拆分为 `src/formatting/*`，单测迁移至 `tests/src/formatting/*`
   - [ ] 继续拆分其他大文件（按诊断/格式化/解析优先级逐步推进）
   - [ ] 待拆分清单（按当前文件规模排序，均为未开始）
   - [ ] `src/ast/parser.ts`（≈697 行）

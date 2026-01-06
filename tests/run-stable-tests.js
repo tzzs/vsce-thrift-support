@@ -9,10 +9,10 @@ const {spawnSync} = require('child_process');
 const path = require('path');
 
 const stableTests = [
-    'tests/src/formatting-provider/test-format-core.js',
-    'tests/src/formatting-provider/test-format-indentation.js',
-    'tests/src/formatting-provider/test-trailing-comma.js',
-    'tests/src/formatting-provider/test-complex-types.js',
+    'tests/src/formatting/test-format-core.js',
+    'tests/src/formatting/test-format-indentation.js',
+    'tests/src/formatting/test-trailing-comma.js',
+    'tests/src/formatting/test-complex-types.js',
     'tests/src/definition-provider/test-include-filename-detection.js',
     'tests/src/diagnostics/test-diagnostics-edge-cases.js',
     'tests/src/formatter/test-struct-formatting.js'
