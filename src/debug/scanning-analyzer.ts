@@ -1,14 +1,13 @@
 /**
- * 彻底分析点击文件触发其他文件扫描的根本原因
- * 并提供详细的诊断和解决方案
+ * Debug-only analyzer for scanning triggers and cascade diagnostics.
  */
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import {ThriftParser} from './ast/parser';
-import {collectIncludes} from './ast/utils';
-import {ErrorHandler} from './utils/error-handler';
-import {CoreDependencies} from './utils/dependencies';
+import {ThriftParser} from '../ast/parser';
+import {collectIncludes} from '../ast/utils';
+import {ErrorHandler} from '../utils/error-handler';
+import {CoreDependencies} from '../utils/dependencies';
 
 export class ScanningAnalyzer {
     private analysisLog: string[] = [];
@@ -114,7 +113,7 @@ export class ScanningAnalyzer {
 
         if (includeNodes.length > 0) {
             this.logInfo('analyzeWhyScanning', '发现的 include 文件:');
-            includeNodes.forEach(include => {
+            includeNodes.forEach((include) => {
                 this.logInfo('analyzeWhyScanning', `    * include "${include.path}"`);
             });
             this.logInfo('analyzeWhyScanning', '⚠️  这些 include 文件会被分析，导致级联扫描！');
