@@ -14,7 +14,8 @@ export enum ThriftNodeType {
     Service = 'Service',
     Function = 'Function',
     Field = 'Field',
-    Comment = 'Comment'
+    Comment = 'Comment',
+    Invalid = 'Invalid'
 }
 
 /**
@@ -43,7 +44,8 @@ export type ThriftNode =
     | Struct
     | Field
     | Service
-    | ThriftFunction;
+    | ThriftFunction
+    | InvalidNode;
 
 /**
  * 文档根节点。
@@ -148,6 +150,15 @@ export interface ThriftFunction extends ThriftNodeBase {
     oneway: boolean;
     arguments: Field[];
     throws: Field[];
+}
+
+/**
+ * 无效节点（用于容错与错误恢复）。
+ */
+export interface InvalidNode extends ThriftNodeBase {
+    type: ThriftNodeType.Invalid;
+    raw: string;
+    message?: string;
 }
 
 // Helper functions for type checking

@@ -136,6 +136,9 @@ export class ThriftParser {
                 this.currentLine++;
                 return node;
             }
+            const invalid = this.createInvalidNode(parent, line, 'Invalid namespace declaration');
+            this.currentLine++;
+            return invalid;
         }
 
         if (keywordToken.value === 'include') {
@@ -151,6 +154,9 @@ export class ThriftParser {
                 this.currentLine++;
                 return node;
             }
+            const invalid = this.createInvalidNode(parent, line, 'Invalid include declaration');
+            this.currentLine++;
+            return invalid;
         }
 
         if (keywordToken.value === 'struct' || keywordToken.value === 'union' || keywordToken.value === 'exception') {
@@ -158,6 +164,9 @@ export class ThriftParser {
             if (nameToken) {
                 return this.parseStruct(parent, keywordToken.value, nameToken.value);
             }
+            const invalid = this.createInvalidNode(parent, line, `Invalid ${keywordToken.value} declaration`);
+            this.currentLine++;
+            return invalid;
         }
 
         if (keywordToken.value === 'enum' || keywordToken.value === 'senum') {
@@ -165,6 +174,9 @@ export class ThriftParser {
             if (nameToken) {
                 return this.parseEnum(parent, nameToken.value, keywordToken.value === 'senum');
             }
+            const invalid = this.createInvalidNode(parent, line, `Invalid ${keywordToken.value} declaration`);
+            this.currentLine++;
+            return invalid;
         }
 
         if (keywordToken.value === 'service') {
@@ -180,6 +192,9 @@ export class ThriftParser {
                 }
                 return this.parseService(parent, nameToken.value, extendsName);
             }
+            const invalid = this.createInvalidNode(parent, line, 'Invalid service declaration');
+            this.currentLine++;
+            return invalid;
         }
 
         if (keywordToken.value === 'const') {
@@ -193,6 +208,9 @@ export class ThriftParser {
                     }
                 }
             }
+            const invalid = this.createInvalidNode(parent, line, 'Invalid const declaration');
+            this.currentLine++;
+            return invalid;
         }
 
         if (keywordToken.value === 'typedef') {
@@ -212,11 +230,24 @@ export class ThriftParser {
                 this.currentLine++;
                 return node;
             }
+            const invalid = this.createInvalidNode(parent, line, 'Invalid typedef declaration');
+            this.currentLine++;
+            return invalid;
         }
 
         // Skip unrecognized lines
         this.currentLine++;
         return null;
+    }
+
+    private createInvalidNode(parent: nodes.ThriftNode, line: string, message: string): nodes.InvalidNode {
+        return {
+            type: nodes.ThriftNodeType.Invalid,
+            range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+            parent: parent,
+            raw: line,
+            message
+        };
     }
 
     private getMeaningfulTokens(line: string): Token[] {

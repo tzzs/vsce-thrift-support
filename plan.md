@@ -71,10 +71,10 @@
   - [x] 顶层声明解析迁移（namespace/include/struct/enum/service/typedef/const）
   - [x] 成员解析迁移（field/enum member/function signature）
   - [x] 基于 token 的 range 计算与错误恢复策略
-  - [ ] 单测补齐（tokenizer、顶层/成员解析回归）
+  - [x] 单测补齐（tokenizer、顶层/成员解析回归）
     - [x] tokenizer/顶层声明用例
     - [x] 成员解析用例
-- [ ] 解析容错与错误恢复（保留部分 AST，标记无效节点）
+- [x] 解析容错与错误恢复（保留部分 AST，标记无效节点）
 
 ### 3.2 格式化器重构
 
