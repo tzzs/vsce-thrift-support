@@ -33,7 +33,7 @@ installVscodeMock(vscode);
 
 // Set up module mock before requiring formatter
 // Import the formatter
-const {ThriftFormattingProvider} = require('../../../out/formatting-provider.js');
+const {ThriftFormattingProvider} = require('../../../out/formatting-bridge/index.js');
 
 function testTrailingComma() {
     console.log('Testing trailing comma functionality...');

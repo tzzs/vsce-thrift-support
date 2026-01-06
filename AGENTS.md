@@ -3,6 +3,9 @@
 ## Project Structure & Module Organization
 - `src/`: TypeScript source for the VS Code extension (providers, formatter, diagnostics, extension entry).
 - `src/utils/`: shared helpers (file watching, caching, error handling).
+- `src/formatter/`: formatting engine (pure formatting logic).
+- `src/formatting-bridge/`: VS Code formatting bridge (options/context/range helpers).
+- `src/references/`: reference search helpers (AST cache, traversal, file list, symbol type).
 - `syntaxes/` and `language-configuration.json`: TextMate grammar and language config for Thrift.
 - `tests/`: Node-based test scripts (most files follow `tests/test-*.js`).
 - `test-files/` and `test-thrift/`: fixture Thrift files used by tests.

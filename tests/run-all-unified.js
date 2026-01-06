@@ -325,7 +325,7 @@ async function checkAndCompile() {
 
     const keyFiles = [
         path.join(__dirname, '../out/extension.js'),
-        path.join(__dirname, '../out/formatting-provider.js'),
+        path.join(__dirname, '../out/formatting-bridge/index.js'),
         path.join(__dirname, '../out/ast/parser.js')
     ];
 

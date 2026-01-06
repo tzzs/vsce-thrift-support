@@ -9,7 +9,7 @@ const vscode = createVscodeMock({
 });
 installVscodeMock(vscode);
 
-const {ThriftFormattingProvider} = require('../../../out/formatting-provider.js');
+const {ThriftFormattingProvider} = require('../../../out/formatting-bridge/index.js');
 const {IncrementalTracker} = require('../../../out/utils/incremental-tracker.js');
 const {config} = require('../../../out/config/index.js');
 

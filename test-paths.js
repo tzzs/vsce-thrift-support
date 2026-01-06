@@ -3,8 +3,8 @@ const path = require('path');
 
 // 测试路径解析
 const testPaths = [
-    '../out/src/formatting-provider.js',
-    './out/src/formatting-provider.js',
+    '../out/formatting-bridge/index.js',
+    './out/formatting-bridge/index.js',
     '../out/src/thrift-formatter.js',
     './out/src/thrift-formatter.js'
 ];

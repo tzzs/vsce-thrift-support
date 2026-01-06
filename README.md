@@ -48,6 +48,17 @@
 
 ## 🔧 使用方法
 
+## 🧭 项目结构
+
+- `src/`: 扩展主体（providers、formatter、diagnostics、extension 入口）
+- `src/formatter/`: 纯格式化引擎
+- `src/formatting-bridge/`: VS Code 格式化桥接（选区/配置/范围处理）
+- `src/references/`: 引用查找辅助（AST 缓存、遍历、符号类型）
+- `src/utils/`: 通用工具（缓存、文件读取、错误处理）
+- `tests/`: 单元与场景测试
+- `test-files/` / `tests/src/**/test-files/`: 测试夹具
+- `syntaxes/` / `language-configuration.json`: 语法高亮与语言配置
+
 ### 格式化代码
 
 - **格式化文档**：`Ctrl+Shift+I` (Windows/Linux) 或 `Cmd+Shift+I` (Mac)

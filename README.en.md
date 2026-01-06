@@ -51,6 +51,17 @@ formatting, and navigation.
 
 ## 🔧 Usage
 
+## 🧭 Project Structure
+
+- `src/`: extension core (providers, formatter, diagnostics, extension entry)
+- `src/formatter/`: formatting engine (pure formatting logic)
+- `src/formatting-bridge/`: VS Code formatting bridge (options/context/range helpers)
+- `src/references/`: reference helpers (AST cache, traversal, symbol typing)
+- `src/utils/`: shared utilities (cache, file IO, error handling)
+- `tests/`: unit and scenario tests
+- `test-files/` / `tests/src/**/test-files/`: fixtures
+- `syntaxes/` / `language-configuration.json`: syntax highlighting + language config
+
 ### Formatting
 
 - Format Document: `Ctrl+Shift+I` (Windows/Linux) or `Cmd+Shift+I` (macOS)

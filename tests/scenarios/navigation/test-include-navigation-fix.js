@@ -215,7 +215,7 @@ function testFormatting() {
     console.log('\nTesting formatting...');
 
     try {
-        const {ThriftFormattingProvider} = require('../../../out/formatting-provider.js');
+        const {ThriftFormattingProvider} = require('../../../out/formatting-bridge/index.js');
         const formatter = new ThriftFormattingProvider();
 
         const testCode = `struct TestStruct {

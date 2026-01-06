@@ -1,13 +1,13 @@
 import * as vscode from 'vscode';
-import { ThriftFormatter } from './thrift-formatter';
-import { config } from './config';
-import { IncrementalTracker } from './utils/incremental-tracker';
-import { ErrorHandler } from './utils/error-handler';
-import { CoreDependencies } from './utils/dependencies';
-import { lineRangeToVscodeRange } from './utils/line-range';
-import { computeInitialContext } from './formatting/context';
-import { normalizeFormattingRange, buildMinimalEdits } from './formatting/range-utils';
-import { resolveFormattingOptions } from './formatting/options';
+import { ThriftFormatter } from '../thrift-formatter';
+import { config } from '../config';
+import { IncrementalTracker } from '../utils/incremental-tracker';
+import { ErrorHandler } from '../utils/error-handler';
+import { CoreDependencies } from '../utils/dependencies';
+import { lineRangeToVscodeRange } from '../utils/line-range';
+import { computeInitialContext } from './context';
+import { normalizeFormattingRange, buildMinimalEdits } from './range-utils';
+import { resolveFormattingOptions } from './options';
 
 /**
  * ThriftFormattingProvider：提供文档与选区格式化。

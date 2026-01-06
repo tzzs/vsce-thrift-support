@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import {ThriftFormattingProvider} from './formatting-provider';
+import {ThriftFormattingProvider} from './formatting-bridge';
 import {ThriftDefinitionProvider} from './definition-provider';
 import {ThriftHoverProvider} from './hover-provider';
 import {registerDiagnostics} from './diagnostics';

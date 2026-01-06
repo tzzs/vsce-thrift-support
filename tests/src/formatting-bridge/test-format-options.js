@@ -22,7 +22,7 @@ const mock = createVscodeMock({
 });
 installVscodeMock(mock);
 
-const { resolveFormattingOptions } = require('../../../out/formatting/options.js');
+const { resolveFormattingOptions } = require('../../../out/formatting-bridge/options.js');
 
 function run() {
     console.log('\nRunning formatting options tests...');

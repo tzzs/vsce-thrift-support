@@ -89,7 +89,7 @@ installVscodeMock(vscode);
 
 
 // Mock require('vscode') inside formatter
-const {ThriftFormattingProvider} = require('../../../out/formatting-provider.js');
+const {ThriftFormattingProvider} = require('../../../out/formatting-bridge/index.js');
 
 async function formatContent(content, options = {}) {
     console.log(`    formatContent开始: ${JSON.stringify(content)}`);

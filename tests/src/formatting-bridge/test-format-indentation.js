@@ -49,7 +49,7 @@ installVscodeMock(vscode);
 
 
 // Mock require('vscode') inside formatter
-const {ThriftDocumentFormattingProvider} = require('../../../out/formatting-provider.js');
+const {ThriftFormattingProvider} = require('../../../out/formatting-bridge');
 
 async function run() {
     console.log('\n=== 运行缩进格式化专项测试 ===');
@@ -73,7 +73,7 @@ async function run() {
         fs.writeFileSync(tempFile, content);
         
         try {
-            const provider = new ThriftDocumentFormattingProvider();
+            const provider = new ThriftFormattingProvider();
             const uri = vscode.Uri.file(path.resolve(tempFile));
             const document = await vscode.workspace.openTextDocument(uri);
             

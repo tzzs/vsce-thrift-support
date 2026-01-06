@@ -4,7 +4,7 @@ const { createTextDocument, createVscodeMock, installVscodeMock, Position, Range
 const mock = createVscodeMock();
 installVscodeMock(mock);
 
-const { normalizeFormattingRange, buildMinimalEdits } = require('../../../out/formatting/range-utils.js');
+const { normalizeFormattingRange, buildMinimalEdits } = require('../../../out/formatting-bridge/range-utils.js');
 
 function run() {
     console.log('\nRunning formatting range utils tests...');

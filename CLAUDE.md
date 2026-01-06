@@ -56,7 +56,7 @@ npm run publish      # Publish to VS Code Marketplace (requires VSCE_PAT)
 ### Core Modules Structure
 
 - `src/extension.ts` - Extension entry point, registers all providers and commands
-- `src/formatting-provider.ts` - Document and range formatting with alignment strategies
+- `src/formatting-bridge/index.ts` - Document and range formatting with alignment strategies
 - `src/definition-provider.ts` - Go-to-definition with include resolution
 - `src/diagnostics/index.ts` - Syntax and semantic error detection
 - `src/rename-provider.ts` - Cross-file symbol renaming

@@ -91,7 +91,7 @@ Object.assign(global, { vscode });
 
 // Mock require('vscode') inside formatter
 // 加载格式化提供程序
-const { ThriftFormattingProvider } = require(path.join(__dirname, '../../../out/formatting-provider'));
+const { ThriftFormattingProvider } = require(path.join(__dirname, '../../../out/formatting-bridge'));
 
 /**
  * 格式化内容辅助函数

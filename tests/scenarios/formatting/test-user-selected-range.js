@@ -1,5 +1,5 @@
 // Test formatting the exact range user selected (lines 25-38)
-const {ThriftFormattingProvider} = require('../../../out/formatting-provider.js');
+const {ThriftFormattingProvider} = require('../../../out/formatting-bridge/index.js');
 
 function runTest() {
     const formatter = new ThriftFormattingProvider();

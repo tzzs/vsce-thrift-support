@@ -11,7 +11,7 @@ const vscode = createVscodeMock({
 });
 installVscodeMock(vscode);
 
-const {ThriftFormattingProvider} = require('../../../out/formatting-provider.js');
+const {ThriftFormattingProvider} = require('../../../out/formatting-bridge/index.js');
 
 function runTest() {
     const formatter = new ThriftFormattingProvider();
