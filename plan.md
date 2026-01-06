@@ -66,7 +66,7 @@
 
 ### 3.1 解析器健壮性
 
-- [ ] 从正则迁移到基于状态的解析或 tokenizer/lexer
+- [x] 从正则迁移到基于状态的解析或 tokenizer/lexer
   - [x] 新增 tokenizer/lexer（token 类型、注释/字符串/符号处理）
   - [x] 顶层声明解析迁移（namespace/include/struct/enum/service/typedef/const）
   - [x] 成员解析迁移（field/enum member/function signature）
