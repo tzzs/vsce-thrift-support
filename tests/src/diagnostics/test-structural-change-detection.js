@@ -9,7 +9,7 @@ const vscode = createVscodeMock({
 });
 installVscodeMock(vscode);
 
-const {diagnosticsTestUtils} = require('../../../out/diagnostics.js');
+const {diagnosticsTestUtils} = require('../../../out/diagnostics');
 
 function run() {
     console.log('\nRunning diagnostics structural change detection test...');

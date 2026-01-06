@@ -19,7 +19,7 @@ const vscode = createVscodeMock({
 });
 installVscodeMock(vscode);
 
-const {DiagnosticManager} = require('../../../out/diagnostics.js');
+const {DiagnosticManager} = require('../../../out/diagnostics');
 const {config} = require('../../../out/config/index.js');
 
 function createDoc(text, name, version) {

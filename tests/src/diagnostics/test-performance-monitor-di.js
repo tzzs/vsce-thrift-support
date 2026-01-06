@@ -26,7 +26,7 @@ const vscode = createVscodeMock({
 });
 installVscodeMock(vscode);
 
-const {DiagnosticManager} = require('../../../out/diagnostics.js');
+const {DiagnosticManager} = require('../../../out/diagnostics');
 
 function createDoc(name) {
     const fsPath = `/tmp/${name}`;

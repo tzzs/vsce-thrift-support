@@ -1,7 +1,7 @@
 // Cross-file dependencies unit tests (Node environment with vscode mock)
 const assert = require('assert');
 // Import the diagnostics module
-const {DiagnosticManager} = require('../../../out/diagnostics.js');
+const {DiagnosticManager} = require('../../../out/diagnostics');
 const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 Module.prototype.require = originalRequire;
 

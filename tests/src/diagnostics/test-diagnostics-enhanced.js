@@ -1,6 +1,6 @@
 // Enhanced diagnostics tests for new features (Node environment with vscode mock)
 const assert = require('assert');
-const {analyzeThriftText} = require('../../../out/diagnostics.js');
+const {analyzeThriftText} = require('../../../out/diagnostics');
 const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 Module.prototype.require = originalRequire;
 
