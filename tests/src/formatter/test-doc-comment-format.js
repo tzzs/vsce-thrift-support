@@ -1,4 +1,4 @@
-const {ThriftFormatter} = require('../../../out/thrift-formatter.js');
+const {ThriftFormatter} = require('../../../out/formatter/index.js');
 
 /**
  * 测试文档注释格式化

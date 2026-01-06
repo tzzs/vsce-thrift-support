@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ThriftFormatter } from '../thrift-formatter';
+import { ThriftFormatter } from '../formatter';
 import { config } from '../config';
 import { IncrementalTracker } from '../utils/incremental-tracker';
 import { ErrorHandler } from '../utils/error-handler';

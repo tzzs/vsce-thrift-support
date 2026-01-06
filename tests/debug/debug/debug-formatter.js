@@ -1,6 +1,6 @@
 // 简单测试格式化器行为
 const fs = require('fs');
-const {ThriftFormatter} = require('../out/thrift-formatter.js');
+const {ThriftFormatter} = require('../out/formatter/index.js');
 
 console.log('=== 测试格式化器行为 ===');
 

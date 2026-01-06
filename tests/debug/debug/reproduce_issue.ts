@@ -1,4 +1,4 @@
-import {ThriftFormatter} from '../src/thrift-formatter';
+import {ThriftFormatter} from '../src/formatter';
 import {ThriftFormattingOptions} from '../src/interfaces.types';
 
 const formatter = new ThriftFormatter();

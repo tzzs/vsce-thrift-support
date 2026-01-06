@@ -30,7 +30,7 @@ const {ThriftSelectionRangeProvider} = require('../../../out/selection-range-pro
 const {ThriftRenameProvider} = require('../../../out/rename-provider.js');
 const {ThriftFormattingProvider} = require('../../../out/formatting-bridge/index.js');
 const {ThriftRefactorCodeActionProvider} = require('../../../out/code-actions-provider.js');
-const {ThriftFormatter} = require('../../../out/thrift-formatter.js');
+const {ThriftFormatter} = require('../../../out/formatter/index.js');
 const {ThriftParser} = require('../../../out/ast/parser.js');
 
 function createThrowingDocument({text = 'struct A { 1: i32 id }', throwOn = 'getText'} = {}) {

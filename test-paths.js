@@ -5,8 +5,8 @@ const path = require('path');
 const testPaths = [
     '../out/formatting-bridge/index.js',
     './out/formatting-bridge/index.js',
-    '../out/src/thrift-formatter.js',
-    './out/src/thrift-formatter.js'
+    '../out/formatter/index.js',
+    './out/formatter/index.js'
 ];
 
 console.log('当前工作目录:', __dirname);
