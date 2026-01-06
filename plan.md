@@ -84,7 +84,7 @@
 ### 3.3 AST 与类型安全
 
 - [x] 函数参数/throws 的 name/type 精确范围
-- [ ] 多行声明的稳定 range（避免 line-based 偏移）
+- [x] 多行声明的稳定 range（避免 line-based 偏移）
 - [ ] AST 增量解析与子树缓存
 - [ ] children/parent 结构一致化，便于通用遍历与索引
 

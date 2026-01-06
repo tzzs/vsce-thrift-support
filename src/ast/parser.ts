@@ -774,7 +774,7 @@ export class ThriftParser {
 
                 // If not found on the same line, look on subsequent lines
                 if (!foundEnd) {
-                    let searchLine = funcStartLine;
+                    let searchLine = funcStartLine + 1;
                     while (searchLine < this.lines.length && !foundEnd) {
                         const searchLineText = this.lines[searchLine];
                         for (let i = 0; i < searchLineText.length; i++) {
@@ -829,11 +829,19 @@ export class ThriftParser {
                     funcEndLine,
                     funcEndChar
                 );
+                let throwsResult: { text: string; endLine: number; endChar: number } | null = null;
                 if (throwsStart) {
-                    const throwsResult = readParenthesizedText(this.lines, throwsStart.line, throwsStart.char + 1);
+                    throwsResult = readParenthesizedText(this.lines, throwsStart.line, throwsStart.char + 1);
                     if (throwsResult) {
                         throwsFields.push(...parseFieldList(throwsResult.text, throwsStart.line, throwsStart.char + 1));
                     }
+                }
+                if (throwsResult) {
+                    funcEndLine = Math.max(funcEndLine, throwsResult.endLine);
+                    funcEndChar = throwsResult.endChar;
+                } else if (argResult) {
+                    funcEndLine = Math.max(funcEndLine, argResult.endLine);
+                    funcEndChar = argResult.endChar;
                 }
 
                 const funcNode: nodes.ThriftFunction = {
