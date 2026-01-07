@@ -27,6 +27,20 @@ export class ThriftParser {
     private lines: string[];
     private currentLine: number = 0;
 
+    private ensureChildren(node: nodes.ThriftNode): nodes.ThriftNode[] {
+        if (!node.children) {
+            node.children = [];
+        }
+        return node.children;
+    }
+
+    private addChild(parent: nodes.ThriftNode, child: nodes.ThriftNode): void {
+        const children = this.ensureChildren(parent);
+        if (!children.includes(child)) {
+            children.push(child);
+        }
+    }
+
     constructor(documentOrContent: vscode.TextDocument | string) {
         if (typeof documentOrContent === 'string') {
             this.text = documentOrContent;
@@ -88,6 +102,7 @@ export class ThriftParser {
             const node = this.parseNextNode(root);
             if (node) {
                 root.body.push(node);
+                this.addChild(root, node);
             }
         }
 
@@ -380,6 +395,7 @@ export class ThriftParser {
             const field = this.parseStructFieldLine(parent, line, codeOnly, codeStart);
             if (field) {
                 parent.fields.push(field);
+                this.addChild(parent, field);
             }
 
             this.currentLine++;
@@ -559,6 +575,7 @@ export class ThriftParser {
             const member = this.parseEnumMemberLine(parent, line, codeOnly);
             if (member) {
                 parent.members.push(member);
+                this.addChild(parent, member);
             }
 
             this.currentLine++;
@@ -860,12 +877,15 @@ export class ThriftParser {
                 // Set parent for all arguments
                 args.forEach(arg => {
                     arg.parent = funcNode;
+                    this.addChild(funcNode, arg);
                 });
                 throwsFields.forEach(field => {
                     field.parent = funcNode;
+                    this.addChild(funcNode, field);
                 });
 
                 parent.functions.push(funcNode);
+                this.addChild(parent, funcNode);
             }
 
             this.currentLine++;

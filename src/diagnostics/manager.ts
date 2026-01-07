@@ -20,6 +20,7 @@ import {
     createMemberCache,
     createMemberCacheByBlock
 } from './analysis-cache';
+import { DocumentDiagnosticState, mergeBlockIntoAst } from './state';
 import {
     clearIncludeCacheForDocument,
     collectIncludedTypes,
@@ -34,37 +35,6 @@ import {
     findContainingNode,
     hashText
 } from './utils';
-
-interface DocumentDiagnosticState {
-    /** 文档版本号 */
-    version: number;
-    /** 是否正在分析 */
-    isAnalyzing: boolean;
-    /** 上次分析完成时间戳 */
-    lastAnalysis?: number;
-    /** 脏行数量 */
-    dirtyLineCount?: number;
-    /** include 是否可能发生变化 */
-    includesMayChange?: boolean;
-    /** 是否复用缓存的 include 类型 */
-    useCachedIncludes?: boolean;
-    /** 是否启用增量诊断 */
-    useIncrementalDiagnostics?: boolean;
-    /** 归并后的脏范围 */
-    dirtyRange?: LineRange;
-    /** 多段脏范围 */
-    dirtyRanges?: LineRange[];
-    /** 上次诊断结果 */
-    lastDiagnostics?: vscode.Diagnostic[];
-    /** 上次 AST */
-    lastAst?: nodes.ThriftDocument;
-    /** 上次分析上下文 */
-    lastAnalysisContext?: AnalysisContext;
-    /** 块级缓存 */
-    lastBlockCache?: BlockCache;
-    /** 成员级缓存 */
-    lastMemberCache?: MemberCacheByBlock;
-}
 
 /**
  * DiagnosticManager：负责诊断调度、缓存与依赖跟踪。
@@ -151,13 +121,18 @@ export class DiagnosticManager {
             clearTimeout(existingTimeout);
         }
 
-        const state = this.documentStates.get(key);
+        const prevState = this.documentStates.get(key);
+        const throttleState = prevState ?? { version: doc.version, isAnalyzing: false };
         const now = Date.now();
-        const lastGap = state?.lastAnalysis ? now - state.lastAnalysis : Number.POSITIVE_INFINITY;
+        const lastGap = throttleState?.lastAnalysis ? now - throttleState.lastAnalysis : Number.POSITIVE_INFINITY;
         const throttleDelay = lastGap < this.MIN_ANALYSIS_INTERVAL ? this.MIN_ANALYSIS_INTERVAL - lastGap : 0;
 
-        if (state?.isAnalyzing) { return; }
-        if (state && state.version === doc.version && throttleDelay === 0) { return; }
+        if (prevState?.isAnalyzing) {
+            return;
+        }
+        if (prevState && prevState.version === doc.version && throttleDelay === 0) {
+            return;
+        }
 
         const baseDelay = immediate ? 0 : this.ANALYSIS_DELAY;
         const delay = Math.max(baseDelay, throttleDelay);
@@ -168,19 +143,20 @@ export class DiagnosticManager {
         }, delay);
 
         this.analysisQueue.set(key, timeout);
-        this.documentStates.set(key, {
+        const nextState: DocumentDiagnosticState = {
+            ...(prevState ?? {}),
             version: doc.version,
-            isAnalyzing: state?.isAnalyzing ?? false,
-            lastAnalysis: state?.lastAnalysis,
+            isAnalyzing: prevState?.isAnalyzing ?? false,
+            lastAnalysis: prevState?.lastAnalysis,
             dirtyLineCount,
             includesMayChange,
             useCachedIncludes: useIncremental,
             useIncrementalDiagnostics: useIncremental,
             dirtyRange: dirtyRange ? { ...dirtyRange } : undefined,
-            dirtyRanges: dirtyRanges?.map(range => ({ ...range })) ?? state?.dirtyRanges,
-            lastDiagnostics: state?.lastDiagnostics
-        });
-
+            dirtyRanges: dirtyRanges?.map(range => ({ ...range })) ?? prevState?.dirtyRanges,
+            lastDiagnostics: prevState?.lastDiagnostics
+        };
+        this.documentStates.set(key, nextState);
         if (!skipDependents) {
             const dependents = this.getDependentFiles(key);
             for (const dependentFile of dependents) {
@@ -421,6 +397,7 @@ export class DiagnosticManager {
                                     const partialText = partialLines.join('\n');
                                     const partialKey = `${doc.uri.toString()}#partial:${blockRange.startLine}-${blockRange.endLine}`;
                                     const partialAst = ThriftParser.parseContentWithCache(partialKey, partialText);
+                                    const blockNode = findContainingNode(partialAst, blockRange);
                                     memberRange = findBestContainingMemberRangeForChanges(partialAst, changeRanges);
                                     const memberKey = memberRange ? `${memberRange.startLine}-${memberRange.endLine}` : null;
                                     const memberHash = memberRange
@@ -451,7 +428,6 @@ export class DiagnosticManager {
                                         if (!state.lastMemberCache) {
                                             state.lastMemberCache = createMemberCacheByBlock();
                                         }
-                                        const blockNode = findContainingNode(partialAst, blockRange);
                                         if (blockNode) {
                                             state.lastMemberCache.set(blockKey, buildMemberCacheForNode(blockNode, partialLines, issues));
                                         }
@@ -462,6 +438,13 @@ export class DiagnosticManager {
                                         const blockMembers = state.lastMemberCache.get(blockKey) ?? createMemberCache();
                                         blockMembers.set(memberKey, { range: memberRange, hash: memberHash, issues });
                                         state.lastMemberCache.set(blockKey, blockMembers);
+                                    }
+
+                                    if (blockNode && state.lastAst) {
+                                        mergeBlockIntoAst(state.lastAst, blockNode, blockRange);
+                                        state.blockAstCache = state.blockAstCache ?? new Map();
+                                        state.blockAstCache.set(blockKey, { hash: blockHash, node: blockNode });
+                                        state.lastAnalysisContext = buildAnalysisContext(state.lastAst);
                                     }
                                 }
                                 usedPartial = true;
@@ -475,6 +458,7 @@ export class DiagnosticManager {
                             state.lastAnalysisContext = buildAnalysisContext(ast);
                             state.lastBlockCache = buildBlockCache(ast, lines, issues);
                             state.lastMemberCache = buildMemberCache(ast, lines, issues);
+                            state.blockAstCache = new Map();
                         }
 
                         const mergeRange = memberRange ?? blockRange;

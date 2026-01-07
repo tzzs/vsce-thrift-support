@@ -1,9 +1,7 @@
 const assert = require('assert');
 
-const {
-    formatEnumFields,
-    formatStructFields
-} = require('../../../out/formatter/field-format.js');
+const { formatEnumFields } = require('../../../out/formatter/field-format.js');
+const { formatStructFields } = require('../../../out/formatter/struct-format.js');
 
 function run() {
     console.log('\nRunning thrift formatter field format tests...');
