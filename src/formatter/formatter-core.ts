@@ -13,7 +13,8 @@ import {
 import { formatConstFields } from './const-format';
 import { formatBlockComment } from './comment-format';
 import { formatEnumContentLine } from './enum-content';
-import { formatEnumFields, formatStructFields } from './field-format';
+import { formatEnumFields } from './field-format';
+import { formatStructFields } from './struct-format';
 import { getIndent, getServiceIndent } from './indent';
 import {
     formatInlineEnum,

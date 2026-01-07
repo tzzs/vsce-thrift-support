@@ -78,8 +78,8 @@
 
 ### 3.2 格式化器重构
 
-- [ ] 拆分 `formatConstFields` 与 `formatStructFields`
-- [ ] `normalizeGenericsInSignature` 迁移到可复用的解析逻辑
+- [x] 拆分 `formatConstFields` 与 `formatStructFields`
+- [x] `normalizeGenericsInSignature` 迁移到可复用的解析逻辑
 
 ### 3.3 AST 与类型安全
 
