@@ -47,12 +47,20 @@ export class PerformanceMonitor {
         this.maxMetrics = options.maxMetrics ?? config.performance.maxMetrics;
     }
 
+    /**
+     * 设置错误处理器。
+     * @param errorHandler 错误处理器实例
+     */
     public setErrorHandler(errorHandler: ErrorHandler): void {
         this.errorHandler = errorHandler;
     }
 
     /**
      * 同步测量指定操作的耗时。
+     * @param operation 操作名称
+     * @param fn 要执行的同步函数
+     * @param document 相关文档（可选，用于记录文件大小）
+     * @returns 函数执行结果
      */
     public measure<T>(operation: string, fn: () => T, document?: vscode.TextDocument): T {
         const start = performance.now();
@@ -80,6 +88,10 @@ export class PerformanceMonitor {
 
     /**
      * 异步测量指定操作的耗时。
+     * @param operation 操作名称
+     * @param fn 要执行的异步函数
+     * @param document 相关文档（可选）
+     * @returns 函数执行结果 promise
      */
     public async measureAsync<T>(operation: string, fn: () => Promise<T>, document?: vscode.TextDocument): Promise<T> {
         const start = performance.now();
@@ -105,6 +117,7 @@ export class PerformanceMonitor {
 
     /**
      * 生成性能报告文本。
+     * @returns 性能报告 Markdown 文本
      */
     public getPerformanceReport(): string {
         if (this.metrics.length === 0) {
@@ -160,7 +173,7 @@ export class PerformanceMonitor {
             content: report,
             language: 'markdown'
         });
-        await vscode.window.showTextDocument(doc, {preview: true});
+        await vscode.window.showTextDocument(doc, { preview: true });
     }
 
     /**
@@ -172,13 +185,14 @@ export class PerformanceMonitor {
 
     /**
      * 统计慢操作的次数与平均耗时。
+     * @returns 慢操作统计列表
      */
     public getSlowOperationStats(): { operation: string; count: number; avgDuration: number }[] {
         const slowOps = this.metrics.filter(m => m.duration > this.slowOperationThreshold);
         const stats = new Map<string, { count: number; totalDuration: number }>();
 
         slowOps.forEach(metric => {
-            const existing = stats.get(metric.operation) || {count: 0, totalDuration: 0};
+            const existing = stats.get(metric.operation) || { count: 0, totalDuration: 0 };
             existing.count++;
             existing.totalDuration += metric.duration;
             stats.set(metric.operation, existing);
@@ -193,6 +207,7 @@ export class PerformanceMonitor {
 
     /**
      * 汇总每个操作的统计信息。
+     * @returns 操作统计详情列表
      */
     public getOperationStats(): OperationStats[] {
         const stats = new Map<string, OperationStats>();

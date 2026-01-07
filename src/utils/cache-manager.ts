@@ -10,7 +10,9 @@ export interface CacheConfig {
  * 缓存条目结构。
  */
 export interface CacheEntry<T> {
+    /** 缓存的数据 */
     data: T;
+    /** 缓存创建/更新的时间戳 */
     timestamp: number;
 }
 
@@ -24,6 +26,7 @@ export class CacheManager {
 
     /**
      * 获取单例实例。
+     * @returns {CacheManager} CacheManager 单例
      */
     static getInstance(): CacheManager {
         if (!this.instance) {
@@ -34,6 +37,8 @@ export class CacheManager {
 
     /**
      * 注册缓存配置。
+     * @param name 缓存名称
+     * @param config 缓存配置（最大大小、TTL）
      */
     registerCache(name: string, config: CacheConfig): void {
         this.configs.set(name, config);
@@ -44,6 +49,10 @@ export class CacheManager {
 
     /**
      * 写入缓存。
+     * @param cacheName 缓存名称
+     * @param key 缓存键
+     * @param value 缓存值
+     * @throws Error 如果缓存未注册
      */
     set<T>(cacheName: string, key: string, value: T): void {
         const config = this.configs.get(cacheName);
@@ -55,7 +64,7 @@ export class CacheManager {
         if (cache.has(key)) {
             cache.delete(key);
         }
-        cache.set(key, {data: value, timestamp: Date.now()});
+        cache.set(key, { data: value, timestamp: Date.now() });
 
         // Clean up old entries
         this.cleanup(cache, config);
@@ -63,6 +72,9 @@ export class CacheManager {
 
     /**
      * 读取缓存（过期自动清除）。
+     * @param cacheName 缓存名称
+     * @param key 缓存键
+     * @returns 缓存值，如果不存在或已过期则返回 undefined
      */
     get<T>(cacheName: string, key: string): T | undefined {
         const cache = this.caches.get(cacheName);

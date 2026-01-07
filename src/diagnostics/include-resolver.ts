@@ -12,6 +12,8 @@ const INCLUDE_CACHE_MAX_AGE = config.cache.includeTypesMaxAgeMs;
 
 /**
  * 收集 AST 内定义的类型与类型类别。
+ * @param ast Thrift AST 根节点
+ * @returns 类型名称到类型类别的映射 (e.g. "User" -> "struct")
  */
 export function collectTypesFromAst(ast: nodes.ThriftDocument): Map<string, string> {
     const typeKind = new Map<string, string>();
@@ -61,6 +63,8 @@ function parseTypesFromContent(content: string, uri: string): Map<string, string
 
 /**
  * 解析 include 语句，返回包含文件的 URI 列表。
+ * @param document 当前文档
+ * @returns 解析得到的包含文件 URI 数组
  */
 export async function getIncludedFiles(document: vscode.TextDocument): Promise<vscode.Uri[]> {
     const includedFiles: vscode.Uri[] = [];
@@ -93,6 +97,10 @@ export async function getIncludedFiles(document: vscode.TextDocument): Promise<v
 
 /**
  * 收集 include 文件中的类型信息（带缓存与文件状态校验）。
+ * @param document起始文档
+ * @param errorHandler 错误处理器（可选）
+ * @param log 日志记录函数（可选）
+ * @returns 所有被包含文件中的类型映射表
  */
 export async function collectIncludedTypes(
     document: vscode.TextDocument,
@@ -184,6 +192,8 @@ export async function collectIncludedTypes(
 
 /**
  * 尝试直接从缓存获取 include 类型信息，若缓存失效返回 null。
+ * @param includedFiles 包含文件 URI 列表
+ * @returns 缓存的类型映射表，如果任意文件缓存失效则返回 null
  */
 export function collectIncludedTypesFromCache(includedFiles: vscode.Uri[]): Map<string, string> | null {
     const includedTypes = new Map<string, string>();

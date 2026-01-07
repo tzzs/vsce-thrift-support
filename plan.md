@@ -1,44 +1,12 @@
 # 未来的优化与维护计划
 
-当前版本：1.0.12（2025-12-29 打包）
+当前版本：1.0.12（2026-01-08 重构完成）
 
-本文档按照“近期目标 → 中期规划 → 长期方向 → 待增强清单 → 已完成”组织，所有已完成事项集中在最后，便于跟踪。
+本文档按照“近期目标 → 中期规划 → 长期方向 → 已完成”组织，所有已完成事项集中在最后，便于跟踪。
 
 ## 1. 近期目标（P0 / 本月）
 
-### 1.1 稳定性与性能
-
-- [x] 配置侧开关落地：`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines` 默认启用（不对用户暴露设置项）
-- [x] 增量分析与增量格式化回归用例补齐（诊断、格式化、范围合并、结构性变更）
-- [x] 性能基准脚本与文档：新增 `tests/perf/run-performance-benchmark.js` 与 `docs/performance-benchmark.md`
-- [x] 采集基准数据并归档（CPU/内存对比）
-  - baseline structs=120, fields=30, iterations=10
-  - diagnostics full avg 10.19ms (min 6.90 / max 14.64)
-  - diagnostics full avg 10.19ms (min 6.90 / max 14.64)
-  - diagnostics incremental avg 15.47ms (min 6.57 / max 75.01)
-  - formatting full avg 28.45ms (min 20.00 / max 56.35)
-  - formatting incremental avg 2.06ms (min 0.17 / max 17.22)
-
-### 1.2 代码健康
-
-- [ ] 代码分割：拆分大文件，降低模块复杂度
-  - [x] formatter 拆分为 `src/formatter/*`（core/indent/line-handlers/struct-content 等模块）
-  - [x] formatter 单测迁移并拆分至 `tests/src/formatter/*`
-  - [x] references provider 拆分为 `src/references/*`，单测迁移至 `tests/src/references/*`
-  - [x] formatting provider 拆分为 `src/formatting-bridge/*`，单测迁移至 `tests/src/formatting-bridge/*`
-  - [x] 继续拆分其他大文件（按诊断/格式化/解析优先级逐步推进）：`DiagnosticManager` 状态与 AST merge 逻辑提取到 `src/diagnostics/state.ts`
-  - [x] `src/ast/parser.ts`（refactored into `text-utils`, `ranges`, `token-utils`）
-  - [x] `src/ast/parser-helpers.ts`（refactored）
-  - [x] `src/diagnostics/manager.ts`（split into `dependency-manager`, `scheduler`）
-  - [x] `src/completion-provider.ts`（split into `completion/` modules）
-  - [x] `src/diagnostics/rules/analyzer.ts`（split into `rules/` modules）
-  - [x] `src/extension.ts`（split into `setup.ts`, `commands/`）
-- [x] 单元测试覆盖：补齐 line-range 与增量相关回归并接入 `run-all-unified`
-- [ ] 注释标准化：统一中英文注释规则（仅在必要处）
-
-## 2. 中期规划（P1 / 下一阶段）
-
-### 2.1 LSP 化与增量索引
+### 1.1 LSP 化与增量索引
 
 - [ ] 目标范围：诊断/格式化/补全/跳转/引用/重命名的 LSP 能力矩阵与优先级
 - [ ] 交付形态：独立发布 LSP 可执行文件，可被 VS Code/Neovim/IntelliJ/CLI 等客户端复用
@@ -51,7 +19,7 @@
 - [ ] 里程碑拆分：诊断 → 符号/跳转 → 引用/重命名 → 格式化/补全
 - [ ] 风险与依赖：协议兼容、与现有 AST/缓存体系的衔接方案
 
-### 2.2 体验增强
+### 1.2 体验增强
 
 - [ ] CompletionProvider：跨文件类型/注解键/排序/去重/上下文感知
 - [ ] References：上下文过滤与预览面板、取消响应、准确度提升
@@ -60,35 +28,13 @@
 - [ ] Organize Includes：排序/去重/规范化路径
 - [ ] Inlay Hints、Signature Help、Snippets、Semantic Tokens
 
-## 3. 长期方向（P2 / 架构与技术债）
+### 1.3 代码健康
 
-### 3.1 解析器健壮性
+- [ ] 注释标准化：统一中英文注释规则（仅在必要处）
 
-- [x] 从正则迁移到基于状态的解析或 tokenizer/lexer
-  - [x] 新增 tokenizer/lexer（token 类型、注释/字符串/符号处理）
-  - [x] 顶层声明解析迁移（namespace/include/struct/enum/service/typedef/const）
-  - [x] 成员解析迁移（field/enum member/function signature）
-  - [x] 基于 token 的 range 计算与错误恢复策略
-  - [x] 单测补齐（tokenizer、顶层/成员解析回归）
-    - [x] tokenizer/顶层声明用例
-    - [x] 成员解析用例
-- [x] 解析容错与错误恢复（保留部分 AST，标记无效节点）
+## 2. 中期规划（P1 / 下一阶段）
 
-### 3.2 格式化器重构
-
-- [x] 拆分 `formatConstFields` 与 `formatStructFields`
-- [x] `normalizeGenericsInSignature` 迁移到可复用的解析逻辑
-
-### 3.3 AST 与类型安全
-
-- [x] 函数参数/throws 的 name/type 精确范围
-- [x] 多行声明的稳定 range（避免 line-based 偏移）
-- [x] AST 增量解析与子树缓存：脏区局部解析、AST 子树补丁与缓存
-- [x] children/parent 结构一致化，便于通用遍历与索引
-
-## 4. 待增强清单（能力差距）
-
-### 4.1 体验与编辑能力
+### 2.1 体验与编辑能力（进阶）
 
 - [ ] DocumentHighlight（文档内高亮）
 - [ ] 补全增强（跨文件、注解键、排序与上下文）
@@ -96,23 +42,25 @@
 - [ ] Signature Help（服务方法/容器/注解）
 - [ ] Inlay Hints（字段编号、默认值、typedef 还原）
 
-### 4.2 符号与导航
+### 2.2 符号与导航（进阶）
 
 - [ ] Document/Workspace Symbol：层级与性能提升
 - [ ] References：上下文过滤、预览面板、取消响应
 
-### 4.3 诊断与 Quick Fix
+### 2.3 诊断与 Quick Fix（进阶）
 
 - [ ] 诊断：重复字段 ID、重复/越界枚举值、循环 include、未使用 typedef/无用 include
 - [ ] Quick Fix：缺失类型/枚举成员、缺失 namespace/typedef
 
-### 4.4 格式化与重构
+## 3. 长期方向（P2 / 架构与完善）
+
+### 3.1 格式化与重构
 
 - [ ] Organize Includes（排序/去重/规范化路径）
 - [ ] 按字段 ID 排序（可选）
 - [ ] 抽取/内联 typedef、跨文件引用变更的预览与批量更新
 
-### 4.5 测试与 CI
+### 3.2 测试与 CI
 
 - [ ] 端到端 UI 测试（补全、F12、Outline、Refs）
 - [ ] 性能基准与大仓压力测试
@@ -120,40 +68,54 @@
 
 ## 5. 已完成（集中归档）
 
+### 5.11 稳定性与性能（v1.0.12）
+
+- [x] 配置侧开关落地：`config.incremental.analysisEnabled/formattingEnabled/maxDirtyLines` 默认启用
+- [x] 增量分析与增量格式化回归用例补齐
+- [x] 性能基准脚本与文档（`tests/perf`）
+- [x] 采集基准数据并归档（CPU/内存对比）
+
+### 5.12 解析与架构重构（v1.0.12）
+
+- [x] **Parser**: 迁移到基于 Tokenizer/Lexer 的状态解析，支持精确 Range
+- [x] **Error Recovery**: 解析容错与错误恢复
+- [x] **Formatter**: `formatConstFields` 与 `formatStructFields` 拆分
+- [x] **AST**: `nameRange` + 类型范围精确化，多行声明稳定 Range
+- [x] **Code Health**: 代码大拆分（AST/Diagnostics/Completion/Entry）
+- [x] **Coverage**: 单元测试覆盖率提升及统一 Runner
+
 ### 5.1 基础设施与缓存
 
 - [x] `ThriftFileWatcher` / `CacheManager` / `file-reader.ts` 基础设施落地
 - [x] AST 缓存（5 分钟 TTL）与 Provider 统一使用 AST
 - [x] References/符号共享缓存与文件列表节流
 - [x] 工作区/引用文件列表增量更新（file watcher create/delete）
-- [x] CacheManager 驱逐策略优化：按缓存分桶管理，过期清理与上限淘汰成本下降
+- [x] CacheManager 驱逐策略优化：按缓存分桶管理
 
 ### 5.2 AST 范围与精度
 
 - [x] AST `nameRange` + 类型范围（fieldType/returnType/aliasType/valueType）补齐
 - [x] AST 默认值/初始化范围：字段默认值、const 值体、enum initializer 精确 range
-- [x] AST 类型范围回归测试新增（tests/src/ast/parser/test-type-ranges.js）
+- [x] AST 类型范围回归测试新增
 
 ### 5.3 诊断与性能
 
 - [x] 诊断节流（300ms 延迟 + 1s 最小间隔）与性能监控
 - [x] 性能监控指标扩展（操作统计与内存摘要）
 - [x] 并发控制：诊断分析引入并发上限与排队机制
-- [x] 增量分析/增量格式化：脏区跟踪、依赖跳过、include 缓存复用、脏区诊断合并、结构性变更回退、块级局部解析与成员级缓存（enum/service/struct/union/exception）、范围合并统一、LRU/TTL 缓存驱逐
-- [x] 增量格式化：脏区范围格式化、阈值回退、最小化 patch、基于 AST 的局部上下文
-- [x] 增量分析边界修正：结构性变更与 include 识别改为注释/字符串剔除后判断
-- [x] 增量分析脏区合并优化：多段脏区统一合并后在最小包含块内分析
+- [x] 增量分析/增量格式化：脏区跟踪、局部解析、缓存复用
+- [x] 增量分析边界修正与脏区合并优化
 
 ### 5.4 错误处理与配置
 
-- [x] 错误处理与日志统一：主要 Provider + 性能监控/扫描分析工具使用 `ErrorHandler`
-- [x] 配置集中化（`src/config/index.ts`）消除魔法字符串/数字
+- [x] 错误处理与日志统一：`ErrorHandler`
+- [x] 配置集中化（`src/config/index.ts`）
 
 ### 5.5 架构与依赖注入
 
-- [x] PerformanceMonitor 改为实例注入，从依赖构造层统一下发
-- [x] DI 接线测试补齐：PerformanceMonitor 实例注入 + 诊断侧性能监控注入
-- [x] 静态单例入口收敛：核心流程改为实例化依赖注入，避免直接调用 `getInstance()`
+- [x] PerformanceMonitor 实例注入
+- [x] DI 接线测试补齐
+- [x] 静态单例入口收敛
 
 ### 5.6 修复与回归测试
 
@@ -162,12 +124,9 @@
 
 ### 5.7 定义导航拆分
 
-- [x] `ThriftDefinitionProvider` 逻辑拆解至 `src/definition/*` 模块（helpers、lookup、缓存）并同步拆分测试到 `tests/src/definition/*`
-- [x] 提供器只保留导航调度，重复逻辑与 workspace/AST traversal 复用 lookup 工具
+- [x] `ThriftDefinitionProvider` 逻辑拆解与测试迁移
 
-### 5.8 历史更新记录
+### 5.10 历史更新记录
 
+- 2026-01-08：完成 v1.0.12 全量代码重构（AST/Diagnostics/Completion/Extension），所有 106 个测试通过；项目结构显著优化，模块职责清晰。
 - 2026-01-08：Review 项目状态，确认 v1.0.12 版本进度与文档一致；Code Splitting (Formatter/References/Definition) 已完成，AST 增强 (Ranges/Safety) 已落地。
-- 2025-12-27：补齐 include Quick Fix 与 moveType 覆盖保护；CompletionProvider 引入 AST 语境与 include/枚举/容器 snippet；References/Document/Workspace Symbols 引入缓存与文件列表节流；诊断新增节流+性能监控+依赖追踪；测试补齐诊断/重构回归并挂入 unified runner。
-- 2025-12-26：moveType 增加目标存在检测并避免覆盖；typedef 仅截取声明行；格式化支持单行逗号与 const 闭合行注释；诊断节流改为延迟队列；新增 AST 缓存层与 fileWatcher/cacheManager/errorHandler；测试目录重组 + 统一 runner。
-- 2025-10-09：诊断策略优化（注解语义不透明、字符串内不计括号、仅栈顶为 `<` 匹配 `>`）；完善并通过全部测试。

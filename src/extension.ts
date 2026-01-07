@@ -6,6 +6,7 @@ import { registerCommands } from './commands';
 
 /**
  * 扩展入口，注册所有能力与命令。
+ * @param context 扩展上下文
  */
 export function activate(context: vscode.ExtensionContext) {
     const deps = createCoreDependencies();
@@ -19,6 +20,9 @@ export function activate(context: vscode.ExtensionContext) {
     registerCommands(context, deps);
 }
 
+/**
+ * 扩展停用时清理资源。
+ */
 export function deactivate() {
     const errorHandler = new ErrorHandler();
     errorHandler.handleInfo('Thrift Support extension is now deactivated!', {

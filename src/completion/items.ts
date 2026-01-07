@@ -30,6 +30,11 @@ export const COMMON_METHODS = [
     'get', 'set', 'create', 'update', 'delete', 'find', 'list'
 ];
 
+/**
+ * 添加类型补全（基本类型 + 容器 + 用户定义类型）。
+ * @param completions 补全列表容器
+ * @param userTypes 用户定义的类型列表
+ */
 export function addTypeCompletions(completions: vscode.CompletionItem[], userTypes: string[]) {
     PRIMITIVES.forEach((p) => {
         completions.push(new vscode.CompletionItem(p, vscode.CompletionItemKind.Keyword));
@@ -44,6 +49,11 @@ export function addTypeCompletions(completions: vscode.CompletionItem[], userTyp
     });
 }
 
+/**
+ * 添加枚举值补全。
+ * @param completions 补全列表容器
+ * @param values 枚举值列表
+ */
 export function addEnumValueCompletions(completions: vscode.CompletionItem[], values: string[]) {
     values.forEach((value) => {
         const item = new vscode.CompletionItem(value, vscode.CompletionItemKind.EnumMember);
@@ -52,6 +62,12 @@ export function addEnumValueCompletions(completions: vscode.CompletionItem[], va
     });
 }
 
+/**
+ * 提供 include 路径补全（文件名与相对路径）。
+ * @param document 当前文档
+ * @param errorHandler 错误处理器
+ * @returns 补全项列表
+ */
 export async function provideIncludePathCompletions(
     document: vscode.TextDocument,
     errorHandler: any // Simplified type to avoid circular dependency or import issue

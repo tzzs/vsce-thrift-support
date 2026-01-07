@@ -32,6 +32,11 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
 
     /**
      * 根据上下文返回补全项列表。
+     * @param document 当前文档
+     * @param position 光标位置
+     * @param token 取消令牌
+     * @param _context 补全上下文
+     * @returns 补全项列表或 List
      */
     public async provideCompletionItems(
         document: vscode.TextDocument,

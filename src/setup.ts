@@ -15,6 +15,11 @@ import { registerSelectionRangeProvider } from './selection-range-provider';
 import { ThriftRenameProvider } from './rename-provider';
 import { ThriftRefactorCodeActionProvider } from './code-actions-provider';
 
+/**
+ * 注册所有语言特性提供者。
+ * @param context 扩展上下文
+ * @param deps 核心依赖
+ */
 export function registerProviders(context: vscode.ExtensionContext, deps: CoreDependencies) {
     // Register formatting provider
     const formattingProvider = new ThriftFormattingProvider(deps);

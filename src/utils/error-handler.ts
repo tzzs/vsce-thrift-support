@@ -18,6 +18,7 @@ export class ErrorHandler {
 
     /**
      * 获取单例实例。
+     * @returns {ErrorHandler} ErrorHandler 单例
      */
     static getInstance(): ErrorHandler {
         if (!this.instance) {
@@ -28,6 +29,8 @@ export class ErrorHandler {
 
     /**
      * 处理错误并记录日志。
+     * @param error 捕获的错误对象（Error | unknown）
+     * @param context 错误上下文（组件、操作、文件路径等）
      */
     handleError(error: unknown, context: ErrorContext): void {
         const errorMessage = this.getErrorMessage(error);
@@ -47,6 +50,8 @@ export class ErrorHandler {
 
     /**
      * 处理警告并记录日志。
+     * @param message 警告消息
+     * @param context 错误上下文
      */
     handleWarning(message: string, context: ErrorContext): void {
         const logMessage = this.formatLogMessage(message, context, 'warning');
@@ -60,6 +65,8 @@ export class ErrorHandler {
 
     /**
      * 记录信息级日志，保持输出风格一致。
+     * @param message日志消息
+     * @param context 错误上下文
      */
     handleInfo(message: string, context: ErrorContext): void {
         const logMessage = this.formatLogMessage(message, context, 'info');
@@ -69,6 +76,10 @@ export class ErrorHandler {
 
     /**
      * 包装异步函数，自动处理错误。
+     * @param fn 目标异步函数
+     * @param context 错误上下文
+     * @param fallbackValue 出错时的回退值（可选）
+     * @returns 函数执行结果，或在出错时返回 fallbackValue（如果提供），否则抛出错误
      */
     async wrapAsync<T>(
         fn: () => Promise<T>,
@@ -88,6 +99,10 @@ export class ErrorHandler {
 
     /**
      * 包装同步函数，自动处理错误。
+     * @param fn 目标同步函数
+     * @param context 错误上下文
+     * @param fallbackValue 出错时的回退值（可选）
+     * @returns 函数执行结果，或在出错时返回 fallbackValue（如果提供），否则抛出错误
      */
     wrapSync<T>(fn: () => T, context: ErrorContext, fallbackValue?: T): T {
         try {

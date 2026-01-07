@@ -9,6 +9,7 @@ export class ThriftFileWatcher {
 
     /**
      * 获取单例实例。
+     * @returns {ThriftFileWatcher} ThriftFileWatcher 单例
      */
     static getInstance(): ThriftFileWatcher {
         if (!this.instance) {
@@ -19,6 +20,9 @@ export class ThriftFileWatcher {
 
     /**
      * 创建或复用监听器，并挂载变化回调。
+     * @param pattern 文件 glob 模式
+     * @param onChange 文件变更时的回调函数
+     * @returns {vscode.FileSystemWatcher} VS Code 文件监听器
      */
     createWatcher(pattern: string, onChange: () => void): vscode.FileSystemWatcher {
         const key = `thrift-${pattern}`;
@@ -42,6 +46,9 @@ export class ThriftFileWatcher {
 
     /**
      * 创建或复用监听器，并分别挂载事件回调（支持增量更新场景）。
+     * @param pattern 文件 glob 模式
+     * @param handlers 事件处理器对象（onCreate, onChange, onDelete）
+     * @returns {vscode.FileSystemWatcher} VS Code 文件监听器
      */
     createWatcherWithEvents(
         pattern: string,

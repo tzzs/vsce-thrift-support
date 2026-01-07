@@ -44,7 +44,7 @@ export function createMemberCache(): MemberCache {
  * @param ast 当前 AST
  * @param lines 文档行内容
  * @param issues 当前诊断问题
- * @returns 成员缓存
+ * @returns 成员缓存（按块分组）
  */
 export function buildMemberCache(ast: nodes.ThriftDocument, lines: string[], issues: ThriftIssue[]) {
     const cache = createMemberCacheByBlock();
@@ -92,6 +92,20 @@ export function buildMemberCacheForNode(
     return cache;
 }
 
+/**
+ * 构建块级缓存（每个顶级节点一条缓存）。
+ * @param ast 当前 AST
+ * @param lines 文档行内容
+ * @param issues 当前诊断问题
+ * @returns 块级缓存
+ */
+/**
+ * 构建块级缓存（每个顶级节点一条缓存）。
+ * @param ast 当前 AST
+ * @param lines 文档行内容
+ * @param issues 当前诊断问题
+ * @returns 块级缓存
+ */
 /**
  * 构建块级缓存（每个顶级节点一条缓存）。
  * @param ast 当前 AST

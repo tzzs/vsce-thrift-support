@@ -10,6 +10,7 @@ export interface SchedulerOptions {
 
 /**
  * Handles scheduling, throttling and concurrency for diagnostics analysis.
+ * 分析调度器：负责管理诊断任务的队列、并发控制与节流。
  */
 export class AnalysisScheduler {
     /** 分析队列（按文档 key 管理） */
@@ -35,6 +36,11 @@ export class AnalysisScheduler {
 
     /**
      * Schedule a task for execution.
+     * @param doc 目标文档
+     * @param options 调度选项（是否立即执行、节流状态）
+     * @param runTask 实际要执行的任务函数
+     * @param onScheduled 任务被调度时的回调（返回 timeout 句柄）
+     * @returns 是否成功调度（true=已加入队列，false=被节流或跳过）
      */
     public schedule(
         doc: vscode.TextDocument,

@@ -6,6 +6,7 @@ import * as path from 'path';
 /**
  * Manages file dependencies for diagnostics analysis.
  * Tracks structural dependencies (includes) and reverse dependencies (dependent files).
+ * 依赖管理器：跟踪文件间的 Include 依赖关系，用于级联触发诊断。
  */
 export class DependencyManager {
     /** 文件依赖跟踪：被 include 的文件 -> 依赖它的文件集合 */

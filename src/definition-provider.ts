@@ -58,6 +58,10 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
 
     /**
      * 根据当前位置返回定义位置（含 include 与命名空间处理）。
+     * @param document 当前文档
+     * @param position 光标位置
+     * @param _token 取消令牌
+     * @returns 定义位置（Definition | undefined）
      */
     async provideDefinition(
         document: vscode.TextDocument,

@@ -61,6 +61,15 @@ export class DiagnosticManager {
 
     /**
      * 安排文档诊断任务（支持节流与依赖触发）。
+     * @param doc 目标文档
+     * @param immediate 是否立即执行（跳过节流延迟）
+     * @param skipDependents 是否跳过依赖文件分析（避免循环触发）
+     * @param triggerSource 触发源标识（日志用）
+     * @param dirtyLineCount 变更行数（用于增量决策）
+     * @param includesMayChange include 是否可能变更
+     * @param dirtyRange 变更范围（增量分析用）
+     * @param structuralChange 是否为结构性变更
+     * @param dirtyRanges 多段变更范围
      */
     public scheduleAnalysis(
         doc: vscode.TextDocument,
@@ -141,6 +150,7 @@ export class DiagnosticManager {
 
     /**
      * 清理文档状态与缓存。
+     * @param doc 目标文档
      */
     public clearDocument(doc: vscode.TextDocument) {
         const key = this.getDocumentKey(doc);
@@ -162,6 +172,7 @@ export class DiagnosticManager {
 
     /**
      * 暴露文件依赖信息给测试使用。
+     * @returns 依赖关系映射表
      */
     public getFileDependenciesForTesting(): Map<string, Set<string>> {
         return this.dependencyManager.getFileDependenciesForTesting();
@@ -169,6 +180,7 @@ export class DiagnosticManager {
 
     /**
      * 暴露 include 关系给测试使用。
+     * @returns Include 关系映射表
      */
     public getFileIncludesForTesting(): Map<string, Set<string>> {
         return this.dependencyManager.getFileIncludesForTesting();
