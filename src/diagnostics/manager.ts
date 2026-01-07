@@ -22,7 +22,6 @@ import {
 } from './analysis-cache';
 import { DocumentDiagnosticState, mergeBlockIntoAst } from './state';
 import {
-    clearIncludeCacheForDocument,
     collectIncludedTypes,
     collectIncludedTypesFromCache,
     getIncludedFiles
@@ -35,6 +34,8 @@ import {
     findContainingNode,
     hashText
 } from './utils';
+import { DependencyManager } from './dependency-manager';
+import { AnalysisScheduler } from './scheduler';
 
 /**
  * DiagnosticManager：负责诊断调度、缓存与依赖跟踪。
@@ -42,50 +43,24 @@ import {
 export class DiagnosticManager {
     /** VS Code 诊断集合 */
     private collection: vscode.DiagnosticCollection;
-    /** 分析队列（按文档 key 管理） */
-    private analysisQueue = new Map<string, NodeJS.Timeout>();
     /** 文档诊断状态缓存 */
     private documentStates = new Map<string, DocumentDiagnosticState>();
-    /** 诊断延迟（毫秒） */
-    private readonly ANALYSIS_DELAY = config.diagnostics.analysisDelayMs;
-    /** 最小分析间隔（毫秒） */
-    private readonly MIN_ANALYSIS_INTERVAL = config.diagnostics.minAnalysisIntervalMs;
-    /** 并发诊断上限 */
-    private readonly MAX_CONCURRENT_ANALYSES = Math.max(1, config.diagnostics.maxConcurrentAnalyses);
-    /** 当前分析中的任务数量 */
-    private inFlightAnalyses = 0;
-    /** 等待队列（用于并发控制） */
-    private analysisWaiters: Array<() => void> = [];
-    /** 已排队但未执行的文档 key */
-    private pendingAnalyses = new Set<string>();
 
-    /** 文件依赖跟踪：被 include 的文件 -> 依赖它的文件集合 */
-    private fileDependencies = new Map<string, Set<string>>();
-    /** 反向依赖跟踪：文件 -> 它 include 的文件集合 */
-    private fileIncludes = new Map<string, Set<string>>();
-    /** 错误处理器 */
+    private dependencyManager: DependencyManager;
+    private scheduler: AnalysisScheduler;
     private errorHandler: ErrorHandler;
-    /** 性能监控器 */
     private performanceMonitor: PerformanceMonitor;
 
     constructor(errorHandler?: ErrorHandler, performanceMonitorInstance?: PerformanceMonitor) {
         this.errorHandler = errorHandler ?? new ErrorHandler();
         this.performanceMonitor = performanceMonitorInstance ?? performanceMonitor;
         this.collection = vscode.languages.createDiagnosticCollection('thrift');
+        this.dependencyManager = new DependencyManager();
+        this.scheduler = new AnalysisScheduler();
     }
 
     /**
      * 安排文档诊断任务（支持节流与依赖触发）。
-     * @param doc 当前文档
-     * @param immediate 是否立即执行
-     * @param skipDependents 是否跳过依赖文件
-     * @param triggerSource 触发来源
-     * @param dirtyLineCount 脏行数量
-     * @param includesMayChange include 是否可能变化
-     * @param dirtyRange 脏范围
-     * @param structuralChange 是否结构性变更
-     * @param dirtyRanges 多段脏范围
-     * @returns void
      */
     public scheduleAnalysis(
         doc: vscode.TextDocument,
@@ -116,37 +91,32 @@ export class DiagnosticManager {
 
         logDiagnostics(`[Diagnostics] Schedule analysis for ${path.basename(doc.uri.fsPath)}, immediate=${immediate}, skipDependents=${skipDependents}${triggerInfo}${dirtyInfo}`);
 
-        const existingTimeout = this.analysisQueue.get(key);
-        if (existingTimeout) {
-            clearTimeout(existingTimeout);
-        }
-
         const prevState = this.documentStates.get(key);
-        const throttleState = prevState ?? { version: doc.version, isAnalyzing: false };
-        const now = Date.now();
-        const lastGap = throttleState?.lastAnalysis ? now - throttleState.lastAnalysis : Number.POSITIVE_INFINITY;
-        const throttleDelay = lastGap < this.MIN_ANALYSIS_INTERVAL ? this.MIN_ANALYSIS_INTERVAL - lastGap : 0;
 
-        if (prevState?.isAnalyzing) {
-            return;
+        const scheduled = this.scheduler.schedule(
+            doc,
+            {
+                immediate,
+                throttleState: prevState
+            },
+            () => this.performAnalysis(doc),
+            (timeout: NodeJS.Timeout) => {
+                // Keep track if needed, but scheduler handles queue
+            }
+        );
+
+        if (!scheduled && !prevState?.isAnalyzing) {
+            // Maybe explicitly skipped due to throttling without new changes?
+            // But we need to update state if parameters changed? 
+            // Actually scheduler logic handles throttling check. 
+            // We persist state update regardless to capture latest intentions.
         }
-        if (prevState && prevState.version === doc.version && throttleDelay === 0) {
-            return;
-        }
 
-        const baseDelay = immediate ? 0 : this.ANALYSIS_DELAY;
-        const delay = Math.max(baseDelay, throttleDelay);
-
-        const timeout = setTimeout(() => {
-            this.analysisQueue.delete(key);
-            this.enqueueAnalysis(doc);
-        }, delay);
-
-        this.analysisQueue.set(key, timeout);
+        // Update state to reflect pending analysis parameters
         const nextState: DocumentDiagnosticState = {
             ...(prevState ?? {}),
             version: doc.version,
-            isAnalyzing: prevState?.isAnalyzing ?? false,
+            isAnalyzing: prevState?.isAnalyzing ?? false, // Don't flip here, scheduler flips when running
             lastAnalysis: prevState?.lastAnalysis,
             dirtyLineCount,
             includesMayChange,
@@ -157,7 +127,8 @@ export class DiagnosticManager {
             lastDiagnostics: prevState?.lastDiagnostics
         };
         this.documentStates.set(key, nextState);
-        if (!skipDependents) {
+
+        if (scheduled && !skipDependents) {
             const dependents = this.getDependentFiles(key);
             for (const dependentFile of dependents) {
                 const dependentDoc = vscode.workspace.textDocuments.find((d) => d.uri.toString() === dependentFile);
@@ -170,180 +141,49 @@ export class DiagnosticManager {
 
     /**
      * 清理文档状态与缓存。
-     * @param doc 当前文档
-     * @returns void
      */
     public clearDocument(doc: vscode.TextDocument) {
         const key = this.getDocumentKey(doc);
-
-        const timeout = this.analysisQueue.get(key);
-        if (timeout) {
-            clearTimeout(timeout);
-            this.analysisQueue.delete(key);
-        }
-
+        this.scheduler.cancel(doc);
+        this.dependencyManager.clearDocument(doc);
         this.documentStates.delete(key);
-
-        const oldIncludes = this.fileIncludes.get(key);
-        if (oldIncludes) {
-            for (const includedKey of oldIncludes) {
-                const dependents = this.fileDependencies.get(includedKey);
-                if (dependents) {
-                    dependents.delete(key);
-                    if (dependents.size === 0) {
-                        this.fileDependencies.delete(includedKey);
-                    }
-                }
-            }
-        }
-        this.fileIncludes.delete(key);
-
         this.collection.delete(doc.uri);
-
-        const docUri = doc.uri.toString();
-        if (clearIncludeCacheForDocument(docUri)) {
-            logDiagnostics(`[Diagnostics] Cleared include cache for: ${path.basename(doc.uri.fsPath)}`);
-        }
     }
 
     /**
      * 释放所有资源。
-     * @returns void
      */
     public dispose() {
-        for (const timeout of this.analysisQueue.values()) {
-            clearTimeout(timeout);
-        }
-        this.analysisQueue.clear();
+        this.scheduler.dispose();
+        this.dependencyManager.dispose();
         this.documentStates.clear();
-        this.fileDependencies.clear();
-        this.fileIncludes.clear();
         this.collection.dispose();
     }
 
     /**
      * 暴露文件依赖信息给测试使用。
-     * @returns 文件依赖映射
      */
     public getFileDependenciesForTesting(): Map<string, Set<string>> {
-        return this.fileDependencies;
+        return this.dependencyManager.getFileDependenciesForTesting();
     }
 
     /**
      * 暴露 include 关系给测试使用。
-     * @returns include 关系映射
      */
     public getFileIncludesForTesting(): Map<string, Set<string>> {
-        return this.fileIncludes;
+        return this.dependencyManager.getFileIncludesForTesting();
     }
 
-    /**
-     * 获取文档在缓存中的唯一 key。
-     * @param doc 当前文档
-     * @returns 文档 key
-     */
     private getDocumentKey(doc: vscode.TextDocument): string {
         return doc.uri.toString();
     }
 
-    /**
-     * 将分析任务放入等待队列。
-     * @param doc 当前文档
-     * @returns void
-     */
-    private enqueueAnalysis(doc: vscode.TextDocument) {
-        const key = this.getDocumentKey(doc);
-        if (this.pendingAnalyses.has(key)) {
-            return;
-        }
-        this.pendingAnalyses.add(key);
-        const run = async () => {
-            try {
-                await this.waitForSlot();
-                this.pendingAnalyses.delete(key);
-                await this.performAnalysis(doc);
-            } finally {
-                this.releaseSlot();
-            }
-        };
-        void run();
-    }
-
-    /**
-     * 等待并占用分析并发槽位。
-     * @returns void
-     */
-    private async waitForSlot() {
-        if (this.inFlightAnalyses < this.MAX_CONCURRENT_ANALYSES) {
-            this.inFlightAnalyses++;
-            return;
-        }
-        await new Promise<void>((resolve) => this.analysisWaiters.push(resolve));
-        this.inFlightAnalyses++;
-    }
-
-    /**
-     * 释放分析并发槽位。
-     * @returns void
-     */
-    private releaseSlot() {
-        this.inFlightAnalyses = Math.max(0, this.inFlightAnalyses - 1);
-        const waiter = this.analysisWaiters.shift();
-        if (waiter) {
-            waiter();
-        }
-    }
-
-    /**
-     * 记录 include 依赖关系。
-     * @param doc 当前文档
-     * @param includedFiles include 文件列表
-     * @returns void
-     */
-    private trackFileDependencies(doc: vscode.TextDocument, includedFiles: vscode.Uri[]) {
-        const docKey = this.getDocumentKey(doc);
-
-        const oldIncludes = this.fileIncludes.get(docKey);
-        if (oldIncludes) {
-            for (const includedKey of oldIncludes) {
-                const dependents = this.fileDependencies.get(includedKey);
-                if (dependents) {
-                    dependents.delete(docKey);
-                    if (dependents.size === 0) {
-                        this.fileDependencies.delete(includedKey);
-                    }
-                }
-            }
-        }
-
-        const newIncludes = new Set<string>();
-        for (const includedFile of includedFiles) {
-            const includedKey = includedFile.toString();
-            newIncludes.add(includedKey);
-
-            if (!this.fileDependencies.has(includedKey)) {
-                this.fileDependencies.set(includedKey, new Set<string>());
-            }
-            this.fileDependencies.get(includedKey)!.add(docKey);
-        }
-
-        this.fileIncludes.set(docKey, newIncludes);
-    }
-
-    /**
-     * 获取依赖当前文件的其他文件。
-     * @param fileKey 当前文件 key
-     * @returns 依赖文件列表
-     */
     private getDependentFiles(fileKey: string): string[] {
-        const dependents = this.fileDependencies.get(fileKey);
-        return dependents ? Array.from(dependents) : [];
+        return this.dependencyManager.getDependentFiles(fileKey);
     }
 
     /**
      * 执行单个文档的诊断分析。
-     * @param doc 当前文档
-     * @returns void
      */
     private async performAnalysis(doc: vscode.TextDocument) {
         const key = this.getDocumentKey(doc);
@@ -368,7 +208,7 @@ export class DiagnosticManager {
                             : await collectIncludedTypes(doc, this.errorHandler, logDiagnostics);
 
                         if (!cachedIncludedTypes) {
-                            this.trackFileDependencies(doc, includedFiles);
+                            this.dependencyManager.trackFileDependencies(doc, includedFiles);
                         }
 
                         const text = doc.getText();
@@ -470,7 +310,7 @@ export class DiagnosticManager {
                             ? { ...state, dirtyRange: mergeRange }
                             : usedPartial
                                 ? state
-                            : { ...state, useIncrementalDiagnostics: false };
+                                : { ...state, useIncrementalDiagnostics: false };
                         const incrementalDiagnostics = this.mergeIncrementalDiagnostics(
                             issues,
                             mergeState,
@@ -505,10 +345,6 @@ export class DiagnosticManager {
 
     /**
      * 合并增量诊断结果到上一次诊断集中。
-     * @param issues 当前分析的诊断问题
-     * @param state 增量合并状态
-     * @param doc 当前文档
-     * @returns 合并后的诊断结果或 null
      */
     private mergeIncrementalDiagnostics(
         issues: ThriftIssue[],

@@ -19,8 +19,16 @@ import {
     stripTrailingAnnotation
 } from './parser-helpers';
 import { Token, tokenizeLine } from './tokenizer';
-
-type TokenWithIndex = Token & { index: number };
+import {
+    TokenWithIndex,
+    getMeaningfulTokens,
+    readQualifiedIdentifier,
+    findFirstIdentifier,
+    findIdentifierIndex,
+    findLastIdentifier,
+    findSymbolIndex,
+    findSymbolIndexFrom
+} from './token-utils';
 
 export class ThriftParser {
     private text: string;
@@ -123,7 +131,7 @@ export class ThriftParser {
             return null;
         }
 
-        const tokens = this.getMeaningfulTokens(line);
+        const tokens = getMeaningfulTokens(line);
         if (tokens.length === 0) {
             this.currentLine++;
             return null;
@@ -136,8 +144,8 @@ export class ThriftParser {
         }
 
         if (keywordToken.value === 'namespace') {
-            const scope = this.readQualifiedIdentifier(tokens, 1);
-            const namespace = scope ? this.readQualifiedIdentifier(tokens, scope.endIndex) : null;
+            const scope = readQualifiedIdentifier(tokens, 1);
+            const namespace = scope ? readQualifiedIdentifier(tokens, scope.endIndex) : null;
             if (scope && namespace) {
                 const node: nodes.Namespace = {
                     type: nodes.ThriftNodeType.Namespace,
@@ -175,7 +183,7 @@ export class ThriftParser {
         }
 
         if (keywordToken.value === 'struct' || keywordToken.value === 'union' || keywordToken.value === 'exception') {
-            const nameToken = this.findFirstIdentifier(tokens, 1);
+            const nameToken = findFirstIdentifier(tokens, 1);
             if (nameToken) {
                 return this.parseStruct(parent, keywordToken.value, nameToken.value);
             }
@@ -185,7 +193,7 @@ export class ThriftParser {
         }
 
         if (keywordToken.value === 'enum' || keywordToken.value === 'senum') {
-            const nameToken = this.findFirstIdentifier(tokens, 1);
+            const nameToken = findFirstIdentifier(tokens, 1);
             if (nameToken) {
                 return this.parseEnum(parent, nameToken.value, keywordToken.value === 'senum');
             }
@@ -195,12 +203,12 @@ export class ThriftParser {
         }
 
         if (keywordToken.value === 'service') {
-            const nameToken = this.findFirstIdentifier(tokens, 1);
+            const nameToken = findFirstIdentifier(tokens, 1);
             if (nameToken) {
                 let extendsName: string | undefined;
-                const extendsIndex = this.findIdentifierIndex(tokens, 'extends', nameToken.index + 1);
+                const extendsIndex = findIdentifierIndex(tokens, 'extends', nameToken.index + 1);
                 if (extendsIndex !== -1) {
-                    const parentName = this.readQualifiedIdentifier(tokens, extendsIndex + 1);
+                    const parentName = readQualifiedIdentifier(tokens, extendsIndex + 1);
                     if (parentName) {
                         extendsName = parentName.value;
                     }
@@ -213,9 +221,9 @@ export class ThriftParser {
         }
 
         if (keywordToken.value === 'const') {
-            const equalsIndex = this.findSymbolIndex(tokens, '=');
+            const equalsIndex = findSymbolIndex(tokens, '=');
             if (equalsIndex !== -1) {
-                const nameToken = this.findLastIdentifier(tokens, equalsIndex);
+                const nameToken = findLastIdentifier(tokens, equalsIndex);
                 if (nameToken) {
                     const typeText = line.slice(keywordToken.end, nameToken.start).trim();
                     if (typeText) {
@@ -229,7 +237,7 @@ export class ThriftParser {
         }
 
         if (keywordToken.value === 'typedef') {
-            const nameToken = this.findLastIdentifier(tokens, tokens.length);
+            const nameToken = findLastIdentifier(tokens, tokens.length);
             if (nameToken && nameToken.index > 0) {
                 const keywordIndex = keywordToken.end;
                 const aliasType = line.slice(keywordIndex, nameToken.start).trim();
@@ -265,76 +273,19 @@ export class ThriftParser {
         };
     }
 
-    private getMeaningfulTokens(line: string): Token[] {
-        return tokenizeLine(line).filter(token => token.type !== 'whitespace' && token.type !== 'comment');
-    }
 
-    private readQualifiedIdentifier(tokens: Token[], startIndex: number): { value: string; endIndex: number; startOffset: number; endOffset: number } | null {
-        const first = tokens[startIndex];
-        if (!first || first.type !== 'identifier') {
-            return null;
-        }
-        let value = first.value;
-        let endIndex = startIndex + 1;
-        let endOffset = first.end;
-        while (tokens[endIndex] && tokens[endIndex].type === 'symbol' && tokens[endIndex].value === '.' &&
-            tokens[endIndex + 1] && tokens[endIndex + 1].type === 'identifier') {
-            value += '.' + tokens[endIndex + 1].value;
-            endOffset = tokens[endIndex + 1].end;
-            endIndex += 2;
-        }
-        return {
-            value,
-            endIndex,
-            startOffset: first.start,
-            endOffset
-        };
-    }
 
-    private findFirstIdentifier(tokens: Token[], startIndex: number): TokenWithIndex | null {
-        for (let i = startIndex; i < tokens.length; i++) {
-            if (tokens[i].type === 'identifier') {
-                return { ...tokens[i], index: i };
-            }
-        }
-        return null;
-    }
 
-    private findIdentifierIndex(tokens: Token[], value: string, startIndex: number): number {
-        for (let i = startIndex; i < tokens.length; i++) {
-            if (tokens[i].type === 'identifier' && tokens[i].value === value) {
-                return i;
-            }
-        }
-        return -1;
-    }
 
-    private findLastIdentifier(tokens: Token[], endIndex: number): TokenWithIndex | null {
-        for (let i = Math.min(tokens.length, endIndex) - 1; i >= 0; i--) {
-            if (tokens[i].type === 'identifier') {
-                return { ...tokens[i], index: i };
-            }
-        }
-        return null;
-    }
 
-    private findSymbolIndex(tokens: Token[], value: string): number {
-        for (let i = 0; i < tokens.length; i++) {
-            if (tokens[i].type === 'symbol' && tokens[i].value === value) {
-                return i;
-            }
-        }
-        return -1;
-    }
 
-    private findSymbolIndexFrom(tokens: Token[], value: string, startIndex: number): number {
-        for (let i = startIndex; i < tokens.length; i++) {
-            if (tokens[i].type === 'symbol' && tokens[i].value === value) {
-                return i;
-            }
-        }
-        return -1;
-    }
+
+
+
+
+
+
+
 
     private parseStruct(parent: nodes.ThriftNode, structType: string, name: string): nodes.Struct {
         const startLine = this.currentLine;
@@ -408,7 +359,7 @@ export class ThriftParser {
         if (!codeOnly) {
             return null;
         }
-        const tokens = this.getMeaningfulTokens(codeOnly);
+        const tokens = getMeaningfulTokens(codeOnly);
         if (tokens.length === 0) {
             return null;
         }
@@ -416,7 +367,7 @@ export class ThriftParser {
         if (idIndex === -1) {
             return this.parseStructFieldLineFallback(parent, line, codeOnly, codeStart);
         }
-        const colonIndex = this.findSymbolIndexFrom(tokens, ':', idIndex + 1);
+        const colonIndex = findSymbolIndexFrom(tokens, ':', idIndex + 1);
         if (colonIndex === -1) {
             return this.parseStructFieldLineFallback(parent, line, codeOnly, codeStart);
         }
@@ -589,7 +540,7 @@ export class ThriftParser {
             return null;
         }
         const codeStart = line.indexOf(codeOnly);
-        const tokens = this.getMeaningfulTokens(codeOnly);
+        const tokens = getMeaningfulTokens(codeOnly);
         if (tokens.length === 0) {
             return null;
         }
@@ -597,7 +548,7 @@ export class ThriftParser {
         if (!nameToken) {
             return null;
         }
-        const equalsIndex = this.findSymbolIndex(tokens, '=');
+        const equalsIndex = findSymbolIndex(tokens, '=');
         let initializer: string | undefined;
         let initializerRange: vscode.Range | undefined;
         if (equalsIndex !== -1) {
@@ -910,11 +861,11 @@ export class ThriftParser {
             return null;
         }
         const codeStart = line.indexOf(codeOnly);
-        const tokens = this.getMeaningfulTokens(codeOnly);
+        const tokens = getMeaningfulTokens(codeOnly);
         if (tokens.length === 0) {
             return null;
         }
-        const parenIndex = this.findSymbolIndex(tokens, '(');
+        const parenIndex = findSymbolIndex(tokens, '(');
         if (parenIndex === -1) {
             return null;
         }

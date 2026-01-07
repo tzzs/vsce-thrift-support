@@ -27,13 +27,12 @@
   - [x] references provider 拆分为 `src/references/*`，单测迁移至 `tests/src/references/*`
   - [x] formatting provider 拆分为 `src/formatting-bridge/*`，单测迁移至 `tests/src/formatting-bridge/*`
   - [x] 继续拆分其他大文件（按诊断/格式化/解析优先级逐步推进）：`DiagnosticManager` 状态与 AST merge 逻辑提取到 `src/diagnostics/state.ts`
-  - [ ] 待拆分清单（按当前文件规模排序，均为未开始）
-  - [ ] `src/ast/parser.ts`（≈697 行）
-  - [ ] `src/ast/parser-helpers.ts`（≈645 行）
-  - [ ] `src/diagnostics/manager.ts`（≈558 行）
-  - [ ] `src/completion-provider.ts`（≈404 行）
-  - [ ] `src/diagnostics/rules/analyzer.ts`（≈373 行）
-  - [ ] `src/extension.ts`（≈330 行）
+  - [x] `src/ast/parser.ts`（refactored into `text-utils`, `ranges`, `token-utils`）
+  - [x] `src/ast/parser-helpers.ts`（refactored）
+  - [x] `src/diagnostics/manager.ts`（split into `dependency-manager`, `scheduler`）
+  - [x] `src/completion-provider.ts`（split into `completion/` modules）
+  - [x] `src/diagnostics/rules/analyzer.ts`（split into `rules/` modules）
+  - [x] `src/extension.ts`（split into `setup.ts`, `commands/`）
 - [x] 单元测试覆盖：补齐 line-range 与增量相关回归并接入 `run-all-unified`
 - [ ] 注释标准化：统一中英文注释规则（仅在必要处）
 
@@ -168,6 +167,7 @@
 
 ### 5.8 历史更新记录
 
+- 2026-01-08：Review 项目状态，确认 v1.0.12 版本进度与文档一致；Code Splitting (Formatter/References/Definition) 已完成，AST 增强 (Ranges/Safety) 已落地。
 - 2025-12-27：补齐 include Quick Fix 与 moveType 覆盖保护；CompletionProvider 引入 AST 语境与 include/枚举/容器 snippet；References/Document/Workspace Symbols 引入缓存与文件列表节流；诊断新增节流+性能监控+依赖追踪；测试补齐诊断/重构回归并挂入 unified runner。
 - 2025-12-26：moveType 增加目标存在检测并避免覆盖；typedef 仅截取声明行；格式化支持单行逗号与 const 闭合行注释；诊断节流改为延迟队列；新增 AST 缓存层与 fileWatcher/cacheManager/errorHandler；测试目录重组 + 统一 runner。
 - 2025-10-09：诊断策略优化（注解语义不透明、字符串内不计括号、仅栈顶为 `<` 匹配 `>`）；完善并通过全部测试。
