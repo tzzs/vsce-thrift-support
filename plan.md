@@ -26,12 +26,11 @@
   - [x] formatter 单测迁移并拆分至 `tests/src/formatter/*`
   - [x] references provider 拆分为 `src/references/*`，单测迁移至 `tests/src/references/*`
   - [x] formatting provider 拆分为 `src/formatting-bridge/*`，单测迁移至 `tests/src/formatting-bridge/*`
-  - [ ] 继续拆分其他大文件（按诊断/格式化/解析优先级逐步推进）
+  - [x] 继续拆分其他大文件（按诊断/格式化/解析优先级逐步推进）：`DiagnosticManager` 状态与 AST merge 逻辑提取到 `src/diagnostics/state.ts`
   - [ ] 待拆分清单（按当前文件规模排序，均为未开始）
   - [ ] `src/ast/parser.ts`（≈697 行）
   - [ ] `src/ast/parser-helpers.ts`（≈645 行）
   - [ ] `src/diagnostics/manager.ts`（≈558 行）
-  - [ ] `src/definition-provider.ts`（≈548 行）
   - [ ] `src/completion-provider.ts`（≈404 行）
   - [ ] `src/diagnostics/rules/analyzer.ts`（≈373 行）
   - [ ] `src/extension.ts`（≈330 行）
@@ -85,8 +84,8 @@
 
 - [x] 函数参数/throws 的 name/type 精确范围
 - [x] 多行声明的稳定 range（避免 line-based 偏移）
-- [ ] AST 增量解析与子树缓存
-- [ ] children/parent 结构一致化，便于通用遍历与索引
+- [x] AST 增量解析与子树缓存：脏区局部解析、AST 子树补丁与缓存
+- [x] children/parent 结构一致化，便于通用遍历与索引
 
 ## 4. 待增强清单（能力差距）
 
@@ -162,7 +161,12 @@
 - [x] Rename 误删定义回归修复 + 回归测试覆盖
 - [x] 诊断结构性变更回归测试覆盖
 
-### 5.7 历史更新记录
+### 5.7 定义导航拆分
+
+- [x] `ThriftDefinitionProvider` 逻辑拆解至 `src/definition/*` 模块（helpers、lookup、缓存）并同步拆分测试到 `tests/src/definition/*`
+- [x] 提供器只保留导航调度，重复逻辑与 workspace/AST traversal 复用 lookup 工具
+
+### 5.8 历史更新记录
 
 - 2025-12-27：补齐 include Quick Fix 与 moveType 覆盖保护；CompletionProvider 引入 AST 语境与 include/枚举/容器 snippet；References/Document/Workspace Symbols 引入缓存与文件列表节流；诊断新增节流+性能监控+依赖追踪；测试补齐诊断/重构回归并挂入 unified runner。
 - 2025-12-26：moveType 增加目标存在检测并避免覆盖；typedef 仅截取声明行；格式化支持单行逗号与 const 闭合行注释；诊断节流改为延迟队列；新增 AST 缓存层与 fileWatcher/cacheManager/errorHandler；测试目录重组 + 统一 runner。
