@@ -3,6 +3,7 @@ import { ThriftParser } from '../ast/parser';
 import * as nodes from '../ast/nodes.types';
 import { ErrorHandler } from '../utils/error-handler';
 import { traverseAst } from './ast-traversal';
+import { createLocation } from '../utils/vscode-utils';
 
 interface ReferenceSearchDeps {
     errorHandler: ErrorHandler;
@@ -102,7 +103,7 @@ export async function findReferencesInDocument(
         };
 
         if (includeDeclaration && node.name === symbolName && isDefinitionNode(node)) {
-            references.push(new vscode.Location(uri, node.nameRange ?? node.range));
+            references.push(createLocation(uri, node.nameRange ?? node.range));
             return;
         }
 
@@ -113,10 +114,10 @@ export async function findReferencesInDocument(
         if (node.type === nodes.ThriftNodeType.Function) {
             const func = node as nodes.ThriftFunction;
             if (func.returnType === symbolName) {
-                references.push(new vscode.Location(uri, func.returnTypeRange ?? func.range));
+                references.push(createLocation(uri, func.returnTypeRange ?? func.range));
             }
             if (func.returnType.includes('.') && func.returnType.endsWith('.' + symbolName)) {
-                references.push(new vscode.Location(uri, func.returnTypeRange ?? func.range));
+                references.push(createLocation(uri, func.returnTypeRange ?? func.range));
             }
             return;
         }
@@ -125,7 +126,7 @@ export async function findReferencesInDocument(
             const field = node as nodes.Field;
             if (!inFunctionArguments) {
                 if (field.fieldType === symbolName) {
-                    references.push(new vscode.Location(uri, field.typeRange ?? field.range));
+                    references.push(createLocation(uri, field.typeRange ?? field.range));
                 }
                 if (field.fieldType.includes('.')) {
                     const parts = field.fieldType.split('.');
@@ -133,9 +134,9 @@ export async function findReferencesInDocument(
                         const namespace = parts[0];
                         const typeName = parts[1];
                         if (namespace === symbolName) {
-                            references.push(new vscode.Location(uri, field.range));
+                            references.push(createLocation(uri, field.range));
                         } else if (typeName === symbolName) {
-                            references.push(new vscode.Location(uri, field.range));
+                            references.push(createLocation(uri, field.range));
                         }
                     }
                 }

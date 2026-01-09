@@ -11,7 +11,12 @@ class Position {
 
 class Range {
     constructor(startLineOrStart, startCharacterOrEnd, endLine, endCharacter) {
-        if (startLineOrStart && typeof startLineOrStart === 'object' && startCharacterOrEnd && typeof startCharacterOrEnd === 'object') {
+        if (
+            startLineOrStart &&
+            typeof startLineOrStart === 'object' &&
+            startCharacterOrEnd &&
+            typeof startCharacterOrEnd === 'object'
+        ) {
             this.start = startLineOrStart;
             this.end = startCharacterOrEnd;
         } else {
@@ -21,10 +26,12 @@ class Range {
     }
 
     contains(position) {
-        return position.line >= this.start.line &&
+        return (
+            position.line >= this.start.line &&
             position.line <= this.end.line &&
             (position.line !== this.start.line || position.character >= this.start.character) &&
-            (position.line !== this.end.line || position.character <= this.end.character);
+            (position.line !== this.end.line || position.character <= this.end.character)
+        );
     }
 }
 
@@ -60,6 +67,13 @@ class TextEdit {
     }
 }
 
+class SelectionRange {
+    constructor(range, parent) {
+        this.range = range;
+        this.parent = parent;
+    }
+}
+
 class DocumentSymbol {
     constructor(name, detail, kind, range, selectionRange) {
         this.name = name;
@@ -68,6 +82,55 @@ class DocumentSymbol {
         this.range = range;
         this.selectionRange = selectionRange;
         this.children = [];
+    }
+}
+
+class Hover {
+    constructor(contents, range) {
+        this.contents = contents;
+        this.range = range;
+    }
+}
+
+class MarkdownString {
+    constructor(value = '', isTrusted = false) {
+        this.value = value;
+        this.isTrusted = isTrusted;
+    }
+
+    appendText(text) {
+        this.value += text;
+        return this;
+    }
+
+    appendMarkdown(markdown) {
+        this.value += markdown;
+        return this;
+    }
+
+    appendCodeblock(code, language = '') {
+        const fence = language ? `\`\`\`${language}\n` : '```\n';
+        this.value += `${fence}${code}\n\`\`\``;
+        return this;
+    }
+}
+
+class SymbolInformation {
+    constructor(name, kind, containerName, location) {
+        this.name = name;
+        this.kind = kind;
+        this.containerName = typeof containerName === 'string' ? containerName : '';
+        this.location = location;
+    }
+}
+
+class FoldingRange {
+    constructor(startLine, endLine, kind, startCharacter = 0, endCharacter = 0) {
+        this.startLine = startLine;
+        this.endLine = endLine;
+        this.kind = kind;
+        this.startCharacter = startCharacter;
+        this.endCharacter = endCharacter;
     }
 }
 
@@ -88,15 +151,22 @@ const SymbolKind = {
 
 function getWordRangeAtPositionFromText(text, position) {
     const lines = text.split('\n');
-    if (position.line >= lines.length) {return null;}
+    if (position.line >= lines.length) {
+        return null;
+    }
 
     const lineText = lines[position.line] || '';
-    if (position.character > lineText.length) {return null;}
+    if (position.character > lineText.length) {
+        return null;
+    }
 
     const wordRegex = /\b([A-Za-z_][A-Za-z0-9_]*)\b/g;
     let match;
     while ((match = wordRegex.exec(lineText)) !== null) {
-        if (position.character >= match.index && position.character <= match.index + match[0].length) {
+        if (
+            position.character >= match.index &&
+            position.character <= match.index + match[0].length
+        ) {
             return new Range(
                 new Position(position.line, match.index),
                 new Position(position.line, match.index + match[0].length)
@@ -111,7 +181,9 @@ function createTextDocument(text, uri) {
     return {
         uri,
         getText: (range) => {
-            if (!range) {return text;}
+            if (!range) {
+                return text;
+            }
             const startLine = range.start.line;
             const endLine = range.end.line;
             const startChar = range.start.character;
@@ -146,7 +218,9 @@ function createTextDocument(text, uri) {
 }
 
 function mergeDeep(target, source) {
-    if (!source) {return target;}
+    if (!source) {
+        return target;
+    }
     const output = {...target};
     Object.keys(source).forEach((key) => {
         const value = source[key];
@@ -198,6 +272,10 @@ function createVscodeMock(overrides = {}) {
         TextEdit,
         DocumentSymbol,
         SymbolKind,
+        Hover,
+        MarkdownString,
+        SymbolInformation,
+        FoldingRange,
         DiagnosticSeverity: {
             Error: 0,
             Warning: 1,
@@ -236,7 +314,9 @@ let activeRestore = null;
 function installVscodeMock(vscode) {
     const originalLoad = Module._load;
     Module._load = function (request, parent, isMain) {
-        if (request === 'vscode') {return vscode;}
+        if (request === 'vscode') {
+            return vscode;
+        }
         return originalLoad.apply(this, arguments);
     };
     activeRestore = () => {
@@ -289,6 +369,11 @@ module.exports = {
     Location,
     Uri,
     TextEdit,
+    SelectionRange,
     DocumentSymbol,
-    SymbolKind
+    SymbolKind,
+    Hover,
+    MarkdownString,
+    SymbolInformation,
+    FoldingRange
 };

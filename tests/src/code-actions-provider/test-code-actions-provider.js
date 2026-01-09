@@ -4,7 +4,9 @@ const assert = require('assert');
 const {ThriftRefactorCodeActionProvider} = require('../../../out/code-actions-provider.js');
 const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 
-function createDoc(languageId = 'thrift', text = 'struct Foo {\n 1: i32 id\n}') {
+describe('test-code-actions-provider', function() {
+    it('should run successfully', async function() {
+    function createDoc(languageId = 'thrift', text = 'struct Foo {\n 1: i32 id\n}') {
     const lines = text.split('\n');
     return {
         languageId,
@@ -43,5 +45,6 @@ async function run() {
 
     console.log('Code action provider tests passed.');
 }
-
-run();
+    await run();
+    });
+});

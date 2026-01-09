@@ -8,6 +8,7 @@ import { collectIncludes } from './ast/utils';
 import { ErrorHandler } from './utils/error-handler';
 import { config } from './config';
 import { CoreDependencies } from './utils/dependencies';
+import { createLocation } from './utils/vscode-utils';
 
 /**
  * ThriftHoverProvider：提供符号悬停文档展示。
@@ -147,7 +148,7 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
         }
         if ('targetUri' in def && 'targetRange' in def) {
             const link = def as vscode.LocationLink;
-            return new vscode.Location(link.targetUri, link.targetRange);
+            return createLocation(link.targetUri, link.targetRange);
         }
         return undefined;
     }

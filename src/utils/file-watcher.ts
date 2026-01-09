@@ -1,16 +1,98 @@
 import * as vscode from 'vscode';
 
+type WatchEventCallback = (uri: vscode.Uri) => void;
+
+interface TestableFileSystemWatcher extends vscode.FileSystemWatcher {
+    fireCreate(uri: vscode.Uri): void;
+    fireChange(uri: vscode.Uri): void;
+    fireDelete(uri: vscode.Uri): void;
+}
+
+class WatcherWrapper implements TestableFileSystemWatcher {
+    private createCallbacks = new Set<WatchEventCallback>();
+    private changeCallbacks = new Set<WatchEventCallback>();
+    private deleteCallbacks = new Set<WatchEventCallback>();
+
+    constructor(private readonly underlying: vscode.FileSystemWatcher) {}
+
+    public onDidCreate(listener: WatchEventCallback): vscode.Disposable {
+        this.createCallbacks.add(listener);
+        const disposable = this.underlying.onDidCreate?.(listener) ?? { dispose: () => {} };
+        return {
+            dispose: () => {
+                this.createCallbacks.delete(listener);
+                disposable.dispose();
+            }
+        };
+    }
+
+    public onDidChange(listener: WatchEventCallback): vscode.Disposable {
+        this.changeCallbacks.add(listener);
+        const disposable = this.underlying.onDidChange?.(listener) ?? { dispose: () => {} };
+        return {
+            dispose: () => {
+                this.changeCallbacks.delete(listener);
+                disposable.dispose();
+            }
+        };
+    }
+
+    public onDidDelete(listener: WatchEventCallback): vscode.Disposable {
+        this.deleteCallbacks.add(listener);
+        const disposable = this.underlying.onDidDelete?.(listener) ?? { dispose: () => {} };
+        return {
+            dispose: () => {
+                this.deleteCallbacks.delete(listener);
+                disposable.dispose();
+            }
+        };
+    }
+
+    public fireCreate(uri: vscode.Uri): void {
+        for (const callback of Array.from(this.createCallbacks)) {
+            callback(uri);
+        }
+    }
+
+    public fireChange(uri: vscode.Uri): void {
+        for (const callback of Array.from(this.changeCallbacks)) {
+            callback(uri);
+        }
+    }
+
+    public fireDelete(uri: vscode.Uri): void {
+        for (const callback of Array.from(this.deleteCallbacks)) {
+            callback(uri);
+        }
+    }
+
+    public dispose(): void {
+        this.underlying.dispose();
+        this.createCallbacks.clear();
+        this.changeCallbacks.clear();
+        this.deleteCallbacks.clear();
+    }
+
+    get ignoreCreateEvents(): boolean {
+        return this.underlying.ignoreCreateEvents ?? false;
+    }
+
+    get ignoreChangeEvents(): boolean {
+        return this.underlying.ignoreChangeEvents ?? false;
+    }
+
+    get ignoreDeleteEvents(): boolean {
+        return this.underlying.ignoreDeleteEvents ?? false;
+    }
+}
+
 /**
  * ThriftFileWatcher：统一管理文件监听器。
  */
 export class ThriftFileWatcher {
     private static instance: ThriftFileWatcher;
-    private watchers: Map<string, vscode.FileSystemWatcher> = new Map();
+    private watchers: Map<string, TestableFileSystemWatcher> = new Map();
 
-    /**
-     * 获取单例实例。
-     * @returns {ThriftFileWatcher} ThriftFileWatcher 单例
-     */
     static getInstance(): ThriftFileWatcher {
         if (!this.instance) {
             this.instance = new ThriftFileWatcher();
@@ -18,39 +100,26 @@ export class ThriftFileWatcher {
         return this.instance;
     }
 
-    /**
-     * 创建或复用监听器，并挂载变化回调。
-     * @param pattern 文件 glob 模式
-     * @param onChange 文件变更时的回调函数
-     * @returns {vscode.FileSystemWatcher} VS Code 文件监听器
-     */
-    createWatcher(pattern: string, onChange: () => void): vscode.FileSystemWatcher {
+    private getOrCreateWatcher(pattern: string): TestableFileSystemWatcher {
         const key = `thrift-${pattern}`;
         if (this.watchers.has(key)) {
-            const existing = this.watchers.get(key)!;
-            // 即便已有 watcher，也要为新的订阅者挂载回调，确保缓存清理不会漏掉
-            existing.onDidCreate(onChange);
-            existing.onDidChange(onChange);
-            existing.onDidDelete(onChange);
-            return existing;
+            return this.watchers.get(key)!;
         }
+        const underlying = vscode.workspace.createFileSystemWatcher(pattern);
+        const wrapper = new WatcherWrapper(underlying);
+        this.watchers.set(key, wrapper);
+        return wrapper;
+    }
 
-        const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-        watcher.onDidCreate(onChange);
-        watcher.onDidChange(onChange);
-        watcher.onDidDelete(onChange);
-
-        this.watchers.set(key, watcher);
+    public createWatcher(pattern: string, onChange: () => void): vscode.FileSystemWatcher {
+        const watcher = this.getOrCreateWatcher(pattern);
+        watcher.onDidCreate(() => onChange());
+        watcher.onDidChange(() => onChange());
+        watcher.onDidDelete(() => onChange());
         return watcher;
     }
 
-    /**
-     * 创建或复用监听器，并分别挂载事件回调（支持增量更新场景）。
-     * @param pattern 文件 glob 模式
-     * @param handlers 事件处理器对象（onCreate, onChange, onDelete）
-     * @returns {vscode.FileSystemWatcher} VS Code 文件监听器
-     */
-    createWatcherWithEvents(
+    public createWatcherWithEvents(
         pattern: string,
         handlers: {
             onCreate?: (uri: vscode.Uri) => void;
@@ -58,31 +127,20 @@ export class ThriftFileWatcher {
             onDelete?: (uri: vscode.Uri) => void;
         }
     ): vscode.FileSystemWatcher {
-        const key = `thrift-${pattern}`;
-        const register = (watcher: vscode.FileSystemWatcher) => {
-            if (handlers.onCreate) {
-                watcher.onDidCreate(handlers.onCreate);
-            }
-            if (handlers.onChange) {
-                watcher.onDidChange(handlers.onChange);
-            }
-            if (handlers.onDelete) {
-                watcher.onDidDelete(handlers.onDelete);
-            }
-            return watcher;
-        };
-        if (this.watchers.has(key)) {
-            return register(this.watchers.get(key)!);
+        const watcher = this.getOrCreateWatcher(pattern);
+        if (handlers.onCreate) {
+            watcher.onDidCreate(handlers.onCreate);
         }
-        const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-        this.watchers.set(key, watcher);
-        return register(watcher);
+        if (handlers.onChange) {
+            watcher.onDidChange(handlers.onChange);
+        }
+        if (handlers.onDelete) {
+            watcher.onDidDelete(handlers.onDelete);
+        }
+        return watcher;
     }
 
-    /**
-     * 释放所有监听器。
-     */
-    dispose(): void {
+    public dispose(): void {
         this.watchers.forEach(watcher => watcher.dispose());
         this.watchers.clear();
     }

@@ -8,6 +8,7 @@ import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes.types';
 import {config} from './config';
 import {CoreDependencies} from './utils/dependencies';
+import {createLocation} from './utils/vscode-utils';
 
 /**
  * ThriftWorkspaceSymbolProvider：提供全局符号搜索。
@@ -199,7 +200,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
                     `namespace ${node.scope}`,
                     vscode.SymbolKind.Namespace,
                     '',
-                    new vscode.Location(uri, node.range)
+                    createLocation(uri, node.range)
                 ));
                 continue;
             }
@@ -208,7 +209,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
                     `include ${node.path}`,
                     vscode.SymbolKind.File,
                     '',
-                    new vscode.Location(uri, node.range)
+                    createLocation(uri, node.range)
                 ));
                 continue;
             }
@@ -217,7 +218,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
                     node.name || '',
                     vscode.SymbolKind.Constant,
                     '',
-                    new vscode.Location(uri, node.range)
+                    createLocation(uri, node.range)
                 ));
                 continue;
             }
@@ -226,7 +227,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
                     node.name || '',
                     vscode.SymbolKind.TypeParameter,
                     '',
-                    new vscode.Location(uri, node.range)
+                    createLocation(uri, node.range)
                 ));
                 continue;
             }
@@ -240,7 +241,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
                     node.name || '',
                     kind,
                     '',
-                    new vscode.Location(uri, node.range)
+                    createLocation(uri, node.range)
                 ));
             }
 
@@ -252,7 +253,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
                         field.name || '',
                         vscode.SymbolKind.Field,
                         node.name || '',
-                        new vscode.Location(uri, field.range)
+                        createLocation(uri, field.range)
                     ));
                 }
             }
@@ -263,7 +264,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
                         member.name || '',
                         vscode.SymbolKind.EnumMember,
                         node.name || '',
-                        new vscode.Location(uri, member.range)
+                        createLocation(uri, member.range)
                     ));
                 }
             }
@@ -274,7 +275,7 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
                         fn.name || '',
                         vscode.SymbolKind.Method,
                         node.name || '',
-                        new vscode.Location(uri, fn.range)
+                        createLocation(uri, fn.range)
                     ));
                 }
             }

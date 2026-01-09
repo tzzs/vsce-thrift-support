@@ -3,6 +3,7 @@ import * as nodes from '../ast/nodes.types';
 import { ThriftParser } from '../ast/parser';
 import { CacheManager } from '../utils/cache-manager';
 import { config } from '../config';
+import { createLocation } from '../utils/vscode-utils';
 
 export class DefinitionLookup {
     private readonly decoder = new TextDecoder('utf-8');
@@ -26,7 +27,7 @@ export class DefinitionLookup {
         let foundLocation: vscode.Location | undefined;
         this.traverseAST(ast, (node) => {
             if (node.name === typeName) {
-                foundLocation = new vscode.Location(uri, node.range);
+                foundLocation = createLocation(uri, node.range);
                 return false;
             }
             return true;
@@ -45,6 +46,11 @@ export class DefinitionLookup {
         }
 
         const locations: vscode.Location[] = [];
+        if (!vscode.workspace) {
+            console.error('[DefinitionLookup] vscode.workspace is missing, falling back to empty file list');
+            this.cacheManager.set('workspace', cacheKey, locations);
+            return locations;
+        }
         const files = await vscode.workspace.findFiles(config.filePatterns.thrift);
 
         for (const file of files) {

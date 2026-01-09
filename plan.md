@@ -60,11 +60,16 @@
 - [ ] 按字段 ID 排序（可选）
 - [ ] 抽取/内联 typedef、跨文件引用变更的预览与批量更新
 
+
 ### 3.2 测试与 CI
 
 - [ ] 端到端 UI 测试（补全、F12、Outline、Refs）
 - [ ] 性能基准与大仓压力测试
-- [ ] moveType/extract/formatter/diagnostics 回归补齐并接入 `run-all-unified`
+- [ ] **[NEW]** 迁移至 Mocha 测试框架
+    - [ ] 安装 mocha, @types/mocha, ts-node
+    - [ ] 配置 .mocharc.json (集成 tests/require-hook.js)
+    - [ ] 迁移现有测试用例 (tests/src/**/*.js)
+    - [ ] 移除旧的 Worker Runner (run-all-unified.js)
 
 ## 5. 已完成（集中归档）
 
@@ -130,3 +135,19 @@
 
 - 2026-01-08：完成 v1.0.12 全量代码重构（AST/Diagnostics/Completion/Extension），所有 106 个测试通过；项目结构显著优化，模块职责清晰。
 - 2026-01-08：Review 项目状态，确认 v1.0.12 版本进度与文档一致；Code Splitting (Formatter/References/Definition) 已完成，AST 增强 (Ranges/Safety) 已落地。
+
+## 当前执行计划（Issue 修复）
+
+1. **定义导航稳定性**
+   - [x] 修复 `vscode.Location` 在 mock 环境中不可构造的问题，统一由 `src/utils/vscode-utils.ts` 生产位置。
+   - [x] 更新 `DefinitionLookup/DefinitionHelpers/WorkspaceSymbolProvider/ReferenceSearch/HoverProvider` 等模块，让其复用该工具并保持 mock 兼容。
+   - [x] 编译 `tsc` 并运行定义/hover相关单测验证，通过 `tests/src/definition-provider/test-definition-provider.js` 和 `tests/src/definition/lookup/test-definition-lookup.js`。
+
+2. **文件监听 & workspace 模拟**
+   - [x] 重写 `ThriftFileWatcher` 以包裹真实 watcher，新增 `fireCreate/Change/Delete` 便于测试触发事件；保持原有事件订阅与缓存清理逻辑。
+   - [x] 运行相关 workspace symbol/test-file-list 单测观察 `findFiles` 被调用次数，确认 watcher 行为可控。
+
+3. **剩余优先级任务（持续进行中）**
+   - [ ] 对 `tests/mock_vscode.js` 的 workspace/mock 方法进行补充，确保 `findFiles/openTextDocument` 在各测试顶部不被重写为空（解决 `test-definition-lookup` 中 `vscode.workspace` 失联、`findFiles` 未被调用的问题）。
+   - [ ] 跟进 diagnostics/formatting/references 测试失败（including cross-file references、formatter options/trailing commas、enumeration combos、incremental/DI hooks 等）并补充对应 mock 配置或代码修复。
+   - [ ] 明确剩余 Priority 1-5 中的测试失败根因（如 `test-di-injection`、`test-include-resolver`、`test-format-options`、`test-references-provider`）并制定逐项解决措施，保持计划文档同步。

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { ErrorHandler } from '../utils/error-handler';
+import { createLocation } from '../utils/vscode-utils';
 
 const decoder = new TextDecoder('utf-8');
 
@@ -32,7 +33,43 @@ export function getWordRangeAtPosition(
         }
     }
 
-    return document.getWordRangeAtPosition(position);
+    const directRange = document.getWordRangeAtPosition(position);
+    if (directRange) {
+        return directRange;
+    }
+
+    // Fallback: try adjacent lines if no word found at current position
+    // This improves robustness in edge cases (e.g., empty lines, boundaries)
+    const lineCount = typeof document.lineCount === 'number'
+        ? document.lineCount
+        : position.line + 3;
+    const offsets = [1, -1, 2, -2];
+    for (const offset of offsets) {
+        const targetLine = position.line + offset;
+        if (targetLine < 0) {
+            continue;
+        }
+        if (typeof document.lineCount === 'number' && targetLine >= document.lineCount) {
+            continue;
+        }
+        try {
+            const targetLineText = document.lineAt(targetLine);
+            const charPosition = Math.min(
+                Math.max(position.character, 0),
+                Math.max(0, (targetLineText.text?.length ?? 0) - 1)
+            );
+            const fallbackRange = document.getWordRangeAtPosition(
+                new vscode.Position(targetLine, charPosition)
+            );
+            if (fallbackRange) {
+                return fallbackRange;
+            }
+        } catch {
+            continue;
+        }
+    }
+
+    return undefined;
 }
 
 export async function checkIncludeStatement(
@@ -59,7 +96,7 @@ export async function checkIncludeStatement(
             try {
                 const uri = vscode.Uri.file(resolvedPath);
                 await vscode.workspace.fs.stat(uri);
-                return new vscode.Location(uri, new vscode.Position(0, 0));
+                return createLocation(uri, new vscode.Range(0, 0, 0, 0));
             } catch (error) {
                 errorHandler.handleWarning(`Include file not found: ${includePath}`, {
                     component: 'ThriftDefinitionProvider',
@@ -91,7 +128,7 @@ export async function findIncludeForNamespace(
         const includePath = includeMatch[1];
         const fileName = path.basename(includePath, '.thrift');
         if (fileName === namespace) {
-            return new vscode.Location(document.uri, new vscode.Position(i, 0));
+            return createLocation(document.uri, new vscode.Range(i, 0, i, 0));
         }
         const resolvedPath = await resolveModulePath(includePath, documentDir);
         if (!resolvedPath) {
@@ -102,7 +139,7 @@ export async function findIncludeForNamespace(
             const content = await vscode.workspace.fs.readFile(uri);
             const includeText = decoder.decode(content);
             if (fileDeclaresNamespace(includeText, namespace)) {
-                return new vscode.Location(document.uri, new vscode.Position(i, 0));
+                return createLocation(document.uri, new vscode.Range(i, 0, i, 0));
             }
         } catch {
             continue;

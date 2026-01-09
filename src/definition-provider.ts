@@ -79,8 +79,9 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         if (!wordRange) {
             return undefined;
         }
-        // Derive the word from the current line text to be robust in non-IDE test shims
-        const line = document.lineAt(position.line);
+        // Use the line where the word was actually found (may differ from position.line due to fallback logic)
+        // This ensures correct word extraction when getWordRangeAtPosition falls back to adjacent lines
+        const line = document.lineAt(wordRange.start.line);
         const lineText = line.text;
         const word = lineText.substring(wordRange.start.character, wordRange.end.character);
 
