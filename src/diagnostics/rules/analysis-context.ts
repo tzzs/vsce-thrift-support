@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as nodes from '../../ast/nodes.types';
-import { collectTypesFromAst } from '../include-resolver';
+import {collectTypesFromAst} from '../include-resolver';
 
 export interface AnalysisContext {
     includeAliases: Set<string>;

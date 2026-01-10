@@ -1,13 +1,13 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { config } from '../config';
-import { LineRange } from '../utils/line-range';
-import { CoreDependencies } from '../utils/dependencies';
-import { ThriftFileWatcher } from '../utils/file-watcher';
-import { clearIncludeCaches } from './include-resolver';
-import { getDirtyChangeSummary } from './change-detector';
-import { DiagnosticManager } from './manager';
-import { logDiagnostics } from './logger';
+import {config} from '../config';
+import {LineRange} from '../utils/line-range';
+import {CoreDependencies} from '../utils/dependencies';
+import {ThriftFileWatcher} from '../utils/file-watcher';
+import {clearIncludeCaches} from './include-resolver';
+import {getDirtyChangeSummary} from './change-detector';
+import {DiagnosticManager} from './manager';
+import {logDiagnostics} from './logger';
 
 /**
  * 注册诊断能力与文件监听。

@@ -1,17 +1,12 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { ThriftParser } from '../ast/parser';
-import * as nodes from '../ast/nodes.types';
-import { config } from '../config';
-import { ErrorHandler } from '../utils/error-handler';
-import {
-    LineRange,
-    normalizeLineRange,
-    rangeIntersectsLineRange
-} from '../utils/line-range';
-import { PerformanceMonitor, performanceMonitor } from '../performance-monitor';
-import { ThriftIssue, BlockCache, MemberCacheByBlock } from './types';
-import { logDiagnostics } from './logger';
+import {ThriftParser} from '../ast/parser';
+import {config} from '../config';
+import {ErrorHandler} from '../utils/error-handler';
+import {LineRange, normalizeLineRange, rangeIntersectsLineRange} from '../utils/line-range';
+import {PerformanceMonitor, performanceMonitor} from '../performance-monitor';
+import {ThriftIssue} from './types';
+import {logDiagnostics} from './logger';
 import {
     buildBlockCache,
     buildMemberCache,
@@ -20,13 +15,9 @@ import {
     createMemberCache,
     createMemberCacheByBlock
 } from './analysis-cache';
-import { DocumentDiagnosticState, mergeBlockIntoAst } from './state';
-import {
-    collectIncludedTypes,
-    collectIncludedTypesFromCache,
-    getIncludedFiles
-} from './include-resolver';
-import { AnalysisContext, analyzeThriftAst, buildAnalysisContext } from './rules';
+import {DocumentDiagnosticState, mergeBlockIntoAst} from './state';
+import {collectIncludedTypes, collectIncludedTypesFromCache, getIncludedFiles} from './include-resolver';
+import {analyzeThriftAst, buildAnalysisContext} from './rules';
 import {
     buildPartialLines,
     findBestContainingMemberRangeForChanges,
@@ -34,8 +25,8 @@ import {
     findContainingNode,
     hashText
 } from './utils';
-import { DependencyManager } from './dependency-manager';
-import { AnalysisScheduler } from './scheduler';
+import {DependencyManager} from './dependency-manager';
+import {AnalysisScheduler} from './scheduler';
 
 /**
  * DiagnosticManager：负责诊断调度、缓存与依赖跟踪。
@@ -82,7 +73,9 @@ export class DiagnosticManager {
         structuralChange?: boolean,
         dirtyRanges?: LineRange[]
     ) {
-        if (doc.languageId !== 'thrift') { return; }
+        if (doc.languageId !== 'thrift') {
+            return;
+        }
 
         const key = this.getDocumentKey(doc);
         const triggerInfo = triggerSource ? ` (triggered by ${triggerSource})` : '';
@@ -131,8 +124,8 @@ export class DiagnosticManager {
             includesMayChange,
             useCachedIncludes: useIncremental,
             useIncrementalDiagnostics: useIncremental,
-            dirtyRange: dirtyRange ? { ...dirtyRange } : undefined,
-            dirtyRanges: dirtyRanges?.map(range => ({ ...range })) ?? prevState?.dirtyRanges,
+            dirtyRange: dirtyRange ? {...dirtyRange} : undefined,
+            dirtyRanges: dirtyRanges?.map(range => ({...range})) ?? prevState?.dirtyRanges,
             lastDiagnostics: prevState?.lastDiagnostics
         };
         this.documentStates.set(key, nextState);
@@ -201,7 +194,7 @@ export class DiagnosticManager {
         const key = this.getDocumentKey(doc);
         logDiagnostics(`[Diagnostics] Starting analysis for ${path.basename(doc.uri.fsPath)}`);
 
-        const state = this.documentStates.get(key) || { version: doc.version, isAnalyzing: false };
+        const state = this.documentStates.get(key) || {version: doc.version, isAnalyzing: false};
         state.isAnalyzing = true;
         state.version = doc.version;
         this.documentStates.set(key, state);
@@ -276,7 +269,7 @@ export class DiagnosticManager {
                                             state.lastBlockCache = createBlockCache();
                                         }
                                         const blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, blockRange!));
-                                        state.lastBlockCache.set(blockKey, { hash: blockHash, issues: blockIssues });
+                                        state.lastBlockCache.set(blockKey, {hash: blockHash, issues: blockIssues});
                                         if (!state.lastMemberCache) {
                                             state.lastMemberCache = createMemberCacheByBlock();
                                         }
@@ -288,14 +281,14 @@ export class DiagnosticManager {
                                             state.lastMemberCache = createMemberCacheByBlock();
                                         }
                                         const blockMembers = state.lastMemberCache.get(blockKey) ?? createMemberCache();
-                                        blockMembers.set(memberKey, { range: memberRange, hash: memberHash, issues });
+                                        blockMembers.set(memberKey, {range: memberRange, hash: memberHash, issues});
                                         state.lastMemberCache.set(blockKey, blockMembers);
                                     }
 
                                     if (blockNode && state.lastAst) {
                                         mergeBlockIntoAst(state.lastAst, blockNode, blockRange);
                                         state.blockAstCache = state.blockAstCache ?? new Map();
-                                        state.blockAstCache.set(blockKey, { hash: blockHash, node: blockNode });
+                                        state.blockAstCache.set(blockKey, {hash: blockHash, node: blockNode});
                                         state.lastAnalysisContext = buildAnalysisContext(state.lastAst);
                                     }
                                 }
@@ -319,10 +312,10 @@ export class DiagnosticManager {
                         }
 
                         const mergeState = usedPartial && mergeRange
-                            ? { ...state, dirtyRange: mergeRange }
+                            ? {...state, dirtyRange: mergeRange}
                             : usedPartial
                                 ? state
-                                : { ...state, useIncrementalDiagnostics: false };
+                                : {...state, useIncrementalDiagnostics: false};
                         const incrementalDiagnostics = this.mergeIncrementalDiagnostics(
                             issues,
                             mergeState,
@@ -341,7 +334,7 @@ export class DiagnosticManager {
                             component: 'DiagnosticManager',
                             operation: 'analyzeDocument',
                             filePath: doc.uri.fsPath,
-                            additionalInfo: { documentVersion: doc.version }
+                            additionalInfo: {documentVersion: doc.version}
                         });
                         this.collection.set(doc.uri, []);
                     }

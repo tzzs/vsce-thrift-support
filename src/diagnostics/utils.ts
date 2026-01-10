@@ -119,7 +119,7 @@ const STRUCTURAL_TOKEN_PATTERN = /\b(struct|union|exception|enum|senum|service|t
 const STRUCTURAL_CHAR_PATTERN = /[{}]/;
 
 export function sanitizeStructuralText(rawLine: string): string {
-    const withoutComments = stripCommentsFromLine(rawLine, { inBlock: false });
+    const withoutComments = stripCommentsFromLine(rawLine, {inBlock: false});
     return stripStringLiterals(withoutComments);
 }
 
@@ -152,7 +152,7 @@ export function findBestContainingRange(ast: nodes.ThriftDocument, dirtyRange: L
         const span = node.range.end.line - node.range.start.line;
         if (span < bestSpan) {
             bestSpan = span;
-            best = { startLine: node.range.start.line, endLine: node.range.end.line };
+            best = {startLine: node.range.start.line, endLine: node.range.end.line};
         }
     }
     return best;
@@ -173,7 +173,7 @@ export function findBestContainingRangeForChanges(ast: nodes.ThriftDocument, dir
         const span = node.range.end.line - node.range.start.line;
         if (span < bestSpan) {
             bestSpan = span;
-            best = { startLine: node.range.start.line, endLine: node.range.end.line };
+            best = {startLine: node.range.start.line, endLine: node.range.end.line};
         }
     }
     return best;
@@ -207,7 +207,7 @@ export function findBestContainingMemberRange(ast: nodes.ThriftDocument, dirtyRa
             const span = member.range.end.line - member.range.start.line;
             if (span < bestSpan) {
                 bestSpan = span;
-                best = { startLine: member.range.start.line, endLine: member.range.end.line };
+                best = {startLine: member.range.start.line, endLine: member.range.end.line};
             }
         }
     }
@@ -244,7 +244,7 @@ export function findBestContainingMemberRangeForChanges(ast: nodes.ThriftDocumen
             const span = member.range.end.line - member.range.start.line;
             if (span < bestSpan) {
                 bestSpan = span;
-                best = { startLine: member.range.start.line, endLine: member.range.end.line };
+                best = {startLine: member.range.start.line, endLine: member.range.end.line};
             }
         }
     }

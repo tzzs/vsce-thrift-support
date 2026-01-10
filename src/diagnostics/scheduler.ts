@@ -1,7 +1,5 @@
 import * as vscode from 'vscode';
-import { config } from '../config';
-import { logDiagnostics } from './logger';
-import * as path from 'path';
+import {config} from '../config';
 
 export interface SchedulerOptions {
     immediate?: boolean;
@@ -49,7 +47,7 @@ export class AnalysisScheduler {
         onScheduled: (timeout: NodeJS.Timeout) => void
     ): boolean {
         const key = this.getDocumentKey(doc);
-        const { immediate, throttleState } = options;
+        const {immediate, throttleState} = options;
 
         const existingTimeout = this.analysisQueue.get(key);
         if (existingTimeout) {

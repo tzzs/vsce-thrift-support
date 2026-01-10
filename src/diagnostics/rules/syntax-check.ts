@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ThriftIssue } from '../types';
+import {ThriftIssue} from '../types';
 
 export function checkSyntax(codeLines: string[], issues: ThriftIssue[]) {
     const stack: { ch: string; line: number; char: number }[] = [];
@@ -41,7 +41,7 @@ export function checkSyntax(codeLines: string[], issues: ThriftIssue[]) {
             }
 
             if (ch === '{' || ch === '(' || ch === '<') {
-                stack.push({ ch, line: lineNo, char: i });
+                stack.push({ch, line: lineNo, char: i});
             } else if (ch === '}' || ch === ')' || ch === '>') {
                 if (ch === '>') {
                     const top = stack[stack.length - 1];
@@ -59,7 +59,7 @@ export function checkSyntax(codeLines: string[], issues: ThriftIssue[]) {
                         code: 'syntax.unmatchedCloser'
                     });
                 } else {
-                    const pair: Record<string, string> = { '}': '{', ')': '(' };
+                    const pair: Record<string, string> = {'}': '{', ')': '('};
                     if (open.ch !== pair[ch]) {
                         issues.push({
                             message: `Mismatched '${open.ch}' and '${ch}'`,

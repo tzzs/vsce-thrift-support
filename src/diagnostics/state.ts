@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import * as nodes from '../ast/nodes.types';
-import { LineRange, normalizeLineRange, rangeIntersectsLineRange } from '../utils/line-range';
-import { AnalysisContext } from './rules/analysis-context';
-import { BlockCache, MemberCacheByBlock, BlockAstCacheEntry } from './types';
+import {LineRange, normalizeLineRange, rangeIntersectsLineRange} from '../utils/line-range';
+import {AnalysisContext} from './rules/analysis-context';
+import {BlockAstCacheEntry, BlockCache, MemberCacheByBlock} from './types';
 
 export interface DocumentDiagnosticState {
     /** 文档版本号 */

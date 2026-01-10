@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import * as nodes from '../ast/nodes.types';
-import { config } from '../config';
-import { LruCache } from '../utils/lru-cache';
-import { rangeIntersectsLineRange } from '../utils/line-range';
-import { ThriftIssue, BlockCache, BlockCacheValue, MemberCache, MemberCacheByBlock, MemberCacheValue } from './types';
-import { hashText } from './utils';
+import {config} from '../config';
+import {LruCache} from '../utils/lru-cache';
+import {rangeIntersectsLineRange} from '../utils/line-range';
+import {BlockCache, BlockCacheValue, MemberCache, MemberCacheByBlock, MemberCacheValue, ThriftIssue} from './types';
+import {hashText} from './utils';
 
 /**
  * 创建块级诊断缓存。
@@ -81,10 +81,10 @@ export function buildMemberCacheForNode(
         const startLine = member.range.start.line;
         const endLine = member.range.end.line;
         const memberText = lines.slice(startLine, endLine + 1).join('\n');
-        const memberIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, { startLine, endLine }));
+        const memberIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, {startLine, endLine}));
         const key = `${startLine}-${endLine}`;
         cache.set(key, {
-            range: { startLine, endLine },
+            range: {startLine, endLine},
             hash: hashText(memberText),
             issues: memberIssues
         });
@@ -99,6 +99,7 @@ export function buildMemberCacheForNode(
  * @param issues 当前诊断问题
  * @returns 块级缓存
  */
+
 /**
  * 构建块级缓存（每个顶级节点一条缓存）。
  * @param ast 当前 AST
@@ -120,8 +121,8 @@ export function buildBlockCache(ast: nodes.ThriftDocument, lines: string[], issu
         const endLine = node.range.end.line;
         const key = `${startLine}-${endLine}`;
         const blockText = lines.slice(startLine, endLine + 1).join('\n');
-        const blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, { startLine, endLine }));
-        cache.set(key, { hash: hashText(blockText), issues: blockIssues });
+        const blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, {startLine, endLine}));
+        cache.set(key, {hash: hashText(blockText), issues: blockIssues});
     }
     return cache;
 }

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as nodes from '../../ast/nodes.types';
-import { ThriftIssue } from '../types';
-import { isKnownType, isValidDefaultValue } from './type-utils';
+import {ThriftIssue} from '../types';
+import {isKnownType, isValidDefaultValue} from './type-utils';
 
 export function checkStruct(
     node: nodes.Struct,

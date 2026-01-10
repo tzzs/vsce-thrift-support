@@ -1,17 +1,16 @@
 import * as vscode from 'vscode';
-import { ThriftParser } from '../../ast/parser';
+import {ThriftParser} from '../../ast/parser';
 import * as nodes from '../../ast/nodes.types';
-import { collectTypesFromAst } from '../include-resolver';
-import { LineRange, normalizeLineRange, rangeIntersectsLineRange } from '../../utils/line-range';
-import { stripCommentsFromLine } from '../utils';
-import { ThriftIssue } from '../types';
-import { collectIncludeAliasesFromAst, AnalysisContext } from './analysis-context';
-import { getPrimitiveTypes } from './type-utils';
+import {collectTypesFromAst} from '../include-resolver';
+import {LineRange, normalizeLineRange, rangeIntersectsLineRange} from '../../utils/line-range';
+import {stripCommentsFromLine} from '../utils';
+import {ThriftIssue} from '../types';
+import {AnalysisContext, collectIncludeAliasesFromAst} from './analysis-context';
 
-import { checkService } from './service-check';
-import { checkStruct } from './struct-check';
-import { checkTypedef, checkConst, checkEnum } from './general-check';
-import { checkSyntax } from './syntax-check';
+import {checkService} from './service-check';
+import {checkStruct} from './struct-check';
+import {checkConst, checkEnum, checkTypedef} from './general-check';
+import {checkSyntax} from './syntax-check';
 
 /**
  * 执行 AST 级别诊断并返回问题列表。
@@ -32,7 +31,7 @@ export function analyzeThriftAst(
     const issues: ThriftIssue[] = [];
 
     const codeLines: string[] = [];
-    const state = { inBlock: false };
+    const state = {inBlock: false};
     for (const raw of lines) {
         codeLines.push(stripCommentsFromLine(raw, state));
     }

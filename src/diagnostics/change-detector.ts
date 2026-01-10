@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { LineRange, collapseLineRanges, lineRangeFromChange, mergeLineRanges } from '../utils/line-range';
-import { hasStructuralTokens, includesKeyword } from './utils';
+import {collapseLineRanges, LineRange, lineRangeFromChange, mergeLineRanges} from '../utils/line-range';
+import {hasStructuralTokens, includesKeyword} from './utils';
 
 export interface DirtyChangeSummary {
     /** 脏行数量 */

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { clearIncludeCacheForDocument } from './include-resolver';
-import { logDiagnostics } from './logger';
+import {clearIncludeCacheForDocument} from './include-resolver';
+import {logDiagnostics} from './logger';
 import * as path from 'path';
 
 /**

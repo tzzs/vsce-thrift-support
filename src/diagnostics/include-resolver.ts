@@ -1,9 +1,9 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as nodes from '../ast/nodes.types';
-import { ThriftParser } from '../ast/parser';
-import { config } from '../config';
-import { ErrorHandler } from '../utils/error-handler';
+import {ThriftParser} from '../ast/parser';
+import {config} from '../config';
+import {ErrorHandler} from '../utils/error-handler';
 
 const includeTypesCache = new Map<string, Map<string, string>>();
 const includeFileTimestamps = new Map<string, number>();
@@ -119,7 +119,7 @@ export async function collectIncludedTypes(
             let fileStats;
             try {
                 const stat = await vscode.workspace.fs.stat(includedFile);
-                fileStats = { mtime: stat.mtime, size: stat.size };
+                fileStats = {mtime: stat.mtime, size: stat.size};
             } catch {
                 fileStats = null;
             }
@@ -180,7 +180,7 @@ export async function collectIncludedTypes(
                     component: 'DiagnosticManager',
                     operation: 'collectIncludedTypes',
                     filePath: includedFile.fsPath,
-                    additionalInfo: { reason: 'includedFileAnalysis' }
+                    additionalInfo: {reason: 'includedFileAnalysis'}
                 });
             }
             continue;
