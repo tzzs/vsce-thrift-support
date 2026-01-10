@@ -1,10 +1,6 @@
 import * as vscode from 'vscode';
 import * as nodes from './nodes.types';
-import {
-    clearAstCacheForDocument,
-    clearExpiredAstCache,
-    parseWithAstCache
-} from './cache';
+import {clearAstCacheForDocument, clearExpiredAstCache, parseWithAstCache} from './cache';
 import {
     buildConstValueRange,
     findDefaultValueRange,
@@ -18,36 +14,20 @@ import {
     stripLineComments,
     stripTrailingAnnotation
 } from './parser-helpers';
-import { Token, tokenizeLine } from './tokenizer';
 import {
-    TokenWithIndex,
-    getMeaningfulTokens,
-    readQualifiedIdentifier,
     findFirstIdentifier,
     findIdentifierIndex,
     findLastIdentifier,
     findSymbolIndex,
-    findSymbolIndexFrom
+    findSymbolIndexFrom,
+    getMeaningfulTokens,
+    readQualifiedIdentifier
 } from './token-utils';
 
 export class ThriftParser {
     private text: string;
     private lines: string[];
     private currentLine: number = 0;
-
-    private ensureChildren(node: nodes.ThriftNode): nodes.ThriftNode[] {
-        if (!node.children) {
-            node.children = [];
-        }
-        return node.children;
-    }
-
-    private addChild(parent: nodes.ThriftNode, child: nodes.ThriftNode): void {
-        const children = this.ensureChildren(parent);
-        if (!children.includes(child)) {
-            children.push(child);
-        }
-    }
 
     constructor(documentOrContent: vscode.TextDocument | string) {
         if (typeof documentOrContent === 'string') {
@@ -115,6 +95,20 @@ export class ThriftParser {
         }
 
         return root;
+    }
+
+    private ensureChildren(node: nodes.ThriftNode): nodes.ThriftNode[] {
+        if (!node.children) {
+            node.children = [];
+        }
+        return node.children;
+    }
+
+    private addChild(parent: nodes.ThriftNode, child: nodes.ThriftNode): void {
+        const children = this.ensureChildren(parent);
+        if (!children.includes(child)) {
+            children.push(child);
+        }
     }
 
     private parseNextNode(parent: nodes.ThriftNode): nodes.ThriftNode | null {
@@ -272,19 +266,6 @@ export class ThriftParser {
             message
         };
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
     private parseStruct(parent: nodes.ThriftNode, structType: string, name: string): nodes.Struct {
@@ -561,14 +542,23 @@ export class ThriftParser {
             for (let i = equalsIndex + 1; i < tokens.length; i++) {
                 const token = tokens[i];
                 if (token.type === 'symbol') {
-                    if (token.value === '<') { angleDepth += 1; }
-                    else if (token.value === '>') { angleDepth = Math.max(0, angleDepth - 1); }
-                    else if (token.value === '[') { bracketDepth += 1; }
-                    else if (token.value === ']') { bracketDepth = Math.max(0, bracketDepth - 1); }
-                    else if (token.value === '{') { braceDepth += 1; }
-                    else if (token.value === '}') { braceDepth = Math.max(0, braceDepth - 1); }
-                    else if (token.value === '(') { parenDepth += 1; }
-                    else if (token.value === ')') { parenDepth = Math.max(0, parenDepth - 1); }
+                    if (token.value === '<') {
+                        angleDepth += 1;
+                    } else if (token.value === '>') {
+                        angleDepth = Math.max(0, angleDepth - 1);
+                    } else if (token.value === '[') {
+                        bracketDepth += 1;
+                    } else if (token.value === ']') {
+                        bracketDepth = Math.max(0, bracketDepth - 1);
+                    } else if (token.value === '{') {
+                        braceDepth += 1;
+                    } else if (token.value === '}') {
+                        braceDepth = Math.max(0, braceDepth - 1);
+                    } else if (token.value === '(') {
+                        parenDepth += 1;
+                    } else if (token.value === ')') {
+                        parenDepth = Math.max(0, parenDepth - 1);
+                    }
                     if (angleDepth === 0 && bracketDepth === 0 && braceDepth === 0 && parenDepth === 0 &&
                         (token.value === ',' || token.value === ';' || token.value === '(')) {
                         break;
@@ -710,7 +700,9 @@ export class ThriftParser {
                         if (parenCount === 0) {
                             // Look for throws clause or end of declaration
                             let j = i + 1;
-                            while (j < line.length && /\s/.test(line[j])) { j++; } // Skip whitespace
+                            while (j < line.length && /\s/.test(line[j])) {
+                                j++;
+                            } // Skip whitespace
 
                             // Check if there's a throws clause
                             if (line.substring(j, j + 6) === 'throws') {
@@ -730,7 +722,9 @@ export class ThriftParser {
                             }
 
                             // Find the end of the declaration
-                            while (j < line.length && /\s/.test(line[j])) { j++; } // Skip whitespace
+                            while (j < line.length && /\s/.test(line[j])) {
+                                j++;
+                            } // Skip whitespace
                             if (j < line.length && (line[j] === ',' || line[j] === ';' || line[j] === '{')) {
                                 funcEndChar = j + 1;
                                 foundEnd = true;
@@ -754,7 +748,9 @@ export class ThriftParser {
                                 if (parenCount === 0) {
                                     // Look for throws clause or end of declaration
                                     let j = i + 1;
-                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) { j++; } // Skip whitespace
+                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) {
+                                        j++;
+                                    } // Skip whitespace
 
                                     // Check if there's a throws clause
                                     if (searchLineText.substring(j, j + 6) === 'throws') {
@@ -774,7 +770,9 @@ export class ThriftParser {
                                     }
 
                                     // Find the end of the declaration
-                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) { j++; } // Skip whitespace
+                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) {
+                                        j++;
+                                    } // Skip whitespace
                                     if (j < searchLineText.length && (searchLineText[j] === ',' || searchLineText[j] === ';' || searchLineText[j] === '{')) {
                                         funcEndLine = searchLine;
                                         funcEndChar = j + 1;
@@ -1011,12 +1009,24 @@ export class ThriftParser {
                 if (!seenEquals) {
                     continue;
                 }
-                if (ch === '{') { depthBrace++; }
-                if (ch === '}') { depthBrace = Math.max(0, depthBrace - 1); }
-                if (ch === '[') { depthBracket++; }
-                if (ch === ']') { depthBracket = Math.max(0, depthBracket - 1); }
-                if (ch === '(') { depthParen++; }
-                if (ch === ')') { depthParen = Math.max(0, depthParen - 1); }
+                if (ch === '{') {
+                    depthBrace++;
+                }
+                if (ch === '}') {
+                    depthBrace = Math.max(0, depthBrace - 1);
+                }
+                if (ch === '[') {
+                    depthBracket++;
+                }
+                if (ch === ']') {
+                    depthBracket = Math.max(0, depthBracket - 1);
+                }
+                if (ch === '(') {
+                    depthParen++;
+                }
+                if (ch === ')') {
+                    depthParen = Math.max(0, depthParen - 1);
+                }
             }
 
             if (seenEquals && depthBrace === 0 && depthBracket === 0 && depthParen === 0) {

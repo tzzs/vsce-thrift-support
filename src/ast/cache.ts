@@ -1,6 +1,5 @@
-import * as vscode from 'vscode';
 import * as nodes from './nodes.types';
-import { config } from '../config';
+import {config} from '../config';
 
 interface ASTCacheEntry {
     content: string;

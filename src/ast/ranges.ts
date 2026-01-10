@@ -1,10 +1,5 @@
 import * as vscode from 'vscode';
-import {
-    escapeRegExp,
-    findFirstNonWhitespaceAfter,
-    findLastNonWhitespaceUpTo,
-    sliceTextByRange
-} from './text-utils';
+import {escapeRegExp, findFirstNonWhitespaceAfter, findLastNonWhitespaceUpTo, sliceTextByRange} from './text-utils';
 
 /**
  * 解析字段默认值范围与文本。
@@ -43,23 +38,53 @@ export function findDefaultValueRange(segmentText: string): { start: number; end
             escaped = false;
             continue;
         }
-        if (ch === '\'') { inS = true; continue; }
-        if (ch === '"') { inD = true; continue; }
-        if (ch === '<') { depthAngle++; continue; }
-        if (ch === '>') { depthAngle = Math.max(0, depthAngle - 1); continue; }
-        if (ch === '[') { depthBracket++; continue; }
-        if (ch === ']') { depthBracket = Math.max(0, depthBracket - 1); continue; }
-        if (ch === '{') { depthBrace++; continue; }
-        if (ch === '}') { depthBrace = Math.max(0, depthBrace - 1); continue; }
-        if (ch === '(') { depthParen++; continue; }
-        if (ch === ')') { depthParen = Math.max(0, depthParen - 1); continue; }
+        if (ch === '\'') {
+            inS = true;
+            continue;
+        }
+        if (ch === '"') {
+            inD = true;
+            continue;
+        }
+        if (ch === '<') {
+            depthAngle++;
+            continue;
+        }
+        if (ch === '>') {
+            depthAngle = Math.max(0, depthAngle - 1);
+            continue;
+        }
+        if (ch === '[') {
+            depthBracket++;
+            continue;
+        }
+        if (ch === ']') {
+            depthBracket = Math.max(0, depthBracket - 1);
+            continue;
+        }
+        if (ch === '{') {
+            depthBrace++;
+            continue;
+        }
+        if (ch === '}') {
+            depthBrace = Math.max(0, depthBrace - 1);
+            continue;
+        }
+        if (ch === '(') {
+            depthParen++;
+            continue;
+        }
+        if (ch === ')') {
+            depthParen = Math.max(0, depthParen - 1);
+            continue;
+        }
         if (ch === '=' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
             const tail = segmentText.slice(i + 1);
             const leading = tail.match(/^\s*/)?.[0].length ?? 0;
             const value = tail.slice(leading).trimEnd();
             const start = i + 1 + leading;
             const end = start + value.length;
-            return { start, end, value };
+            return {start, end, value};
         }
         escaped = false;
     }
@@ -97,13 +122,13 @@ export function findThrowsStartInRange(
                 seenThrows = true;
                 const parenIdx = segment.indexOf('(', idx + 'throws'.length);
                 if (parenIdx !== -1) {
-                    return { line, char: searchStart + parenIdx };
+                    return {line, char: searchStart + parenIdx};
                 }
             }
         } else {
             const parenIdx = segment.indexOf('(');
             if (parenIdx !== -1) {
-                return { line, char: searchStart + parenIdx };
+                return {line, char: searchStart + parenIdx};
             }
         }
     }
@@ -127,15 +152,15 @@ export function buildConstValueRange(
     eqChar: number
 ): { range?: vscode.Range; value: string } {
     if (eqLine < 0 || eqChar < 0) {
-        return { range: undefined, value: '' };
+        return {range: undefined, value: ''};
     }
     const start = findFirstNonWhitespaceAfter(lines, eqLine, eqChar, endLine);
     const end = findLastNonWhitespaceUpTo(lines, eqLine, endLine);
     if (!start || !end) {
-        return { range: undefined, value: '' };
+        return {range: undefined, value: ''};
     }
     const range = new vscode.Range(start.line, start.char, end.line, end.char);
-    return { range, value: sliceTextByRange(lines, range) };
+    return {range, value: sliceTextByRange(lines, range)};
 }
 
 /**

@@ -25,16 +25,16 @@ export function tokenizeLine(line: string): Token[] {
             while (i < line.length && (line[i] === ' ' || line[i] === '\t')) {
                 i += 1;
             }
-            tokens.push({ type: 'whitespace', value: line.slice(start, i), start, end: i });
+            tokens.push({type: 'whitespace', value: line.slice(start, i), start, end: i});
             continue;
         }
 
         if (ch === '/' && line[i + 1] === '/') {
-            tokens.push({ type: 'comment', value: line.slice(i), start: i, end: line.length });
+            tokens.push({type: 'comment', value: line.slice(i), start: i, end: line.length});
             break;
         }
         if (ch === '#') {
-            tokens.push({ type: 'comment', value: line.slice(i), start: i, end: line.length });
+            tokens.push({type: 'comment', value: line.slice(i), start: i, end: line.length});
             break;
         }
 
@@ -60,7 +60,7 @@ export function tokenizeLine(line: string): Token[] {
                 value += curr;
                 i += 1;
             }
-            tokens.push({ type: 'string', value, start, end: i });
+            tokens.push({type: 'string', value, start, end: i});
             continue;
         }
 
@@ -75,7 +75,7 @@ export function tokenizeLine(line: string): Token[] {
                 }
                 break;
             }
-            tokens.push({ type: 'identifier', value: line.slice(start, i), start, end: i });
+            tokens.push({type: 'identifier', value: line.slice(start, i), start, end: i});
             continue;
         }
 
@@ -90,17 +90,17 @@ export function tokenizeLine(line: string): Token[] {
                 }
                 break;
             }
-            tokens.push({ type: 'number', value: line.slice(start, i), start, end: i });
+            tokens.push({type: 'number', value: line.slice(start, i), start, end: i});
             continue;
         }
 
         if (symbolChars.has(ch)) {
-            tokens.push({ type: 'symbol', value: ch, start: i, end: i + 1 });
+            tokens.push({type: 'symbol', value: ch, start: i, end: i + 1});
             i += 1;
             continue;
         }
 
-        tokens.push({ type: 'symbol', value: ch, start: i, end: i + 1 });
+        tokens.push({type: 'symbol', value: ch, start: i, end: i + 1});
         i += 1;
     }
     return tokens;

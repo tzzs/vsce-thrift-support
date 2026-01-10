@@ -162,21 +162,45 @@ export function splitTopLevelCommasWithOffsets(text: string): Array<{ text: stri
             inD = true;
             continue;
         }
-        if (ch === '<') { depthAngle++; continue; }
-        if (ch === '>') { depthAngle = Math.max(0, depthAngle - 1); continue; }
-        if (ch === '[') { depthBracket++; continue; }
-        if (ch === ']') { depthBracket = Math.max(0, depthBracket - 1); continue; }
-        if (ch === '{') { depthBrace++; continue; }
-        if (ch === '}') { depthBrace = Math.max(0, depthBrace - 1); continue; }
-        if (ch === '(') { depthParen++; continue; }
-        if (ch === ')') { depthParen = Math.max(0, depthParen - 1); continue; }
+        if (ch === '<') {
+            depthAngle++;
+            continue;
+        }
+        if (ch === '>') {
+            depthAngle = Math.max(0, depthAngle - 1);
+            continue;
+        }
+        if (ch === '[') {
+            depthBracket++;
+            continue;
+        }
+        if (ch === ']') {
+            depthBracket = Math.max(0, depthBracket - 1);
+            continue;
+        }
+        if (ch === '{') {
+            depthBrace++;
+            continue;
+        }
+        if (ch === '}') {
+            depthBrace = Math.max(0, depthBrace - 1);
+            continue;
+        }
+        if (ch === '(') {
+            depthParen++;
+            continue;
+        }
+        if (ch === ')') {
+            depthParen = Math.max(0, depthParen - 1);
+            continue;
+        }
 
         if (ch === ',' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
             const segment = text.slice(start, i);
             const leading = segment.match(/^\s*/)?.[0].length ?? 0;
             const trimmed = segment.trim();
             if (trimmed) {
-                parts.push({ text: trimmed, start: start + leading });
+                parts.push({text: trimmed, start: start + leading});
             }
             start = i + 1;
         }
@@ -185,7 +209,7 @@ export function splitTopLevelCommasWithOffsets(text: string): Array<{ text: stri
     const leading = tail.match(/^\s*/)?.[0].length ?? 0;
     const trimmed = tail.trim();
     if (trimmed) {
-        parts.push({ text: trimmed, start: start + leading });
+        parts.push({text: trimmed, start: start + leading});
     }
     return parts;
 }
@@ -214,7 +238,7 @@ export function offsetToPosition(
             char++;
         }
     }
-    return { line, char };
+    return {line, char};
 }
 
 /**
@@ -244,7 +268,7 @@ export function readParenthesizedText(
             } else if (c === ')') {
                 depth--;
                 if (depth === 0) {
-                    return { text, endLine: line, endChar: char };
+                    return {text, endLine: line, endChar: char};
                 }
                 text += c;
             } else {
@@ -282,7 +306,7 @@ export function findFirstNonWhitespaceAfter(
         while (currentChar < text.length) {
             const ch = text[currentChar];
             if (!/\s/.test(ch)) {
-                return { line: currentLine, char: currentChar };
+                return {line: currentLine, char: currentChar};
             }
             currentChar++;
         }
@@ -309,7 +333,7 @@ export function findLastNonWhitespaceUpTo(
         for (let i = text.length - 1; i >= 0; i--) {
             const ch = text[i];
             if (!/\s/.test(ch) && ch !== ';') {
-                return { line, char: i + 1 };
+                return {line, char: i + 1};
             }
             if (ch === '/' && i > 0 && text[i - 1] === '/') {
                 break;

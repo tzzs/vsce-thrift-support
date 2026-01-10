@@ -1,12 +1,8 @@
 import * as vscode from 'vscode';
 import * as nodes from './nodes.types';
-import { tokenizeText } from './tokenizer';
-import {
-    splitTopLevelCommasWithOffsets,
-    stripLineComments,
-    offsetToPosition
-} from './text-utils';
-import { findDefaultValueRange } from './ranges';
+import {tokenizeText} from './tokenizer';
+import {offsetToPosition, splitTopLevelCommasWithOffsets, stripLineComments} from './text-utils';
+import {findDefaultValueRange} from './ranges';
 
 export * from './text-utils';
 export * from './ranges';
