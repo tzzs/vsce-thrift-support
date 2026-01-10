@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
-import { ThriftFileWatcher } from './utils/file-watcher';
-import { CacheManager } from './utils/cache-manager';
-import { ErrorHandler } from './utils/error-handler';
-import { readThriftFile } from './utils/file-reader';
-import { config } from './config';
-import { CoreDependencies } from './utils/dependencies';
-import { AstCache } from './references/ast-cache';
-import { ThriftFileList } from './references/file-list';
-import { findReferencesInDocument } from './references/reference-search';
-import { getSymbolType } from './references/symbol-type';
+import {ThriftFileWatcher} from './utils/file-watcher';
+import {CacheManager} from './utils/cache-manager';
+import {ErrorHandler} from './utils/error-handler';
+import {readThriftFile} from './utils/file-reader';
+import {config} from './config';
+import {CoreDependencies} from './utils/dependencies';
+import {AstCache} from './references/ast-cache';
+import {ThriftFileList} from './references/file-list';
+import {findReferencesInDocument} from './references/reference-search';
+import {getSymbolType} from './references/symbol-type';
 
 /**
  * ThriftReferencesProvider：提供引用查找与跨文件扫描。
@@ -92,7 +92,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             document.getText(),
             symbolName,
             includeDeclaration,
-            { errorHandler: this.errorHandler },
+            {errorHandler: this.errorHandler},
             token
         );
         references.push(...currentDocRefs);
@@ -125,7 +125,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                         text,
                         symbolName,
                         includeDeclaration,
-                        { errorHandler: this.errorHandler },
+                        {errorHandler: this.errorHandler},
                         token
                     );
                     references.push(...refs);
@@ -134,7 +134,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                         component: 'ThriftReferencesProvider',
                         operation: 'findReferencesInFile',
                         filePath: file?.fsPath || 'unknown',
-                        additionalInfo: { symbolName }
+                        additionalInfo: {symbolName}
                     });
                 }
             }
@@ -161,13 +161,6 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         this.astCache.clear();
     }
 
-    /**
-     * 获取工作区 Thrift 文件列表（带节流缓存）。
-     */
-    private async getThriftFiles(): Promise<vscode.Uri[]> {
-        return this.fileList.getFiles();
-    }
-
     public handleFileCreated(uri: vscode.Uri): void {
         this.fileList.handleFileCreated(uri);
         this.clearReferenceCaches();
@@ -177,6 +170,13 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         this.fileList.handleFileDeleted(uri);
         this.clearReferenceCaches();
         this.astCache.delete(uri.fsPath);
+    }
+
+    /**
+     * 获取工作区 Thrift 文件列表（带节流缓存）。
+     */
+    private async getThriftFiles(): Promise<vscode.Uri[]> {
+        return this.fileList.getFiles();
     }
 }
 

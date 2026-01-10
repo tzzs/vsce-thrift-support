@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { ThriftParser } from '../ast/parser';
+import {ThriftParser} from '../ast/parser';
 import * as nodes from '../ast/nodes.types';
-import { config } from '../config';
+import {config} from '../config';
 
 interface CachedAstEntry {
     ast: nodes.ThriftDocument;
@@ -34,7 +34,7 @@ export class AstCache {
 
         const parser = new ThriftParser(document);
         const ast = parser.parse();
-        this.cache.set(cacheKey, { ast, timestamp: now });
+        this.cache.set(cacheKey, {ast, timestamp: now});
         return ast;
     }
 

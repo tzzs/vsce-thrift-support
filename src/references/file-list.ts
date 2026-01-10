@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { config } from '../config';
+import {config} from '../config';
 
 /**
  * Maintain a throttled workspace file list for Thrift references.

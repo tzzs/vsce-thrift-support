@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
-import { ThriftParser } from '../ast/parser';
+import {ThriftParser} from '../ast/parser';
 import * as nodes from '../ast/nodes.types';
-import { ErrorHandler } from '../utils/error-handler';
-import { traverseAst } from './ast-traversal';
-import { createLocation } from '../utils/vscode-utils';
+import {ErrorHandler} from '../utils/error-handler';
+import {traverseAst} from './ast-traversal';
+import {createLocation} from '../utils/vscode-utils';
 
 interface ReferenceSearchDeps {
     errorHandler: ErrorHandler;
@@ -42,7 +42,7 @@ export async function findReferencesInDocument(
             component: 'ThriftReferencesProvider',
             operation: 'parseAst',
             filePath: uri.fsPath,
-            additionalInfo: { symbolName }
+            additionalInfo: {symbolName}
         });
         return references;
     }

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as nodes from '../ast/nodes.types';
-import { findNodeAtPosition } from './node-locator';
+import {findNodeAtPosition} from './node-locator';
 
 interface SymbolTypeDeps {
     getCachedAst: (document: vscode.TextDocument) => nodes.ThriftDocument;

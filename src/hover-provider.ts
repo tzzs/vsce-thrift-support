@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
-import { ThriftDefinitionProvider } from './definition-provider';
+import {ThriftDefinitionProvider} from './definition-provider';
 import * as path from 'path';
-import { CacheManager } from './utils/cache-manager';
-import { readThriftFile } from './utils/file-reader';
-import { ThriftParser } from './ast/parser';
-import { collectIncludes } from './ast/utils';
-import { ErrorHandler } from './utils/error-handler';
-import { config } from './config';
-import { CoreDependencies } from './utils/dependencies';
-import { createLocation } from './utils/vscode-utils';
+import {CacheManager} from './utils/cache-manager';
+import {readThriftFile} from './utils/file-reader';
+import {ThriftParser} from './ast/parser';
+import {collectIncludes} from './ast/utils';
+import {ErrorHandler} from './utils/error-handler';
+import {config} from './config';
+import {CoreDependencies} from './utils/dependencies';
+import {createLocation} from './utils/vscode-utils';
 
 /**
  * ThriftHoverProvider：提供符号悬停文档展示。
@@ -115,7 +115,7 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
                 component: 'ThriftHoverProvider',
                 operation: 'provideHover',
                 filePath: document.uri.fsPath,
-                additionalInfo: { position: position.toString() }
+                additionalInfo: {position: position.toString()}
             });
             return undefined;
         }

@@ -12,6 +12,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
     constructor(deps?: Partial<CoreDependencies>) {
         this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
     }
+
     /**
      * 预检查重命名位置，返回可重命名范围与占位符。
      */
@@ -31,7 +32,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
                 component: 'ThriftRenameProvider',
                 operation: 'prepareRename',
                 filePath: document.uri.fsPath,
-                additionalInfo: { position: position.toString() }
+                additionalInfo: {position: position.toString()}
             });
             return Promise.reject('Rename failed');
         }
@@ -53,7 +54,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
 
             // Use the references provider to find all occurrences
             const referencesProvider = new ThriftReferencesProvider();
-            const safeToken = _token ?? ({ isCancellationRequested: false } as vscode.CancellationToken);
+            const safeToken = _token ?? ({isCancellationRequested: false} as vscode.CancellationToken);
             const references = await referencesProvider.provideReferences(
                 document,
                 position,
@@ -90,7 +91,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
                 component: 'ThriftRenameProvider',
                 operation: 'provideRenameEdits',
                 filePath: document.uri.fsPath,
-                additionalInfo: { position: position.toString(), newName }
+                additionalInfo: {position: position.toString(), newName}
             });
             return undefined;
         }

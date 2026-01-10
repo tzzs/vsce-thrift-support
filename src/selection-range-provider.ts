@@ -15,6 +15,7 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
     constructor(deps?: Partial<CoreDependencies>) {
         this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
     }
+
     /**
      * 返回每个位置的 SelectionRange 树。
      */
@@ -40,7 +41,7 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
                     component: 'ThriftSelectionRangeProvider',
                     operation: 'provideSelectionRanges',
                     filePath: document.uri.fsPath,
-                    additionalInfo: { position: position.toString() }
+                    additionalInfo: {position: position.toString()}
                 });
             }
         }
