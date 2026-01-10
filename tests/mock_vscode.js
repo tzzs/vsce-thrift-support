@@ -24,12 +24,15 @@ class WorkspaceEdit {
     constructor() {
         this.edits = [];
     }
+
     replace(uri, range, newText) {
         this.edits.push({type: 'replace', uri, range, newText});
     }
+
     insert(uri, position, newText) {
         this.edits.push({type: 'insert', uri, position, newText});
     }
+
     delete(uri, range) {
         this.edits.push({type: 'delete', uri, range});
     }
@@ -93,32 +96,77 @@ const commonDefaults = {
     window: {
         activeTextEditor: null,
         showInformationMessage: () => Promise.resolve(),
+        showWarningMessage: () => Promise.resolve(),
         showErrorMessage: () => Promise.resolve(),
         createOutputChannel: () => ({
-            appendLine: () => {},
-            show: () => {},
-            dispose: () => {}
+            appendLine: () => {
+            },
+            show: () => {
+            },
+            dispose: () => {
+            }
+        })
+    },
+    languages: {
+        createDiagnosticCollection: () => ({
+            set: () => {
+            },
+            clear: () => {
+            },
+            delete: () => {
+            },
+            dispose: () => {
+            }
         })
     },
     workspace: {
         findFiles: async () => [],
+        openTextDocument: async (uri) => {
+            const fs = require('fs');
+            const text = fs.readFileSync(typeof uri === 'string' ? uri : uri.fsPath, 'utf8');
+            return createTextDocument(text, uri);
+        },
         fs: {
             readFile: async () => Buffer.from(''),
-            writeFile: async () => {},
-            delete: async () => {},
+            writeFile: async () => {
+            },
+            delete: async () => {
+            },
             stat: async () => ({size: 0, mtime: 0, type: 1})
         },
         textDocuments: [],
         createFileSystemWatcher: () => ({
-            onDidCreate: () => ({dispose: () => {}}),
-            onDidChange: () => ({dispose: () => {}}),
-            onDidDelete: () => ({dispose: () => {}}),
-            dispose: () => {}
+            onDidCreate: () => ({
+                dispose: () => {
+                }
+            }),
+            onDidChange: () => ({
+                dispose: () => {
+                }
+            }),
+            onDidDelete: () => ({
+                dispose: () => {
+                }
+            }),
+            dispose: () => {
+            }
         }),
-        onDidOpenTextDocument: () => ({dispose: () => {}}),
-        onDidChangeTextDocument: () => ({dispose: () => {}}),
-        onDidSaveTextDocument: () => ({dispose: () => {}}),
-        onDidCloseTextDocument: () => ({dispose: () => {}}),
+        onDidOpenTextDocument: () => ({
+            dispose: () => {
+            }
+        }),
+        onDidChangeTextDocument: () => ({
+            dispose: () => {
+            }
+        }),
+        onDidSaveTextDocument: () => ({
+            dispose: () => {
+            }
+        }),
+        onDidCloseTextDocument: () => ({
+            dispose: () => {
+            }
+        }),
         getConfiguration: () => ({
             get: (key, defaultValue) => defaultValue
         })
@@ -158,14 +206,33 @@ function TextDocumentFactory(uri, text) {
     return doc;
 }
 
+// Create the base vscode mock with all necessary classes
 const vscode = createVscodeMock();
+
+// Ensure CodeActionKind and CodeAction are properly set
+vscode.CodeActionKind = CodeActionKind;
+vscode.CodeAction = CodeAction;
+vscode.WorkspaceEdit = WorkspaceEdit;
+vscode.Selection = Selection;
+
+// Ensure languages is properly set
+if (!vscode.languages) {
+    vscode.languages = commonDefaults.languages;
+}
+
+// Ensure window is properly set with all methods
+if (!vscode.window || typeof vscode.window !== 'object') {
+    vscode.window = {...commonDefaults.window};
+}
+
 let currentWorkspace = createWorkspaceInstance();
 
 Object.defineProperty(vscode, 'workspace', {
     get: () => currentWorkspace,
     set: (value) => {
         if (value && typeof value === 'object') {
-            currentWorkspace = value;
+            // Merge with defaults to preserve methods
+            currentWorkspace = {...createWorkspaceInstance(), ...value};
         }
     },
     configurable: true,
@@ -176,6 +243,13 @@ Object.defineProperty(vscode, 'workspace', {
 vscode.__esModule = true;
 
 Object.assign(vscode, {
+    languages: vscode.languages || commonDefaults.languages,  // Preserve languages
+    DiagnosticSeverity: {
+        Error: 0,
+        Warning: 1,
+        Information: 2,
+        Hint: 3
+    },
     createVscodeMock: (overrides = {}) => {
         if (overrides && typeof overrides === 'object') {
             mergeInPlace(vscode, overrides);
@@ -219,6 +293,7 @@ Object.assign(vscode, {
         vscode.Selection = Selection;
         vscode.CodeAction = CodeAction;
         vscode.CodeActionKind = CodeActionKind;
+        vscode.languages = commonDefaults.languages;
 
         // Reset workspace to a fresh snapshot so tests always start from the same state.
         currentWorkspace = createWorkspaceInstance();

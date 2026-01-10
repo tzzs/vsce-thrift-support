@@ -240,17 +240,25 @@ function createVscodeMock(overrides = {}) {
             readFile: async (uri) => fs.readFileSync(uri.fsPath || uri),
             stat: async (uri) => fs.statSync(uri.fsPath || uri),
             createFileSystemWatcher: () => ({
-                onDidCreate: () => {},
-                onDidChange: () => {},
-                onDidDelete: () => {},
-                dispose: () => {}
+                onDidCreate: () => {
+                },
+                onDidChange: () => {
+                },
+                onDidDelete: () => {
+                },
+                dispose: () => {
+                }
             })
         },
         createFileSystemWatcher: () => ({
-            onDidCreate: () => {},
-            onDidChange: () => {},
-            onDidDelete: () => {},
-            dispose: () => {}
+            onDidCreate: () => {
+            },
+            onDidChange: () => {
+            },
+            onDidDelete: () => {
+            },
+            dispose: () => {
+            }
         }),
         openTextDocument: async (uri) => {
             const content = fs.readFileSync(uri.fsPath || uri, 'utf8');
@@ -258,10 +266,22 @@ function createVscodeMock(overrides = {}) {
         },
         getConfiguration: () => ({get: (_key, def) => def}),
         findFiles: async () => [],
-        onDidOpenTextDocument: () => ({dispose: () => {}}),
-        onDidChangeTextDocument: () => ({dispose: () => {}}),
-        onDidSaveTextDocument: () => ({dispose: () => {}}),
-        onDidCloseTextDocument: () => ({dispose: () => {}})
+        onDidOpenTextDocument: () => ({
+            dispose: () => {
+            }
+        }),
+        onDidChangeTextDocument: () => ({
+            dispose: () => {
+            }
+        }),
+        onDidSaveTextDocument: () => ({
+            dispose: () => {
+            }
+        }),
+        onDidCloseTextDocument: () => ({
+            dispose: () => {
+            }
+        })
     };
 
     const base = {
@@ -291,16 +311,21 @@ function createVscodeMock(overrides = {}) {
         },
         languages: {
             createDiagnosticCollection: () => ({
-                set: () => {},
-                delete: () => {},
-                clear: () => {}
+                set: () => {
+                },
+                delete: () => {
+                },
+                clear: () => {
+                }
             })
         },
         workspace: defaultWorkspace,
         window: {
             activeTextEditor: null,
-            showInformationMessage: () => {},
-            showErrorMessage: () => {}
+            showInformationMessage: () => {
+            },
+            showErrorMessage: () => {
+            }
         },
         getWordRangeAtPositionFromText,
         createTextDocument

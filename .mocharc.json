@@ -1,11 +1,11 @@
 {
-    "extension": [
-        "js"
-    ],
-    "spec": "tests/src/**/*.js",
-    "require": [
-        "tests/require-hook.js"
-    ],
-    "timeout": 30000,
-    "reporter": "spec"
+  "extension": [
+    "js"
+  ],
+  "spec": "tests/src/**/*.js",
+  "require": [
+    "tests/require-hook.js"
+  ],
+  "timeout": 30000,
+  "reporter": "spec"
 }
