@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { ErrorHandler } from '../utils/error-handler';
-import { createLocation } from '../utils/vscode-utils';
+import {ErrorHandler} from '../utils/error-handler';
+import {createLocation} from '../utils/vscode-utils';
 
 const decoder = new TextDecoder('utf-8');
 
@@ -102,7 +102,7 @@ export async function checkIncludeStatement(
                     component: 'ThriftDefinitionProvider',
                     operation: 'resolveIncludePath',
                     filePath: document.uri.fsPath,
-                    additionalInfo: { includePath }
+                    additionalInfo: {includePath}
                 });
             }
         }
@@ -218,7 +218,7 @@ export async function getIncludedFiles(
                 component: 'ThriftDefinitionProvider',
                 operation: 'getIncludedFiles',
                 filePath: document.uri.fsPath,
-                additionalInfo: { includePath }
+                additionalInfo: {includePath}
             });
         }
     }

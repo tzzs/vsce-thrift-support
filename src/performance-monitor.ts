@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { config } from './config';
-import { ErrorHandler } from './utils/error-handler';
+import {config} from './config';
+import {ErrorHandler} from './utils/error-handler';
 
 // 性能监控器 - 跟踪慢操作并提供优化建议
 export interface PerformanceMetrics {
@@ -173,7 +173,7 @@ export class PerformanceMonitor {
             content: report,
             language: 'markdown'
         });
-        await vscode.window.showTextDocument(doc, { preview: true });
+        await vscode.window.showTextDocument(doc, {preview: true});
     }
 
     /**
@@ -192,7 +192,7 @@ export class PerformanceMonitor {
         const stats = new Map<string, { count: number; totalDuration: number }>();
 
         slowOps.forEach(metric => {
-            const existing = stats.get(metric.operation) || { count: 0, totalDuration: 0 };
+            const existing = stats.get(metric.operation) || {count: 0, totalDuration: 0};
             existing.count++;
             existing.totalDuration += metric.duration;
             stats.set(metric.operation, existing);

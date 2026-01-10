@@ -1,8 +1,8 @@
-import { CacheManager } from './cache-manager';
-import { ErrorHandler } from './error-handler';
-import { IncrementalTracker } from './incremental-tracker';
-import { ThriftFileWatcher } from './file-watcher';
-import { createPerformanceMonitor, PerformanceMonitor } from '../performance-monitor';
+import {CacheManager} from './cache-manager';
+import {ErrorHandler} from './error-handler';
+import {IncrementalTracker} from './incremental-tracker';
+import {ThriftFileWatcher} from './file-watcher';
+import {createPerformanceMonitor, PerformanceMonitor} from '../performance-monitor';
 
 export interface CoreDependencies {
     cacheManager: CacheManager;
@@ -19,6 +19,6 @@ export function createCoreDependencies(): CoreDependencies {
         errorHandler,
         fileWatcher: new ThriftFileWatcher(),
         incrementalTracker: new IncrementalTracker(),
-        performanceMonitor: createPerformanceMonitor({ errorHandler })
+        performanceMonitor: createPerformanceMonitor({errorHandler})
     };
 }

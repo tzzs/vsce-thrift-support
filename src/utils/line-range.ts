@@ -14,7 +14,7 @@ export function normalizeLineRange(range: LineRange | null | undefined): LineRan
     if (!Number.isFinite(startLine) || !Number.isFinite(endLine)) {
         return null;
     }
-    return { startLine, endLine };
+    return {startLine, endLine};
 }
 
 export function mergeLineRanges(ranges: LineRange[]): LineRange[] {
@@ -80,7 +80,7 @@ export function lineRangeFromChange(change: { range: vscode.Range; text: string 
     const startLine = change.range.start.line;
     const lineDelta = change.text.split('\n').length - 1;
     const endLine = change.range.end.line + lineDelta;
-    return { startLine, endLine };
+    return {startLine, endLine};
 }
 
 export function lineRangeToVscodeRange(document: vscode.TextDocument, lineRange: LineRange): vscode.Range {

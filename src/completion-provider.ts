@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { CoreDependencies } from './utils/dependencies';
-import { ThriftCompletionProvider } from './completion/provider';
+import {CoreDependencies} from './utils/dependencies';
+import {ThriftCompletionProvider} from './completion/provider';
 
-export { ThriftCompletionProvider } from './completion/provider';
+export {ThriftCompletionProvider} from './completion/provider';
 
 /**
  * 注册 CompletionProvider。

@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { CoreDependencies } from '../utils/dependencies';
+import {CoreDependencies} from '../utils/dependencies';
 
 export function registerPerformanceCommands(context: vscode.ExtensionContext, deps: CoreDependencies) {
-    const { performanceMonitor } = deps;
+    const {performanceMonitor} = deps;
 
     // Register performance monitoring commands
     context.subscriptions.push(

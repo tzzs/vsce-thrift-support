@@ -64,7 +64,7 @@ export class CacheManager {
         if (cache.has(key)) {
             cache.delete(key);
         }
-        cache.set(key, { data: value, timestamp: Date.now() });
+        cache.set(key, {data: value, timestamp: Date.now()});
 
         // Clean up old entries
         this.cleanup(cache, config);

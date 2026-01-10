@@ -28,7 +28,7 @@ export class LruCache<K, V> {
             return undefined;
         }
         this.entries.delete(key);
-        const refreshed = { value: record.value, timestamp: Date.now() };
+        const refreshed = {value: record.value, timestamp: Date.now()};
         this.entries.set(key, refreshed);
         return refreshed.value;
     }
@@ -46,7 +46,7 @@ export class LruCache<K, V> {
         if (this.entries.has(key)) {
             this.entries.delete(key);
         }
-        this.entries.set(key, { value, timestamp: now });
+        this.entries.set(key, {value, timestamp: now});
         this.pruneExpired(now);
         this.evictOverflow();
     }

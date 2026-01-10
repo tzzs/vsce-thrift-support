@@ -1,204 +1,204 @@
 {
-    "name": "thrift-support",
-    "displayName": "Thrift Support",
-    "description": "Apache Thrift language support: syntax highlighting, formatting, diagnostics, navigation, completion, and rename",
-    "version": "1.0.13",
-    "publisher": "tanzz",
-    "icon": "icon.png",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/tzzs/vsce-thrift-support.git"
-    },
-    "engines": {
-        "vscode": "^1.75.0"
-    },
-    "categories": [
-        "Programming Languages",
-        "Linters",
-        "Formatters"
-    ],
-    "keywords": [
-        "thrift",
-        "apache thrift",
-        "idl",
-        "language",
-        "language support",
-        "syntax highlighting",
-        "formatter",
-        "formatting",
-        "diagnostics",
-        "navigation",
-        "completion",
-        "rename",
-        "vscode extension"
-    ],
-    "main": "./out/extension.js",
-    "files": [
-        "out/**",
-        "syntaxes/**",
-        "language-configuration.json",
-        "icon.png",
-        "README.md",
-        "README.en.md",
-        "CHANGELOG.md",
-        "LICENSE"
-    ],
-    "contributes": {
-        "languages": [
-            {
-                "id": "thrift",
-                "aliases": [
-                    "Thrift",
-                    "thrift"
-                ],
-                "extensions": [
-                    ".thrift"
-                ],
-                "configuration": "./language-configuration.json"
-            }
+  "name": "thrift-support",
+  "displayName": "Thrift Support",
+  "description": "Apache Thrift language support: syntax highlighting, formatting, diagnostics, navigation, completion, and rename",
+  "version": "1.0.14",
+  "publisher": "tanzz",
+  "icon": "icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tzzs/vsce-thrift-support.git"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Formatters"
+  ],
+  "keywords": [
+    "thrift",
+    "apache thrift",
+    "idl",
+    "language",
+    "language support",
+    "syntax highlighting",
+    "formatter",
+    "formatting",
+    "diagnostics",
+    "navigation",
+    "completion",
+    "rename",
+    "vscode extension"
+  ],
+  "main": "./out/extension.js",
+  "files": [
+    "out/**",
+    "syntaxes/**",
+    "language-configuration.json",
+    "icon.png",
+    "README.md",
+    "README.en.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "thrift",
+        "aliases": [
+          "Thrift",
+          "thrift"
         ],
-        "grammars": [
-            {
-                "language": "thrift",
-                "scopeName": "source.thrift",
-                "path": "./syntaxes/thrift.tmLanguage.json"
-            }
+        "extensions": [
+          ".thrift"
         ],
-        "commands": [
-            {
-                "command": "thrift.format.document",
-                "title": "Format Document",
-                "category": "Thrift"
-            },
-            {
-                "command": "thrift.format.selection",
-                "title": "Format Selection",
-                "category": "Thrift"
-            }
-        ],
-        "configuration": {
-            "type": "object",
-            "title": "Thrift Support Configuration",
-            "properties": {
-                "thrift.format.trailingComma": {
-                    "type": "string",
-                    "enum": [
-                        "preserve",
-                        "add",
-                        "remove"
-                    ],
-                    "default": "preserve",
-                    "description": "Control trailing comma behavior: preserve (keep existing), add (always add), remove (always remove)"
-                },
-                "thrift.format.alignTypes": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Align field types in structs/unions/exceptions"
-                },
-                "thrift.format.alignNames": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Align names for struct fields and enum members (unified control for field and enum names). Fine-grained keys like alignFieldNames/alignEnumNames are not exposed; they are internally tied to this switch for simplicity."
-                },
-                "thrift.format.alignAssignments": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Master switch to align '=' signs and values for both struct fields and enum members. When set, it overrides per-kind equals/values alignment; if not set explicitly, struct and enum fall back to their own defaults. Note: This does not affect struct default value alignment; use 'thrift.format.alignStructDefaults' for that."
-                },
-                "thrift.format.alignStructDefaults": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Align '=' signs for struct field default values (e.g., 'field = defaultValue'). Independent from the global 'thrift.format.alignAssignments' switch; this option exclusively controls default value alignment for struct fields."
-                },
-                "thrift.format.alignAnnotations": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Align inline annotations (e.g., (go.tag='json:...')) for struct fields and enum members (unified control)."
-                },
-                "thrift.format.alignComments": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Align inline comments"
-                },
-                "thrift.format.indentSize": {
-                    "type": "number",
-                    "default": 4,
-                    "description": "Number of spaces for indentation"
-                },
-                "thrift.format.maxLineLength": {
-                    "type": "number",
-                    "default": 100,
-                    "description": "Maximum line length for formatting"
-                },
-                "thrift.format.collectionStyle": {
-                    "type": "string",
-                    "enum": [
-                        "preserve",
-                        "multiline",
-                        "auto"
-                    ],
-                    "default": "preserve",
-                    "description": "How to format collection values in const declarations: preserve (keep inline), multiline (always expand), auto (expand if line exceeds maxLineLength)"
-                },
-                "thrift.diagnostics.debug": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Enable verbose diagnostics logging"
-                }
-            }
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "thrift",
+        "scopeName": "source.thrift",
+        "path": "./syntaxes/thrift.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "thrift.format.document",
+        "title": "Format Document",
+        "category": "Thrift"
+      },
+      {
+        "command": "thrift.format.selection",
+        "title": "Format Selection",
+        "category": "Thrift"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Thrift Support Configuration",
+      "properties": {
+        "thrift.format.trailingComma": {
+          "type": "string",
+          "enum": [
+            "preserve",
+            "add",
+            "remove"
+          ],
+          "default": "preserve",
+          "description": "Control trailing comma behavior: preserve (keep existing), add (always add), remove (always remove)"
+        },
+        "thrift.format.alignTypes": {
+          "type": "boolean",
+          "default": true,
+          "description": "Align field types in structs/unions/exceptions"
+        },
+        "thrift.format.alignNames": {
+          "type": "boolean",
+          "default": true,
+          "description": "Align names for struct fields and enum members (unified control for field and enum names). Fine-grained keys like alignFieldNames/alignEnumNames are not exposed; they are internally tied to this switch for simplicity."
+        },
+        "thrift.format.alignAssignments": {
+          "type": "boolean",
+          "default": true,
+          "description": "Master switch to align '=' signs and values for both struct fields and enum members. When set, it overrides per-kind equals/values alignment; if not set explicitly, struct and enum fall back to their own defaults. Note: This does not affect struct default value alignment; use 'thrift.format.alignStructDefaults' for that."
+        },
+        "thrift.format.alignStructDefaults": {
+          "type": "boolean",
+          "default": false,
+          "description": "Align '=' signs for struct field default values (e.g., 'field = defaultValue'). Independent from the global 'thrift.format.alignAssignments' switch; this option exclusively controls default value alignment for struct fields."
+        },
+        "thrift.format.alignAnnotations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Align inline annotations (e.g., (go.tag='json:...')) for struct fields and enum members (unified control)."
+        },
+        "thrift.format.alignComments": {
+          "type": "boolean",
+          "default": true,
+          "description": "Align inline comments"
+        },
+        "thrift.format.indentSize": {
+          "type": "number",
+          "default": 4,
+          "description": "Number of spaces for indentation"
+        },
+        "thrift.format.maxLineLength": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum line length for formatting"
+        },
+        "thrift.format.collectionStyle": {
+          "type": "string",
+          "enum": [
+            "preserve",
+            "multiline",
+            "auto"
+          ],
+          "default": "preserve",
+          "description": "How to format collection values in const declarations: preserve (keep inline), multiline (always expand), auto (expand if line exceeds maxLineLength)"
+        },
+        "thrift.diagnostics.debug": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose diagnostics logging"
         }
-    },
-    "scripts": {
-        "vscode:prepublish": "npm run compile",
-        "compile": "tsc -p ./",
-        "watch": "tsc -watch -p ./",
-        "lint": "eslint --cache src --ext ts",
-        "clean": "rimraf out",
-        "build": "npm run clean && npm run compile",
-        "package": "npx @vscode/vsce package",
-        "publish": "npx @vscode/vsce publish",
-        "test": "mocha",
-        "test:single": "mocha --config .mocharc.single.json",
-        "coverage": "nyc --reporter=text-summary node tests/run-all-unified.js",
-        "perf:benchmark": "node tests/perf/run-performance-benchmark.js"
-    },
-    "devDependencies": {
-        "@types/mocha": "^10.0.10",
-        "@types/node": "16.x",
-        "@types/vscode": "1.75.0",
-        "@typescript-eslint/eslint-plugin": "^5.45.0",
-        "@typescript-eslint/parser": "^5.45.0",
-        "@vscode/vsce": "^3.6.2",
-        "eslint": "^8.28.0",
-        "mocha": "^11.7.5",
-        "nyc": "^15.1.0",
-        "rimraf": "^3.0.2",
-        "ts-node": "^10.9.2",
-        "typescript": "^4.9.4"
-    },
-    "nyc": {
-        "include": [
-            "src/**/*.ts",
-            "out/**/*.js"
-        ],
-        "exclude": [
-            "tests/**",
-            "test-files/**",
-            "test-thrift/**"
-        ],
-        "extension": [
-            ".js",
-            ".ts"
-        ],
-        "cache": true,
-        "cache-dir": ".nyc_cache",
-        "all": false,
-        "exclude-after-remap": true,
-        "sourceMap": true,
-        "instrument": true,
-        "reporter": [
-            "text-summary",
-            "lcov"
-        ]
+      }
     }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint --cache src --ext ts",
+    "clean": "rimraf out",
+    "build": "npm run clean && npm run compile",
+    "package": "npx @vscode/vsce package",
+    "publish": "npx @vscode/vsce publish",
+    "test": "mocha",
+    "test:single": "mocha --config .mocharc.single.json",
+    "coverage": "nyc --reporter=text-summary node tests/run-all-unified.js",
+    "perf:benchmark": "node tests/perf/run-performance-benchmark.js"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "16.x",
+    "@types/vscode": "1.75.0",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "@vscode/vsce": "^3.6.2",
+    "eslint": "^8.28.0",
+    "mocha": "^11.7.5",
+    "nyc": "^15.1.0",
+    "rimraf": "^3.0.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^4.9.4"
+  },
+  "nyc": {
+    "include": [
+      "src/**/*.ts",
+      "out/**/*.js"
+    ],
+    "exclude": [
+      "tests/**",
+      "test-files/**",
+      "test-thrift/**"
+    ],
+    "extension": [
+      ".js",
+      ".ts"
+    ],
+    "cache": true,
+    "cache-dir": ".nyc_cache",
+    "all": false,
+    "exclude-after-remap": true,
+    "sourceMap": true,
+    "instrument": true,
+    "reporter": [
+      "text-summary",
+      "lcov"
+    ]
+  }
 }

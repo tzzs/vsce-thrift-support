@@ -1,14 +1,15 @@
 import * as vscode from 'vscode';
 import * as nodes from '../ast/nodes.types';
-import { ThriftParser } from '../ast/parser';
-import { CacheManager } from '../utils/cache-manager';
-import { config } from '../config';
-import { createLocation } from '../utils/vscode-utils';
+import {ThriftParser} from '../ast/parser';
+import {CacheManager} from '../utils/cache-manager';
+import {config} from '../config';
+import {createLocation} from '../utils/vscode-utils';
 
 export class DefinitionLookup {
     private readonly decoder = new TextDecoder('utf-8');
 
-    constructor(private readonly cacheManager: CacheManager) {}
+    constructor(private readonly cacheManager: CacheManager) {
+    }
 
     public async findDefinitionInDocument(
         uri: vscode.Uri,

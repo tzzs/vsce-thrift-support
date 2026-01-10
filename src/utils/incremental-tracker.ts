@@ -1,12 +1,6 @@
 import * as vscode from 'vscode';
-import { config } from '../config';
-import {
-    LineRange,
-    collapseLineRanges,
-    lineRangeFromChange,
-    lineRangeLineCount,
-    mergeLineRanges
-} from './line-range';
+import {config} from '../config';
+import {collapseLineRanges, LineRange, lineRangeFromChange, lineRangeLineCount, mergeLineRanges} from './line-range';
 
 /**
  * IncrementalTracker：记录文档脏区，用于增量格式化/分析。

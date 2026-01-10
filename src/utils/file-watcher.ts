@@ -4,7 +4,9 @@ type WatchEventCallback = (uri: vscode.Uri) => void;
 
 interface TestableFileSystemWatcher extends vscode.FileSystemWatcher {
     fireCreate(uri: vscode.Uri): void;
+
     fireChange(uri: vscode.Uri): void;
+
     fireDelete(uri: vscode.Uri): void;
 }
 
@@ -13,11 +15,27 @@ class WatcherWrapper implements TestableFileSystemWatcher {
     private changeCallbacks = new Set<WatchEventCallback>();
     private deleteCallbacks = new Set<WatchEventCallback>();
 
-    constructor(private readonly underlying: vscode.FileSystemWatcher) {}
+    constructor(private readonly underlying: vscode.FileSystemWatcher) {
+    }
+
+    get ignoreCreateEvents(): boolean {
+        return this.underlying.ignoreCreateEvents ?? false;
+    }
+
+    get ignoreChangeEvents(): boolean {
+        return this.underlying.ignoreChangeEvents ?? false;
+    }
+
+    get ignoreDeleteEvents(): boolean {
+        return this.underlying.ignoreDeleteEvents ?? false;
+    }
 
     public onDidCreate(listener: WatchEventCallback): vscode.Disposable {
         this.createCallbacks.add(listener);
-        const disposable = this.underlying.onDidCreate?.(listener) ?? { dispose: () => {} };
+        const disposable = this.underlying.onDidCreate?.(listener) ?? {
+            dispose: () => {
+            }
+        };
         return {
             dispose: () => {
                 this.createCallbacks.delete(listener);
@@ -28,7 +46,10 @@ class WatcherWrapper implements TestableFileSystemWatcher {
 
     public onDidChange(listener: WatchEventCallback): vscode.Disposable {
         this.changeCallbacks.add(listener);
-        const disposable = this.underlying.onDidChange?.(listener) ?? { dispose: () => {} };
+        const disposable = this.underlying.onDidChange?.(listener) ?? {
+            dispose: () => {
+            }
+        };
         return {
             dispose: () => {
                 this.changeCallbacks.delete(listener);
@@ -39,7 +60,10 @@ class WatcherWrapper implements TestableFileSystemWatcher {
 
     public onDidDelete(listener: WatchEventCallback): vscode.Disposable {
         this.deleteCallbacks.add(listener);
-        const disposable = this.underlying.onDidDelete?.(listener) ?? { dispose: () => {} };
+        const disposable = this.underlying.onDidDelete?.(listener) ?? {
+            dispose: () => {
+            }
+        };
         return {
             dispose: () => {
                 this.deleteCallbacks.delete(listener);
@@ -72,18 +96,6 @@ class WatcherWrapper implements TestableFileSystemWatcher {
         this.changeCallbacks.clear();
         this.deleteCallbacks.clear();
     }
-
-    get ignoreCreateEvents(): boolean {
-        return this.underlying.ignoreCreateEvents ?? false;
-    }
-
-    get ignoreChangeEvents(): boolean {
-        return this.underlying.ignoreChangeEvents ?? false;
-    }
-
-    get ignoreDeleteEvents(): boolean {
-        return this.underlying.ignoreDeleteEvents ?? false;
-    }
 }
 
 /**
@@ -98,17 +110,6 @@ export class ThriftFileWatcher {
             this.instance = new ThriftFileWatcher();
         }
         return this.instance;
-    }
-
-    private getOrCreateWatcher(pattern: string): TestableFileSystemWatcher {
-        const key = `thrift-${pattern}`;
-        if (this.watchers.has(key)) {
-            return this.watchers.get(key)!;
-        }
-        const underlying = vscode.workspace.createFileSystemWatcher(pattern);
-        const wrapper = new WatcherWrapper(underlying);
-        this.watchers.set(key, wrapper);
-        return wrapper;
     }
 
     public createWatcher(pattern: string, onChange: () => void): vscode.FileSystemWatcher {
@@ -143,5 +144,16 @@ export class ThriftFileWatcher {
     public dispose(): void {
         this.watchers.forEach(watcher => watcher.dispose());
         this.watchers.clear();
+    }
+
+    private getOrCreateWatcher(pattern: string): TestableFileSystemWatcher {
+        const key = `thrift-${pattern}`;
+        if (this.watchers.has(key)) {
+            return this.watchers.get(key)!;
+        }
+        const underlying = vscode.workspace.createFileSystemWatcher(pattern);
+        const wrapper = new WatcherWrapper(underlying);
+        this.watchers.set(key, wrapper);
+        return wrapper;
     }
 }

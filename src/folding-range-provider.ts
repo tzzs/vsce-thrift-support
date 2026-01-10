@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { ThriftParser } from './ast/parser';
+import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes.types';
-import { ErrorHandler } from './utils/error-handler';
-import { CoreDependencies } from './utils/dependencies';
+import {ErrorHandler} from './utils/error-handler';
+import {CoreDependencies} from './utils/dependencies';
 
 /**
  * ThriftFoldingRangeProvider：提供折叠范围。
@@ -14,6 +14,7 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
     constructor(deps?: Partial<CoreDependencies>) {
         this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
     }
+
     /**
      * 返回文档的折叠范围列表。
      */
@@ -198,15 +199,28 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
 
     private findMatchingBracket(lines: string[], startLine: number, open: string, close: string): number {
         let depth = 0;
+        let inString = false;
+        let stringChar = '';
+
         for (let i = startLine; i < lines.length; i++) {
             const line = lines[i];
             for (let j = 0; j < line.length; j++) {
-                if (line[j] === open) {
-                    depth++;
-                } else if (line[j] === close) {
-                    depth--;
-                    if (depth === 0) {
-                        return i;
+                const char = line[j];
+
+                if (!inString && (char === '"' || char === "'")) {
+                    inString = true;
+                    stringChar = char;
+                } else if (inString && char === stringChar && line[j - 1] !== '\\') {
+                    inString = false;
+                    stringChar = '';
+                } else if (!inString) {
+                    if (char === open) {
+                        depth++;
+                    } else if (char === close) {
+                        depth--;
+                        if (depth === 0) {
+                            return i;
+                        }
                     }
                 }
             }
@@ -216,15 +230,28 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
 
     private findMatchingParen(lines: string[], startLine: number, startChar: number): number {
         let depth = 0;
+        let inString = false;
+        let stringChar = '';
+
         for (let i = startLine; i < lines.length; i++) {
             const line = lines[i];
             for (let j = i === startLine ? startChar : 0; j < line.length; j++) {
-                if (line[j] === '(') {
-                    depth++;
-                } else if (line[j] === ')') {
-                    depth--;
-                    if (depth === 0) {
-                        return i;
+                const char = line[j];
+
+                if (!inString && (char === '"' || char === "'")) {
+                    inString = true;
+                    stringChar = char;
+                } else if (inString && char === stringChar && line[j - 1] !== '\\') {
+                    inString = false;
+                    stringChar = '';
+                } else if (!inString) {
+                    if (char === '(') {
+                        depth++;
+                    } else if (char === ')') {
+                        depth--;
+                        if (depth === 0) {
+                            return i;
+                        }
                     }
                 }
             }

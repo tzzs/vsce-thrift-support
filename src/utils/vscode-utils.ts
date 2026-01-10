@@ -7,11 +7,11 @@ const locationCtor: LocationCtor | undefined =
 
 /**
  * Creates a VS Code Location object in a test-compatible way.
- * 
+ *
  * In production VS Code environment, uses the Location constructor.
  * In test environments where Location might not be a proper constructor,
  * falls back to creating a plain object with the required properties.
- * 
+ *
  * @param uri - The file URI
  * @param range - The range within the file
  * @returns A vscode.Location instance or compatible object
@@ -24,5 +24,5 @@ export function createLocation(uri: vscode.Uri, range: vscode.Range): vscode.Loc
             // Fall through to fallback
         }
     }
-    return { uri, range } as vscode.Location;
+    return {uri, range} as vscode.Location;
 }

@@ -58,13 +58,15 @@ thrift-support/
     - 支持工作区范围的跳转到定义
 
 -
+
 重命名与重构（Refactor）— <mcfile name="refactor.ts" path="src/refactor.ts"></mcfile>, <mcfile name="codeActions.ts" path="src/codeActions.ts"></mcfile>
-    - `refactor.ts` 提供 RenameProvider：统一实现标识符重命名（F2）
-    - `codeActions.ts` 提供重构 Code Actions：抽取类型、移动类型等，并与注册的命令协作
+- `refactor.ts` 提供 RenameProvider：统一实现标识符重命名（F2）
+- `codeActions.ts` 提供重构 Code Actions：抽取类型、移动类型等，并与注册的命令协作
 
 -
+
 语法与语言配置— <mcfile name="thrift.tmLanguage.json" path="syntaxes/thrift.tmLanguage.json"></mcfile>、<mcfile name="language-configuration.json" path="language-configuration.json"></mcfile>（[syntaxes/thrift.tmLanguage.json](syntaxes/thrift.tmLanguage.json)、[language-configuration.json](language-configuration.json)）
-    - 提供高亮、括号配对、注释等语言层支持
+- 提供高亮、括号配对、注释等语言层支持
 
 ### 设计要点
 
@@ -136,6 +138,224 @@ thrift-support/
 - 官方测试 IDL 示例（ThriftTest.thrift）: https://raw.githubusercontent.com/apache/thrift/master/test/ThriftTest.thrift
 
 ### 测试与新增用例说明
+
+#### Mocha 测试框架规范（v1.0.13+）
+
+项目已全面迁移至 Mocha 测试框架，所有测试必须遵循以下规范：
+
+**1. 统一 Mock 机制（require-hook 自动注入）**
+
+项目使用 `require-hook.js` 自动拦截所有 `require('vscode')` 调用，无需手动设置 mock：
+
+```javascript
+// ✅ 正确：直接导入被测试模块，mock 自动生效
+const {ThriftParser} = require('../../../out/ast/parser.js');
+
+describe('parser', () => {
+    it('should parse thrift code', () => {
+        const parser = new ThriftParser('struct User {}');
+        const ast = parser.parse();
+        assert.ok(ast);
+    });
+});
+```
+
+**工作原理**：
+
+- `.mocharc.json` 配置在测试启动时加载 `require-hook.js`
+- `require-hook.js` 自动拦截所有 `require('vscode')` 调用
+- 返回预定义的 `mock_vscode.js` 中的 mock 对象
+- 无需在每个测试文件中手动设置
+
+**关键要点**：
+
+- ✅ 不需要导入 `createVscodeMock` 或 `installVscodeMock`
+- ✅ 不需要手动调用 mock 设置函数
+- ✅ 只需正常 require 被测试模块即可
+- ❌ 不要手动覆盖 `Module.prototype.require`
+- ❌ 不要创建本地 `const mockVscode = {}` 对象
+
+**2. 自定义 Mock 扩展（高级用法，仅在需要时使用）**
+
+**大多数测试不需要自定义 mock**，require-hook 提供的默认 mock 已足够。
+
+仅当测试需要特定的自定义行为时才使用：
+
+```javascript
+// 仅在需要自定义行为时使用
+const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
+
+const vscode = createVscodeMock({
+    workspace: {
+        // 自定义实现
+        findFiles: async () => [/* 测试文件列表 */],
+        openTextDocument: async (uri) => {/* 自定义文档 */},
+        
+        // ⚠️ 必须包含所有默认方法！
+        fs: {
+            readFile: async () => Buffer.from(''),
+            writeFile: async () => {},
+            delete: async () => {},
+            stat: async () => ({size: 0, mtime: 0, type: 1})
+        },
+        textDocuments: [],
+        onDidOpenTextDocument: () => ({dispose: () => {}}),
+        onDidChangeTextDocument: () => ({dispose: () => {}}),
+        onDidSaveTextDocument: () => ({dispose: () => {}}),
+        onDidCloseTextDocument: () => ({dispose: () => {}}),
+        getConfiguration: () => ({get: (key, defaultValue) => defaultValue}),
+        createFileSystemWatcher: () => ({
+            onDidCreate: () => ({dispose: () => {}}),
+            onDidChange: () => ({dispose: () => {}}),
+            onDidDelete: () => ({dispose: () => {}}),
+            dispose: () => {}
+        })
+    }
+});
+installVscodeMock(vscode);
+
+// 然后导入被测试模块
+const {CustomProvider} = require('../../../out/custom-provider.js');
+```
+
+**常见陷阱**：
+
+- ❌ 只提供部分 workspace 方法会导致 "Cannot read properties of undefined" 错误
+- ❌ 忘记提供 `createFileSystemWatcher` 会导致诊断测试失败
+- ❌ 忘记提供 `languages.createDiagnosticCollection` 会导致诊断初始化失败
+
+**3. Mocha 测试结构**
+
+所有测试必须包装在 `describe/it` 块中：
+
+```javascript
+// ✅ 正确：包装在 Mocha 结构中
+describe('feature-name', () => {
+    it('should test specific behavior', async () => {
+        await testFunction();
+    });
+    
+    it('should handle edge case', () => {
+        const result = syncFunction();
+        assert.strictEqual(result, expected);
+    });
+});
+
+// ❌ 错误：顶层调用（不在 Mocha 控制之下）
+run().catch(err => {
+    console.error(err);
+    process.exit(1);
+});
+
+// ❌ 错误：直接执行
+testFunction();
+```
+
+**4. 异步测试处理**
+
+- 测试函数为 `async` 时，`it()` 必须标记为 `async`
+- 必须使用 `await` 调用异步函数
+- 不要使用 `.catch()` 处理错误（Mocha 会自动处理）
+
+```javascript
+// ✅ 正确：async/await 模式
+describe('async-tests', () => {
+    it('should handle async operation', async () => {
+        await asyncFunction();
+    });
+});
+
+// ❌ 错误：忘记 async 关键字
+describe('async-tests', () => {
+    it('should handle async operation', () => {
+        await asyncFunction(); // SyntaxError: await is only valid in async functions
+    });
+});
+```
+
+**5. Require 语句位置**
+
+- 所有 `require()` 语句必须在**文件顶层**（模块作用域）
+- 不要在 `describe/it` 块内部使用 require
+- Mock 通过 require-hook 自动注入，无需手动设置
+
+```javascript
+// ✅ 正确：顶层 require，mock 自动生效
+const {ThriftParser} = require('../../../out/ast/parser.js');
+
+describe('parser', () => {
+    it('should parse', () => {
+        const parser = new ThriftParser('...');
+        // ...
+    });
+});
+
+// ❌ 错误：在测试函数内 require
+describe('parser', () => {
+    it('should parse', () => {
+        const {ThriftParser} = require('../../../out/ast/parser.js'); // Bad!
+        // ...
+    });
+});
+```
+
+**原因**：require 语句应该在模块加载时执行，而不是在测试运行时。require-hook 在测试启动时已经设置好。
+
+**6. 必需的 Mock API**
+
+确保 mock 包含以下关键 API：
+
+- **诊断测试**：`languages.createDiagnosticCollection()`
+- **代码操作测试**：`CodeActionKind`, `CodeAction`, `WorkspaceEdit`
+- **文件监听测试**：`workspace.createFileSystemWatcher()`
+- **文档测试**：TextDocument 必须包含 `uri` 属性（不仅仅是 `fsPath`）
+- **路径处理**：使用 `path.normalize()` 统一路径分隔符
+
+**7. 测试文件组织**
+
+主要测试脚本位于 `tests/src/` 目录，按功能模块组织：
+
+```
+tests/src/
+├── ast/parser/          # AST 解析测试
+├── diagnostics/         # 诊断测试
+├── formatter/           # 格式化器测试
+├── formatting-bridge/   # 格式化桥接测试
+├── definition-provider/ # 定义跳转测试
+├── references/          # 引用查找测试
+└── ...
+```
+
+**8. 运行测试**
+
+```bash
+# 运行所有测试
+npm test
+
+# 运行特定测试文件
+node tests/src/formatter/test-text-utils.js
+
+# 生成覆盖率报告
+npm run coverage
+```
+
+**9. 调试测试失败**
+
+测试失败时检查清单：
+
+1. ✓ require-hook.js 是否正确加载（检查 .mocharc.json）
+2. ✓ 自定义 mock（如果使用）是否包含所有必需方法
+3. ✓ 测试是否包装在 `describe/it` 中
+4. ✓ `require` 语句是否在顶层
+5. ✓ 异步测试是否正确使用 `async/await`
+6. ✓ 路径分隔符是否已规范化
+7. ✓ 测试文件是否手动覆盖了 Module.prototype.require
+
+---
+
+#### 测试用例示例
+
+格式化相关的组合测试集中在 `tests/src/formatting-bridge/test-struct-annotations-combinations.js`。
 
 主要测试脚本位于 <mcfile name="tests" path="tests/"></mcfile>
 目录，格式化相关的组合测试集中在 <mcfile name="test-struct-annotations-combinations.js" path="tests/test-struct-annotations-combinations.js"></mcfile>。

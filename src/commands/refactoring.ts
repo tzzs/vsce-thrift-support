@@ -175,7 +175,7 @@ export function registerRefactoringCommands(context: vscode.ExtensionContext) {
             // Remove original block
             edit.delete(doc.uri, new vscode.Range(startLine, 0, endLine + 1, 0));
             // Create new file and insert block
-            edit.createFile(targetUri, { overwrite: true });
+            edit.createFile(targetUri, {overwrite: true});
             edit.insert(targetUri, new vscode.Position(0, 0), typeBlock + '\n');
 
             await vscode.workspace.applyEdit(edit);

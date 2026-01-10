@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { ErrorHandler } from './utils/error-handler';
-import { createCoreDependencies } from './utils/dependencies';
-import { registerProviders } from './setup';
-import { registerCommands } from './commands';
+import {ErrorHandler} from './utils/error-handler';
+import {createCoreDependencies} from './utils/dependencies';
+import {registerProviders} from './setup';
+import {registerCommands} from './commands';
 
 /**
  * 扩展入口，注册所有能力与命令。

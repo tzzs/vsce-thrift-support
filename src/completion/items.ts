@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { config } from '../config';
+import {config} from '../config';
 
 export const KEYWORDS = [
     'namespace', 'include', 'cpp_include', 'php_include', 'py_module',

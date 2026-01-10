@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
-import { ThriftParser } from '../ast/parser';
+import {ThriftParser} from '../ast/parser';
 import * as nodes from '../ast/nodes.types';
-import { ErrorHandler } from '../utils/error-handler';
-import { CoreDependencies } from '../utils/dependencies';
+import {ErrorHandler} from '../utils/error-handler';
+import {CoreDependencies} from '../utils/dependencies';
 import {
+    addEnumValueCompletions,
+    addTypeCompletions,
+    COMMON_METHODS,
     KEYWORDS,
     NAMESPACE_LANGUAGES,
-    COMMON_METHODS,
-    addTypeCompletions,
-    addEnumValueCompletions,
     provideIncludePathCompletions
 } from './items';
 import {
@@ -77,7 +77,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         }
 
         // Collect available types and values from AST
-        const { types, values } = collectTypesAndValues(thriftDoc);
+        const {types, values} = collectTypesAndValues(thriftDoc);
 
         // 3. Inside a block (struct, enum, service)
         const blockNode = findBlockNode(thriftDoc, position.line);

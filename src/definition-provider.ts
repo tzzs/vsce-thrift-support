@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { CacheManager } from './utils/cache-manager';
-import { ErrorHandler } from './utils/error-handler';
-import { CoreDependencies } from './utils/dependencies';
-import { config } from './config';
-import { DefinitionLookup } from './definition/lookup';
+import {CacheManager} from './utils/cache-manager';
+import {ErrorHandler} from './utils/error-handler';
+import {CoreDependencies} from './utils/dependencies';
+import {config} from './config';
+import {DefinitionLookup} from './definition/lookup';
 import {
     checkIncludeStatement,
     fileDeclaresNamespace,
@@ -174,7 +174,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                     component: 'ThriftDefinitionProvider',
                     operation: 'findDefinitionInIncludedFile',
                     filePath: includedFile.fsPath,
-                    additionalInfo: { searchTypeName }
+                    additionalInfo: {searchTypeName}
                 });
                 continue;
             }

@@ -51,7 +51,7 @@ export function collectTypesAndValues(doc: nodes.ThriftDocument) {
             });
         }
     }
-    return { types, values };
+    return {types, values};
 }
 
 /**

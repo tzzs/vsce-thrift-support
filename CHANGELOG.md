@@ -95,7 +95,9 @@
 * 代码操作：仅在工作区存在目标文件时才提供 include Quick
   Fix，避免误导性的命名空间修复建议（[2df52d5](https://github.com/tzzs/vsce-thrift-support/commit/2df52d52fae18c6f56185d55ae144ea261d6999e)）
 *
+
 定义：改进命名空间点击导航与健壮性（[c9cabfc](https://github.com/tzzs/vsce-thrift-support/commit/c9cabfcd7b8ec8f7ab489021f28e608ecefc768f)）
+
 * 定义：从行文本提取光标下单词；点击命名空间与类型之间的点号时不导航；点击命名空间时优先跳转到对应 include
   行（[60f0685](https://github.com/tzzs/vsce-thrift-support/commit/60f068531f6e8db4931b74724977c16b4bbc04fc)）
 * 诊断：接受 [] 作为 set&lt;T&gt;
@@ -103,19 +105,26 @@
 * 诊断：允许 list/set/map 为空默认值，并新增 service
   校验（[36cf59c](https://github.com/tzzs/vsce-thrift-support/commit/36cf59c2bcc204d67a04496f8e3c0a2a8ae1b395)）
 *
+
 诊断：提取默认值时忽略字段注解中的 '='（[1f6c5dd](https://github.com/tzzs/vsce-thrift-support/commit/1f6c5ddfccefbfaad97bd765b18081730863d10a)）
+
 * 诊断：支持 uuid；剥离类型注解与跨行注释；改进 required/optional
   与容器类型的字段解析（[8b8f5bf](https://github.com/tzzs/vsce-thrift-support/commit/8b8f5bfc826faae67184832f043dfc847405e4bc)）
 *
+
 诊断：未知类型的诊断范围从整行收敛至仅类型单词（[d26ce53](https://github.com/tzzs/vsce-thrift-support/commit/d26ce53d1126855d03de4c276540b16f810ec8d4)）
+
 *
+
 格式化器：更稳健的泛型签名规范化与引号/转义处理（[cdb2f40](https://github.com/tzzs/vsce-thrift-support/commit/cdb2f4010722686db3b06641770f549cb3fec34f)）
+
 * 悬停：仅解析当前文档与显式 include 的文件，避免未 include 时跨文件 typedef
   提示（[c37d2a2](https://github.com/tzzs/vsce-thrift-support/commit/c37d2a2ec7d1a71d325073e5a8873782f886c447)）
 
 #### 性能优化
 
 *
+
 格式化器：热点路径微优化（[e6fe555](https://github.com/tzzs/vsce-thrift-support/commit/e6fe555376f7f4984aad500f578ee61286769f59)）
 
 ### English Version

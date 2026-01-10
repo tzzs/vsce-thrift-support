@@ -60,3 +60,4 @@ test-thrift/
 .nyc_cache/
 .nyc_output/
 .vscode/
+.qoder/
