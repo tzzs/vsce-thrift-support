@@ -1,23 +1,11 @@
 const assert = require('assert');
+const vscode = require('vscode');
 
 require('../../../require-hook.js');
 
-const {
-    createVscodeMock,
-    installVscodeMock
-} = require('../../../mock_vscode.js');
 
-const vscode = createVscodeMock({
-    languages: {
-        createDiagnosticCollection: () => ({
-            set: () => {},
-            delete: () => {},
-            clear: () => {}
-        })
-    }
-});
-installVscodeMock(vscode);
-
+describe('definition-lookup', () => {
+    it('should pass all test assertions', async () => {
         delete require.cache[require.resolve('../../../../out/definition/lookup.js')];
 
         const {CacheManager} = require('../../../../out/utils/cache-manager.js');
@@ -33,7 +21,6 @@ installVscodeMock(vscode);
         }
 
         async function run() {
-            console.log('\nRunning definition lookup tests...');
 
             const cacheManager = new CacheManager();
             cacheManager.registerCache('document', {maxSize: 10, ttl: 10000});
@@ -57,8 +44,8 @@ installVscodeMock(vscode);
             const workspaceDefs = await lookup.findDefinitionInWorkspace('Person');
             assert.strictEqual(workspaceDefs.length, 1);
 
-            console.log('✅ Definition lookup tests passed!');
         }
+
         await run();
     });
 });

@@ -1,64 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const vscode = require('vscode');
 
 // Enhanced vscode mock for document symbol provider testing
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-const vscode = createVscodeMock({
-    DocumentSymbol: class {
-        constructor(name, detail, kind, range, selectionRange) {
-            this.name = name;
-            this.detail = detail;
-            this.kind = kind;
-            this.range = range;
-            this.selectionRange = selectionRange;
-            this.children = [];
-        }
-    },
-    SymbolKind: {
-        Struct: 0,
-        Class: 1,
-        Enum: 2,
-        Interface: 3,
-        Field: 4,
-        EnumMember: 5,
-        Method: 6,
-        Namespace: 7,
-        File: 8,
-        TypeParameter: 9,
-        Constant: 10,
-        Variable: 11
-    },
-    Range: class {
-        constructor(startLine, startChar, endLine, endChar) {
-            this.start = {line: startLine, character: startChar};
-            this.end = {line: endLine, character: endChar};
-        }
-    },
-    Position: class {
-        constructor(line, character) {
-            this.line = line;
-            this.character = character;
-        }
-    },
-    workspace: {
-        createFileSystemWatcher: (globPattern, ignoreCreate, ignoreChange, ignoreDelete) => {
-            // Return a mock file system watcher
-            return {
-                onDidCreate: (callback) => {
-                },
-                onDidChange: (callback) => {
-                },
-                onDidDelete: (callback) => {
-                },
-                dispose: () => {
-                }
-            };
-        }
-    }
-});
-installVscodeMock(vscode);
-
-
 // Hook require('vscode')
 const {ThriftDocumentSymbolProvider} = require('../../../out/document-symbol-provider.js');
 
@@ -105,7 +49,6 @@ function countSymbols(symbols) {
 }
 
 async function testBasicStructSymbols() {
-    console.log('Testing basic struct symbols...');
 
     const provider = new ThriftDocumentSymbolProvider();
     const text = `struct User {
@@ -129,11 +72,6 @@ async function testBasicStructSymbols() {
     }
 
     const userSymbol = symbols[0];
-    console.log('User symbol:', JSON.stringify({
-        name: userSymbol.name,
-        kind: userSymbol.kind,
-        childrenCount: userSymbol.children ? userSymbol.children.length : 0
-    }, null, 2));
 
     if (userSymbol.name !== 'User') {
         throw new Error(`Expected symbol name 'User', got '${userSymbol.name}'`);
@@ -144,7 +82,6 @@ async function testBasicStructSymbols() {
     }
 
     if (!userSymbol.children || userSymbol.children.length !== 3) {
-        console.log('Children found:', userSymbol.children ? userSymbol.children.map(c => c.name) : 'none');
         throw new Error(`Expected 3 child symbols, got ${userSymbol.children ? userSymbol.children.length : 0}`);
     }
 
@@ -161,11 +98,9 @@ async function testBasicStructSymbols() {
         throw new Error(`Expected Field kind for id, got ${idField.kind}`);
     }
 
-    console.log('✓ Basic struct symbols test passed');
 }
 
 async function testEnumSymbols() {
-    console.log('Testing enum symbols...');
 
     const provider = new ThriftDocumentSymbolProvider();
     const text = `enum Status {
@@ -214,11 +149,9 @@ async function testEnumSymbols() {
         throw new Error(`Expected EnumMember kind for ACTIVE, got ${activeValue.kind}`);
     }
 
-    console.log('✓ Enum symbols test passed');
 }
 
 async function testServiceSymbols() {
-    console.log('Testing service symbols...');
 
     const provider = new ThriftDocumentSymbolProvider();
     const text = `service UserService {
@@ -267,11 +200,9 @@ async function testServiceSymbols() {
         throw new Error(`Expected Method kind for getUser, got ${getUserMethod.kind}`);
     }
 
-    console.log('✓ Service symbols test passed');
 }
 
 async function testNamespaceSymbols() {
-    console.log('Testing namespace symbols...');
 
     const provider = new ThriftDocumentSymbolProvider();
     const text = `namespace java com.example.thrift
@@ -306,11 +237,9 @@ namespace cpp example.thrift`;
         throw new Error(`Expected 'namespace cpp', got '${cppNamespace.name}'`);
     }
 
-    console.log('✓ Namespace symbols test passed');
 }
 
 async function testIncludeSymbols() {
-    console.log('Testing include symbols...');
 
     const provider = new ThriftDocumentSymbolProvider();
     const text = `include "shared.thrift"
@@ -341,11 +270,9 @@ include "common/types.thrift"`;
         throw new Error(`Expected File kind, got ${firstInclude.kind}`);
     }
 
-    console.log('✓ Include symbols test passed');
 }
 
 async function testComplexDocument() {
-    console.log('Testing complex document with multiple types...');
 
     const provider = new ThriftDocumentSymbolProvider();
     const text = `namespace java com.example.thrift
@@ -419,11 +346,9 @@ const i32 MAX_USERS = 1000`;
         throw new Error(`Expected Constant kind for MAX_USERS, got ${maxUsersConst.kind}`);
     }
 
-    console.log('✓ Complex document symbols test passed');
 }
 
 async function testEmptyDocument() {
-    console.log('Testing empty document...');
 
     const provider = new ThriftDocumentSymbolProvider();
     const text = ``;
@@ -442,11 +367,9 @@ async function testEmptyDocument() {
         throw new Error(`Expected 0 symbols for empty document, got ${symbols.length}`);
     }
 
-    console.log('✓ Empty document symbols test passed');
 }
 
 async function testCommentsAndWhitespace() {
-    console.log('Testing document with comments and whitespace...');
 
     const provider = new ThriftDocumentSymbolProvider();
     const text = `// This is a comment
@@ -484,30 +407,31 @@ struct User {
         throw new Error(`Expected 2 field symbols, got ${userSymbol.children ? userSymbol.children.length : 0}`);
     }
 
-    console.log('✓ Comments and whitespace test passed');
 }
 
-async function runAllTests() {
-    console.log('=== Running Document Symbol Provider Tests ===\n');
-
-    try {
+describe('document-symbol-provider', () => {
+    it('should pass testBasicStructSymbols', async () => {
         await testBasicStructSymbols();
+    });
+    it('should pass testEnumSymbols', async () => {
         await testEnumSymbols();
+    });
+    it('should pass testServiceSymbols', async () => {
         await testServiceSymbols();
+    });
+    it('should pass testNamespaceSymbols', async () => {
         await testNamespaceSymbols();
+    });
+    it('should pass testIncludeSymbols', async () => {
         await testIncludeSymbols();
+    });
+    it('should pass testComplexDocument', async () => {
         await testComplexDocument();
+    });
+    it('should pass testEmptyDocument', async () => {
         await testEmptyDocument();
+    });
+    it('should pass testCommentsAndWhitespace', async () => {
         await testCommentsAndWhitespace();
-
-        console.log('\n✅ All document symbol provider tests passed!');
-    } catch (error) {
-        console.error('\n❌ Test failed:', error.message);
-        process.exit(1);
-    }
-}
-
-runAllTests().catch((error) => {
-    console.error('Test execution failed:', error);
-    process.exit(1);
+    });
 });

@@ -6,7 +6,6 @@ const {
 } = require('../../../out/formatter/text-utils.js');
 
 function run() {
-    console.log('\nRunning thrift formatter text utils tests...');
 
     const parts = splitTopLevelParts('A, B<map<string, i32>>, C = "x,y", D');
     assert.deepStrictEqual(
@@ -24,12 +23,10 @@ function run() {
         'Expected generic spacing to be normalized with comment preserved'
     );
 
-    console.log('✅ Thrift formatter text utils tests passed!');
 }
 
-try {
-    run();
-} catch (err) {
-    console.error('❌ Thrift formatter text utils tests failed:', err);
-    process.exit(1);
-}
+describe('text-utils', () => {
+    it('should pass all test assertions', () => {
+        run();
+    });
+});

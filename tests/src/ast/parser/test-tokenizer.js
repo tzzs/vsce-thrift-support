@@ -1,13 +1,12 @@
 const assert = require('assert');
 
-const { tokenizeLine } = require('../../../../out/ast/tokenizer.js');
+const {tokenizeLine} = require('../../../../out/ast/tokenizer.js');
 
 function tokenSummary(tokens) {
     return tokens.map(token => `${token.type}:${token.value}`);
 }
 
 async function run() {
-    console.log('\nRunning tokenizer tests...');
 
     const line = 'namespace java com.example // comment';
     const tokens = tokenizeLine(line);
@@ -32,10 +31,10 @@ async function run() {
     assert.strictEqual(includeString?.start, includeLine.indexOf('"'));
     assert.strictEqual(includeString?.end, includeLine.length);
 
-    console.log('Tokenizer tests passed.');
 }
 
-run().catch(err => {
-    console.error(err);
-    process.exit(1);
+describe('tokenizer', () => {
+    it('should pass all test assertions', async () => {
+        await run();
+    });
 });

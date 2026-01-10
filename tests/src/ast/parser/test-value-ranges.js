@@ -1,25 +1,4 @@
 const assert = require('assert');
-const Module = require('module');
-
-// 轻量 VSCode mock（仅需 Range）
-const mockVscode = {
-    Range: class {
-        constructor(startLine, startChar, endLine, endChar) {
-            this.start = {line: startLine, character: startChar};
-            this.end = {line: endLine, character: endChar};
-        }
-    }
-};
-
-// Hook vscode 依赖
-const originalRequire = Module.prototype.require;
-Module.prototype.require = function (id) {
-    if (id === 'vscode') {
-        return mockVscode;
-    }
-    return originalRequire.apply(this, arguments);
-};
-
 const {ThriftParser} = require('../../../../out/ast/parser.js');
 
 function sliceByRange(lines, range) {
@@ -34,62 +13,52 @@ function sliceByRange(lines, range) {
         parts.push(lines[i] ?? '');
     }
     parts.push((lines[range.end.line] ?? '').slice(0, range.end.character));
-    return parts.join('\\n');
+    return parts.join('\n');
 }
 
-async function run() {
-    console.log('\\nRunning AST value range tests...');
+describe('value-ranges', () => {
+    it('should pass all test assertions', () => {
+        const content = [
+            'typedef string Name',
+            'const map<string, i32> KV = {',
+            '  "a": 1,',
+            '  "b": 2',
+            '}',
+            '',
+            'enum Status {',
+            '  Active = 1,',
+            '  Disabled',
+            '}',
+            '',
+            'struct User {',
+            '  1: optional string name = "abc"',
+            '  2: list<i32> ids = [1, 2]',
+            '}'
+        ].join('\n');
 
-    const content = [
-        'typedef string Name',
-        'const map<string, i32> KV = {',
-        '  \"a\": 1,',
-        '  \"b\": 2',
-        '}',
-        '',
-        'enum Status {',
-        '  Active = 1,',
-        '  Disabled',
-        '}',
-        '',
-        'struct User {',
-        '  1: optional string name = \"abc\"',
-        '  2: list<i32> ids = [1, 2]',
-        '}'
-    ].join('\n');
+        const lines = content.split('\n');
+        const parser = new ThriftParser(content);
+        const ast = parser.parse();
 
-    const lines = content.split('\n');
-    const parser = new ThriftParser(content);
-    const ast = parser.parse();
+        const constNode = ast.body.find(n => n.type === 'Const');
+        const enumNode = ast.body.find(n => n.type === 'Enum');
+        const structNode = ast.body.find(n => n.type === 'Struct');
 
-    const constNode = ast.body.find(n => n.type === 'Const');
-    const enumNode = ast.body.find(n => n.type === 'Enum');
-    const structNode = ast.body.find(n => n.type === 'Struct');
+        assert.ok(constNode?.valueRange, 'const 应包含 valueRange');
+        const constValue = sliceByRange(lines, constNode.valueRange);
+        assert.ok(constValue?.startsWith('{'), 'const 值应以 { 开始');
+        assert.ok(constValue?.trim().endsWith('}'), 'const 值应以 } 结束');
 
-    // Const 值范围（多行）
-    assert.ok(constNode?.valueRange, 'const 应包含 valueRange');
-    const constValue = sliceByRange(lines, constNode.valueRange);
-    assert.ok(constValue?.startsWith('{'), 'const 值应以 { 开始');
-    assert.ok(constValue?.trim().endsWith('}'), 'const 值应以 } 结束');
+        const active = enumNode?.members?.find(m => m.name === 'Active');
+        assert.ok(active?.initializerRange, 'enum 成员应包含 initializerRange');
+        assert.strictEqual(sliceByRange(lines, active.initializerRange), '1');
 
-    // Enum initializer 范围
-    const active = enumNode?.members?.find(m => m.name === 'Active');
-    assert.ok(active?.initializerRange, 'enum 成员应包含 initializerRange');
-    assert.strictEqual(sliceByRange(lines, active.initializerRange), '1');
+        const nameField = structNode?.fields?.find(f => f.name === 'name');
+        assert.ok(nameField?.defaultValueRange, '字段应包含 defaultValueRange');
+        assert.strictEqual(sliceByRange(lines, nameField.defaultValueRange), '"abc"');
 
-    // 字段默认值范围
-    const nameField = structNode?.fields?.find(f => f.name === 'name');
-    assert.ok(nameField?.defaultValueRange, '字段应包含 defaultValueRange');
-    assert.strictEqual(sliceByRange(lines, nameField.defaultValueRange), '\"abc\"');
-
-    const idsField = structNode?.fields?.find(f => f.name === 'ids');
-    assert.ok(idsField?.defaultValueRange, '字段应包含 defaultValueRange');
-    assert.strictEqual(sliceByRange(lines, idsField.defaultValueRange), '[1, 2]');
-
-    console.log('AST value range tests passed.');
-}
-
-run().catch(err => {
-    console.error(err);
-    process.exit(1);
+        const idsField = structNode?.fields?.find(f => f.name === 'ids');
+        assert.ok(idsField?.defaultValueRange, '字段应包含 defaultValueRange');
+        assert.strictEqual(sliceByRange(lines, idsField.defaultValueRange), '[1, 2]');
+    });
 });

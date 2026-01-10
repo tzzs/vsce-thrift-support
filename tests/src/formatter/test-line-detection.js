@@ -7,7 +7,6 @@ const {
 } = require('../../../out/formatter/line-detection.js');
 
 function run() {
-    console.log('\nRunning thrift formatter line detection tests...');
 
     assert.strictEqual(isStructStartLine('struct User {'), true, 'Expected struct start detection');
     assert.strictEqual(isStructStartLine('struct User {}'), false, 'Expected non-block struct start detection');
@@ -18,12 +17,10 @@ function run() {
     assert.strictEqual(isServiceStartLine('service Api {'), true, 'Expected service start detection');
     assert.strictEqual(isServiceStartLine('service Api {}'), false, 'Expected non-block service start detection');
 
-    console.log('✅ Thrift formatter line detection tests passed!');
 }
 
-try {
-    run();
-} catch (err) {
-    console.error('❌ Thrift formatter line detection tests failed:', err);
-    process.exit(1);
-}
+describe('line-detection', () => {
+    it('should pass all test assertions', () => {
+        run();
+    });
+});

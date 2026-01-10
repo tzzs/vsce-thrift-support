@@ -2,14 +2,10 @@
 const assert = require('assert');
 // Import the diagnostics module to access helper functions
 const diagnosticsModule = require('../../../out/diagnostics');
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-Module.prototype.require = originalRequire;
-
 // Since helper functions are not exported, we'll test them indirectly through analyzeThriftText
 // or create a test version that exposes them
 
 function run() {
-    console.log('\nRunning helper functions tests...');
 
     // Test 1: Comment stripping functionality
     const testCommentStripping = () => {
@@ -210,7 +206,10 @@ struct User {
     testContainerDefaults();
     testBracketBalance();
 
-    console.log('All helper function tests passed.');
 }
 
-run();
+describe('helper-functions', () => {
+    it('should pass all test assertions', () => {
+        run();
+    });
+});

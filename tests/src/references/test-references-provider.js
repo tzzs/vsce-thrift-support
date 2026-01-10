@@ -1,38 +1,27 @@
-const fs = require('fs');
 const path = require('path');
+const vscode = require('vscode');
 
-// Setup vscode mock before loading any modules that depend on it
-const mockVscode = require('../../mock_vscode');
+const {ThriftReferencesProvider} = require('../../../out/references-provider.js');
 
-const {Location, Range, Position} = mockVscode;
+const originalFindFiles = vscode.workspace.findFiles;
+const originalFsReadFile = vscode.workspace.fs.readFile;
 
-// Extend mockVscode with workspace mock
-mockVscode.workspace = {
-    findFiles: async (pattern, exclude) => {
-        // Mock implementation - return test thrift files
+function setupMocks() {
+    vscode.workspace.findFiles = async (pattern, exclude) => {
         if (pattern.includes('*.thrift')) {
             return [
-                {fsPath: path.join(__dirname, 'test-files', 'main.thrift')},
-                {fsPath: path.join(__dirname, 'test-files', 'shared.thrift')}
+                vscode.Uri.file(path.join(__dirname, '../../test-files/main.thrift')),
+                vscode.Uri.file(path.join(__dirname, '../../test-files/shared.thrift'))
             ];
         }
         return [];
-    },
-    textDocuments: [], // Add this to prevent "Cannot read properties of undefined (reading 'find')" error
-    fs: {
-        readFile: async (uri) => {
-            // Read the actual test files
-            const fs = require('fs');
-            const content = fs.readFileSync(uri.fsPath, 'utf-8');
-            return Buffer.from(content, 'utf-8');
-        }
-    },
-    openTextDocument: async (uri) => {
-        // Mock different file contents based on path
+    };
+
+    vscode.workspace.fs.readFile = async (uri) => {
         const fileName = path.basename(uri.fsPath);
         let content = '';
 
-        if (fileName === 'main.thrift') {
+        if (fileName === 'main.thrift' || uri.fsPath.includes('main.thrift')) {
             content = `include "shared.thrift"
 
 struct User {
@@ -46,7 +35,7 @@ service UserService {
   void createUser(1: User user),
   Status getUserStatus(1: i32 userId)
 }`;
-        } else if (fileName === 'shared.thrift') {
+        } else if (fileName === 'shared.thrift' || uri.fsPath.includes('shared.thrift')) {
             content = `namespace java com.example.shared
 
 enum Status {
@@ -56,53 +45,36 @@ enum Status {
 }
 
 const i32 MAX_USERS = 1000`;
+        } else if (uri.fsPath.includes('test.thrift')) {
+            return originalFsReadFile(uri);
         }
 
-        return {
-            getText: () => content,
-            uri: uri,
-            lineAt: (line) => ({text: content.split('\n')[line] || ''}),
-            getWordRangeAtPosition: (position) => {
-                const lines = content.split('\n');
-                const lineText = lines[position.line] || '';
-                const wordRegex = /[A-Za-z_][A-Za-z0-9_]*/g;
-                let match;
-                while ((match = wordRegex.exec(lineText)) !== null) {
-                    if (position.character >= match.index && position.character <= match.index + match[0].length) {
-                        return new mockVscode.Range(position.line, match.index, position.line, match.index + match[0].length);
-                    }
-                }
-                return null;
-            }
-        };
-    }
-};
+        return Buffer.from(content, 'utf-8');
+    };
+}
 
-mockVscode.Uri = {
-    file: (filePath) => new mockVscode.Uri('file', '', filePath, '', '')
-};
-
-// Hook require('vscode') to return our mock
-const Module = require('module');
-const originalLoad = Module._load;
-Module._load = function (request, parent, isMain) {
-    if (request === 'vscode') return mockVscode;
-    return originalLoad.apply(this, arguments);
-};
-
-const {ThriftReferencesProvider} = require('../../../out/references-provider.js');
+function restoreMocks() {
+    vscode.workspace.findFiles = originalFindFiles;
+    vscode.workspace.fs.readFile = originalFsReadFile;
+}
 
 function createMockDocument(text, fileName = 'test.thrift', uri = null) {
     const lines = text.split('\n');
     return {
-        uri: uri || {fsPath: path.join(__dirname, 'test-files', fileName)},
+        uri: uri || vscode.Uri.file(path.join(__dirname, '../../test-files', fileName)),
+        languageId: 'thrift',
         getText: (range) => {
-            if (!range || !range.start || !range.end ||
-                range.start.line === undefined || range.start.character === undefined ||
-                range.end.line === undefined || range.end.character === undefined) {
+            if (
+                !range ||
+                !range.start ||
+                !range.end ||
+                range.start.line === undefined ||
+                range.start.character === undefined ||
+                range.end.line === undefined ||
+                range.end.character === undefined
+            ) {
                 return text;
             }
-            // Extract text within the specified range
             const startLine = range.start.line;
             const endLine = range.end.line;
             const startChar = range.start.character;
@@ -122,12 +94,19 @@ function createMockDocument(text, fileName = 'test.thrift', uri = null) {
         lineAt: (line) => ({text: lines[line] || ''}),
         getWordRangeAtPosition: (position) => {
             const lineText = lines[position.line] || '';
-            // 更精确地匹配单词边界
             const wordRegex = /\b([A-Za-z_][A-Za-z0-9_]*)\b/g;
             let match;
             while ((match = wordRegex.exec(lineText)) !== null) {
-                if (position.character >= match.index && position.character <= match.index + match[0].length) {
-                    return new mockVscode.Range(position.line, match.index, position.line, match.index + match[0].length);
+                if (
+                    position.character >= match.index &&
+                    position.character <= match.index + match[0].length
+                ) {
+                    return new vscode.Range(
+                        position.line,
+                        match.index,
+                        position.line,
+                        match.index + match[0].length
+                    );
                 }
             }
             return null;
@@ -136,7 +115,7 @@ function createMockDocument(text, fileName = 'test.thrift', uri = null) {
 }
 
 function createMockPosition(line, character) {
-    return new mockVscode.Position(line, character);
+    return new vscode.Position(line, character);
 }
 
 function createMockCancellationToken() {
@@ -148,8 +127,6 @@ function createMockReferenceContext() {
 }
 
 async function testTypeReferences() {
-    console.log('Testing type references...');
-
     const provider = new ThriftReferencesProvider();
 
     // Test finding references to "User" type
@@ -179,13 +156,9 @@ service UserService {
     if (references.length !== 4) {
         throw new Error(`Expected 4 references to User type, got ${references.length}`);
     }
-
-    console.log('✓ Type references test passed');
 }
 
 async function testFieldReferences() {
-    console.log('Testing field references...');
-
     const provider = new ThriftReferencesProvider();
 
     // Test finding references to field names (this is tricky as fields aren't typically referenced by name)
@@ -208,14 +181,9 @@ async function testFieldReferences() {
     }
 
     // Field names are typically not cross-referenced, so might be empty or contain definition
-    console.log(`Found ${references.length} references to field name 'id'`);
-
-    console.log('✓ Field references test passed');
 }
 
 async function testEnumValueReferences() {
-    console.log('Testing enum value references...');
-
     const provider = new ThriftReferencesProvider();
 
     const text = `enum Status {
@@ -239,14 +207,9 @@ const Status DEFAULT_STATUS = ACTIVE`;
     }
 
     // Should find references to ACTIVE
-    console.log(`Found ${references.length} references to ACTIVE enum value`);
-
-    console.log('✓ Enum value references test passed');
 }
 
 async function testMethodReferences() {
-    console.log('Testing method references...');
-
     const provider = new ThriftReferencesProvider();
 
     const text = `service UserService {
@@ -268,14 +231,9 @@ async function testMethodReferences() {
     }
 
     // Should find the method definition
-    console.log(`Found ${references.length} references to getUser method`);
-
-    console.log('✓ Method references test passed');
 }
 
 async function testCrossFileReferences() {
-    console.log('Testing cross-file references...');
-
     const provider = new ThriftReferencesProvider();
 
     // Test cross-file references - this tests the provider's ability to search multiple files
@@ -310,20 +268,14 @@ service UserService {
     }
 
     // Should find references across files
-    console.log(`Found ${references.length} cross-file references`);
 
     // Check if references span multiple files
-    const uniqueFiles = new Set(references.map(ref => ref.uri.fsPath));
+    const uniqueFiles = new Set(references.map((ref) => ref.uri.fsPath));
     if (uniqueFiles.size > 1) {
-        console.log('✓ Found references across multiple files');
     }
-
-    console.log('✓ Cross-file references test passed');
 }
 
 async function testNamespacedTypeReferences() {
-    console.log('Testing namespaced type references...');
-
     const provider = new ThriftReferencesProvider();
 
     // Test finding references to namespaced types
@@ -358,14 +310,9 @@ service UserManagementService {
     }
 
     // Should find references to Address type
-    console.log(`Found ${references.length} references to shared.Address type`);
-
-    console.log('✓ Namespaced type references test passed');
 }
 
 async function testFullTypeNameReferences() {
-    console.log('Testing full type name references...');
-
     const provider = new ThriftReferencesProvider();
 
     // Test finding references using full type name (with namespace)
@@ -400,14 +347,9 @@ service UserManagementService {
     }
 
     // Should handle namespaced references properly
-    console.log(`Found ${references.length} references to namespaced type`);
-
-    console.log('✓ Full type name references test passed');
 }
 
 async function testInvalidPosition() {
-    console.log('Testing invalid position...');
-
     const provider = new ThriftReferencesProvider();
 
     const text = `struct User {
@@ -428,14 +370,9 @@ async function testInvalidPosition() {
     }
 
     // Should handle gracefully
-    console.log(`Found ${references.length} references at invalid position`);
-
-    console.log('✓ Invalid position test passed');
 }
 
 async function testEmptyDocument() {
-    console.log('Testing empty document...');
-
     const provider = new ThriftReferencesProvider();
 
     const text = ``;
@@ -452,15 +389,9 @@ async function testEmptyDocument() {
     if (!Array.isArray(references)) {
         throw new Error('References not returned as array for empty document');
     }
-
-    console.log(`Found ${references.length} references in empty document`);
-
-    console.log('✓ Empty document test passed');
 }
 
 async function testWordBoundaryDetection() {
-    console.log('Testing word boundary detection...');
-
     const provider = new ThriftReferencesProvider();
 
     const text = `struct User {
@@ -486,22 +417,16 @@ service UserService {
     }
 
     // Should only find references to "User" type, not "userId" or "username"
-    const userTypeReferences = references.filter(ref => {
+    const userTypeReferences = references.filter((ref) => {
         const lines = text.split('\n');
         const line = lines[ref.range.start.line];
         if (!line) return false; // Add null check for line
         const referencedText = line.substring(ref.range.start.character, ref.range.end.character);
         return referencedText === 'User';
     });
-
-    console.log(`Found ${userTypeReferences.length} references to "User" type`);
-
-    console.log('✓ Word boundary detection test passed');
 }
 
 async function testCancellationToken() {
-    console.log('Testing cancellation token...');
-
     const provider = new ThriftReferencesProvider();
 
     const text = `struct User {
@@ -529,14 +454,9 @@ service UserService {
     }
 
     // Should handle cancellation gracefully
-    console.log(`Found ${references.length} references with cancelled token`);
-
-    console.log('✓ Cancellation token test passed');
 }
 
 async function testCommentsAndStrings() {
-    console.log('Testing comments and strings...');
-
     const provider = new ThriftReferencesProvider();
 
     const text = `struct User {
@@ -561,7 +481,7 @@ const string USER_TYPE = "User" // User in comment
     }
 
     // Should not count references in comments and strings
-    const validReferences = references.filter(ref => {
+    const validReferences = references.filter((ref) => {
         const lines = text.split('\n');
         const line = lines[ref.range.start.line];
         if (!line) return false; // Add null check for line
@@ -578,37 +498,51 @@ const string USER_TYPE = "User" // User in comment
 
         return !inLineComment && !inString && !inBlockComment;
     });
-
-    console.log(`Found ${validReferences.length} valid references (excluding comments/strings)`);
-
-    console.log('✓ Comments and strings test passed');
 }
 
-async function runAllTests() {
-    console.log('=== Running References Provider Tests ===\n');
+describe('references-provider', () => {
+    before(() => {
+        setupMocks();
+    });
 
-    try {
+    after(() => {
+        restoreMocks();
+    });
+
+    it('should pass testTypeReferences', async () => {
         await testTypeReferences();
+    });
+    it('should pass testFieldReferences', async () => {
         await testFieldReferences();
+    });
+    it('should pass testEnumValueReferences', async () => {
         await testEnumValueReferences();
+    });
+    it('should pass testMethodReferences', async () => {
         await testMethodReferences();
+    });
+    it('should pass testCrossFileReferences', async () => {
         await testCrossFileReferences();
+    });
+    it('should pass testNamespacedTypeReferences', async () => {
         await testNamespacedTypeReferences();
+    });
+    it('should pass testFullTypeNameReferences', async () => {
         await testFullTypeNameReferences();
+    });
+    it('should pass testInvalidPosition', async () => {
         await testInvalidPosition();
+    });
+    it('should pass testEmptyDocument', async () => {
         await testEmptyDocument();
+    });
+    it('should pass testWordBoundaryDetection', async () => {
         await testWordBoundaryDetection();
+    });
+    it('should pass testCancellationToken', async () => {
         await testCancellationToken();
+    });
+    it('should pass testCommentsAndStrings', async () => {
         await testCommentsAndStrings();
-
-        console.log('\n✅ All references provider tests passed!');
-    } catch (error) {
-        console.error('\n❌ Test failed:', error.message);
-        process.exit(1);
-    }
-}
-
-runAllTests().catch((error) => {
-    console.error('Test execution failed:', error);
-    process.exit(1);
+    });
 });

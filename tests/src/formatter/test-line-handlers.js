@@ -8,18 +8,17 @@ const {
     formatTypedefLine,
     handleConstStartLine
 } = require('../../../out/formatter/line-handlers.js');
-const { parseConstFieldText } = require('../../../out/formatter/field-parser.js');
-const { normalizeGenericsInSignature } = require('../../../out/formatter/text-utils.js');
+const {parseConstFieldText} = require('../../../out/formatter/field-parser.js');
+const {normalizeGenericsInSignature} = require('../../../out/formatter/text-utils.js');
 
 function run() {
-    console.log('\nRunning thrift formatter line handlers tests...');
 
-    const options = { insertSpaces: true, indentSize: 2, tabSize: 2 };
+    const options = {insertSpaces: true, indentSize: 2, tabSize: 2};
     const indent = (level) => ' '.repeat(level * 2);
 
     const structFlush = flushStructFieldsIfNeeded(
         true,
-        [{ line: '1: i32 id' }],
+        [{line: '1: i32 id'}],
         '// comment',
         2,
         new Map(),
@@ -35,7 +34,7 @@ function run() {
 
     const constFlush = flushConstBlockIfNeeded(
         true,
-        [{ type: 'i32', name: 'ID', value: '1', comment: '' }],
+        [{type: 'i32', name: 'ID', value: '1', comment: ''}],
         false,
         null,
         0,
@@ -63,7 +62,7 @@ function run() {
         0,
         [],
         null,
-        { parseConstFieldText }
+        {parseConstFieldText}
     );
     assert.strictEqual(constStart.constFields.length, 1, 'Expected const field parsed');
 
@@ -77,15 +76,13 @@ function run() {
         'Expected typedef normalization'
     );
 
-    const braceLine = formatOpenBraceLine('{', 2, options, { getIndent: (level) => indent(level) });
+    const braceLine = formatOpenBraceLine('{', 2, options, {getIndent: (level) => indent(level)});
     assert.deepStrictEqual(braceLine, ['  {'], 'Expected open brace indentation');
 
-    console.log('✅ Thrift formatter line handlers tests passed!');
 }
 
-try {
-    run();
-} catch (err) {
-    console.error('❌ Thrift formatter line handlers tests failed:', err);
-    process.exit(1);
-}
+describe('line-handlers', () => {
+    it('should pass all test assertions', () => {
+        run();
+    });
+});

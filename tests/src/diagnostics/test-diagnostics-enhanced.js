@@ -1,15 +1,13 @@
 // Enhanced diagnostics tests for new features (Node environment with vscode mock)
 const assert = require('assert');
+const vscode = require('vscode');
 const {analyzeThriftText} = require('../../../out/diagnostics');
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-Module.prototype.require = originalRequire;
 
 function findByCode(issues, code) {
     return issues.filter(i => i.code === code);
 }
 
 function run() {
-    console.log('\nRunning enhanced diagnostics tests...');
 
     // Test 1: Comment handling - single line comments
     const singleLineComment = `struct Test {
@@ -108,10 +106,8 @@ function run() {
     INVALID_HEX = 0xFF
   }`;
     issues = analyzeThriftText(enumValidation);
-    console.log('Test 11 - Issues found:', issues.map(i => i.code));
     assert.ok(findByCode(issues, 'enum.negativeValue').length === 0, 'Negative enum values should now be allowed');
     assert.ok(findByCode(issues, 'enum.valueNotInteger').length === 2, 'Float and hex enum values should be flagged');
-    console.log('Test 11 passed: Negative enum values are now allowed, float/hex values are flagged');
 
     // Test 11b: Enum values with inline comments should parse as integers
     const enumInlineComments = `enum Status {
@@ -263,7 +259,14 @@ function run() {
     issues = analyzeThriftText(fieldIdValidation);
     assert.ok(findByCode(issues, 'field.duplicateId').length === 2, 'Duplicate field IDs should be flagged per type block');
 
-    console.log('All enhanced diagnostics tests passed.');
 }
 
-run();
+describe('diagnostics-enhanced', () => {
+    it('should pass all enhanced diagnostic tests', () => {
+        run();
+    });
+});
+
+if (require.main === module) {
+    run();
+}

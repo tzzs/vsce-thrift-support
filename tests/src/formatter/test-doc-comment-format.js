@@ -4,7 +4,6 @@ const {ThriftFormatter} = require('../../../out/formatter/index.js');
  * 测试文档注释格式化
  */
 function testDocCommentFormatting() {
-    console.log('=== 测试文档注释格式化 ===\n');
 
     const testContent = `service UserService {
 /**
@@ -25,14 +24,9 @@ function testDocCommentFormatting() {
         insertSpaces: true
     };
 
-    console.log('原始内容:');
-    console.log(testContent);
-    console.log('\n' + '='.repeat(50) + '\n');
 
     const result = formatter.format(testContent, options);
 
-    console.log('格式化结果:');
-    console.log(result);
 
     // 检查文档注释的缩进
     const lines = result.split('\n');
@@ -44,7 +38,6 @@ function testDocCommentFormatting() {
             const match = line.match(/^(\s*)/);
             const indent = match ? match[1].length : 0;
 
-            console.log(`行 ${index + 1}: "${line}" -> 缩进: ${indent}`);
 
             if (trimmed.startsWith('/**') && indent !== 2) {
                 errors.push(`行 ${index + 1}: /** 应该缩进2个空格，实际缩进${indent}个空格`);
@@ -57,11 +50,12 @@ function testDocCommentFormatting() {
     });
 
     if (errors.length > 0) {
-        console.log('\n❌ 发现错误:');
-        errors.forEach(error => console.log(`  ${error}`));
     } else {
-        console.log('\n✅ 所有文档注释缩进正确！');
     }
 }
 
-testDocCommentFormatting();
+describe('doc-comment-format', () => {
+    it('should pass all test assertions', () => {
+        testDocCommentFormatting();
+    });
+});

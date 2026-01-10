@@ -1,9 +1,8 @@
 const assert = require('assert');
 
-const { formatConstFields } = require('../../../out/formatter/const-format.js');
+const {formatConstFields} = require('../../../out/formatter/const-format.js');
 
 function run() {
-    console.log('\nRunning thrift formatter const format tests...');
 
     const options = {
         insertSpaces: true,
@@ -30,12 +29,10 @@ function run() {
     const constLines = formatConstFields(constFields, options, 0, deps);
     assert.deepStrictEqual(constLines, ['const i32 ID = 1'], 'Expected const field to format with base padding');
 
-    console.log('✅ Thrift formatter const format tests passed!');
 }
 
-try {
-    run();
-} catch (err) {
-    console.error('❌ Thrift formatter const format tests failed:', err);
-    process.exit(1);
-}
+describe('const-format', () => {
+    it('should pass all test assertions', () => {
+        run();
+    });
+});

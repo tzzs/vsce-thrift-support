@@ -4,13 +4,6 @@ const path = require('path');
 const mockVscode = require('../../mock_vscode');
 const {Range, Position} = mockVscode;
 
-const Module = require('module');
-const originalLoad = Module._load;
-Module._load = function (request, parent, isMain) {
-    if (request === 'vscode') return mockVscode;
-    return originalLoad.apply(this, arguments);
-};
-
 const {ThriftRenameProvider} = require('../../../out/rename-provider.js');
 
 function createMockDocument(content, filePath) {
@@ -74,7 +67,6 @@ function applyEditsToContent(content, edits) {
 }
 
 function run() {
-    console.log('\nRunning rename provider regression test...');
 
     const content = [
         'struct User {',
@@ -114,11 +106,11 @@ function run() {
         assert.ok(newText.includes('  1: i32 id,'), 'Struct body should remain intact');
         assert.ok(newText.includes('  Account getUser(1: i32 id)'), 'Reference should be renamed');
 
-        console.log('Rename provider regression test passed.');
     });
 }
 
-run().catch(err => {
-    console.error(err);
-    process.exit(1);
+describe('rename-provider-regression', () => {
+    it('should pass all test assertions', async () => {
+        await run();
+    });
 });

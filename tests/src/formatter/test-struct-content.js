@@ -1,13 +1,12 @@
 const assert = require('assert');
 
-const { formatStructContentLine } = require('../../../out/formatter/struct-content.js');
-const { normalizeGenericsInSignature } = require('../../../out/formatter/text-utils.js');
-const { parseStructFieldText } = require('../../../out/formatter/field-parser.js');
+const {formatStructContentLine} = require('../../../out/formatter/struct-content.js');
+const {normalizeGenericsInSignature} = require('../../../out/formatter/text-utils.js');
+const {parseStructFieldText} = require('../../../out/formatter/field-parser.js');
 
 function run() {
-    console.log('\nRunning thrift formatter struct content tests...');
 
-    const options = { insertSpaces: true, indentSize: 2, tabSize: 2 };
+    const options = {insertSpaces: true, indentSize: 2, tabSize: 2};
     const deps = {
         getIndent: (level) => ' '.repeat(level * 2),
         formatStructFields: (fields, _opts, indentLevel) =>
@@ -36,12 +35,10 @@ function run() {
     assert.deepStrictEqual(closeResult.formattedLines, ['  1: i32 id', '}'], 'Expected close brace flush');
     assert.strictEqual(closeResult.inStruct, false, 'Expected struct to close');
 
-    console.log('✅ Thrift formatter struct content tests passed!');
 }
 
-try {
-    run();
-} catch (err) {
-    console.error('❌ Thrift formatter struct content tests failed:', err);
-    process.exit(1);
-}
+describe('struct-content', () => {
+    it('should pass all test assertions', () => {
+        run();
+    });
+});

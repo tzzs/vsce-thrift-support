@@ -1,118 +1,82 @@
-const Module = require('module');
+const assert = require('assert');
+const vscode = require('vscode');
 
-// Mock VSCode API
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-const vscode = createVscodeMock({
-    TextDocument: class {
-        constructor(uri, text) {
-            this.uri = uri;
-            this._text = text;
-        }
+const {ThriftFormattingProvider} = require('../../../out/formatting-bridge/index.js');
 
-        getText(range) {
-            if (!range) return this._text;
-            return this._text;
-        }
+describe('complex-types', () => {
+    let formatter;
 
-        positionAt(offset) {
-            return {line: 0, character: offset};
-        }
+    before(() => {
+        formatter = new ThriftFormattingProvider();
+    });
 
-        offsetAt(position) {
-            return 0;
-        }
-    },
-
-    Range: class {
-        constructor(start, end) {
-            this.start = start;
-            this.end = end;
-        }
-    },
-
-    TextEdit: {
-        replace: (range, newText) => ({range, newText})
-    },
-
-    workspace: {
-        getConfiguration: () => ({
-            get: (key, defaultValue) => {
-                const configs = {
-                    'trailingComma': 'preserve',
-                    'alignTypes': true,
-                    'alignFieldNames': false,
-                    'alignComments': true,
-                    'indentSize': 4,
-                    'maxLineLength': 100
-                };
-                return configs[key] !== undefined ? configs[key] : defaultValue;
-            }
-        })
-    }
-});
-installVscodeMock(vscode);
-
-
-// Mock require for vscode module
-const originalRequire = Module.prototype.require;
-Module.prototype.require = function (id) {
-    if (id === 'vscode') {
-        return vscode;
-    }
-    return originalRequire.apply(this, arguments);
-};
-
-// Test complex types formatting
-function testComplexTypesFormatting() {
-    console.log('Testing complex types formatting...');
-
-    try {
-        const {ThriftFormattingProvider} = require('../../../out/formatting-bridge/index.js');
-        const formatter = new ThriftFormattingProvider();
-
+    it('should format complex types correctly', () => {
         const testCode = `struct TestStruct {
     1: required list < string > names,
     2: optional map< string , i32 > values  ,
     3: i32 count
 }`;
 
-        console.log('Input code:');
-        console.log(testCode);
-
-        const document = new vscode.TextDocument(
-            {fsPath: '/test/format.thrift'},
-            testCode
-        );
+        const document = {
+            uri: {fsPath: '/test/format.thrift'},
+            getText: () => testCode,
+            lineAt: (i) => {
+                const lines = testCode.split('\n');
+                return {text: lines[i] || ''};
+            },
+            positionAt: (offset) => {
+                const lines = testCode.split('\n');
+                let currentOffset = 0;
+                for (let line = 0; line < lines.length; line++) {
+                    const lineLength = lines[line].length + 1; // +1 for newline
+                    if (offset <= currentOffset + lineLength - 1) {
+                        const character = offset - currentOffset;
+                        return new vscode.Position(line, Math.max(0, character));
+                    }
+                    currentOffset += lineLength;
+                }
+                return new vscode.Position(lines.length - 1, lines[lines.length - 1].length);
+            },
+            lineCount: testCode.split('\n').length
+        };
 
         const options = {insertSpaces: true, tabSize: 4};
-        const edits = formatter.provideDocumentFormattingEdits(document, options);
 
-        if (edits && edits.length > 0) {
-            const formattedText = edits[0].newText;
-            console.log('\nFormatted code:');
-            console.log(formattedText);
+        // Calculate the full range of the document
+        const lines = testCode.split('\n');
+        const lastLineIndex = Math.max(0, lines.length - 1);
+        const lastLineLength = lines[lastLineIndex] ? lines[lastLineIndex].length : 0;
+        const fullRange = new vscode.Range(
+            new vscode.Position(0, 0),
+            new vscode.Position(lastLineIndex, lastLineLength)
+        );
 
-            // Check specific formatting expectations
-            const hasCorrectList = formattedText.includes('list<string>');
-            const hasCorrectMap = formattedText.includes('map<string,i32>');
+        // Use range formatting instead of document formatting
+        const edits = formatter.provideDocumentRangeFormattingEdits(document, fullRange, options);
 
-            console.log('\nChecking formatting:');
-            console.log('- list<string> (no spaces):', hasCorrectList ? '✓' : '✗');
-            console.log('- map<string,i32> (no spaces):', hasCorrectMap ? '✓' : '✗');
+        assert.ok(edits && edits.length > 0, 'Should return formatting edits');
 
-            if (hasCorrectList && hasCorrectMap) {
-                console.log('\n✓ Complex types formatted correctly');
-            } else {
-                console.log('\n✗ Complex types not formatted correctly');
-                console.log('Expected: list<string> and map<string,i32>');
+        // Apply the edits to get the formatted text
+        let result = testCode;
+        const offsetAt = (text, position) => {
+            const textLines = text.split('\n');
+            let offset = 0;
+            for (let line = 0; line < position.line; line++) {
+                offset += (textLines[line] || '').length + 1; // +1 for newline
             }
-        } else {
-            console.log('✗ Formatting failed - no edits returned');
-        }
-    } catch (error) {
-        console.log('✗ Complex types formatting test failed:', error.message);
-        console.log(error.stack);
-    }
-}
+            return offset + position.character;
+        };
 
-testComplexTypesFormatting();
+        for (const edit of edits.reverse()) {
+            const startOffset = offsetAt(result, edit.range.start);
+            const endOffset = offsetAt(result, edit.range.end);
+            result = result.substring(0, startOffset) + edit.newText + result.substring(endOffset);
+        }
+
+        const hasCorrectList = result.includes('list<string>');
+        const hasCorrectMap = result.includes('map<string,i32>');
+
+        assert.ok(hasCorrectList, 'Should format list<string> without spaces');
+        assert.ok(hasCorrectMap, 'Should format map<string,i32> without spaces');
+    });
+});

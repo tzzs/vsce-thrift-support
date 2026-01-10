@@ -1,12 +1,11 @@
 const assert = require('assert');
 
-const { formatServiceContentLine } = require('../../../out/formatter/service-content.js');
-const { normalizeGenericsInSignature } = require('../../../out/formatter/text-utils.js');
+const {formatServiceContentLine} = require('../../../out/formatter/service-content.js');
+const {normalizeGenericsInSignature} = require('../../../out/formatter/text-utils.js');
 
 function run() {
-    console.log('\nRunning thrift formatter service content tests...');
 
-    const options = { insertSpaces: true, indentSize: 2, tabSize: 2 };
+    const options = {insertSpaces: true, indentSize: 2, tabSize: 2};
     const deps = {
         getServiceIndent: (level) => ' '.repeat(level * 2),
         normalizeGenericsInSignature,
@@ -33,12 +32,10 @@ function run() {
     const otherResult = formatServiceContentLine('// note', 0, options, deps);
     assert.deepStrictEqual(otherResult.formattedLines, ['  // note'], 'Expected comment indent');
 
-    console.log('✅ Thrift formatter service content tests passed!');
 }
 
-try {
-    run();
-} catch (err) {
-    console.error('❌ Thrift formatter service content tests failed:', err);
-    process.exit(1);
-}
+describe('service-content', () => {
+    it('should pass all test assertions', () => {
+        run();
+    });
+});

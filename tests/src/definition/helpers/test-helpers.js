@@ -1,20 +1,6 @@
 const assert = require('assert');
 
-const {
-    createVscodeMock,
-    installVscodeMock
-} = require('../../../mock_vscode.js');
-
-const vscode = createVscodeMock({
-    languages: {
-        createDiagnosticCollection: () => ({
-            set: () => {},
-            delete: () => {},
-            clear: () => {}
-        })
-    }
-});
-installVscodeMock(vscode);
+// VSCode mock 通过 require-hook 自动注入
 
 const {
     getWordRangeAtPosition,
@@ -24,6 +10,12 @@ const {
 } = require('../../../../out/definition/helpers.js');
 
 describe('test-helpers', function () {
+    let vscode;
+
+    before(() => {
+        vscode = require('vscode');
+    });
+
     function createDoc(content, pathSuffix) {
         const uri = vscode.Uri.file(`/tmp/${pathSuffix}`);
         const document = vscode.createTextDocument(content, uri);
@@ -51,7 +43,11 @@ describe('test-helpers', function () {
 
     it('should collect included files', async function () {
         const doc = createDoc('include "foo.thrift"\nnamespace java com.example', 'main.thrift');
-        const includes = await getIncludedFiles(doc, { handleWarning: () => { }, handleError: () => { } });
+        const includes = await getIncludedFiles(doc, {
+            handleWarning: () => {
+            }, handleError: () => {
+            }
+        });
         assert.strictEqual(includes.length, 1, 'Should collect include URIs');
     });
 });

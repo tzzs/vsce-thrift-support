@@ -1,28 +1,5 @@
 const path = require('path');
-
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-
-const vscode = createVscodeMock({
-    window: {
-        showInformationMessage: () => Promise.resolve(undefined),
-        showErrorMessage: () => Promise.resolve(undefined),
-        createOutputChannel: () => ({
-            appendLine: () => {},
-            show: () => {}
-        })
-    },
-    workspace: {
-        createFileSystemWatcher: () => ({
-            onDidCreate: () => {},
-            onDidChange: () => {},
-            onDidDelete: () => {},
-            dispose: () => {}
-        }),
-        findFiles: async () => [],
-        getConfiguration: () => ({get: (_key, def) => def})
-    }
-});
-installVscodeMock(vscode);
+const vscode = require('vscode');
 
 const {ThriftDocumentSymbolProvider} = require('../../../out/document-symbol-provider.js');
 const {ThriftFoldingRangeProvider} = require('../../../out/folding-range-provider.js');
@@ -165,7 +142,6 @@ async function testFormatterHandlesErrors() {
 }
 
 async function run() {
-    console.log('=== Running ErrorHandler Integration Tests ===\n');
 
     await testDocumentSymbolProviderHandlesErrors();
     await testFoldingRangeProviderHandlesErrors();
@@ -175,10 +151,10 @@ async function run() {
     await testCodeActionsProviderHandlesErrors();
     await testFormatterHandlesErrors();
 
-    console.log('✅ ErrorHandler integration tests passed!');
 }
 
-run().catch((error) => {
-    console.error('❌ ErrorHandler integration tests failed:', error.message);
-    process.exit(1);
+describe('error-handler-integration', () => {
+    it('should pass all test assertions', async () => {
+        await run();
+    });
 });

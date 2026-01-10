@@ -4,7 +4,6 @@ const {ThriftParser} = require('../../../out/ast/parser.js');
 const {buildAstIndex} = require('../../../out/formatter/ast-index.js');
 
 function run() {
-    console.log('\nRunning thrift formatter AST index tests...');
 
     const content = [
         'const i32 A = 1',
@@ -33,12 +32,10 @@ function run() {
     assert.ok(index.structFieldIndex.has(3), 'Expected struct field at line 3');
     assert.ok(index.enumMemberIndex.has(7), 'Expected enum member at line 7');
 
-    console.log('✅ Thrift formatter AST index tests passed!');
 }
 
-try {
-    run();
-} catch (err) {
-    console.error('❌ Thrift formatter AST index tests failed:', err);
-    process.exit(1);
-}
+describe('ast-index', () => {
+    it('should pass all test assertions', () => {
+        run();
+    });
+});

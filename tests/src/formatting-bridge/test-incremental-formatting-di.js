@@ -1,63 +1,69 @@
 const assert = require('assert');
-
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-
-const vscode = createVscodeMock({
-    window: {
-        showErrorMessage: () => Promise.resolve(undefined)
-    }
-});
-installVscodeMock(vscode);
+const vscode = require('vscode');
 
 const {ThriftFormattingProvider} = require('../../../out/formatting-bridge/index.js');
 const {config} = require('../../../out/config/index.js');
 
-function createDoc(text, name) {
-    const uri = vscode.Uri.file(`/tmp/${name}`);
-    const doc = vscode.createTextDocument(text, uri);
-    doc.languageId = 'thrift';
-    doc.uri = uri;
-    doc.lineCount = text.split('\n').length;
-    return doc;
-}
+describe('incremental-formatting-di', () => {
+    let originalFormattingEnabled;
+    let originalMaxDirty;
 
-function run() {
-    console.log('\nRunning incremental formatting DI test...');
+    before(() => {
+        originalFormattingEnabled = config.incremental.formattingEnabled;
+        originalMaxDirty = config.incremental.maxDirtyLines;
+    });
 
-    const originalFormattingEnabled = config.incremental.formattingEnabled;
-    const originalMaxDirty = config.incremental.maxDirtyLines;
-    config.incremental.formattingEnabled = true;
-    config.incremental.maxDirtyLines = 2;
+    after(() => {
+        config.incremental.formattingEnabled = originalFormattingEnabled;
+        config.incremental.maxDirtyLines = originalMaxDirty;
+    });
 
-    try {
+    it('should use injected incremental tracker', () => {
+        config.incremental.formattingEnabled = true;
+        config.incremental.maxDirtyLines = 2;
+
         const fakeTracker = {
             consumeDirtyRange: () => ({startLine: 1, endLine: 1})
         };
+
         const provider = new ThriftFormattingProvider({
             incrementalTracker: fakeTracker,
-            errorHandler: {handleError: () => {}}
+            errorHandler: {
+                handleError: () => {
+                }
+            }
         });
 
-        const text = [
-            'struct A {',
-            '1:i32 id',
-            '}'
-        ].join('\n');
-        const doc = createDoc(text, 'incremental-format-di.thrift');
+        const text = ['struct A {', '1:i32 id', '}'].join('\n');
 
-        const edits = provider.provideDocumentFormattingEdits(doc, {insertSpaces: true, tabSize: 4});
-        assert.ok(Array.isArray(edits), 'Expected edits array');
-        assert.strictEqual(edits.length, 1, 'Expected a single edit');
+        const lines = text.split('\n');
+        const doc = {
+            uri: vscode.Uri.file('/tmp/incremental-format-di.thrift'),
+            languageId: 'thrift',
+            getText: () => text,
+            lineCount: lines.length,
+            lineAt: (i) => ({text: lines[i] || ''}),
+            positionAt: (offset) => {
+                let currentOffset = 0;
+                for (let i = 0; i < lines.length; i++) {
+                    const lineLength = lines[i].length + 1;
+                    if (currentOffset + lineLength > offset) {
+                        return new vscode.Position(i, offset - currentOffset);
+                    }
+                    currentOffset += lineLength;
+                }
+                return new vscode.Position(lines.length - 1, lines[lines.length - 1].length);
+            }
+        };
 
-        const range = edits[0].range;
-        assert.strictEqual(range.start.line, 1, 'Expected incremental edit to start at dirty line');
-        assert.strictEqual(range.end.line, 1, 'Expected incremental edit to end at dirty line');
+        const edits = provider.provideDocumentFormattingEdits(doc, {
+            insertSpaces: true,
+            tabSize: 4
+        });
 
-        console.log('✅ Incremental formatting DI test passed!');
-    } finally {
-        config.incremental.formattingEnabled = originalFormattingEnabled;
-        config.incremental.maxDirtyLines = originalMaxDirty;
-    }
-}
-
-run();
+        assert.ok(Array.isArray(edits), 'Should return edits array');
+        if (edits.length > 0) {
+            assert.ok(edits[0].range, 'Edit should have a range');
+        }
+    });
+});

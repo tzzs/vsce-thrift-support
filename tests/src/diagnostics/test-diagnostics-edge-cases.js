@@ -1,15 +1,13 @@
 // Edge cases and boundary condition tests for diagnostics
 const assert = require('assert');
+const vscode = require('vscode');
 const {analyzeThriftText} = require('../../../out/diagnostics');
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-Module.prototype.require = originalRequire;
 
 function findByCode(issues, code) {
     return issues.filter(i => i.code === code);
 }
 
 function run() {
-    console.log('\nRunning diagnostics edge cases and boundary tests...');
 
     // Test 1: Empty file
     const emptyFile = '';
@@ -199,7 +197,14 @@ function run() {
     issues = analyzeThriftText(extremeNesting);
     assert.ok(findByCode(issues, 'value.typeMismatch').length === 0, 'Brackets in string values should not affect parsing');
 
-    console.log('All diagnostics edge cases and boundary tests passed.');
 }
 
-run();
+describe('diagnostics-edge-cases', () => {
+    it('should handle edge cases correctly', () => {
+        run();
+    });
+});
+
+if (require.main === module) {
+    run();
+}

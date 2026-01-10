@@ -1,9 +1,5 @@
 const assert = require('assert');
-
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-
-const vscode = createVscodeMock();
-installVscodeMock(vscode);
+const vscode = require('vscode');
 
 const {
     normalizeLineRange,
@@ -26,12 +22,17 @@ function createDoc(text, name) {
 }
 
 function run() {
-    console.log('\nRunning line range utils test...');
 
     assert.strictEqual(normalizeLineRange(null), null, 'Expected null to normalize to null');
-    assert.strictEqual(normalizeLineRange({startLine: 2, endLine: 1}).startLine, 1, 'Expected normalization to reorder');
+    assert.strictEqual(normalizeLineRange({
+        startLine: 2,
+        endLine: 1
+    }).startLine, 1, 'Expected normalization to reorder');
     assert.strictEqual(normalizeLineRange({startLine: 2, endLine: 1}).endLine, 2, 'Expected normalization to reorder');
-    assert.strictEqual(normalizeLineRange({startLine: Number.NaN, endLine: 1}), null, 'Expected NaN to normalize to null');
+    assert.strictEqual(normalizeLineRange({
+        startLine: Number.NaN,
+        endLine: 1
+    }), null, 'Expected NaN to normalize to null');
 
     const merged = mergeLineRanges([
         {startLine: 5, endLine: 5},
@@ -54,7 +55,10 @@ function run() {
         range: new vscode.Range(1, 0, 2, 4),
         text: 'line a\nline b\n'
     });
-    assert.deepStrictEqual(changeRange, {startLine: 1, endLine: 4}, 'Expected change range to expand with inserted lines');
+    assert.deepStrictEqual(changeRange, {
+        startLine: 1,
+        endLine: 4
+    }, 'Expected change range to expand with inserted lines');
 
     const range = new vscode.Range(1, 0, 3, 0);
     assert.ok(rangeIntersectsLineRange(range, {startLine: 2, endLine: 4}), 'Expected range to intersect');
@@ -67,7 +71,10 @@ function run() {
     assert.strictEqual(vscodeRange.start.line, 1, 'Expected start line to match');
     assert.strictEqual(vscodeRange.end.line, 2, 'Expected end line to match');
 
-    console.log('✅ Line range utils test passed!');
 }
 
-run();
+describe('line-range', () => {
+    it('should pass all test assertions', () => {
+        run();
+    });
+});

@@ -1,45 +1,49 @@
 const assert = require('assert');
 
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-
-const vscode = createVscodeMock({
-    window: {
-        showErrorMessage: () => Promise.resolve(undefined)
-    }
-});
-installVscodeMock(vscode);
-
 const {diagnosticsTestUtils} = require('../../../out/diagnostics');
 
-function run() {
-    console.log('\nRunning diagnostics structural change detection test...');
+describe('structural-change-detection', () => {
+    let includesKeyword, hasStructuralTokens, sanitizeStructuralText;
 
-    const {includesKeyword, hasStructuralTokens, sanitizeStructuralText} = diagnosticsTestUtils;
+    before(() => {
+        const utils = diagnosticsTestUtils;
+        includesKeyword = utils.includesKeyword;
+        hasStructuralTokens = utils.hasStructuralTokens;
+        sanitizeStructuralText = utils.sanitizeStructuralText;
+    });
 
-    assert.strictEqual(includesKeyword('include "foo.thrift"'), true, 'Expected include keyword detection');
-    assert.strictEqual(includesKeyword('// include "foo.thrift"'), false, 'Expected comment include to be ignored');
-    assert.strictEqual(includesKeyword('"include \\"foo.thrift\\""'), false, 'Expected include in string to be ignored');
-    assert.strictEqual(includesKeyword('const string s = "include foo.thrift"'), false, 'Expected include in string assignment to be ignored');
+    it('should detect include keyword', () => {
+        assert.strictEqual(includesKeyword('include "foo.thrift"'), true);
+    });
 
-    assert.strictEqual(hasStructuralTokens('struct User {'), true, 'Expected struct keyword detection');
-    assert.strictEqual(hasStructuralTokens('{'), true, 'Expected brace to be structural');
-    assert.strictEqual(hasStructuralTokens('/* struct User { */'), false, 'Expected block comment to be ignored');
-    assert.strictEqual(hasStructuralTokens('// enum Status {'), false, 'Expected line comment to be ignored');
-    assert.strictEqual(hasStructuralTokens('note = "struct User {"'), false, 'Expected struct in string to be ignored');
-    assert.strictEqual(hasStructuralTokens('field = "{ }"'), false, 'Expected braces in string to be ignored');
+    it('should ignore include in comments', () => {
+        assert.strictEqual(includesKeyword('// include "foo.thrift"'), false);
+    });
 
-    assert.strictEqual(
-        sanitizeStructuralText('include "foo.thrift" // include "bar.thrift"').trim(),
-        'include',
-        'Expected sanitize to drop comment content'
-    );
+    it('should ignore include in strings', () => {
+        assert.strictEqual(includesKeyword('"include \\"foo.thrift\\""'), false);
+        assert.strictEqual(includesKeyword('const string s = "include foo.thrift"'), false);
+    });
 
-    console.log('✅ Diagnostics structural change detection test passed!');
-}
+    it('should detect structural tokens', () => {
+        assert.strictEqual(hasStructuralTokens('struct User {'), true);
+        assert.strictEqual(hasStructuralTokens('{'), true);
+    });
 
-try {
-    run();
-} catch (err) {
-    console.error('❌ Diagnostics structural change detection test failed:', err);
-    process.exit(1);
-}
+    it('should ignore structural tokens in comments', () => {
+        assert.strictEqual(hasStructuralTokens('/* struct User { */'), false);
+        assert.strictEqual(hasStructuralTokens('// enum Status {'), false);
+    });
+
+    it('should ignore structural tokens in strings', () => {
+        assert.strictEqual(hasStructuralTokens('note = "struct User {"'), false);
+        assert.strictEqual(hasStructuralTokens('field = "{ }"'), false);
+    });
+
+    it('should sanitize structural text', () => {
+        assert.strictEqual(
+            sanitizeStructuralText('include "foo.thrift" // include "bar.thrift"').trim(),
+            'include'
+        );
+    });
+});

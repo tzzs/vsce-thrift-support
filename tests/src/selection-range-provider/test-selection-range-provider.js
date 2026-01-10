@@ -1,46 +1,7 @@
 const fs = require('fs');
 const path = require('path');
+const vscode = require('vscode');
 
-// Enhanced vscode mock for selection range provider testing
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-const vscode = createVscodeMock({
-    SelectionRange: class {
-        constructor(range) {
-            this.range = range;
-            this.parent = null;
-        }
-    },
-    Range: class {
-        constructor(startLine, startChar, endLine, endChar) {
-            this.start = {line: startLine, character: startChar};
-            this.end = {line: endLine, character: endChar};
-        }
-    },
-    Position: class {
-        constructor(line, character) {
-            this.line = line;
-            this.character = character;
-        }
-    },
-    workspace: {
-        getWordRangeAtPosition: (document, position) => {
-            const lines = document.getText().split('\n');
-            const lineText = lines[position.line] || '';
-            const wordRegex = /[A-Za-z_][A-Za-z0-9_]*/g;
-            let match;
-            while ((match = wordRegex.exec(lineText)) !== null) {
-                if (position.character >= match.index && position.character <= match.index + match[0].length) {
-                    return new vscode.Range(position.line, match.index, position.line, match.index + match[0].length);
-                }
-            }
-            return null;
-        }
-    }
-});
-installVscodeMock(vscode);
-
-
-// Hook require('vscode')
 const {ThriftSelectionRangeProvider} = require('../../../out/selection-range-provider.js');
 
 function createMockDocument(text, fileName = 'test.thrift') {
@@ -96,7 +57,6 @@ function countSelectionRanges(selectionRange) {
 }
 
 async function testWordSelection() {
-    console.log('Testing word selection...');
 
     const provider = new ThriftSelectionRangeProvider();
     const text = `struct User {
@@ -130,11 +90,9 @@ async function testWordSelection() {
         throw new Error(`Expected 'User', got '${selectedText}'`);
     }
 
-    console.log('✓ Word selection test passed');
 }
 
 async function testTypeReferenceSelection() {
-    console.log('Testing type reference selection...');
 
     const provider = new ThriftSelectionRangeProvider();
     const text = `struct User {
@@ -162,11 +120,9 @@ async function testTypeReferenceSelection() {
         throw new Error(`Expected 'i32', got '${selectedText}'`);
     }
 
-    console.log('✓ Type reference selection test passed');
 }
 
 async function testFieldDefinitionSelection() {
-    console.log('Testing field definition selection...');
 
     const provider = new ThriftSelectionRangeProvider();
     const text = `struct User {
@@ -212,11 +168,9 @@ async function testFieldDefinitionSelection() {
         throw new Error('Expected parent range for full field definition');
     }
 
-    console.log('✓ Field definition selection test passed');
 }
 
 async function testMethodSignatureSelection() {
-    console.log('Testing method signature selection...');
 
     const provider = new ThriftSelectionRangeProvider();
     const text = `service UserService {
@@ -261,11 +215,9 @@ async function testMethodSignatureSelection() {
         throw new Error('Expected parent range for method signature');
     }
 
-    console.log('✓ Method signature selection test passed');
 }
 
 async function testNamespaceSelection() {
-    console.log('Testing namespace selection...');
 
     const provider = new ThriftSelectionRangeProvider();
     const text = `namespace java com.example.thrift
@@ -308,11 +260,9 @@ namespace cpp example.thrift`;
         throw new Error('Expected parent range for full namespace line');
     }
 
-    console.log('✓ Namespace selection test passed');
 }
 
 async function testIncludeSelection() {
-    console.log('Testing include selection...');
 
     const provider = new ThriftSelectionRangeProvider();
     const text = `include "shared.thrift"
@@ -355,11 +305,9 @@ include "common/types.thrift"`;
         throw new Error('Expected parent range for full include line');
     }
 
-    console.log('✓ Include selection test passed');
 }
 
 async function testHierarchicalExpansion() {
-    console.log('Testing hierarchical expansion...');
 
     const provider = new ThriftSelectionRangeProvider();
     const text = `struct User {
@@ -382,18 +330,15 @@ async function testHierarchicalExpansion() {
     const firstRange = selectionRanges[0];
     const rangeCount = countSelectionRanges(firstRange);
 
-    console.log(`Found ${rangeCount} hierarchical selection ranges`);
 
     // Should have multiple levels: word -> field -> struct
     if (rangeCount < 3) {
         throw new Error(`Expected at least 3 hierarchical ranges, got ${rangeCount}`);
     }
 
-    console.log('✓ Hierarchical expansion test passed');
 }
 
 async function testMultiplePositions() {
-    console.log('Testing multiple positions...');
 
     const provider = new ThriftSelectionRangeProvider();
     const text = `struct User {
@@ -448,11 +393,9 @@ enum Status {
         throw new Error(`Expected 'ACTIVE', got '${activeText}'`);
     }
 
-    console.log('✓ Multiple positions test passed');
 }
 
 async function testLineSelection() {
-    console.log('Testing line selection...');
 
     const provider = new ThriftSelectionRangeProvider();
     const text = `struct User {
@@ -491,11 +434,9 @@ async function testLineSelection() {
         throw new Error('Expected parent range for full line');
     }
 
-    console.log('✓ Line selection test passed');
 }
 
 async function testBlockSelection() {
-    console.log('Testing block selection...');
 
     const provider = new ThriftSelectionRangeProvider();
     const text = `service UserService {
@@ -534,11 +475,9 @@ async function testBlockSelection() {
         throw new Error('Expected parent range for service block');
     }
 
-    console.log('✓ Block selection test passed');
 }
 
 async function testComplexTypeSelection() {
-    console.log('Testing complex type selection...');
 
     const provider = new ThriftSelectionRangeProvider();
     const text = `struct User {
@@ -566,11 +505,9 @@ async function testComplexTypeSelection() {
         throw new Error(`Expected 'list<string>', got '${selectedText}'`);
     }
 
-    console.log('✓ Complex type selection test passed');
 }
 
 async function testEmptyDocument() {
-    console.log('Testing empty document...');
 
     const provider = new ThriftSelectionRangeProvider();
     const text = ``;
@@ -591,11 +528,9 @@ async function testEmptyDocument() {
         throw new Error(`Expected 0 selection ranges for empty document, got ${selectionRanges.length}`);
     }
 
-    console.log('✓ Empty document test passed');
 }
 
 async function testInvalidPosition() {
-    console.log('Testing invalid position...');
 
     const provider = new ThriftSelectionRangeProvider();
     const text = `struct User {
@@ -615,13 +550,10 @@ async function testInvalidPosition() {
     }
 
     // Should handle gracefully
-    console.log(`Found ${selectionRanges.length} selection ranges at invalid position`);
 
-    console.log('✓ Invalid position test passed');
 }
 
 async function testCancellationToken() {
-    console.log('Testing cancellation token...');
 
     const provider = new ThriftSelectionRangeProvider();
     const text = `struct User {
@@ -645,38 +577,50 @@ async function testCancellationToken() {
     }
 
     // Should handle cancellation gracefully
-    console.log(`Found ${selectionRanges.length} selection ranges with cancelled token`);
 
-    console.log('✓ Cancellation token test passed');
 }
 
-async function runAllTests() {
-    console.log('=== Running Selection Range Provider Tests ===\n');
-
-    try {
+describe('selection-range-provider', () => {
+    it('should pass testWordSelection', async () => {
         await testWordSelection();
+    });
+    it('should pass testTypeReferenceSelection', async () => {
         await testTypeReferenceSelection();
+    });
+    it('should pass testFieldDefinitionSelection', async () => {
         await testFieldDefinitionSelection();
+    });
+    it('should pass testMethodSignatureSelection', async () => {
         await testMethodSignatureSelection();
+    });
+    it('should pass testNamespaceSelection', async () => {
         await testNamespaceSelection();
+    });
+    it('should pass testIncludeSelection', async () => {
         await testIncludeSelection();
+    });
+    it('should pass testHierarchicalExpansion', async () => {
         await testHierarchicalExpansion();
+    });
+    it('should pass testMultiplePositions', async () => {
         await testMultiplePositions();
+    });
+    it('should pass testLineSelection', async () => {
         await testLineSelection();
+    });
+    it('should pass testBlockSelection', async () => {
         await testBlockSelection();
+    });
+    it('should pass testComplexTypeSelection', async () => {
         await testComplexTypeSelection();
+    });
+    it('should pass testEmptyDocument', async () => {
         await testEmptyDocument();
+    });
+    it('should pass testInvalidPosition', async () => {
         await testInvalidPosition();
+    });
+    it('should pass testCancellationToken', async () => {
         await testCancellationToken();
-
-        console.log('\n✅ All selection range provider tests passed!');
-    } catch (error) {
-        console.error('\n❌ Test failed:', error.message);
-        process.exit(1);
-    }
-}
-
-runAllTests().catch((error) => {
-    console.error('Test execution failed:', error);
-    process.exit(1);
+    });
 });

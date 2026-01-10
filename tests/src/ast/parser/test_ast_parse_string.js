@@ -1,23 +1,7 @@
 // Mock vscode
-const {createVscodeMock, installVscodeMock} = require('../../../mock_vscode.js');
-const vscode = createVscodeMock({
-    Position: class {
-        constructor(line, char) {
-            this.line = line;
-            this.character = char;
-        }
-    },
-    Range: class {
-        constructor(start, end) {
-            this.start = start;
-            this.end = end;
-        }
-    },
-});
-installVscodeMock(vscode);
-
-
-const {ThriftParser} = require('../../../out/ast/parser.js');
+require('../../../require-hook.js');
+const {ThriftParser} = require('../../../../out/ast/parser.js');
+const assert = require('assert');
 
 const testContent = `
 struct SharedStruct {
@@ -26,24 +10,21 @@ struct SharedStruct {
 }
 `;
 
-console.log('Testing AST parsing with string input...');
-const parser = new ThriftParser(testContent);
-const ast = parser.parse();
+async function run() {
 
-console.log('\\nAST properties:', Object.keys(ast));
-console.log('AST type:', ast.type);
-console.log('AST has body:', !!ast.body);
+    const parser = new ThriftParser(testContent);
+    const ast = parser.parse();
 
-if (ast.body && ast.body.length > 0) {
-    console.log('Body count:', ast.body.length);
-    console.log('\\nFirst item in body:');
+    assert.ok(ast.body, 'AST should have a body');
+    assert.ok(ast.body.length > 0, 'AST body should contain at least one item');
+
     const item = ast.body[0];
-    console.log('  Type:', item.type);
-    console.log('  Name:', item.name);
+    assert.strictEqual(item.name, 'SharedStruct', 'Struct name should be SharedStruct');
 
-    if (item.name === 'SharedStruct') {
-        console.log('\\n✅ FOUND SharedStruct in AST!');
-    }
 }
 
-console.log('\\n✅ Test complete!');
+describe('AST parse string', () => {
+    it('should parse Thrift code and build correct AST', async () => {
+        await run();
+    });
+});

@@ -1,21 +1,5 @@
 const assert = require('assert');
 
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-
-const vscode = createVscodeMock({
-    languages: {
-        createDiagnosticCollection: () => ({
-            set: () => {},
-            clear: () => {},
-            delete: () => {}
-        })
-    },
-    window: {
-        showErrorMessage: () => Promise.resolve(undefined)
-    }
-});
-installVscodeMock(vscode);
-
 const {DiagnosticManager} = require('../../../out/diagnostics');
 const {config} = require('../../../out/config/index.js');
 
@@ -32,7 +16,6 @@ function createDoc(pathSuffix) {
 }
 
 function run() {
-    console.log('\nRunning incremental diagnostics analysis test...');
 
     const originalAnalysisEnabled = config.incremental.analysisEnabled;
     const originalMaxDirty = config.incremental.maxDirtyLines;
@@ -42,7 +25,8 @@ function run() {
     const originalSetTimeout = global.setTimeout;
     const originalClearTimeout = global.clearTimeout;
     global.setTimeout = () => 0;
-    global.clearTimeout = () => {};
+    global.clearTimeout = () => {
+    };
 
     try {
         const manager = new DiagnosticManager();
@@ -53,14 +37,13 @@ function run() {
         };
 
         const doc = createDoc('fileA.thrift');
-        manager.scheduleAnalysis(doc, false, false, 'documentChange', 3, false, { startLine: 0, endLine: 1 }, false);
+        manager.scheduleAnalysis(doc, false, false, 'documentChange', 3, false, {startLine: 0, endLine: 1}, false);
         assert.strictEqual(dependentCalls, 0, 'Expected dependents to be skipped for small changes');
 
         doc.version = 2;
-        manager.scheduleAnalysis(doc, false, false, 'documentChange', 3, true, { startLine: 0, endLine: 1 }, false);
+        manager.scheduleAnalysis(doc, false, false, 'documentChange', 3, true, {startLine: 0, endLine: 1}, false);
         assert.strictEqual(dependentCalls, 1, 'Expected dependents when includes may change');
 
-        console.log('✅ Incremental analysis scheduling test passed!');
     } finally {
         config.incremental.analysisEnabled = originalAnalysisEnabled;
         config.incremental.maxDirtyLines = originalMaxDirty;
@@ -69,4 +52,12 @@ function run() {
     }
 }
 
-run();
+describe('diagnostics-incremental-analysis', () => {
+    it('should handle incremental analysis correctly', () => {
+        run();
+    });
+});
+
+if (require.main === module) {
+    run();
+}

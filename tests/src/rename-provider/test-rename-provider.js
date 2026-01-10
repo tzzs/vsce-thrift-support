@@ -1,10 +1,10 @@
 // RenameProvider unit tests with a minimal VSCode mock
 const assert = require('assert');
+const vscode = require('vscode');
 const {ThriftRenameProvider} = require('../../../out/rename-provider.js');
 
 // Mock the references provider to return simple results
 const referencesProvider = require('../../../out/references-provider.js');
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 const originalThriftReferencesProvider = referencesProvider.ThriftReferencesProvider;
 
 // Create a simple mock that doesn't require full AST parsing
@@ -18,7 +18,7 @@ class MockThriftReferencesProvider {
         const text = document.getText();
         const lines = text.split('\n');
         const references = [];
-        
+
         // Simple text-based search for symbol occurrences
         for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
             const line = lines[lineIdx];
@@ -34,14 +34,13 @@ class MockThriftReferencesProvider {
                 });
             }
         }
-        
+
         return references;
     }
 }
 
 // Replace the references provider with our mock
 referencesProvider.ThriftReferencesProvider = MockThriftReferencesProvider;
-Module.prototype.require = originalRequire;
 
 function createMockDocument(content) {
     const lines = content.split('\n');
@@ -108,7 +107,6 @@ function applyEditsToContent(content, edits) {
 }
 
 function run() {
-    console.log('\nRunning rename provider tests...');
 
     const content = [
         'struct Foo {',
@@ -138,11 +136,11 @@ function run() {
         assert.ok(!/\bfooName\b/.test(newText), 'Old name should be fully replaced');
         assert.ok(newText.includes('fooName_comment'), 'Should NOT replace within larger identifiers');
 
-        console.log('Rename provider tests passed.');
     });
 }
 
-run().catch(err => {
-    console.error(err);
-    process.exit(1);
+describe('rename-provider', () => {
+    it('should pass all test assertions', async () => {
+        await run();
+    });
 });

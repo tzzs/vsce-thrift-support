@@ -1,20 +1,3 @@
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-
-const vscode = createVscodeMock({
-    window: {
-        showErrorMessage: () => Promise.resolve(undefined),
-        showInformationMessage: () => Promise.resolve(undefined),
-        createOutputChannel: () => ({
-            appendLine: () => {},
-            show: () => {}
-        })
-    },
-    workspace: {
-        asRelativePath: (value) => value
-    }
-});
-installVscodeMock(vscode);
-
 const {createPerformanceMonitor} = require('../../../out/performance-monitor.js');
 
 function assert(condition, message) {
@@ -28,7 +11,6 @@ function findStat(stats, name) {
 }
 
 async function run() {
-    console.log('=== Running PerformanceMonitor Tests ===\n');
 
     const monitor = createPerformanceMonitor();
     monitor.clearMetrics();
@@ -68,10 +50,10 @@ async function run() {
     assert(warnings.length > 0, 'Expected injected error handler to receive warning');
     assert(emptyReport === '暂无性能数据', 'Expected empty report when no metrics exist');
 
-    console.log('✅ PerformanceMonitor tests passed!');
 }
 
-run().catch((error) => {
-    console.error('❌ PerformanceMonitor tests failed:', error.message);
-    process.exit(1);
+describe('performance-monitor', () => {
+    it('should pass all test assertions', async () => {
+        await run();
+    });
 });

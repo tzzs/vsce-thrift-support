@@ -1,9 +1,5 @@
 const assert = require('assert');
-
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-
-const vscode = createVscodeMock();
-installVscodeMock(vscode);
+const vscode = require('vscode');
 
 const {IncrementalTracker} = require('../../../out/utils/incremental-tracker.js');
 const {config} = require('../../../out/config/index.js');
@@ -18,7 +14,6 @@ function createDoc(text, name) {
 }
 
 function run() {
-    console.log('\nRunning incremental tracker test...');
 
     const originalFormattingEnabled = config.incremental.formattingEnabled;
     const originalAnalysisEnabled = config.incremental.analysisEnabled;
@@ -44,8 +39,8 @@ function run() {
         tracker.markChanges({
             document: doc,
             contentChanges: [
-                { range: new vscode.Range(1, 0, 1, 0), text: '1: i32 id' },
-                { range: new vscode.Range(6, 0, 6, 0), text: '1: i32 age' }
+                {range: new vscode.Range(1, 0, 1, 0), text: '1: i32 id'},
+                {range: new vscode.Range(6, 0, 6, 0), text: '1: i32 age'}
             ]
         });
 
@@ -60,13 +55,12 @@ function run() {
         tracker.markChanges({
             document: doc2,
             contentChanges: [
-                { range: new vscode.Range(0, 0, 2, 0), text: 'struct A {\\n1: i32 id\\n2: i32 name\\n' }
+                {range: new vscode.Range(0, 0, 2, 0), text: 'struct A {\\n1: i32 id\\n2: i32 name\\n'}
             ]
         });
         const overflowRange = tracker.consumeDirtyRange(doc2);
         assert.strictEqual(overflowRange, undefined, 'Expected dirty range to be dropped when exceeding maxDirtyLines');
 
-        console.log('✅ Incremental tracker test passed!');
     } finally {
         config.incremental.formattingEnabled = originalFormattingEnabled;
         config.incremental.analysisEnabled = originalAnalysisEnabled;
@@ -74,4 +68,8 @@ function run() {
     }
 }
 
-run();
+describe('incremental-tracker', () => {
+    it('should pass all test assertions', () => {
+        run();
+    });
+});

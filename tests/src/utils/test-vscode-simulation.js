@@ -1,15 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-
-const vscode = createVscodeMock({
-    TextEdit: {replace: (range, text) => ({range, newText: text})},
-    workspace: {
-        getConfiguration: (_section) => ({get: (_key, def) => def})
-    }
-});
-installVscodeMock(vscode);
+const vscode = require('vscode');
 
 const {ThriftFormattingProvider} = require('../../../out/formatting-bridge/index.js');
 
@@ -51,14 +42,11 @@ function findStructRange(lines, structName) {
 }
 
 function runTest() {
-    console.log('🔍 Testing VS Code formatting scenarios...\n');
 
     const formatter = new ThriftFormattingProvider();
     const examplePath = path.join(__dirname, '..', '..', 'test-files', 'example.thrift');
     const originalContent = fs.readFileSync(examplePath, 'utf8');
 
-    console.log('📄 Test 1: Format entire document');
-    console.log('='.repeat(50));
 
     const mockDoc1 = createMockDocument(originalContent, examplePath);
     const options = {insertSpaces: true, tabSize: 2};
@@ -77,8 +65,6 @@ function runTest() {
     const origRange = findStructRange(originalLines, 'User');
     const formRange = findStructRange(formattedLines, 'User');
 
-    console.log(`Original User struct: lines ${origRange.start + 1}-${origRange.end + 1}`);
-    console.log(`Formatted User struct: lines ${formRange.start + 1}-${formRange.end + 1}`);
 
     const origUserLines = originalLines.slice(origRange.start, origRange.end + 1);
     const formUserLines = formattedLines.slice(formRange.start, formRange.end + 1);
@@ -92,13 +78,10 @@ function runTest() {
         if (line.trim() === '') formBlanks.push(i + 1);
     });
 
-    console.log(`Original blank positions: [${origBlanks.join(', ')}]`);
-    console.log(`Formatted blank positions: [${formBlanks.join(', ')}]`);
 
     if (JSON.stringify(origBlanks) !== JSON.stringify(formBlanks)) {
         console.error('❌ Document formatting changed blank line positions!');
 
-        console.log('\nDetailed User struct comparison:');
         const maxLen = Math.max(origUserLines.length, formUserLines.length);
         for (let i = 0; i < maxLen; i++) {
             const orig = i < origUserLines.length ? origUserLines[i] : '(missing)';
@@ -107,18 +90,12 @@ function runTest() {
             const formBlank = form.trim() === '';
 
             if (origBlank !== formBlank) {
-                console.log(`  Line ${i + 1}: ${origBlank ? 'BLANK' : 'TEXT'} -> ${formBlank ? 'BLANK' : 'TEXT'} ❌`);
             } else if (origBlank) {
-                console.log(`  Line ${i + 1}: BLANK -> BLANK ✅`);
             }
         }
         process.exit(1);
     }
 
-    console.log('✅ Document formatting preserves blank lines\n');
-
-    console.log('📝 Test 2: Format selected range (lines 25-38)');
-    console.log('='.repeat(50));
 
     const mockDoc2 = createMockDocument(originalContent, examplePath);
     const range = new vscode.Range(24, 0, 37, originalLines[37]?.length || 0);
@@ -145,13 +122,10 @@ function runTest() {
         if (line.trim() === '') rangeFormBlanks.push(i + 1);
     });
 
-    console.log(`Range original blank positions: [${rangeOrigBlanks.join(', ')}]`);
-    console.log(`Range formatted blank positions: [${rangeFormBlanks.join(', ')}]`);
 
     if (JSON.stringify(rangeOrigBlanks) !== JSON.stringify(rangeFormBlanks)) {
         console.error('❌ Range formatting changed blank line positions!');
 
-        console.log('\nDetailed range comparison:');
         const maxRangeLen = Math.max(rangeOrigLines.length, rangeFormLines.length);
         for (let i = 0; i < maxRangeLen; i++) {
             const orig = i < rangeOrigLines.length ? rangeOrigLines[i] : '(missing)';
@@ -160,18 +134,19 @@ function runTest() {
             const formBlank = form.trim() === '';
 
             if (origBlank !== formBlank) {
-                console.log(`  Line ${i + 1}: ${origBlank ? 'BLANK' : 'TEXT'} -> ${formBlank ? 'BLANK' : 'TEXT'} ❌`);
             } else if (origBlank) {
-                console.log(`  Line ${i + 1}: BLANK -> BLANK ✅`);
             }
         }
         process.exit(1);
     }
 
-    console.log('✅ Range formatting preserves blank lines');
 }
 
-runTest();
+describe('vscode-simulation', () => {
+    it('should pass all test assertions', () => {
+        runTest();
+    });
+});
 
 function toOffsetsIndex(lines) {
     const offsets = new Array(lines.length + 1);

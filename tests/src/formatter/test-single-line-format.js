@@ -15,9 +15,8 @@ const {
 } = require('../../../out/formatter/field-parser.js');
 
 function run() {
-    console.log('\nRunning thrift formatter single-line format tests...');
 
-    const options = { insertSpaces: true, indentSize: 2, tabSize: 2 };
+    const options = {insertSpaces: true, indentSize: 2, tabSize: 2};
     const deps = {
         getIndent: (level) => ' '.repeat(level * 2),
         getServiceIndent: (level) => ' '.repeat(level * 2),
@@ -70,12 +69,10 @@ function run() {
     const nullStruct = formatSingleLineStruct('struct User {', 0, options, deps);
     assert.strictEqual(nullStruct, null, 'Expected non-inline struct to return null');
 
-    console.log('✅ Thrift formatter single-line format tests passed!');
 }
 
-try {
-    run();
-} catch (err) {
-    console.error('❌ Thrift formatter single-line format tests failed:', err);
-    process.exit(1);
-}
+describe('single-line-format', () => {
+    it('should pass all test assertions', () => {
+        run();
+    });
+});

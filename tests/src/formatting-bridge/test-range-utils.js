@@ -1,35 +1,83 @@
-const vscode = require('../../mock_vscode');
-const { createTextDocument, createVscodeMock, installVscodeMock, Position, Range } = vscode;
+const assert = require('assert');
+const vscode = require('vscode');
 
-const mock = createVscodeMock();
-installVscodeMock(mock);
+const {
+    normalizeFormattingRange,
+    buildMinimalEdits
+} = require('../../../out/formatting-bridge/range-utils.js');
 
-const { normalizeFormattingRange, buildMinimalEdits } = require('../../../out/formatting-bridge/range-utils.js');
+describe('range-utils', () => {
+    it('should normalize formatting range to full lines', () => {
+        const text = ['struct User {', '  1: i32 id', '}'].join('\n');
+        const doc = {
+            getText: () => text,
+            lineAt: (line) => {
+                const lines = text.split('\n');
+                return {text: lines[line] || ''};
+            }
+        };
 
-function run() {
-    console.log('\nRunning formatting range utils tests...');
+        const range = {
+            start: {line: 0, character: 3},
+            end: {line: 1, character: 5}
+        };
 
-    const text = ['struct User {', '  1: i32 id', '}'].join('\n');
-    const doc = createTextDocument(text, mock.Uri.file('file:///test.thrift'));
-    const range = new Range(new Position(0, 3), new Position(1, 5));
-    const normalized = normalizeFormattingRange(doc, range);
-    if (normalized.start.character !== 0 || normalized.end.character !== doc.lineAt(1).text.length) {
-        throw new Error('Expected normalized range to align to full lines');
-    }
+        const normalized = normalizeFormattingRange(doc, range);
 
-    const original = 'struct User {\n  1: i32 id\n}';
-    const formatted = 'struct User {\n  1: i32 id\n}\n';
-    const edits = buildMinimalEdits(doc, new Range(new Position(0, 0), new Position(2, 1)), original, formatted);
-    if (edits.length !== 1) {
-        throw new Error(`Expected one minimal edit, got ${edits.length}`);
-    }
+        assert.strictEqual(normalized.start.character, 0);
+        assert.strictEqual(normalized.end.character, doc.lineAt(1).text.length);
+    });
 
-    console.log('✅ Formatting range utils tests passed!');
-}
+    it('should build minimal edits', () => {
+        const text = 'struct User {\n  1: i32 id\n}';
+        const lines = text.split('\n');
 
-try {
-    run();
-} catch (error) {
-    console.error('❌ Formatting range utils tests failed:', error.message);
-    process.exit(1);
-}
+        const doc = {
+            getText: (range) => {
+                if (!range) {
+                    return text;
+                }
+                const {start, end} = range;
+                const startOffset =
+                    lines.slice(0, start.line).reduce((sum, l) => sum + l.length + 1, 0) +
+                    start.character;
+                const endOffset =
+                    lines.slice(0, end.line).reduce((sum, l) => sum + l.length + 1, 0) +
+                    end.character;
+                return text.substring(startOffset, endOffset);
+            },
+            lineAt: (line) => {
+                return {text: lines[line] || ''};
+            },
+            positionAt: (offset) => {
+                let currentOffset = 0;
+                for (let i = 0; i < lines.length; i++) {
+                    const lineLength = lines[i].length + 1;
+                    if (currentOffset + lineLength > offset) {
+                        return new vscode.Position(i, offset - currentOffset);
+                    }
+                    currentOffset += lineLength;
+                }
+                return new vscode.Position(lines.length - 1, lines[lines.length - 1].length);
+            },
+            offsetAt: (position) => {
+                let offset = 0;
+                for (let i = 0; i < position.line; i++) {
+                    offset += lines[i].length + 1;
+                }
+                return offset + position.character;
+            }
+        };
+
+        const original = 'struct User {\n  1: i32 id\n}';
+        const formatted = 'struct User {\n  1: i32 id\n}\n';
+        const range = {
+            start: {line: 0, character: 0},
+            end: {line: 2, character: 1}
+        };
+
+        const edits = buildMinimalEdits(doc, range, original, formatted);
+
+        assert.strictEqual(edits.length, 1);
+    });
+});

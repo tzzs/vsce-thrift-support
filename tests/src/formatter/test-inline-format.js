@@ -18,13 +18,12 @@ const {
 } = require('../../../out/formatter/field-parser.js');
 
 function run() {
-    console.log('\nRunning thrift formatter inline format tests...');
 
     assert.strictEqual(isInlineStructLike('struct User {1: i32 id}'), true, 'Expected inline struct detection');
     assert.strictEqual(isInlineEnum('enum Status {ACTIVE = 1}'), true, 'Expected inline enum detection');
     assert.strictEqual(isInlineService('service S { i32 ping(1:i32 id) }'), true, 'Expected inline service detection');
 
-    const options = { insertSpaces: true, indentSize: 2, tabSize: 2 };
+    const options = {insertSpaces: true, indentSize: 2, tabSize: 2};
     const deps = {
         getIndent: (level) => ' '.repeat(level * 2),
         getServiceIndent: (level) => ' '.repeat(level * 2),
@@ -74,12 +73,10 @@ function run() {
         'Expected inline service to normalize generics and split into multiline output'
     );
 
-    console.log('✅ Thrift formatter inline format tests passed!');
 }
 
-try {
-    run();
-} catch (err) {
-    console.error('❌ Thrift formatter inline format tests failed:', err);
-    process.exit(1);
-}
+describe('inline-format', () => {
+    it('should pass all test assertions', () => {
+        run();
+    });
+});

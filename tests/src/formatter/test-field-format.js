@@ -1,10 +1,9 @@
 const assert = require('assert');
 
-const { formatEnumFields } = require('../../../out/formatter/field-format.js');
-const { formatStructFields } = require('../../../out/formatter/struct-format.js');
+const {formatEnumFields} = require('../../../out/formatter/field-format.js');
+const {formatStructFields} = require('../../../out/formatter/struct-format.js');
 
 function run() {
-    console.log('\nRunning thrift formatter field format tests...');
 
     const options = {
         insertSpaces: true,
@@ -54,12 +53,10 @@ function run() {
     const enumLines = formatEnumFields(enumFields, options, 0, deps);
     assert.deepStrictEqual(enumLines, ['ACTIVE = 1'], 'Expected enum field to preserve line');
 
-    console.log('✅ Thrift formatter field format tests passed!');
 }
 
-try {
-    run();
-} catch (err) {
-    console.error('❌ Thrift formatter field format tests failed:', err);
-    process.exit(1);
-}
+describe('field-format', () => {
+    it('should pass all test assertions', () => {
+        run();
+    });
+});

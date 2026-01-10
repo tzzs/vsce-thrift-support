@@ -12,7 +12,6 @@ const {
 } = require('../../../out/formatter/field-parser.js');
 
 function run() {
-    console.log('\nRunning thrift formatter field parser tests...');
 
     const commentSplit = splitLineComment('1: i32 id, // comment');
     assert.strictEqual(commentSplit.code.trim(), '1: i32 id,', 'Expected code to strip comment');
@@ -49,12 +48,10 @@ function run() {
     assert.strictEqual(isEnumFieldText('ACTIVE = 1'), true, 'Expected enum field detection');
     assert.strictEqual(isEnumFieldText('1: string name'), false, 'Expected non-enum detection');
 
-    console.log('✅ Thrift formatter field parser tests passed!');
 }
 
-try {
-    run();
-} catch (err) {
-    console.error('❌ Thrift formatter field parser tests failed:', err);
-    process.exit(1);
-}
+describe('field-parser', () => {
+    it('should pass all test assertions', () => {
+        run();
+    });
+});

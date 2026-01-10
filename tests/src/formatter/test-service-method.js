@@ -1,9 +1,8 @@
 const assert = require('assert');
 
-const { isServiceMethodLine } = require('../../../out/formatter/service-method.js');
+const {isServiceMethodLine} = require('../../../out/formatter/service-method.js');
 
 function run() {
-    console.log('\nRunning thrift formatter service method tests...');
 
     assert.ok(isServiceMethodLine('void ping()'), 'Expected simple method signature match');
     assert.ok(isServiceMethodLine('oneway void ping()'), 'Expected oneway method signature match');
@@ -16,12 +15,10 @@ function run() {
     assert.ok(!isServiceMethodLine('struct Foo {'), 'Expected struct declaration non-match');
     assert.ok(!isServiceMethodLine('i32'), 'Expected incomplete signature non-match');
 
-    console.log('✅ Thrift formatter service method tests passed!');
 }
 
-try {
-    run();
-} catch (err) {
-    console.error('❌ Thrift formatter service method tests failed:', err);
-    process.exit(1);
-}
+describe('service-method', () => {
+    it('should pass all test assertions', () => {
+        run();
+    });
+});

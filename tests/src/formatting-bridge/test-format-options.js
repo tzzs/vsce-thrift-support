@@ -1,59 +1,60 @@
-const vscode = require('../../mock_vscode');
-const { createTextDocument, createVscodeMock, installVscodeMock, Position, Range } = vscode;
+const assert = require('assert');
+const vscode = require('vscode');
 
-const configValues = {
-    'thrift.format': {
-        trailingComma: 'add',
-        alignNames: false,
-        alignAssignments: true
-    },
-    'thrift-support.formatting': {}
-};
+const {resolveFormattingOptions} = require('../../../out/formatting-bridge/options.js');
 
-const mock = createVscodeMock({
-    workspace: {
-        getConfiguration: (section) => ({
+describe('format-options', () => {
+    let vscode;
+    let originalGetConfiguration;
+
+    before(() => {
+        vscode = require('vscode');
+        originalGetConfiguration = vscode.workspace.getConfiguration;
+    });
+
+    afterEach(() => {
+        vscode.workspace.getConfiguration = originalGetConfiguration;
+    });
+
+    it('should resolve formatting options correctly', () => {
+        const configValues = {
+            'thrift.format': {
+                trailingComma: 'add',
+                alignNames: false,
+                alignAssignments: true
+            },
+            'thrift-support.formatting': {}
+        };
+
+        vscode.workspace.getConfiguration = (section) => ({
             get: (key, def) => {
                 const sectionConfig = configValues[section] || {};
                 return Object.prototype.hasOwnProperty.call(sectionConfig, key) ? sectionConfig[key] : def;
             }
-        })
-    }
-});
-installVscodeMock(mock);
+        });
 
-const { resolveFormattingOptions } = require('../../../out/formatting-bridge/options.js');
+        const doc = {
+            uri: {fsPath: '/test.thrift'},
+            getText: () => 'struct User { 1: i32 id }',
+            lineAt: () => ({text: 'struct User { 1: i32 id }'})
+        };
 
-function run() {
-    console.log('\nRunning formatting options tests...');
+        const range = {
+            start: {line: 1, character: 0},
+            end: {line: 1, character: 10}
+        };
 
-    const doc = createTextDocument('struct User { 1: i32 id }', mock.Uri.file('file:///test.thrift'));
-    const range = new Range(new Position(1, 0), new Position(1, 10));
-    const options = { insertSpaces: true, tabSize: 4, indentSize: 2 };
+        const options = {insertSpaces: true, tabSize: 4, indentSize: 2};
 
-    const resolved = resolveFormattingOptions(doc, range, options, false, {
-        computeInitialContext: () => ({ indentLevel: 1, inStruct: true, inEnum: false, inService: false })
+        const resolved = resolveFormattingOptions(doc, range, options, false, {
+            computeInitialContext: () => ({indentLevel: 1, inStruct: true, inEnum: false, inService: false})
+        });
+
+        assert.strictEqual(resolved.trailingComma, 'add');
+        assert.strictEqual(resolved.alignFieldNames, false);
+        assert.strictEqual(resolved.alignEnumNames, false);
+        assert.strictEqual(resolved.alignEnumEquals, true);
+        assert.strictEqual(resolved.alignEnumValues, true);
+        assert.ok(resolved.initialContext && resolved.initialContext.inStruct);
     });
-
-    if (resolved.trailingComma !== 'add') {
-        throw new Error(`Expected trailingComma add, got ${resolved.trailingComma}`);
-    }
-    if (resolved.alignFieldNames !== false || resolved.alignEnumNames !== false) {
-        throw new Error('Expected alignNames override to be false');
-    }
-    if (resolved.alignEnumEquals !== true || resolved.alignEnumValues !== true) {
-        throw new Error('Expected alignAssignments to apply to enum alignment');
-    }
-    if (!resolved.initialContext || !resolved.initialContext.inStruct) {
-        throw new Error('Expected initialContext to be set');
-    }
-
-    console.log('✅ Formatting options tests passed!');
-}
-
-try {
-    run();
-} catch (error) {
-    console.error('❌ Formatting options tests failed:', error.message);
-    process.exit(1);
-}
+});

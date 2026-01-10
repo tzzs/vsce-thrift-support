@@ -1,41 +1,50 @@
 const assert = require('assert');
 
-const { formatEnumContentLine } = require('../../../out/formatter/enum-content.js');
-const { parseEnumFieldText } = require('../../../out/formatter/field-parser.js');
+const {formatEnumContentLine} = require('../../../out/formatter/enum-content.js');
+const {parseEnumFieldText} = require('../../../out/formatter/field-parser.js');
 
-function run() {
-    console.log('\nRunning thrift formatter enum content tests...');
+describe('enum-content', () => {
+    let options;
+    let deps;
 
-    const options = { insertSpaces: true, indentSize: 2, tabSize: 2 };
-    const deps = {
-        getIndent: (level) => ' '.repeat(level * 2),
-        formatEnumFields: (fields, _opts, indentLevel) =>
-            fields.map(f => ' '.repeat(indentLevel * 2) + f.line),
-        buildEnumFieldFromAst: () => null,
-        parseEnumFieldText,
-        isEnumFieldText: (line) => /^[A-Z_]+\s*=/.test(line)
-    };
+    beforeEach(() => {
+        options = {insertSpaces: true, indentSize: 2, tabSize: 2};
+        deps = {
+            getIndent: (level) => ' '.repeat(level * 2),
+            formatEnumFields: (fields, _opts, indentLevel) =>
+                fields.map(f => ' '.repeat(indentLevel * 2) + f.line),
+            buildEnumFieldFromAst: () => null,
+            parseEnumFieldText,
+            isEnumFieldText: (line) => /^[A-Z_]+\s*=/.test(line)
+        };
+    });
 
-    const enumFields = [];
-    const enumIndex = new Map();
+    it('should handle enum field', () => {
+        const enumFields = [];
+        const enumIndex = new Map();
 
-    const fieldResult = formatEnumContentLine('ACTIVE = 1', 0, 1, enumFields, enumIndex, options, deps);
-    assert.strictEqual(fieldResult.handled, true, 'Expected enum field to be handled');
-    assert.strictEqual(fieldResult.enumFields.length, 1, 'Expected enum field to be collected');
+        const fieldResult = formatEnumContentLine('ACTIVE = 1', 0, 1, enumFields, enumIndex, options, deps);
 
-    const flushResult = formatEnumContentLine('// comment', 1, 1, fieldResult.enumFields, enumIndex, options, deps);
-    assert.deepStrictEqual(flushResult.formattedLines, ['  ACTIVE = 1'], 'Expected enum fields flush before comment');
+        assert.strictEqual(fieldResult.handled, true);
+        assert.strictEqual(fieldResult.enumFields.length, 1);
+    });
 
-    const closeResult = formatEnumContentLine('}', 2, 1, [], enumIndex, options, deps);
-    assert.deepStrictEqual(closeResult.formattedLines, ['}'], 'Expected close brace formatting');
-    assert.strictEqual(closeResult.inEnum, false, 'Expected enum to close');
+    it('should flush enum fields before comment', () => {
+        const enumFields = [];
+        const enumIndex = new Map();
 
-    console.log('✅ Thrift formatter enum content tests passed!');
-}
+        const fieldResult = formatEnumContentLine('ACTIVE = 1', 0, 1, enumFields, enumIndex, options, deps);
+        const flushResult = formatEnumContentLine('// comment', 1, 1, fieldResult.enumFields, enumIndex, options, deps);
 
-try {
-    run();
-} catch (err) {
-    console.error('❌ Thrift formatter enum content tests failed:', err);
-    process.exit(1);
-}
+        assert.deepStrictEqual(flushResult.formattedLines, ['  ACTIVE = 1']);
+    });
+
+    it('should format close brace and exit enum', () => {
+        const enumIndex = new Map();
+
+        const closeResult = formatEnumContentLine('}', 2, 1, [], enumIndex, options, deps);
+
+        assert.deepStrictEqual(closeResult.formattedLines, ['}']);
+        assert.strictEqual(closeResult.inEnum, false);
+    });
+});

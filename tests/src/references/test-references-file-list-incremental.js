@@ -1,62 +1,48 @@
+const assert = require('assert');
 const path = require('path');
-
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-
-let findFilesCalls = 0;
-
-const vscode = createVscodeMock({
-    workspace: {
-        findFiles: async () => {
-            findFilesCalls += 1;
-            return [
-                vscode.Uri.file(path.join(__dirname, 'test-files', 'main.thrift')),
-                vscode.Uri.file(path.join(__dirname, 'test-files', 'shared.thrift'))
-            ];
-        },
-        textDocuments: []
-    }
-});
-installVscodeMock(vscode);
 
 const {ThriftReferencesProvider} = require('../../../out/references-provider.js');
 
-async function testIncrementalFileListUpdates() {
-    console.log('Testing references provider incremental file list updates...');
+describe('references-file-list-incremental', () => {
+    let provider;
 
-    const provider = new ThriftReferencesProvider();
+    beforeEach(() => {
+        provider = new ThriftReferencesProvider();
+    });
 
-    const initialFiles = await provider.getThriftFiles();
-    if (findFilesCalls !== 1) {
-        throw new Error(`Expected findFiles to be called once, got ${findFilesCalls}`);
-    }
-    if (initialFiles.length !== 2) {
-        throw new Error(`Expected 2 files from initial scan, got ${initialFiles.length}`);
-    }
+    it('should handle incremental file list updates', async () => {
+        const vscode = require('vscode');
+        let findFilesCalls = 0;
 
-    const newFile = vscode.Uri.file(path.join(__dirname, 'test-files', 'extra.thrift'));
-    provider.handleFileCreated(newFile);
+        const originalFindFiles = vscode.workspace.findFiles;
+        vscode.workspace.findFiles = async () => {
+            findFilesCalls++;
+            return [
+                vscode.Uri.file(path.join(__dirname, '..', '..', '..', 'test-files', 'a.thrift')),
+                vscode.Uri.file(path.join(__dirname, '..', '..', '..', 'test-files', 'b.thrift'))
+            ];
+        };
 
-    const updatedFiles = await provider.getThriftFiles();
-    const hasNewFile = updatedFiles.some((file) => file.fsPath === newFile.fsPath);
-    if (!hasNewFile) {
-        throw new Error('Expected new file to be included after create event');
-    }
-    if (findFilesCalls !== 1) {
-        throw new Error(`Expected no additional findFiles calls, got ${findFilesCalls}`);
-    }
+        try {
+            const initialFiles = await provider.getThriftFiles();
+            assert.strictEqual(findFilesCalls, 1, 'Expected findFiles to be called once');
+            assert.strictEqual(initialFiles.length, 2, 'Expected 2 files from initial scan');
 
-    const removedFile = initialFiles[0];
-    provider.handleFileDeleted(removedFile);
-    const afterDelete = await provider.getThriftFiles();
-    const stillHasRemoved = afterDelete.some((file) => file.fsPath === removedFile.fsPath);
-    if (stillHasRemoved) {
-        throw new Error('Expected deleted file to be removed from file list');
-    }
+            const newFile = vscode.Uri.file(path.join(__dirname, '..', '..', '..', 'test-files', 'extra.thrift'));
+            provider.handleFileCreated(newFile);
 
-    console.log('✓ References file list incremental update test passed');
-}
+            const updatedFiles = await provider.getThriftFiles();
+            const hasNewFile = updatedFiles.some((file) => file.fsPath === newFile.fsPath);
+            assert.ok(hasNewFile, 'Expected new file to be included after create event');
+            assert.strictEqual(findFilesCalls, 1, 'Expected no additional findFiles calls');
 
-testIncrementalFileListUpdates().catch((error) => {
-    console.error('❌ References file list incremental update test failed:', error.message);
-    process.exit(1);
+            const removedFile = initialFiles[0];
+            provider.handleFileDeleted(removedFile);
+            const afterDelete = await provider.getThriftFiles();
+            const stillHasRemoved = afterDelete.some((file) => file.fsPath === removedFile.fsPath);
+            assert.ok(!stillHasRemoved, 'Expected deleted file to be removed from file list');
+        } finally {
+            vscode.workspace.findFiles = originalFindFiles;
+        }
+    });
 });

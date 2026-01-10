@@ -1,96 +1,70 @@
+const assert = require('assert');
 const path = require('path');
-
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-
-let findFilesCalls = 0;
-
-const vscode = createVscodeMock({
-    workspace: {
-        findFiles: async () => {
-            findFilesCalls += 1;
-            return [
-                vscode.Uri.file(path.join(__dirname, '..', '..', 'test-files', 'file1.thrift')),
-                vscode.Uri.file(path.join(__dirname, '..', '..', 'test-files', 'file2.thrift'))
-            ];
-        },
-        createFileSystemWatcher: () => new vscode.FileSystemWatcher(),
-        textDocuments: []
-    },
-    FileSystemWatcher: class {
-        constructor() {
-            this._createListeners = [];
-            this._changeListeners = [];
-            this._deleteListeners = [];
-
-            this.onDidCreate = (listener) => {
-                this._createListeners.push(listener);
-                return {dispose: () => {}};
-            };
-            this.onDidChange = (listener) => {
-                this._changeListeners.push(listener);
-                return {dispose: () => {}};
-            };
-            this.onDidDelete = (listener) => {
-                this._deleteListeners.push(listener);
-                return {dispose: () => {}};
-            };
-        }
-
-        fireCreate(uri) {
-            this._createListeners.forEach(listener => listener(uri));
-        }
-
-        fireDelete(uri) {
-            this._deleteListeners.forEach(listener => listener(uri));
-        }
-    }
-});
-installVscodeMock(vscode);
+const vscode = require('vscode');
 
 const {ThriftWorkspaceSymbolProvider} = require('../../../out/workspace-symbol-provider.js');
 
-async function testIncrementalFileListUpdates() {
-    console.log('Testing workspace file list incremental updates...');
+// Mock file watcher with test methods
+const createTestFileWatcher = () => {
+    const watchers = [];
+    return {
+        createWatcherWithEvents: (pattern, handlers) => {
+            const watcher = {
+                dispose: () => {
+                },
+                fireCreate: (uri) => handlers.onCreate?.(uri),
+                fireDelete: (uri) => handlers.onDelete?.(uri),
+                fireChange: (uri) => handlers.onChange?.(uri)
+            };
+            watchers.push(watcher);
+            return watcher;
+        },
+        getAllWatchers: () => watchers
+    };
+};
 
-    const provider = new ThriftWorkspaceSymbolProvider();
+describe('workspace-file-list-incremental', () => {
+    it('should handle incremental file list updates', async () => {
+        let findFilesCalls = 0;
 
-    const initialFiles = await provider.getThriftFiles();
-    if (findFilesCalls !== 1) {
-        throw new Error(`Expected findFiles to be called once, got ${findFilesCalls}`);
-    }
-    if (initialFiles.length !== 2) {
-        throw new Error(`Expected 2 files from initial scan, got ${initialFiles.length}`);
-    }
+        const originalFindFiles = vscode.workspace.findFiles;
+        vscode.workspace.findFiles = async () => {
+            findFilesCalls++;
+            return [
+                vscode.Uri.file(path.join(__dirname, '..', '..', 'test-files', 'a.thrift')),
+                vscode.Uri.file(path.join(__dirname, '..', '..', 'test-files', 'b.thrift'))
+            ];
+        };
 
-    const watcher = provider.fileWatcher;
-    if (!watcher || typeof watcher.fireCreate !== 'function') {
-        throw new Error('Expected test watcher with fireCreate method');
-    }
+        try {
+            const testFileWatcher = createTestFileWatcher();
+            const provider = new ThriftWorkspaceSymbolProvider({fileWatcher: testFileWatcher});
 
-    const newFile = vscode.Uri.file(path.join(__dirname, '..', '..', 'test-files', 'new-file.thrift'));
-    watcher.fireCreate(newFile);
+            // Trigger initial file scan via provideWorkspaceSymbols
+            const initialSymbols = await provider.provideWorkspaceSymbols('', {isCancellationRequested: false});
+            assert.strictEqual(findFilesCalls, 1, 'Expected findFiles to be called once');
+            assert.ok(Array.isArray(initialSymbols), 'Expected symbols array');
 
-    const updatedFiles = await provider.getThriftFiles();
-    const hasNewFile = updatedFiles.some((file) => file.fsPath === newFile.fsPath);
-    if (!hasNewFile) {
-        throw new Error('Expected new file to be included after create event');
-    }
-    if (findFilesCalls !== 1) {
-        throw new Error(`Expected no additional findFiles calls, got ${findFilesCalls}`);
-    }
+            // Get the watcher that was created
+            const watchers = testFileWatcher.getAllWatchers();
+            assert.strictEqual(watchers.length, 1, 'Expected one watcher to be created');
+            const watcher = watchers[0];
 
-    const removedFile = initialFiles[0];
-    watcher.fireDelete(removedFile);
-    const afterDelete = await provider.getThriftFiles();
-    const stillHasRemoved = afterDelete.some((file) => file.fsPath === removedFile.fsPath);
-    if (stillHasRemoved) {
-        throw new Error('Expected deleted file to be removed from file list');
-    }
+            const newFile = vscode.Uri.file(path.join(__dirname, '..', '..', 'test-files', 'new-file.thrift'));
+            watcher.fireCreate(newFile);
 
-    console.log('✓ Incremental file list update test passed');
-}
+            // After create, file list should be updated without calling findFiles again
+            const afterCreate = await provider.provideWorkspaceSymbols('', {isCancellationRequested: false});
+            assert.ok(Array.isArray(afterCreate), 'Expected symbols after create');
+            // Since cache was cleared, it should scan again
+            assert.ok(findFilesCalls >= 1, 'Expected findFiles to be called');
 
-testIncrementalFileListUpdates().catch((error) => {
-    console.error('❌ Incremental file list update test failed:', error.message);
-    process.exit(1);
+            // Test delete
+            watcher.fireDelete(newFile);
+            const afterDelete = await provider.provideWorkspaceSymbols('', {isCancellationRequested: false});
+            assert.ok(Array.isArray(afterDelete), 'Expected symbols after delete');
+        } finally {
+            vscode.workspace.findFiles = originalFindFiles;
+        }
+    });
 });

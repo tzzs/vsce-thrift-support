@@ -1,41 +1,7 @@
-// Unit test for parsing functionality based on debug-parsing.js
-
+require('../../require-hook.js');
 const assert = require('assert');
-const Module = require('module');
-
-// Mock VSCode API
-const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
-const vscode = createVscodeMock({
-    workspace: {
-        getConfiguration: () => ({
-            get: (key, defaultValue) => {
-                const configs = {
-                    'trailingComma': 'preserve',
-                    'alignTypes': true,
-                    'alignFieldNames': false,
-                    'alignComments': true,
-                    'indentSize': 4,
-                    'maxLineLength': 100
-                };
-                return configs[key] !== undefined ? configs[key] : defaultValue;
-            }
-        })
-    }
-});
-installVscodeMock(vscode);
-
-
-// Mock require for vscode module
-const originalLoad = Module._load;
-Module._load = function (request, parent, isMain) {
-    if (request === 'vscode') {
-        return vscode;
-    }
-    return originalLoad.apply(this, arguments);
-};
 
 async function run() {
-    console.log('\nRunning parsing functionality tests...');
 
     let parser;
     try {
@@ -51,7 +17,6 @@ async function run() {
         .replace(/>\s*/g, '>')
         .replace(/\s*,\s*/g, ',');
 
-    console.log('Testing AST struct field parsing...');
 
     const content = `
 struct User {
@@ -71,11 +36,11 @@ struct User {
     assert.strictEqual(fields.length, 5, 'Should parse 5 struct fields');
 
     const fieldChecks = [
-        { id: 1, requiredness: 'required', type: 'list<string>', name: 'names', hasDefault: false },
-        { id: 2, requiredness: 'optional', type: 'map<string,i32>', name: 'values', hasDefault: false },
-        { id: 3, requiredness: undefined, type: 'i32', name: 'count', hasDefault: false },
-        { id: 4, requiredness: 'required', type: 'string', name: 'name', hasDefault: true },
-        { id: 5, requiredness: 'optional', type: 'bool', name: 'isActive', hasDefault: true }
+        {id: 1, requiredness: 'required', type: 'list<string>', name: 'names', hasDefault: false},
+        {id: 2, requiredness: 'optional', type: 'map<string,i32>', name: 'values', hasDefault: false},
+        {id: 3, requiredness: undefined, type: 'i32', name: 'count', hasDefault: false},
+        {id: 4, requiredness: 'required', type: 'string', name: 'name', hasDefault: true},
+        {id: 5, requiredness: 'optional', type: 'bool', name: 'isActive', hasDefault: true}
     ];
 
     fieldChecks.forEach((expected, idx) => {
@@ -87,13 +52,17 @@ struct User {
         assert.strictEqual(!!field.defaultValue, expected.hasDefault, `hasDefault should be ${expected.hasDefault}`);
     });
 
-    console.log('All AST parsing tests passed! ✅');
 }
 
-run().catch(err => {
-    console.error(err);
-    process.exit(1);
-}).finally(() => {
-    // Restore original require
-    Module._load = originalLoad;
+describe('completion-provider', () => {
+    it('should pass parsing functionality tests', async () => {
+        await run();
+    });
 });
+
+if (require.main === module) {
+    run().catch(err => {
+        console.error(err);
+        process.exit(1);
+    });
+}
