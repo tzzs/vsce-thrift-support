@@ -1,7 +1,7 @@
-import { ThriftFormattingOptions } from '../interfaces.types';
-import { ErrorHandler } from '../utils/error-handler';
-import { CoreDependencies } from '../utils/dependencies';
-import { formatThriftContent } from './formatter-core';
+import {ThriftFormattingOptions} from '../interfaces.types';
+import {ErrorHandler} from '../utils/error-handler';
+import {CoreDependencies} from '../utils/dependencies';
+import {formatThriftContent} from './formatter-core';
 
 /**
  * ThriftFormatter：将 Thrift 源码格式化为统一风格。
@@ -23,7 +23,7 @@ export class ThriftFormatter {
             this.errorHandler.handleError(error, {
                 component: 'ThriftFormatter',
                 operation: 'format',
-                additionalInfo: { contentLength: content.length }
+                additionalInfo: {contentLength: content.length}
             });
             return content;
         }

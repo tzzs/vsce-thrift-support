@@ -1,4 +1,4 @@
-import { StructField, ThriftFormattingOptions } from '../interfaces.types';
+import {StructField, ThriftFormattingOptions} from '../interfaces.types';
 import * as nodes from '../ast/nodes.types';
 
 type IndentProvider = (level: number, options: ThriftFormattingOptions) => string;

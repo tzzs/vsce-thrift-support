@@ -1,6 +1,6 @@
-import { ConstField, EnumField, StructField, ThriftFormattingOptions } from '../interfaces.types';
-import { ThriftParser } from '../ast/parser';
-import { buildAstIndex } from './ast-index';
+import {ConstField, EnumField, StructField, ThriftFormattingOptions} from '../interfaces.types';
+import {ThriftParser} from '../ast/parser';
+import {buildAstIndex} from './ast-index';
 import {
     buildEnumFieldFromAst,
     buildStructFieldFromAst,
@@ -10,12 +10,12 @@ import {
     parseEnumFieldText,
     parseStructFieldText
 } from './field-parser';
-import { formatConstFields } from './const-format';
-import { formatBlockComment } from './comment-format';
-import { formatEnumContentLine } from './enum-content';
-import { formatEnumFields } from './field-format';
-import { formatStructFields } from './struct-format';
-import { getIndent, getServiceIndent } from './indent';
+import {formatConstFields} from './const-format';
+import {formatBlockComment} from './comment-format';
+import {formatEnumContentLine} from './enum-content';
+import {formatEnumFields} from './field-format';
+import {formatStructFields} from './struct-format';
+import {getIndent, getServiceIndent} from './indent';
 import {
     formatInlineEnum,
     formatInlineService,
@@ -32,16 +32,12 @@ import {
     formatTypedefLine,
     handleConstStartLine
 } from './line-handlers';
-import { isEnumStartLine, isServiceStartLine, isStructStartLine } from './line-detection';
-import { formatServiceContentLine } from './service-content';
-import { isServiceMethodLine } from './service-method';
-import { formatStructContentLine } from './struct-content';
-import {
-    formatSingleLineEnum,
-    formatSingleLineService,
-    formatSingleLineStruct
-} from './single-line-format';
-import { normalizeGenericsInSignature, splitTopLevelParts } from './text-utils';
+import {isEnumStartLine, isServiceStartLine, isStructStartLine} from './line-detection';
+import {formatServiceContentLine} from './service-content';
+import {isServiceMethodLine} from './service-method';
+import {formatStructContentLine} from './struct-content';
+import {formatSingleLineEnum, formatSingleLineService, formatSingleLineStruct} from './single-line-format';
+import {normalizeGenericsInSignature, splitTopLevelParts} from './text-utils';
 
 const DEFAULT_FORMAT_OPTIONS: ThriftFormattingOptions = {
     trailingComma: 'preserve',
@@ -116,7 +112,7 @@ export function formatThriftContent(
             options,
             {
                 formatStructFields: (fields, innerOptions, level) =>
-                    formatStructFields(fields, innerOptions, level, { getIndent }),
+                    formatStructFields(fields, innerOptions, level, {getIndent}),
                 isStructFieldText
             }
         );
@@ -133,7 +129,7 @@ export function formatThriftContent(
             inService,
             serviceIndentLevel,
             options,
-            { getIndent, getServiceIndent }
+            {getIndent, getServiceIndent}
         );
         if (blockComment) {
             formattedLines.push(...blockComment.formattedLines);
@@ -151,7 +147,7 @@ export function formatThriftContent(
             options,
             {
                 formatConstFields: (fields, innerOptions, level) =>
-                    formatConstFields(fields, innerOptions, level, { getIndent })
+                    formatConstFields(fields, innerOptions, level, {getIndent})
             }
         );
         if (constFlush.formattedLines.length > 0) {
@@ -168,7 +164,7 @@ export function formatThriftContent(
             serviceIndentLevel,
             indentLevel,
             options,
-            { getIndent, getServiceIndent }
+            {getIndent, getServiceIndent}
         );
         if (skippedLine) {
             formattedLines.push(...skippedLine);
@@ -187,7 +183,7 @@ export function formatThriftContent(
             indentLevel,
             constFields,
             constBlockIndentLevel,
-            { parseConstFieldText }
+            {parseConstFieldText}
         );
         if (constStart.handled) {
             constFields = constStart.constFields;
@@ -213,9 +209,9 @@ export function formatThriftContent(
                 getIndent,
                 getServiceIndent,
                 formatStructFields: (fields, inlineOptions, level) =>
-                    formatStructFields(fields, inlineOptions, level, { getIndent }),
+                    formatStructFields(fields, inlineOptions, level, {getIndent}),
                 formatEnumFields: (fields, inlineOptions, level) =>
-                    formatEnumFields(fields, inlineOptions, level, { getIndent }),
+                    formatEnumFields(fields, inlineOptions, level, {getIndent}),
                 parseStructFieldText,
                 parseEnumFieldText,
                 normalizeGenericsInSignature,
@@ -231,9 +227,9 @@ export function formatThriftContent(
                 getIndent,
                 getServiceIndent,
                 formatStructFields: (fields, innerOptions, level) =>
-                    formatStructFields(fields, innerOptions, level, { getIndent }),
+                    formatStructFields(fields, innerOptions, level, {getIndent}),
                 formatEnumFields: (fields, innerOptions, level) =>
-                    formatEnumFields(fields, innerOptions, level, { getIndent }),
+                    formatEnumFields(fields, innerOptions, level, {getIndent}),
                 parseStructFieldText,
                 parseEnumFieldText,
                 normalizeGenericsInSignature,
@@ -255,9 +251,9 @@ export function formatThriftContent(
                 getIndent,
                 getServiceIndent,
                 formatStructFields: (fields, inlineOptions, level) =>
-                    formatStructFields(fields, inlineOptions, level, { getIndent }),
+                    formatStructFields(fields, inlineOptions, level, {getIndent}),
                 formatEnumFields: (fields, inlineOptions, level) =>
-                    formatEnumFields(fields, inlineOptions, level, { getIndent }),
+                    formatEnumFields(fields, inlineOptions, level, {getIndent}),
                 parseStructFieldText,
                 parseEnumFieldText,
                 normalizeGenericsInSignature,
@@ -273,9 +269,9 @@ export function formatThriftContent(
                 getIndent,
                 getServiceIndent,
                 formatStructFields: (fields, innerOptions, level) =>
-                    formatStructFields(fields, innerOptions, level, { getIndent }),
+                    formatStructFields(fields, innerOptions, level, {getIndent}),
                 formatEnumFields: (fields, innerOptions, level) =>
-                    formatEnumFields(fields, innerOptions, level, { getIndent }),
+                    formatEnumFields(fields, innerOptions, level, {getIndent}),
                 parseStructFieldText,
                 parseEnumFieldText,
                 normalizeGenericsInSignature,
@@ -303,7 +299,7 @@ export function formatThriftContent(
                 {
                     getIndent,
                     formatStructFields: (fields, innerOptions, level) =>
-                        formatStructFields(fields, innerOptions, level, { getIndent }),
+                        formatStructFields(fields, innerOptions, level, {getIndent}),
                     buildStructFieldFromAst,
                     parseStructFieldText,
                     normalizeGenericsInSignature,
@@ -340,9 +336,9 @@ export function formatThriftContent(
                 getIndent,
                 getServiceIndent,
                 formatStructFields: (fields, inlineOptions, level) =>
-                    formatStructFields(fields, inlineOptions, level, { getIndent }),
+                    formatStructFields(fields, inlineOptions, level, {getIndent}),
                 formatEnumFields: (fields, inlineOptions, level) =>
-                    formatEnumFields(fields, inlineOptions, level, { getIndent }),
+                    formatEnumFields(fields, inlineOptions, level, {getIndent}),
                 parseStructFieldText,
                 parseEnumFieldText,
                 normalizeGenericsInSignature,
@@ -358,9 +354,9 @@ export function formatThriftContent(
                 getIndent,
                 getServiceIndent,
                 formatStructFields: (fields, innerOptions, level) =>
-                    formatStructFields(fields, innerOptions, level, { getIndent }),
+                    formatStructFields(fields, innerOptions, level, {getIndent}),
                 formatEnumFields: (fields, innerOptions, level) =>
-                    formatEnumFields(fields, innerOptions, level, { getIndent }),
+                    formatEnumFields(fields, innerOptions, level, {getIndent}),
                 parseStructFieldText,
                 parseEnumFieldText,
                 normalizeGenericsInSignature,
@@ -386,7 +382,7 @@ export function formatThriftContent(
                 {
                     getIndent,
                     formatEnumFields: (fields, innerOptions, level) =>
-                        formatEnumFields(fields, innerOptions, level, { getIndent }),
+                        formatEnumFields(fields, innerOptions, level, {getIndent}),
                     buildEnumFieldFromAst,
                     parseEnumFieldText,
                     isEnumFieldText
@@ -403,7 +399,7 @@ export function formatThriftContent(
             }
         }
 
-        const openBraceLine = formatOpenBraceLine(line, indentLevel, options, { getIndent });
+        const openBraceLine = formatOpenBraceLine(line, indentLevel, options, {getIndent});
         if (openBraceLine) {
             formattedLines.push(...openBraceLine);
             continue;

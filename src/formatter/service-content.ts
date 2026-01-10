@@ -1,4 +1,4 @@
-import { ThriftFormattingOptions } from '../interfaces.types';
+import {ThriftFormattingOptions} from '../interfaces.types';
 
 type IndentProvider = (level: number, options: ThriftFormattingOptions) => string;
 type ServiceMethodMatcher = (line: string) => boolean;

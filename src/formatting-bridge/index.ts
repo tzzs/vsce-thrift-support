@@ -1,15 +1,15 @@
 import * as vscode from 'vscode';
-import { ThriftFormatter } from '../formatter';
-import { config } from '../config';
-import { ThriftParser } from '../ast/parser';
+import {ThriftFormatter} from '../formatter';
+import {config} from '../config';
+import {ThriftParser} from '../ast/parser';
 import * as nodes from '../ast/nodes.types';
-import { IncrementalTracker } from '../utils/incremental-tracker';
-import { ErrorHandler } from '../utils/error-handler';
-import { CoreDependencies } from '../utils/dependencies';
-import { LineRange, collapseLineRanges, lineRangeToVscodeRange } from '../utils/line-range';
-import { computeInitialContext } from './context';
-import { normalizeFormattingRange, buildMinimalEdits } from './range-utils';
-import { resolveFormattingOptions } from './options';
+import {IncrementalTracker} from '../utils/incremental-tracker';
+import {ErrorHandler} from '../utils/error-handler';
+import {CoreDependencies} from '../utils/dependencies';
+import {collapseLineRanges, LineRange, lineRangeToVscodeRange} from '../utils/line-range';
+import {computeInitialContext} from './context';
+import {buildMinimalEdits, normalizeFormattingRange} from './range-utils';
+import {resolveFormattingOptions} from './options';
 
 const structuralNodeTypes = new Set<nodes.ThriftNodeType>([
     nodes.ThriftNodeType.Struct,
@@ -48,7 +48,7 @@ function getChildNodes(node: nodes.ThriftNode): nodes.ThriftNode[] {
  * Expands a line range to include complete structural blocks (struct, enum, service, etc.).
  * This ensures that incremental formatting doesn't break structural integrity by formatting
  * only part of a block.
- * 
+ *
  * @param document - The text document being formatted
  * @param range - The initial line range to expand
  * @returns Expanded line range that encompasses all overlapping structural blocks,
@@ -150,7 +150,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 component: 'ThriftFormattingProvider',
                 operation: 'provideDocumentRangeFormattingEdits',
                 filePath: document.uri.fsPath,
-                additionalInfo: { range: range.toString() }
+                additionalInfo: {range: range.toString()}
             });
             return [];
         }
@@ -167,7 +167,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             computeInitialContext
         });
 
-        const formatter = new ThriftFormatter({ errorHandler: this.errorHandler });
+        const formatter = new ThriftFormatter({errorHandler: this.errorHandler});
         const formattedText = formatter.formatThriftCode(text, fmtOptions);
 
         if (!useMinimalPatch) {

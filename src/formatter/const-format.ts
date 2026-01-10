@@ -1,4 +1,4 @@
-import { ConstField, ThriftFormattingOptions } from '../interfaces.types';
+import {ConstField, ThriftFormattingOptions} from '../interfaces.types';
 
 type IndentProvider = (level: number, options: ThriftFormattingOptions) => string;
 
@@ -105,7 +105,7 @@ export function formatConstFields(
             value = lines.join('\n');
         }
 
-        return { ...f, value };
+        return {...f, value};
     });
 
     const maxTypeWidth = Math.max(...adjFields.map(f => f.type.length));

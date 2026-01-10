@@ -1,4 +1,4 @@
-import { EnumField, StructField, ThriftFormattingOptions } from '../interfaces.types';
+import {EnumField, StructField, ThriftFormattingOptions} from '../interfaces.types';
 
 type IndentProvider = (level: number, options: ThriftFormattingOptions) => string;
 type StructFormatter = (fields: StructField[], options: ThriftFormattingOptions, indentLevel: number) => string[];

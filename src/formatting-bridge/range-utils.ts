@@ -54,7 +54,7 @@ export function buildMinimalEdits(
     while (
         suffix < maxSuffix &&
         originalText[originalText.length - 1 - suffix] === formattedText[formattedText.length - 1 - suffix]
-    ) {
+        ) {
         suffix += 1;
     }
 

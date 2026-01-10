@@ -1,4 +1,4 @@
-import { EnumField, ThriftFormattingOptions } from '../interfaces.types';
+import {EnumField, ThriftFormattingOptions} from '../interfaces.types';
 
 type IndentProvider = (level: number, options: ThriftFormattingOptions) => string;
 
@@ -39,7 +39,13 @@ export function formatEnumFields(
 
     let maxContentWidth = 0;
     let maxAnnoStart = 0;
-    const interim: Array<{ base: string; comment: string; hasComma: boolean; hasSemicolon: boolean; annotation: string }> = [];
+    const interim: Array<{
+        base: string;
+        comment: string;
+        hasComma: boolean;
+        hasSemicolon: boolean;
+        annotation: string
+    }> = [];
 
     for (const f of fields) {
         let hasComma = f.suffix ? /,/.test(f.suffix) : false;
@@ -83,7 +89,7 @@ export function formatEnumFields(
     }
 
     if (options.alignAnnotations) {
-        interim.forEach(({ base, annotation }) => {
+        interim.forEach(({base, annotation}) => {
             let line = base;
             if (annotation) {
                 const currentWidth = base.length - indent.length;
@@ -93,7 +99,7 @@ export function formatEnumFields(
             maxContentWidth = Math.max(maxContentWidth, line.length - indent.length);
         });
     } else {
-        interim.forEach(({ base, annotation }) => {
+        interim.forEach(({base, annotation}) => {
             let line = base;
             if (annotation) {
                 line = base + ' ' + annotation;
@@ -102,7 +108,7 @@ export function formatEnumFields(
         });
     }
 
-    return interim.map(({ base, comment, hasComma, hasSemicolon, annotation }) => {
+    return interim.map(({base, comment, hasComma, hasSemicolon, annotation}) => {
         let line = base;
         if (annotation) {
             if (options.alignAnnotations) {

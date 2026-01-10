@@ -1,4 +1,4 @@
-import { ConstField, EnumField, StructField } from '../interfaces.types';
+import {ConstField, EnumField, StructField} from '../interfaces.types';
 import * as nodes from '../ast/nodes.types';
 
 /**
@@ -44,13 +44,13 @@ export function splitLineComment(line: string): { code: string; comment: string 
             continue;
         }
         if (ch === '/' && next === '/') {
-            return { code: line.slice(0, i), comment: line.slice(i).trim() };
+            return {code: line.slice(0, i), comment: line.slice(i).trim()};
         }
         if (ch === '#') {
-            return { code: line.slice(0, i), comment: line.slice(i).trim() };
+            return {code: line.slice(0, i), comment: line.slice(i).trim()};
         }
     }
-    return { code: line, comment: '' };
+    return {code: line, comment: ''};
 }
 
 /**
@@ -61,7 +61,7 @@ export function splitLineComment(line: string): { code: string; comment: string 
 export function splitTrailingAnnotation(source: string): { base: string; annotation: string } {
     const trimmed = source.trimEnd();
     if (!trimmed.endsWith(')')) {
-        return { base: source.trim(), annotation: '' };
+        return {base: source.trim(), annotation: ''};
     }
     let inS = false;
     let inD = false;
@@ -108,17 +108,17 @@ export function splitTrailingAnnotation(source: string): { base: string; annotat
         if (ch === ')' && stack.length > 0) {
             const start = stack.pop() as number;
             if (stack.length === 0) {
-                lastPair = { start, end: i };
+                lastPair = {start, end: i};
             }
         }
     }
 
     if (!lastPair) {
-        return { base: source.trim(), annotation: '' };
+        return {base: source.trim(), annotation: ''};
     }
     const tail = trimmed.slice(lastPair.end + 1).trim();
     if (tail) {
-        return { base: source.trim(), annotation: '' };
+        return {base: source.trim(), annotation: ''};
     }
     return {
         base: trimmed.slice(0, lastPair.start).trimEnd(),
@@ -147,7 +147,7 @@ export function normalizeType(type: string): string {
  * @returns 结构体字段信息
  */
 export function buildStructFieldFromAst(line: string, field: nodes.Field): StructField | null {
-    const { code, comment } = splitLineComment(line);
+    const {code, comment} = splitLineComment(line);
     let remainder = code.trim();
     let trailing = '';
     const suffixMatch = remainder.match(/^(.*?)([,;]\s*)$/);
@@ -198,7 +198,7 @@ export function parseStructFieldText(text: string): StructField | null {
     if (!text) {
         return null;
     }
-    const { code, comment } = splitLineComment(text);
+    const {code, comment} = splitLineComment(text);
     let remainder = code.trim();
 
     const prefixMatch = remainder.match(/^\s*(\d+:\s*(?:required|optional)?\s*)(.*)$/);
@@ -276,7 +276,7 @@ export function isStructFieldText(line: string): boolean {
  * @returns 枚举字段信息
  */
 export function buildEnumFieldFromAst(line: string, member: nodes.EnumMember): EnumField | null {
-    const { code, comment } = splitLineComment(line);
+    const {code, comment} = splitLineComment(line);
     let remainder = code.trim();
     let trailing = '';
     const suffixMatch = remainder.match(/^(.*?)([,;]\s*)$/);
@@ -322,7 +322,7 @@ export function parseEnumFieldText(text: string): EnumField | null {
     if (!text) {
         return null;
     }
-    const { code, comment } = splitLineComment(text);
+    const {code, comment} = splitLineComment(text);
     let remainder = code.trim();
 
     let trailing = '';

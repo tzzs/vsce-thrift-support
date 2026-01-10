@@ -1,4 +1,4 @@
-import { ConstField, StructField, ThriftFormattingOptions } from '../interfaces.types';
+import {ConstField, StructField, ThriftFormattingOptions} from '../interfaces.types';
 
 type IndentProvider = (level: number, options: ThriftFormattingOptions) => string;
 type StructFormatter = (fields: StructField[], options: ThriftFormattingOptions, indentLevel: number) => string[];
@@ -79,16 +79,16 @@ export function flushStructFieldsIfNeeded(
     deps: FlushStructDeps
 ): FlushStructResult {
     if (!inStruct || structFields.length === 0) {
-        return { structFields, formattedLines: [], flushed: false };
+        return {structFields, formattedLines: [], flushed: false};
     }
 
     const hasStructField = structFieldIndex.has(lineIndex) || deps.isStructFieldText(line);
     if (!hasStructField && !line.startsWith('}')) {
         const formattedLines = deps.formatStructFields(structFields, options, indentLevel);
-        return { structFields: [], formattedLines, flushed: true };
+        return {structFields: [], formattedLines, flushed: true};
     }
 
-    return { structFields, formattedLines: [], flushed: false };
+    return {structFields, formattedLines: [], flushed: false};
 }
 
 /**

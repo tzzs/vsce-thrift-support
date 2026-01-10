@@ -1,4 +1,4 @@
-import { ThriftFormattingOptions } from '../interfaces.types';
+import {ThriftFormattingOptions} from '../interfaces.types';
 
 /**
  * Build indentation string for the given level.

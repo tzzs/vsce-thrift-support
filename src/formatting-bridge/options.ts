@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { ThriftFormattingOptions } from '../interfaces.types';
-import { FormattingContext } from './context';
+import {ThriftFormattingOptions} from '../interfaces.types';
+import {FormattingContext} from './context';
 
 interface FormattingOptionDeps {
     computeInitialContext: (

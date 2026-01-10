@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ThriftParser } from '../ast/parser';
+import {ThriftParser} from '../ast/parser';
 import * as nodes from '../ast/nodes.types';
 
 export interface FormattingContext {
@@ -31,7 +31,7 @@ export function computeInitialContext(
         } else {
             const before = document.getText(new vscode.Range(new vscode.Position(0, 0), start));
             if (!before) {
-                return { indentLevel: 0, inStruct: false, inEnum: false, inService: false };
+                return {indentLevel: 0, inStruct: false, inEnum: false, inService: false};
             }
             const baseKey = document.uri && typeof document.uri.toString === 'function'
                 ? document.uri.toString()
@@ -122,6 +122,6 @@ export function computeInitialContext(
             inService
         };
     } catch (error) {
-        return { indentLevel: 0, inStruct: false, inEnum: false, inService: false };
+        return {indentLevel: 0, inStruct: false, inEnum: false, inService: false};
     }
 }
