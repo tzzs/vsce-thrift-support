@@ -1,5 +1,35 @@
 # Changelog | 更新日志
 
+## [2.0.0](https://github.com/tzzs/vsce-thrift-support/compare/v1.0.0...v2.0.0) (2026-01-12)
+
+### ⚠ BREAKING CHANGES
+
+* refactor!: support Thrift AST as the core parsing model and reorganize parser/formatter/diagnostics internals
+* feat!: new major release line (2.x) with significant internal API and cache flow changes
+
+### Features
+
+* incremental diagnostics and formatting with dirty-range tracking
+* expanded AST ranges (name/type/default/value) and richer symbol extraction
+* performance monitoring and cache manager integration across providers
+
+### Bug Fixes
+
+* formatter alignment, annotation handling, and inline const collection parsing
+* diagnostics include/type resolution and unknown-type range accuracy
+* workspace symbol caching now preserves non-file URI schemes
+* tokenizer ignores block comments to prevent false top-level declarations
+
+### Performance Improvements
+
+* incremental analysis scheduling and concurrency controls
+* cache eviction and reuse optimizations for diagnostics and workspace scans
+
+### Testing
+
+* migration to Mocha with unified VSCode mock injection
+* new regression coverage for formatting idempotency, incremental formatting, and parser edge cases
+
 ## [1.0.0](https://github.com/tzzs/vsce-thrift-support/compare/v0.7.1...v1.0.0) (2025-12-15)
 
 ### ⚠ BREAKING CHANGES
