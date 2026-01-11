@@ -56,8 +56,38 @@ class Uri {
         return new Uri('file', '', filePath, '', '');
     }
 
+    static parse(value) {
+        if (!value || typeof value !== 'string') {
+            return new Uri('file', '', '', '', '');
+        }
+        const match = value.match(/^([a-zA-Z0-9+.-]+):\/\/([^/]*)(.*)$/);
+        if (!match) {
+            return new Uri('file', '', value, '', '');
+        }
+        const scheme = match[1];
+        const authority = match[2];
+        let rest = match[3] || '';
+        let fragment = '';
+        let query = '';
+        const hashIndex = rest.indexOf('#');
+        if (hashIndex !== -1) {
+            fragment = rest.slice(hashIndex + 1);
+            rest = rest.slice(0, hashIndex);
+        }
+        const queryIndex = rest.indexOf('?');
+        if (queryIndex !== -1) {
+            query = rest.slice(queryIndex + 1);
+            rest = rest.slice(0, queryIndex);
+        }
+        const pathValue = rest || '';
+        return new Uri(scheme, authority, pathValue, query, fragment);
+    }
+
     toString() {
-        return `file://${this.path}`;
+        const authorityPart = this.authority ? this.authority : '';
+        const queryPart = this.query ? `?${this.query}` : '';
+        const fragmentPart = this.fragment ? `#${this.fragment}` : '';
+        return `${this.scheme}://${authorityPart}${this.path}${queryPart}${fragmentPart}`;
     }
 }
 

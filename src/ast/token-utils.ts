@@ -1,9 +1,14 @@
-import {Token, tokenizeLine} from './tokenizer';
+import {Token, ThriftTokenizer, tokenizeLine} from './tokenizer';
 
 export type TokenWithIndex = Token & { index: number };
 
-export function getMeaningfulTokens(line: string): Token[] {
-    return tokenizeLine(line).filter(token => token.type !== 'whitespace' && token.type !== 'comment');
+export function filterMeaningfulTokens(tokens: Token[]): Token[] {
+    return tokens.filter(token => token.type !== 'whitespace' && token.type !== 'comment');
+}
+
+export function getMeaningfulTokens(line: string, tokenizer?: ThriftTokenizer): Token[] {
+    const tokens = tokenizer ? tokenizer.tokenizeLine(line) : tokenizeLine(line);
+    return filterMeaningfulTokens(tokens);
 }
 
 export function readQualifiedIdentifier(tokens: Token[], startIndex: number): {

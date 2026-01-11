@@ -11,23 +11,24 @@ import {
     findWordRangeInLine,
     parseFieldList,
     readParenthesizedText,
-    stripLineComments,
     stripTrailingAnnotation
 } from './parser-helpers';
 import {
+    filterMeaningfulTokens,
     findFirstIdentifier,
     findIdentifierIndex,
     findLastIdentifier,
     findSymbolIndex,
     findSymbolIndexFrom,
-    getMeaningfulTokens,
     readQualifiedIdentifier
 } from './token-utils';
+import {ThriftTokenizer, Token} from './tokenizer';
 
 export class ThriftParser {
     private text: string;
     private lines: string[];
     private currentLine: number = 0;
+    private tokenizer: ThriftTokenizer;
 
     constructor(documentOrContent: vscode.TextDocument | string) {
         if (typeof documentOrContent === 'string') {
@@ -36,6 +37,7 @@ export class ThriftParser {
             this.text = documentOrContent.getText();
         }
         this.lines = this.text.split(/\r?\n/);
+        this.tokenizer = new ThriftTokenizer();
     }
 
     /**
@@ -111,21 +113,30 @@ export class ThriftParser {
         }
     }
 
+    private scanLine(line: string): { stripped: string; tokens: Token[] } {
+        const scan = this.tokenizer.scanLine(line);
+        return {
+            stripped: scan.stripped,
+            tokens: filterMeaningfulTokens(scan.tokens)
+        };
+    }
+
     private parseNextNode(parent: nodes.ThriftNode): nodes.ThriftNode | null {
         if (this.currentLine >= this.lines.length) {
             return null;
         }
 
         const line = this.lines[this.currentLine];
-        const trimmed = line.trim();
+        const scan = this.scanLine(line);
+        const trimmed = scan.stripped.trim();
 
         // Skip empty lines and comments
-        if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#')) {
+        if (!trimmed) {
             this.currentLine++;
             return null;
         }
 
-        const tokens = getMeaningfulTokens(line);
+        const tokens = scan.tokens;
         if (tokens.length === 0) {
             this.currentLine++;
             return null;
@@ -297,7 +308,8 @@ export class ThriftParser {
         // Find opening brace
         while (this.currentLine < this.lines.length) {
             const line = this.lines[this.currentLine];
-            if (line.includes('{')) {
+            const scan = this.scanLine(line);
+            if (scan.stripped.includes('{')) {
                 braceCount++;
                 break;
             }
@@ -309,7 +321,8 @@ export class ThriftParser {
         // Parse fields until closing brace
         while (this.currentLine < this.lines.length && braceCount > 0) {
             const line = this.lines[this.currentLine];
-            const trimmed = line.trim();
+            const scan = this.scanLine(line);
+            const trimmed = scan.stripped.trim();
 
             if (trimmed.includes('{')) {
                 braceCount++;
@@ -322,9 +335,7 @@ export class ThriftParser {
                 }
             }
 
-            const codeOnly = stripLineComments(trimmed);
-            const codeStart = line.indexOf(codeOnly);
-            const field = this.parseStructFieldLine(parent, line, codeOnly, codeStart);
+            const field = this.parseStructFieldLine(parent, line, scan.stripped, scan.tokens);
             if (field) {
                 parent.fields.push(field);
                 this.addChild(parent, field);
@@ -336,21 +347,21 @@ export class ThriftParser {
         return this.currentLine;
     }
 
-    private parseStructFieldLine(parent: nodes.Struct, line: string, codeOnly: string, codeStart: number): nodes.Field | null {
-        if (!codeOnly) {
+    private parseStructFieldLine(parent: nodes.Struct, line: string, cleanLine: string, tokens: Token[]): nodes.Field | null {
+        const trimmed = cleanLine.trim();
+        if (!trimmed) {
             return null;
         }
-        const tokens = getMeaningfulTokens(codeOnly);
         if (tokens.length === 0) {
             return null;
         }
         const idIndex = tokens.findIndex(token => token.type === 'number');
         if (idIndex === -1) {
-            return this.parseStructFieldLineFallback(parent, line, codeOnly, codeStart);
+            return this.parseStructFieldLineFallback(parent, line, cleanLine);
         }
         const colonIndex = findSymbolIndexFrom(tokens, ':', idIndex + 1);
         if (colonIndex === -1) {
-            return this.parseStructFieldLineFallback(parent, line, codeOnly, codeStart);
+            return this.parseStructFieldLineFallback(parent, line, cleanLine);
         }
         let cursor = colonIndex + 1;
         let requiredness: 'required' | 'optional' | undefined;
@@ -361,7 +372,7 @@ export class ThriftParser {
         }
         const typeStartToken = tokens[cursor];
         if (!typeStartToken) {
-            return this.parseStructFieldLineFallback(parent, line, codeOnly, codeStart);
+            return this.parseStructFieldLineFallback(parent, line, cleanLine);
         }
         let nameTokenIndex = -1;
         let angleDepth = 0;
@@ -383,29 +394,29 @@ export class ThriftParser {
             }
         }
         if (nameTokenIndex === -1) {
-            return this.parseStructFieldLineFallback(parent, line, codeOnly, codeStart);
+            return this.parseStructFieldLineFallback(parent, line, cleanLine);
         }
         const nameToken = tokens[nameTokenIndex];
-        const fieldType = codeOnly.slice(typeStartToken.start, nameToken.start).trim();
+        const fieldType = cleanLine.slice(typeStartToken.start, nameToken.start).trim();
         if (!fieldType) {
-            return this.parseStructFieldLineFallback(parent, line, codeOnly, codeStart);
+            return this.parseStructFieldLineFallback(parent, line, cleanLine);
         }
-        const valueTarget = stripTrailingAnnotation(codeOnly.replace(/[,;]\s*$/, ''));
+        const valueTarget = stripTrailingAnnotation(cleanLine.replace(/[,;]\s*$/, ''));
         const nameRange = new vscode.Range(
             this.currentLine,
-            codeStart + nameToken.start,
+            nameToken.start,
             this.currentLine,
-            codeStart + nameToken.end
+            nameToken.end
         );
         const typeRange = new vscode.Range(
             this.currentLine,
-            codeStart + typeStartToken.start,
+            typeStartToken.start,
             this.currentLine,
-            codeStart + nameToken.start
+            nameToken.start
         );
         const defaultInfo = findDefaultValueRange(valueTarget);
-        const defaultStart = defaultInfo ? codeStart + defaultInfo.start : null;
-        const defaultEnd = defaultInfo ? codeStart + defaultInfo.end : null;
+        const defaultStart = defaultInfo ? defaultInfo.start : null;
+        const defaultEnd = defaultInfo ? defaultInfo.end : null;
         return {
             type: nodes.ThriftNodeType.Field,
             range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
@@ -423,17 +434,19 @@ export class ThriftParser {
         };
     }
 
-    private parseStructFieldLineFallback(parent: nodes.Struct, line: string, codeOnly: string, codeStart: number): nodes.Field | null {
-        const fieldMatch = codeOnly.match(/^(\d+):\s*(?:(required|optional)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+    private parseStructFieldLineFallback(parent: nodes.Struct, line: string, cleanLine: string): nodes.Field | null {
+        const trimmed = cleanLine.trim();
+        const codeStart = cleanLine.indexOf(trimmed);
+        const fieldMatch = trimmed.match(/^(\d+):\s*(?:(required|optional)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
         if (!fieldMatch) {
             return null;
         }
-        const valueTarget = stripTrailingAnnotation(codeOnly.replace(/[,;]\s*$/, ''));
-        const nameRange = findNameRangeInLine(line, this.currentLine, fieldMatch[4], codeOnly);
-        const typeRange = findTypeRangeInLine(line, this.currentLine, fieldMatch[3].trim(), codeStart);
+        const valueTarget = stripTrailingAnnotation(cleanLine.replace(/[,;]\s*$/, ''));
+        const nameRange = findNameRangeInLine(cleanLine, this.currentLine, fieldMatch[4], trimmed);
+        const typeRange = findTypeRangeInLine(cleanLine, this.currentLine, fieldMatch[3].trim(), codeStart);
         const defaultInfo = findDefaultValueRange(valueTarget);
-        const defaultStart = defaultInfo ? codeStart + defaultInfo.start : null;
-        const defaultEnd = defaultInfo ? codeStart + defaultInfo.end : null;
+        const defaultStart = defaultInfo ? defaultInfo.start : null;
+        const defaultEnd = defaultInfo ? defaultInfo.end : null;
         return {
             type: nodes.ThriftNodeType.Field,
             range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
@@ -478,7 +491,8 @@ export class ThriftParser {
         // Find opening brace
         while (this.currentLine < this.lines.length) {
             const line = this.lines[this.currentLine];
-            if (line.includes('{')) {
+            const scan = this.scanLine(line);
+            if (scan.stripped.includes('{')) {
                 braceCount++;
                 break;
             }
@@ -490,7 +504,8 @@ export class ThriftParser {
         // Parse members until closing brace
         while (this.currentLine < this.lines.length && braceCount > 0) {
             const line = this.lines[this.currentLine];
-            const trimmed = line.trim();
+            const scan = this.scanLine(line);
+            const trimmed = scan.stripped.trim();
 
             if (trimmed.includes('{')) {
                 braceCount++;
@@ -503,8 +518,7 @@ export class ThriftParser {
                 }
             }
 
-            const codeOnly = stripLineComments(trimmed);
-            const member = this.parseEnumMemberLine(parent, line, codeOnly);
+            const member = this.parseEnumMemberLine(parent, line, scan.stripped, scan.tokens);
             if (member) {
                 parent.members.push(member);
                 this.addChild(parent, member);
@@ -516,12 +530,11 @@ export class ThriftParser {
         return this.currentLine;
     }
 
-    private parseEnumMemberLine(parent: nodes.Enum, line: string, codeOnly: string): nodes.EnumMember | null {
-        if (!codeOnly) {
+    private parseEnumMemberLine(parent: nodes.Enum, line: string, cleanLine: string, tokens: Token[]): nodes.EnumMember | null {
+        const trimmed = cleanLine.trim();
+        if (!trimmed) {
             return null;
         }
-        const codeStart = line.indexOf(codeOnly);
-        const tokens = getMeaningfulTokens(codeOnly);
         if (tokens.length === 0) {
             return null;
         }
@@ -570,27 +583,27 @@ export class ThriftParser {
                 endOffset = token.end;
             }
             if (startOffset !== null && endOffset !== null) {
-                const rawInitializer = codeOnly.slice(startOffset, endOffset).trim();
+                const rawInitializer = cleanLine.slice(startOffset, endOffset).trim();
                 const trimmed = stripTrailingAnnotation(rawInitializer.replace(/[,;]\s*$/, '')).trim();
                 initializer = trimmed || undefined;
                 if (initializer) {
                     initializerRange = new vscode.Range(
                         this.currentLine,
-                        codeStart + startOffset,
+                        startOffset,
                         this.currentLine,
-                        codeStart + endOffset
+                        endOffset
                     );
                 }
             }
         }
         if (!initializerRange) {
-            initializerRange = findInitializerRange(line, codeOnly, initializer, this.currentLine);
+            initializerRange = findInitializerRange(cleanLine, cleanLine, initializer, this.currentLine);
         }
         const nameRange = new vscode.Range(
             this.currentLine,
-            codeStart + nameToken.start,
+            nameToken.start,
             this.currentLine,
-            codeStart + nameToken.end
+            nameToken.end
         );
         return {
             type: nodes.ThriftNodeType.EnumMember,
@@ -630,7 +643,8 @@ export class ThriftParser {
         // Find opening brace
         while (this.currentLine < this.lines.length) {
             const line = this.lines[this.currentLine];
-            if (line.includes('{')) {
+            const scan = this.scanLine(line);
+            if (scan.stripped.includes('{')) {
                 braceCount++;
                 break;
             }
@@ -642,7 +656,8 @@ export class ThriftParser {
         // Parse functions until closing brace
         while (this.currentLine < this.lines.length && braceCount > 0) {
             const line = this.lines[this.currentLine];
-            const trimmed = line.trim();
+            const scan = this.scanLine(line);
+            const trimmed = scan.stripped.trim();
 
             if (trimmed.includes('{')) {
                 braceCount++;
@@ -655,7 +670,7 @@ export class ThriftParser {
                 }
             }
 
-            const funcParsed = this.parseServiceFunctionLine(line, trimmed);
+            const funcParsed = this.parseServiceFunctionLine(line, scan.stripped, scan.tokens);
             if (funcParsed) {
                 const {
                     name,
@@ -843,7 +858,7 @@ export class ThriftParser {
         return this.currentLine;
     }
 
-    private parseServiceFunctionLine(line: string, trimmed: string): {
+    private parseServiceFunctionLine(line: string, cleanLine: string, tokens: Token[]): {
         name: string;
         returnType: string;
         nameRange: vscode.Range | undefined;
@@ -854,12 +869,10 @@ export class ThriftParser {
         funcEndLine: number;
         funcEndChar: number;
     } | null {
-        const codeOnly = stripLineComments(trimmed);
-        if (!codeOnly) {
+        const trimmed = cleanLine.trim();
+        if (!trimmed) {
             return null;
         }
-        const codeStart = line.indexOf(codeOnly);
-        const tokens = getMeaningfulTokens(codeOnly);
         if (tokens.length === 0) {
             return null;
         }
@@ -884,23 +897,23 @@ export class ThriftParser {
             return null;
         }
         const nameToken = tokens[nameTokenIndex];
-        const returnType = codeOnly.slice(returnTypeStartToken.start, nameToken.start).trim();
+        const returnType = cleanLine.slice(returnTypeStartToken.start, nameToken.start).trim();
         if (!returnType) {
-            return this.parseServiceFunctionLineFallback(line, trimmed);
+            return this.parseServiceFunctionLineFallback(line, cleanLine);
         }
         const funcStartLine = this.currentLine;
-        const funcStartChar = codeStart + returnTypeStartToken.start;
+        const funcStartChar = returnTypeStartToken.start;
         const nameRange = new vscode.Range(
             funcStartLine,
-            codeStart + nameToken.start,
+            nameToken.start,
             funcStartLine,
-            codeStart + nameToken.end
+            nameToken.end
         );
         const returnTypeRange = new vscode.Range(
             funcStartLine,
-            codeStart + returnTypeStartToken.start,
+            returnTypeStartToken.start,
             funcStartLine,
-            codeStart + nameToken.start
+            nameToken.start
         );
         return {
             name: nameToken.value,
@@ -915,7 +928,7 @@ export class ThriftParser {
         };
     }
 
-    private parseServiceFunctionLineFallback(line: string, trimmed: string): {
+    private parseServiceFunctionLineFallback(line: string, cleanLine: string): {
         name: string;
         returnType: string;
         nameRange: vscode.Range | undefined;
@@ -926,14 +939,15 @@ export class ThriftParser {
         funcEndLine: number;
         funcEndChar: number;
     } | null {
+        const trimmed = cleanLine.trim();
         const funcMatch = trimmed.match(/^(?:(oneway)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
         if (!funcMatch) {
             return null;
         }
         const funcStartLine = this.currentLine;
-        const funcStartChar = line.indexOf(funcMatch[0]);
-        const nameRange = findWordRangeInLine(line, funcStartLine, funcMatch[3], funcStartChar);
-        const returnTypeRange = findTypeRangeInLine(line, funcStartLine, funcMatch[2].trim(), funcStartChar);
+        const funcStartChar = cleanLine.indexOf(funcMatch[0]);
+        const nameRange = findWordRangeInLine(cleanLine, funcStartLine, funcMatch[3], funcStartChar);
+        const returnTypeRange = findTypeRangeInLine(cleanLine, funcStartLine, funcMatch[2].trim(), funcStartChar);
         return {
             name: funcMatch[3],
             returnType: funcMatch[2].trim(),

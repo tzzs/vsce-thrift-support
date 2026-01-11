@@ -3,6 +3,7 @@ const path = require('path');
 const vscode = require('vscode');
 
 const {ThriftWorkspaceSymbolProvider} = require('../../../out/workspace-symbol-provider.js');
+const {config} = require('../../../out/config/index.js');
 
 const mockFileWatcher = {
     createWatcherWithEvents: () => ({
@@ -366,5 +367,55 @@ describe('workspace-symbol-provider', () => {
     });
     it('should pass testCancellationToken', async () => {
         await testCancellationToken();
+    });
+    it('should preserve URI schemes when using cached file list', async () => {
+        const originalTtl = config.cache.fileSymbols.ttlMs;
+        const remoteUris = [
+            vscode.Uri.parse('vscode-remote://ssh-remote+host/workspace/test.thrift'),
+            vscode.Uri.parse('vscode-remote://ssh-remote+host/workspace/shared.thrift')
+        ];
+        const schemesSeen = [];
+        let findCalls = 0;
+
+        config.cache.fileSymbols.ttlMs = 0;
+        vscode.workspace.findFiles = async () => {
+            findCalls += 1;
+            return remoteUris;
+        };
+        vscode.workspace.fs.readFile = async (uri) => {
+            schemesSeen.push(uri.scheme);
+            if (uri.path.endsWith('test.thrift')) {
+                const content = `namespace java com.example
+
+struct User {
+    1: required i32 id
+}`;
+                return Buffer.from(content, 'utf-8');
+            }
+            if (uri.path.endsWith('shared.thrift')) {
+                const content = `enum Status {
+    ACTIVE = 1
+}`;
+                return Buffer.from(content, 'utf-8');
+            }
+            return originalFsReadFile(uri);
+        };
+
+        try {
+            const provider = new ThriftWorkspaceSymbolProvider({fileWatcher: mockFileWatcher});
+            await provider.provideWorkspaceSymbols('User', createMockCancellationToken());
+            await provider.provideWorkspaceSymbols('Status', createMockCancellationToken());
+
+            if (findCalls !== 1) {
+                throw new Error(`Expected findFiles to run once, got ${findCalls}`);
+            }
+            const unexpectedScheme = schemesSeen.find(scheme => scheme !== 'vscode-remote');
+            if (unexpectedScheme) {
+                throw new Error(`Expected vscode-remote scheme, got ${unexpectedScheme}`);
+            }
+        } finally {
+            config.cache.fileSymbols.ttlMs = originalTtl;
+            setupMocks();
+        }
     });
 });
