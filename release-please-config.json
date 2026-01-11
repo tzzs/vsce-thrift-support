@@ -1,8 +1,0 @@
-{
-  "commit-search-depth": 200,
-  "release-search-depth": 50,
-  "sequential-calls": true,
-  "packages": {
-    ".": {}
-  }
-}
