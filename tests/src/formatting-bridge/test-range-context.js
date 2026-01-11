@@ -176,4 +176,34 @@ describe('range-context', () => {
         const s2 = lines[1].indexOf(" (");
         assert.notStrictEqual(s1, s2, "legacy key alignStructAnnotations=false should disable alignment");
     });
+
+    it('should preserve leading blank line in range formatting', () => {
+        const input = [
+            '',
+            'struct User {',
+            '    1: i32 id',
+            '}',
+        ].join('\n');
+
+        const out = runRangeFormat(input, 0, 3);
+        const lines = out.split('\n');
+        assert.strictEqual(lines[0], '', 'Leading blank line should be preserved');
+        assert.strictEqual(lines[1], 'struct User {', 'Struct header should not be indented');
+    });
+
+    it('should format block comment before struct without extra indent', () => {
+        const input = [
+            '/*',
+            ' * doc',
+            ' */',
+            'struct User {',
+            '    1: i32 id',
+            '}',
+        ].join('\n');
+
+        const out = runRangeFormat(input, 0, 5);
+        const lines = out.split('\n');
+        assert.strictEqual(lines[0], '/*', 'Block comment should remain at column 0');
+        assert.strictEqual(lines[3], 'struct User {', 'Struct header should not be indented');
+    });
 });

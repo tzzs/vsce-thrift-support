@@ -21,7 +21,7 @@
 
 - [x] 修复范围格式化从 struct header 起始时的额外缩进问题
 - [x] 添加回归测试（增量范围起点在 struct header）
-- [ ] 补充与 range formatting 相关的边界用例（空行开头、block comment 前置）
+- [x] 补充与 range formatting 相关的边界用例（空行开头、block comment 前置）
 
 ### 1.2 测试与验证
 
