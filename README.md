@@ -15,22 +15,26 @@
 ## 🚀 功能特性
 
 ### 语法高亮
+
 - 完整的 Thrift 语法支持，包括关键字、数据类型、字符串、注释和数字字面量
 - 支持所有 Thrift 原生类型（包含 uuid）和容器类型
 - 智能的语法着色，提升代码可读性
 
 ### 代码格式化
+
 - **文档格式化**：一键格式化整个 Thrift 文件
 - **选择格式化**：格式化选中的代码块
 - **智能对齐**：自动对齐字段类型、字段名和注释
 - **可配置选项**：支持自定义缩进、行长度等格式化规则
 
 ### 代码导航
+
 - **跳转到定义**：快速导航到类型定义
 - **包含文件解析**：支持跟踪 `include` 语句
 - **工作区搜索**：在整个工作区中查找定义
 
 ### 代码重构
+
 - **标识符重命名（F2）**：跨文件更新引用，内置冲突检测
 - **抽取类型（typedef）**：从选区或当前字段推断类型并生成 `typedef`
 - **移动类型到文件**：将 `struct/enum/service/typedef` 等移动到新的 `.thrift` 文件并自动插入 `include`
@@ -44,45 +48,61 @@
 
 ## 🔧 使用方法
 
+## 🧭 项目结构
+
+- `src/`: 扩展主体（providers、formatter、diagnostics、extension 入口）
+- `src/formatter/`: 纯格式化引擎
+- `src/formatting-bridge/`: VS Code 格式化桥接（选区/配置/范围处理）
+- `src/references/`: 引用查找辅助（AST 缓存、遍历、符号类型）
+- `src/utils/`: 通用工具（缓存、文件读取、错误处理）
+- `tests/`: 单元与场景测试
+- `test-files/` / `tests/src/**/test-files/`: 测试夹具
+- `syntaxes/` / `language-configuration.json`: 语法高亮与语言配置
+
 ### 格式化代码
+
 - **格式化文档**：`Ctrl+Shift+I` (Windows/Linux) 或 `Cmd+Shift+I` (Mac)
 - **格式化选择**：选中代码后使用 `Ctrl+K Ctrl+F` (Windows/Linux) 或 `Cmd+K Cmd+F` (Mac)
 - **命令面板**：
-  - `Thrift: Format Document`
-  - `Thrift: Format Selection`
+    - `Thrift: Format Document`
+    - `Thrift: Format Selection`
 
 > 发布命名空间：`tanzz`（VS Marketplace 与 Open VSX 均使用此命名空间）
 
 ### 代码导航
+
 - **跳转到定义**：`F12` 或 `Ctrl+点击` 类型名
 - **查看定义**：`Alt+F12`
 
 ### 代码诊断
+
 - 语法括号配对与未闭合检查（syntax.unmatchedCloser / syntax.unclosed）
 - 类型校验：未知类型与 typedef 基类（type.unknown / typedef.unknownBase）
 - 容器内部类型校验：校验 list/map/set 的内层类型是否已定义
 - 枚举取值约束：必须为非负整数（enum.negativeValue / enum.valueNotInteger）
 - 默认值类型校验：包括基础类型与 uuid 字符串格式校验（value.typeMismatch）
 - 服务约束：
-  - oneway 必须返回 void，且不能声明 throws（service.oneway.returnNotVoid / service.oneway.hasThrows）
-  - throws 的类型必须为已知异常类型（service.throws.unknown / service.throws.notException）
-  - extends 的父类型必须为 service（service.extends.unknown / service.extends.notService）
+    - oneway 必须返回 void，且不能声明 throws（service.oneway.returnNotVoid / service.oneway.hasThrows）
+    - throws 的类型必须为已知异常类型（service.throws.unknown / service.throws.notException）
+    - extends 的父类型必须为 service（service.extends.unknown / service.extends.notService）
 - 默认值解析健壮性改进：
-  - 忽略字段注解中的 '='，避免被误识别为默认值起始
-  - set<T> 默认值同时接受 `[]` 或 `{}` 包裹，并依据顶层括号进行元素分隔校验
+    - 忽略字段注解中的 '='，避免被误识别为默认值起始
+    - set<T> 默认值同时接受 `[]` 或 `{}` 包裹，并依据顶层括号进行元素分隔校验
 
 说明：诊断在编辑与保存时即时更新，可在 VSCode “问题”面板查看并定位。
 
 ### 代码重构
+
 - **标识符重命名（F2）**：跨文件更新引用，内置冲突检测
 - **抽取类型（typedef）**：从选区或当前字段推断类型并生成 `typedef`
 - **移动类型到文件**：将 `struct/enum/service/typedef` 等移动到新的 `.thrift` 文件并自动插入 `include`
 
 ### 重命名与重构
+
 - **重命名符号**：选中标识符按 `F2`，或右键菜单选择 `Rename Symbol`
 - **命令面板**：
-  - `Thrift: Extract type (typedef)`
-  - `Thrift: Move type to file...`
+    - `Thrift: Extract type (typedef)`
+    - `Thrift: Move type to file...`
 - **灯泡菜单（Quick Fix/Refactor）**：在合适位置会出现与重构相关的 Code Action
 
 ### 配置选项
@@ -114,6 +134,7 @@
 ## 📝 格式化示例
 
 ### 格式化前：
+
 ```thrift
 struct User{
 1:required string name
@@ -123,6 +144,7 @@ struct User{
 ```
 
 ### 格式化后：
+
 ```thrift
 struct User {
     1:   required string name,
@@ -137,11 +159,11 @@ struct User {
 
 1. **GitHub Issues**：在 [项目仓库](https://github.com/tzzs/vsce-thrift-support) 中创建 Issue
 2. **描述问题**：请详细描述遇到的问题，包括：
-   - VSCode 版本
-   - 扩展版本
-   - 重现步骤
-   - 期望行为
-   - 实际行为
+    - VSCode 版本
+    - 扩展版本
+    - 重现步骤
+    - 期望行为
+    - 实际行为
 3. **提供示例**：如果可能，请提供相关的 Thrift 代码示例
 
 ## 🤝 贡献指南
@@ -149,15 +171,18 @@ struct User {
 我们欢迎社区贡献！如果您想为项目做出贡献：
 
 ### 贡献方式
+
 1. **报告 Bug**：发现问题请及时报告
 2. **功能建议**：提出新功能的想法和建议
 3. **代码贡献**：提交 Pull Request
 4. **文档改进**：帮助完善文档
 
 ### 开发环境
+
 开发相关内容已迁移至 [DEVELOPMENT.md](DEVELOPMENT.md)，请前往查看最新要求与步骤（包括 Node.js 版本、构建、测试与发布流程）。
 
 ### 提交 Pull Request
+
 1. 创建功能分支：`git checkout -b feature/your-feature`
 2. 提交更改：`git commit -m "Add your feature"`
 3. 推送分支：`git push origin feature/your-feature`
@@ -170,6 +195,7 @@ struct User {
 ## 🔄 更新日志
 
 完整的更新记录请查看 CHANGELOG：
+
 - 本地：[CHANGELOG.md](CHANGELOG.md)
 - GitHub：https://github.com/tzzs/vsce-thrift-support/blob/master/CHANGELOG.md
 
