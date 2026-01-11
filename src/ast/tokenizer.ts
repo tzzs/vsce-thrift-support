@@ -9,15 +9,65 @@ export interface Token {
 
 const symbolChars = new Set(['{', '}', '(', ')', '[', ']', '<', '>', ',', ';', ':', '=', '.']);
 
+interface ScanState {
+    inBlockComment: boolean;
+}
+
+export interface LineScanResult {
+    tokens: Token[];
+    stripped: string;
+}
+
+export class ThriftTokenizer {
+    private state: ScanState = {inBlockComment: false};
+
+    public scanLine(line: string): LineScanResult {
+        return scanLine(line, this.state);
+    }
+
+    public tokenizeLine(line: string): Token[] {
+        return this.scanLine(line).tokens;
+    }
+}
+
 /**
  * Tokenize a single line of Thrift source.
  * @param line - Line content.
  * @returns Tokens found in the line.
  */
 export function tokenizeLine(line: string): Token[] {
+    return scanLine(line, {inBlockComment: false}).tokens;
+}
+
+function scanLine(line: string, state: ScanState): LineScanResult {
     const tokens: Token[] = [];
+    const stripped = line.split('');
     let i = 0;
+    let escaped = false;
+
+    const maskRange = (start: number, end: number) => {
+        for (let idx = start; idx < end && idx < stripped.length; idx++) {
+            stripped[idx] = ' ';
+        }
+    };
+
     while (i < line.length) {
+        if (state.inBlockComment) {
+            const end = line.indexOf('*/', i);
+            if (end === -1) {
+                tokens.push({type: 'comment', value: line.slice(i), start: i, end: line.length});
+                maskRange(i, line.length);
+                i = line.length;
+                break;
+            }
+            const endIndex = end + 2;
+            tokens.push({type: 'comment', value: line.slice(i, endIndex), start: i, end: endIndex});
+            maskRange(i, endIndex);
+            i = endIndex;
+            state.inBlockComment = false;
+            continue;
+        }
+
         const ch = line[i];
 
         if (ch === ' ' || ch === '\t') {
@@ -29,21 +79,12 @@ export function tokenizeLine(line: string): Token[] {
             continue;
         }
 
-        if (ch === '/' && line[i + 1] === '/') {
-            tokens.push({type: 'comment', value: line.slice(i), start: i, end: line.length});
-            break;
-        }
-        if (ch === '#') {
-            tokens.push({type: 'comment', value: line.slice(i), start: i, end: line.length});
-            break;
-        }
-
         if (ch === '"' || ch === '\'') {
             const quote = ch;
             const start = i;
             let value = '';
             i += 1;
-            let escaped = false;
+            escaped = false;
             while (i < line.length) {
                 const curr = line[i];
                 if (!escaped && curr === '\\') {
@@ -62,6 +103,33 @@ export function tokenizeLine(line: string): Token[] {
             }
             tokens.push({type: 'string', value, start, end: i});
             continue;
+        }
+
+        if (ch === '/' && line[i + 1] === '*') {
+            const start = i;
+            const end = line.indexOf('*/', i + 2);
+            if (end === -1) {
+                tokens.push({type: 'comment', value: line.slice(start), start, end: line.length});
+                maskRange(start, line.length);
+                state.inBlockComment = true;
+                break;
+            }
+            const endIndex = end + 2;
+            tokens.push({type: 'comment', value: line.slice(start, endIndex), start, end: endIndex});
+            maskRange(start, endIndex);
+            i = endIndex;
+            continue;
+        }
+
+        if (ch === '/' && line[i + 1] === '/') {
+            tokens.push({type: 'comment', value: line.slice(i), start: i, end: line.length});
+            maskRange(i, line.length);
+            break;
+        }
+        if (ch === '#') {
+            tokens.push({type: 'comment', value: line.slice(i), start: i, end: line.length});
+            maskRange(i, line.length);
+            break;
         }
 
         if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || ch === '_') {
@@ -103,7 +171,8 @@ export function tokenizeLine(line: string): Token[] {
         tokens.push({type: 'symbol', value: ch, start: i, end: i + 1});
         i += 1;
     }
-    return tokens;
+
+    return {tokens, stripped: stripped.join('')};
 }
 
 /**
@@ -113,11 +182,12 @@ export function tokenizeLine(line: string): Token[] {
  */
 export function tokenizeText(text: string): Token[] {
     const tokens: Token[] = [];
+    const tokenizer = new ThriftTokenizer();
     let lineStart = 0;
     for (let i = 0; i <= text.length; i++) {
         if (i === text.length || text[i] === '\n') {
             const line = text.slice(lineStart, i);
-            const lineTokens = tokenizeLine(line);
+            const lineTokens = tokenizer.tokenizeLine(line);
             for (const token of lineTokens) {
                 tokens.push({
                     ...token,
