@@ -141,13 +141,7 @@ describe('format-comprehensive', () => {
      */
     async function assertFormatted(input, expected, options = {}) {
         const result = await formatContent(input, options);
-        if (result.trim() !== expected.trim()) {
-            console.log('Expected:');
-            console.log(expected);
-            console.log('\nActual:');
-            console.log(result);
-            assert.strictEqual(result.trim(), expected.trim(), '格式化结果不匹配');
-        }
+        assert.strictEqual(result.trim(), expected.trim(), '格式化结果不匹配');
     }
 
     it('基础结构体格式化 (默认配置)', async () => {

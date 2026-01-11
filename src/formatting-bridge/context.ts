@@ -28,6 +28,9 @@ export function computeInitialContext(
 
         if (useCachedAst) {
             ast = ThriftParser.parseWithCache(document);
+            if (start.character === 0) {
+                boundaryLine = Math.max(start.line - 1, 0);
+            }
         } else {
             const before = document.getText(new vscode.Range(new vscode.Position(0, 0), start));
             if (!before) {

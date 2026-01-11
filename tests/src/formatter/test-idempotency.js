@@ -56,31 +56,16 @@ struct User {
             insertSpaces: true
         });
 
-        // Check if they are the same
-        const areOnceAndTwiceEqual = formattedOnce === formattedTwice;
-        const areTwiceAndThriceEqual = formattedTwice === formattedThrice;
-        const areAllEqual = areOnceAndTwiceEqual && areTwiceAndThriceEqual;
-
-        console.log('Are formatted once and twice the same?', areOnceAndTwiceEqual);
-        console.log('Are formatted twice and thrice the same?', areTwiceAndThriceEqual);
-        console.log('Are all three the same?', areAllEqual);
-
-        if (!areAllEqual) {
-            console.log('ERROR: Multiple formatting produces different results!');
-            console.log('Length once:', formattedOnce.length);
-            console.log('Length twice:', formattedTwice.length);
-            console.log('Length thrice:', formattedThrice.length);
-            
-            // Show first few lines to see the difference
-            console.log('\\nFirst 100 chars of formattedOnce:\\n', formattedOnce.substring(0, 100));
-            console.log('\\nFirst 100 chars of formattedTwice:\\n', formattedTwice.substring(0, 100));
-        } else {
-            console.log('SUCCESS: Multiple formatting produces the same result (idempotent)');
-        }
-
         // The formatter should be idempotent
-        if (!areAllEqual) {
-            throw new Error('Formatter is not idempotent - multiple applications produce different results');
-        }
+        assert.strictEqual(
+            formattedOnce,
+            formattedTwice,
+            'Formatter is not idempotent - format once vs twice differ'
+        );
+        assert.strictEqual(
+            formattedTwice,
+            formattedThrice,
+            'Formatter is not idempotent - format twice vs thrice differ'
+        );
     });
 });
