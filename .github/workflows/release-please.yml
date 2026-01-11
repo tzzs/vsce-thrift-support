@@ -13,6 +13,8 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    # 设置 Job 级别的超时，防止因 API 响应过慢导致任务挂起
+    timeout-minutes: 20 
     steps:
       - name: Run release-please
         uses: googleapis/release-please-action@v4
