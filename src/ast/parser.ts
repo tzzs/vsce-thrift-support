@@ -121,14 +121,16 @@ export class ThriftParser {
         };
     }
 
-    private countBraces(line: string): { open: number; close: number } {
+    private countBraces(tokens: Token[]): { open: number; close: number } {
         let open = 0;
         let close = 0;
-        for (let i = 0; i < line.length; i++) {
-            const ch = line[i];
-            if (ch === '{') {
+        for (const token of tokens) {
+            if (token.type !== 'symbol') {
+                continue;
+            }
+            if (token.value === '{') {
                 open++;
-            } else if (ch === '}') {
+            } else if (token.value === '}') {
                 close++;
             }
         }
@@ -323,7 +325,7 @@ export class ThriftParser {
         while (this.currentLine < this.lines.length) {
             const line = this.lines[this.currentLine];
             const scan = this.scanLine(line);
-            const braceStats = this.countBraces(scan.stripped);
+            const braceStats = this.countBraces(scan.tokens);
             if (braceStats.open > 0) {
                 braceCount += braceStats.open - braceStats.close;
                 break;
@@ -342,7 +344,7 @@ export class ThriftParser {
             const scan = this.scanLine(line);
             const trimmed = scan.stripped.trim();
 
-            const braceStats = this.countBraces(scan.stripped);
+            const braceStats = this.countBraces(scan.tokens);
             if (braceStats.open > 0 || braceStats.close > 0) {
                 braceCount += braceStats.open - braceStats.close;
                 if (braceCount <= 0) {
@@ -660,7 +662,7 @@ export class ThriftParser {
         while (this.currentLine < this.lines.length) {
             const line = this.lines[this.currentLine];
             const scan = this.scanLine(line);
-            const braceStats = this.countBraces(scan.stripped);
+            const braceStats = this.countBraces(scan.tokens);
             if (braceStats.open > 0) {
                 braceCount += braceStats.open - braceStats.close;
                 break;
@@ -679,7 +681,7 @@ export class ThriftParser {
             const scan = this.scanLine(line);
             const trimmed = scan.stripped.trim();
 
-            const braceStats = this.countBraces(scan.stripped);
+            const braceStats = this.countBraces(scan.tokens);
             if (braceStats.open > 0 || braceStats.close > 0) {
                 braceCount += braceStats.open - braceStats.close;
                 if (braceCount <= 0) {
