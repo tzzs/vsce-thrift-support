@@ -121,6 +121,20 @@ export class ThriftParser {
         };
     }
 
+    private countBraces(line: string): { open: number; close: number } {
+        let open = 0;
+        let close = 0;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            if (ch === '{') {
+                open++;
+            } else if (ch === '}') {
+                close++;
+            }
+        }
+        return {open, close};
+    }
+
     private parseNextNode(parent: nodes.ThriftNode): nodes.ThriftNode | null {
         if (this.currentLine >= this.lines.length) {
             return null;
@@ -309,14 +323,18 @@ export class ThriftParser {
         while (this.currentLine < this.lines.length) {
             const line = this.lines[this.currentLine];
             const scan = this.scanLine(line);
-            if (scan.stripped.includes('{')) {
-                braceCount++;
+            const braceStats = this.countBraces(scan.stripped);
+            if (braceStats.open > 0) {
+                braceCount += braceStats.open - braceStats.close;
                 break;
             }
             this.currentLine++;
         }
 
         this.currentLine++; // Move past opening brace
+        if (braceCount <= 0) {
+            return this.currentLine;
+        }
 
         // Parse fields until closing brace
         while (this.currentLine < this.lines.length && braceCount > 0) {
@@ -324,11 +342,9 @@ export class ThriftParser {
             const scan = this.scanLine(line);
             const trimmed = scan.stripped.trim();
 
-            if (trimmed.includes('{')) {
-                braceCount++;
-            }
-            if (trimmed.includes('}')) {
-                braceCount--;
+            const braceStats = this.countBraces(scan.stripped);
+            if (braceStats.open > 0 || braceStats.close > 0) {
+                braceCount += braceStats.open - braceStats.close;
                 if (braceCount <= 0) {
                     this.currentLine++;
                     break;
@@ -644,14 +660,18 @@ export class ThriftParser {
         while (this.currentLine < this.lines.length) {
             const line = this.lines[this.currentLine];
             const scan = this.scanLine(line);
-            if (scan.stripped.includes('{')) {
-                braceCount++;
+            const braceStats = this.countBraces(scan.stripped);
+            if (braceStats.open > 0) {
+                braceCount += braceStats.open - braceStats.close;
                 break;
             }
             this.currentLine++;
         }
 
         this.currentLine++; // Move past opening brace
+        if (braceCount <= 0) {
+            return this.currentLine;
+        }
 
         // Parse functions until closing brace
         while (this.currentLine < this.lines.length && braceCount > 0) {
@@ -659,11 +679,9 @@ export class ThriftParser {
             const scan = this.scanLine(line);
             const trimmed = scan.stripped.trim();
 
-            if (trimmed.includes('{')) {
-                braceCount++;
-            }
-            if (trimmed.includes('}')) {
-                braceCount--;
+            const braceStats = this.countBraces(scan.stripped);
+            if (braceStats.open > 0 || braceStats.close > 0) {
+                braceCount += braceStats.open - braceStats.close;
                 if (braceCount <= 0) {
                     this.currentLine++;
                     break;
