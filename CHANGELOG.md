@@ -1,5 +1,14 @@
 # Changelog | 更新日志
 
+## [2.0.1](https://github.com/tzzs/vsce-thrift-support/compare/v2.0.0...v2.0.1) (2026-01-12)
+
+
+### Bug Fixes
+
+* handle inline empty struct/service bodies ([b34f352](https://github.com/tzzs/vsce-thrift-support/commit/b34f35219ac9e09e1c08e89af497ac71b03eb6eb))
+* handle inline empty struct/service bodies ([6f1e1e0](https://github.com/tzzs/vsce-thrift-support/commit/6f1e1e0cad515b0a1f66dd4d26a3898c722357b0))
+* ignore string braces when counting blocks ([5d80cfa](https://github.com/tzzs/vsce-thrift-support/commit/5d80cfacfd1514ab11c387f79f183b1c06d2288b))
+
 ## [2.0.0](https://github.com/tzzs/vsce-thrift-support/compare/v1.0.0...v2.0.0) (2026-01-12)
 
 ### ⚠ BREAKING CHANGES
