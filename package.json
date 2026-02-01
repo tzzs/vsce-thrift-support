@@ -174,7 +174,7 @@
     "nyc": "^15.1.0",
     "rimraf": "^3.0.2",
     "ts-node": "^10.9.2",
-    "typescript": "^4.9.4"
+    "typescript": "^4.9.5"
   },
   "nyc": {
     "include": [
