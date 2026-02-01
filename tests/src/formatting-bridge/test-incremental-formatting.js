@@ -23,7 +23,7 @@ describe('incremental-formatting', () => {
         config.incremental.formattingEnabled = true;
         config.incremental.maxDirtyLines = 2;
 
-        const tracker = new IncrementalTracker();
+        const tracker = IncrementalTracker.getInstance();
         const provider = new ThriftFormattingProvider({incrementalTracker: tracker});
 
         const text = ['struct A {', '1:i32 id', '}', '', 'struct B {', '1:i32 name', '}'].join(
@@ -75,7 +75,7 @@ describe('incremental-formatting', () => {
         config.incremental.formattingEnabled = true;
         config.incremental.maxDirtyLines = 1;
 
-        const tracker = new IncrementalTracker();
+        const tracker = IncrementalTracker.getInstance();
         const provider = new ThriftFormattingProvider({incrementalTracker: tracker});
 
         const text = ['struct A {', '1:i32 id', '}', '', 'struct B {', '1:i32 name', '}'].join(
@@ -127,7 +127,7 @@ describe('incremental-formatting', () => {
         config.incremental.formattingEnabled = true;
         config.incremental.maxDirtyLines = 2;
 
-        const tracker = new IncrementalTracker();
+        const tracker = IncrementalTracker.getInstance();
         const provider = new ThriftFormattingProvider({incrementalTracker: tracker});
 
         const text = ['// header', 'struct User {', '1:i32 id', '}', ''].join('\n');
