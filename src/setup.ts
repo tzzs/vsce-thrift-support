@@ -14,6 +14,7 @@ import {registerFoldingRangeProvider} from './folding-range-provider';
 import {registerSelectionRangeProvider} from './selection-range-provider';
 import {ThriftRenameProvider} from './rename-provider';
 import {ThriftRefactorCodeActionProvider} from './code-actions-provider';
+import { setupIncrementalParsingTracking } from './utils/incremental-parser';
 
 /**
  * 注册所有语言特性提供者。
@@ -35,6 +36,9 @@ export function registerProviders(context: vscode.ExtensionContext, deps: CoreDe
     context.subscriptions.push(
         vscode.workspace.onDidChangeTextDocument(event => tracker.markChanges(event))
     );
+
+    // Setup incremental parsing tracking
+    setupIncrementalParsingTracking(context);
 
     // Register definition provider
     const definitionProvider = new ThriftDefinitionProvider(deps);

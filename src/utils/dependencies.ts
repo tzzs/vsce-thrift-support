@@ -3,6 +3,7 @@ import {ErrorHandler} from './error-handler';
 import {IncrementalTracker} from './incremental-tracker';
 import {ThriftFileWatcher} from './file-watcher';
 import {createPerformanceMonitor, PerformanceMonitor} from '../performance-monitor';
+import {IncrementalParserManager} from './incremental-parser';
 
 export interface CoreDependencies {
     cacheManager: CacheManager;
@@ -10,6 +11,7 @@ export interface CoreDependencies {
     fileWatcher: ThriftFileWatcher;
     incrementalTracker: IncrementalTracker;
     performanceMonitor: PerformanceMonitor;
+    incrementalParserManager: IncrementalParserManager;
 }
 
 export function createCoreDependencies(): CoreDependencies {
@@ -18,7 +20,8 @@ export function createCoreDependencies(): CoreDependencies {
         cacheManager: new CacheManager(),
         errorHandler,
         fileWatcher: new ThriftFileWatcher(),
-        incrementalTracker: new IncrementalTracker(),
-        performanceMonitor: createPerformanceMonitor({errorHandler})
+        incrementalTracker: IncrementalTracker.getInstance(),
+        performanceMonitor: createPerformanceMonitor({errorHandler}),
+        incrementalParserManager: new IncrementalParserManager()
     };
 }

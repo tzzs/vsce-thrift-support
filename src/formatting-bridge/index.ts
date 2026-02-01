@@ -89,7 +89,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     private errorHandler: ErrorHandler;
 
     constructor(deps?: Partial<CoreDependencies>) {
-        this.incrementalTracker = deps?.incrementalTracker ?? new IncrementalTracker();
+        this.incrementalTracker = deps?.incrementalTracker ?? IncrementalTracker.getInstance();
         this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
     }
 
