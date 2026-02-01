@@ -151,6 +151,23 @@ export class PerformanceMonitor {
                 report += `- **${stat.operation}**: count=${stat.count}, avg=${stat.avgDuration.toFixed(2)}ms, p95=${stat.p95Duration.toFixed(2)}ms, max=${stat.maxDuration.toFixed(2)}ms, slow=${stat.slowCount}${sizeInfo}\n`;
             });
             report += '\n';
+
+            // Add comparison between incremental and full parsing if both exist
+            const incrementalOps = opStats.filter(stat => stat.operation.startsWith('incremental-parse'));
+            const fullOps = opStats.filter(stat => stat.operation.startsWith('full-parse'));
+
+            if (incrementalOps.length > 0 && fullOps.length > 0) {
+                report += `### 性能对比\n`;
+                incrementalOps.forEach(incStat => {
+                    fullOps.forEach(fullStat => {
+                        if (incStat.operation.replace('incremental-', '').startsWith(fullStat.operation.replace('full-', ''))) {
+                            const improvement = ((fullStat.avgDuration - incStat.avgDuration) / fullStat.avgDuration * 100).toFixed(1);
+                            report += `- ${incStat.operation} vs ${fullStat.operation}: ${improvement}% faster (avg: ${incStat.avgDuration.toFixed(2)}ms vs ${fullStat.avgDuration.toFixed(2)}ms)\n`;
+                        }
+                    });
+                });
+                report += '\n';
+            }
         }
 
         if (slowOperations.length > 0) {
@@ -162,6 +179,52 @@ export class PerformanceMonitor {
         }
 
         return report;
+    }
+
+    /**
+     * 测量增量解析操作的耗时并与全量解析进行比较。
+     * @param fullParseFn 全量解析函数
+     * @param incrementalParseFn 增量解析函数
+     * @param document 相关文档
+     * @param dirtyRange 变更范围
+     * @returns 增量解析结果
+     */
+    public measureIncrementalParsing<T>(
+        fullParseFn: () => T,
+        incrementalParseFn: () => T,
+        document?: vscode.TextDocument,
+        dirtyRange?: { startLine: number; endLine: number }
+    ): { result: T; wasIncremental: boolean; improvement: number } {
+        let fullDuration = 0;
+        let incrementalDuration = 0;
+        let result: T;
+        let wasIncremental = false;
+
+        // First try incremental parsing if dirty range is provided
+        if (dirtyRange && document) {
+            const incrementalStart = performance.now();
+            result = this.measure(`incremental-parse-region-${dirtyRange.startLine}-${dirtyRange.endLine}`, incrementalParseFn, document);
+            incrementalDuration = performance.now() - incrementalStart;
+            wasIncremental = true;
+
+            // For comparison, also measure full parsing occasionally to maintain statistics
+            const shouldCompare = this.metrics.length < 10 || this.metrics.length % 20 === 0; // Compare periodically
+            if (shouldCompare) {
+                const fullStart = performance.now();
+                this.measure('full-parse-reference', fullParseFn, document);
+                fullDuration = performance.now() - fullStart;
+            }
+        } else {
+            // Fallback to full parsing
+            result = this.measure('full-parse', fullParseFn, document);
+            wasIncremental = false;
+        }
+
+        // Calculate improvement percentage if both measurements are available
+        const improvement = fullDuration > 0 ?
+            ((fullDuration - incrementalDuration) / fullDuration * 100) : 0;
+
+        return { result, wasIncremental, improvement };
     }
 
     /**
@@ -243,7 +306,7 @@ export class PerformanceMonitor {
         }
 
         const result: OperationStats[] = [];
-        for (const stat of stats.values()) {
+        for (const stat of Array.from(stats.values())) {
             const durations = this.metrics
                 .filter(m => m.operation === stat.operation)
                 .map(m => m.duration)
