@@ -20,29 +20,26 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         range: vscode.Range;
         placeholder: string;
     }> {
-        try {
+        return this.errorHandler.wrapSync(() => {
             const wordRange = this.getWordRange(document, position);
             if (!wordRange) {
                 return Promise.reject('No symbol to rename at cursor');
             }
             const placeholder = document.getText(wordRange);
             return {range: wordRange, placeholder};
-        } catch (error) {
-            this.errorHandler.handleError(error, {
-                component: 'ThriftRenameProvider',
-                operation: 'prepareRename',
-                filePath: document.uri.fsPath,
-                additionalInfo: {position: position.toString()}
-            });
-            return Promise.reject('Rename failed');
-        }
+        }, {
+            component: 'ThriftRenameProvider',
+            operation: 'prepareRename',
+            filePath: document.uri.fsPath,
+            additionalInfo: {position: position.toString()}
+        }, Promise.reject('Rename failed'));
     }
 
     /**
      * 生成重命名的 WorkspaceEdit，尽量使用精确范围替换。
      */
     async provideRenameEdits(document: vscode.TextDocument, position: vscode.Position, newName: string, _token: vscode.CancellationToken): Promise<vscode.WorkspaceEdit | undefined> {
-        try {
+        return this.errorHandler.wrapAsync(async () => {
             const wordRange = this.getWordRange(document, position);
             if (!wordRange) {
                 return undefined;
@@ -86,15 +83,12 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
             }
 
             return edit;
-        } catch (error) {
-            this.errorHandler.handleError(error, {
-                component: 'ThriftRenameProvider',
-                operation: 'provideRenameEdits',
-                filePath: document.uri.fsPath,
-                additionalInfo: {position: position.toString(), newName}
-            });
-            return undefined;
-        }
+        }, {
+            component: 'ThriftRenameProvider',
+            operation: 'provideRenameEdits',
+            filePath: document.uri.fsPath,
+            additionalInfo: {position: position.toString(), newName}
+        }, undefined);
     }
 
     /**

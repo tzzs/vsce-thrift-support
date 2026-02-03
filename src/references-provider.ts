@@ -117,26 +117,38 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                     continue; // Skip current document, already processed
                 }
 
-                try {
-                    const text = await readThriftFile(file);
+                const text = await this.errorHandler.wrapAsync(
+                    () => readThriftFile(file),
+                    {
+                        component: 'ThriftReferencesProvider',
+                        operation: 'readThriftFile',
+                        filePath: file?.fsPath || 'unknown',
+                        additionalInfo: {symbolName}
+                    },
+                    undefined
+                );
+                if (text === undefined) {
+                    continue;
+                }
 
-                    const refs = await findReferencesInDocument(
+                const refs = await this.errorHandler.wrapAsync(
+                    () => findReferencesInDocument(
                         file,
                         text,
                         symbolName,
                         includeDeclaration,
                         {errorHandler: this.errorHandler},
                         token
-                    );
-                    references.push(...refs);
-                } catch (error) {
-                    this.errorHandler.handleError(error, {
+                    ),
+                    {
                         component: 'ThriftReferencesProvider',
                         operation: 'findReferencesInFile',
                         filePath: file?.fsPath || 'unknown',
                         additionalInfo: {symbolName}
-                    });
-                }
+                    },
+                    []
+                );
+                references.push(...refs);
             }
 
             // 缓存结果

@@ -32,18 +32,16 @@ export async function findReferencesInDocument(
     }
 
     const references: vscode.Location[] = [];
-    let ast: nodes.ThriftDocument;
-
-    try {
+    const ast = deps.errorHandler.wrapSync(() => {
         const parser = new ThriftParser(text);
-        ast = parser.parse();
-    } catch (error) {
-        deps.errorHandler.handleError(error, {
-            component: 'ThriftReferencesProvider',
-            operation: 'parseAst',
-            filePath: uri.fsPath,
-            additionalInfo: {symbolName}
-        });
+        return parser.parse();
+    }, {
+        component: 'ThriftReferencesProvider',
+        operation: 'parseAst',
+        filePath: uri.fsPath,
+        additionalInfo: {symbolName}
+    }, null);
+    if (!ast) {
         return references;
     }
 

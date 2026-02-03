@@ -2,18 +2,33 @@ import * as vscode from 'vscode';
 import {ThriftParser} from '../ast/parser';
 import * as nodes from '../ast/nodes.types';
 import {config} from '../config';
-import {CacheManager} from '../utils/cache-manager'; // Import the enhanced cache manager
+import {MemoryAwareCacheManager} from '../utils/cache-manager'; // Import the enhanced cache manager
 import {isFresh} from '../utils/cache-expiry';
 
-// Initialize the cache manager
-const cacheManager = CacheManager.getInstance();
+// Initialize the memory-aware cache manager
+const cacheManager = MemoryAwareCacheManager.getInstance();
 
 // Register the AST cache configuration
 cacheManager.registerCache('references-ast', {
     maxSize: config.cache.references.maxSize,
     ttl: config.cache.references.ttlMs,
     lruK: config.cache.references.lruK,
-    evictionThreshold: config.cache.references.evictionThreshold || 0.8
+    evictionThreshold: config.cache.references.evictionThreshold || 0.8,
+    priorityFn: (key: string, value: any) => {
+        // Higher priority for more frequently accessed files
+        const stats = cacheManager.getCacheStats('references-ast');
+        return stats.hitRate > 0.7 ? 1 : 0; // High priority if hit rate is high
+    },
+    sizeEstimator: (key: string, value: any) => {
+        // Estimate memory usage based on the file path length and content length
+        // Since AST objects may have circular references, we'll estimate based on simpler metrics
+        try {
+            return key.length + (value?.contentHash?.length || 0);
+        } catch (e) {
+            // Fallback to a simple size if there are issues
+            return 100; // Default size
+        }
+    }
 });
 
 interface CachedAstEntry {

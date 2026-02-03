@@ -65,7 +65,7 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
         position: vscode.Position,
         token: vscode.CancellationToken
     ): Promise<vscode.Hover | undefined> {
-        try {
+        return this.errorHandler.wrapAsync(async () => {
             // 使用单例定义提供器，避免重复创建实例
             const defProvider = this.getDefinitionProvider();
             const def = await defProvider.provideDefinition(document, position, token);
@@ -110,15 +110,12 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             }
 
             return new vscode.Hover(md);
-        } catch (error) {
-            this.errorHandler.handleError(error, {
-                component: 'ThriftHoverProvider',
-                operation: 'provideHover',
-                filePath: document.uri.fsPath,
-                additionalInfo: {position: position.toString()}
-            });
-            return undefined;
-        }
+        }, {
+            component: 'ThriftHoverProvider',
+            operation: 'provideHover',
+            filePath: document.uri.fsPath,
+            additionalInfo: {position: position.toString()}
+        }, undefined);
     }
 
     private getDefinitionProvider(): ThriftDefinitionProvider {
@@ -176,11 +173,9 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             } else {
                 fullPath = path.resolve(documentDir, includePath);
             }
-            try {
-                const uri = vscode.Uri.file(fullPath);
+            const uri = this.errorHandler.safe(() => vscode.Uri.file(fullPath), undefined);
+            if (uri) {
                 includedFiles.push(uri);
-            } catch {
-                // ignore invalid include
             }
         }
 

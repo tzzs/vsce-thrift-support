@@ -99,12 +99,13 @@ export class ErrorHandler {
         context: ErrorContext,
         fallbackValue?: T
     ): Promise<T> {
+        const hasFallback = arguments.length >= 3;
         try {
             return await fn();
         } catch (error) {
             this.handleError(error, context);
-            if (fallbackValue !== undefined) {
-                return fallbackValue;
+            if (hasFallback) {
+                return fallbackValue as T;
             }
             throw error;
         }
@@ -118,12 +119,13 @@ export class ErrorHandler {
      * @returns 函数执行结果，或在出错时返回 fallbackValue（如果提供），否则抛出错误
      */
     wrapSync<T>(fn: () => T, context: ErrorContext, fallbackValue?: T): T {
+        const hasFallback = arguments.length >= 3;
         try {
             return fn();
         } catch (error) {
             this.handleError(error, context);
-            if (fallbackValue !== undefined) {
-                return fallbackValue;
+            if (hasFallback) {
+                return fallbackValue as T;
             }
             throw error;
         }

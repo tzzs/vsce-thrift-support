@@ -31,7 +31,7 @@ cacheManager.registerCache('diagnostics-members', {
  * @returns 块级缓存实例
  */
 export function createBlockCache(): BlockCache {
-    // For backward compatibility, return a wrapper around the cache manager
+    // For backward compatibility, return a wrapper around the original LruCache
     return new LruCache<string, BlockCacheValue>(
         config.cache.diagnosticsBlocks.maxSize,
         config.cache.diagnosticsBlocks.ttlMs
