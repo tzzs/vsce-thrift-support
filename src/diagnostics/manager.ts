@@ -109,8 +109,8 @@ export class DiagnosticManager {
 
         if (!scheduled && !prevState?.isAnalyzing) {
             // Maybe explicitly skipped due to throttling without new changes?
-            // But we need to update state if parameters changed? 
-            // Actually scheduler logic handles throttling check. 
+            // But we need to update state if parameters changed?
+            // Actually scheduler logic handles throttling check.
             // We persist state update regardless to capture latest intentions.
         }
 
@@ -379,5 +379,15 @@ export class DiagnosticManager {
         logDiagnostics(`[Diagnostics] Incremental merge applied for ${path.basename(doc.uri.fsPath)} (lines ${lineRange.startLine}-${lineRange.endLine})`);
 
         return merged;
+    }
+
+    /**
+     * 获取诊断调度器信息（用于性能监控）
+     */
+    public getSchedulerInfo(): { queued: number; processing: number } {
+        return {
+            queued: this.scheduler.getQueuedCount(),
+            processing: this.scheduler.getProcessingCount()
+        };
     }
 }

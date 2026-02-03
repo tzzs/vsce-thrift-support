@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import {config} from './config';
 import {ErrorHandler} from './utils/error-handler';
+import { MemoryMonitor } from './utils/memory-monitor';
 
 // 性能监控器 - 跟踪慢操作并提供优化建议
 export interface PerformanceMetrics {
@@ -40,11 +41,17 @@ export class PerformanceMonitor {
     private errorHandler: ErrorHandler;
     private readonly component = 'PerformanceMonitor';
 
+    // 添加内存监控实例
+    private memoryMonitor: MemoryMonitor;
+
     constructor(options: PerformanceMonitorOptions = {}) {
         this.errorHandler = options.errorHandler ?? new ErrorHandler();
         this.slowOperationThreshold =
             options.slowOperationThreshold ?? config.performance.slowOperationThresholdMs;
         this.maxMetrics = options.maxMetrics ?? config.performance.maxMetrics;
+
+        // 初始化内存监控
+        this.memoryMonitor = MemoryMonitor.getInstance();
     }
 
     /**
@@ -63,8 +70,16 @@ export class PerformanceMonitor {
      * @returns 函数执行结果
      */
     public measure<T>(operation: string, fn: () => T, document?: vscode.TextDocument): T {
+        // 在操作前后记录内存使用情况
+        this.memoryMonitor.recordMemoryUsage();
+
         const start = performance.now();
-        const result = fn();
+        let result: T;
+        try {
+            result = fn();
+        } finally {
+            this.memoryMonitor.recordMemoryUsage();
+        }
         const duration = performance.now() - start;
 
         // 记录性能指标
@@ -94,8 +109,16 @@ export class PerformanceMonitor {
      * @returns 函数执行结果 promise
      */
     public async measureAsync<T>(operation: string, fn: () => Promise<T>, document?: vscode.TextDocument): Promise<T> {
+        // 在操作前后记录内存使用情况
+        this.memoryMonitor.recordMemoryUsage();
+
         const start = performance.now();
-        const result = await fn();
+        let result: T;
+        try {
+            result = await fn();
+        } finally {
+            this.memoryMonitor.recordMemoryUsage();
+        }
         const duration = performance.now() - start;
 
         const metric: PerformanceMetrics = {
@@ -177,6 +200,9 @@ export class PerformanceMonitor {
                 report += `- **${metric.operation}**: ${metric.duration.toFixed(2)}ms (${fileInfo})\n`;
             });
         }
+
+        // 添加内存使用报告
+        report += `\n${this.memoryMonitor.getMemoryReport()}`;
 
         return report;
     }

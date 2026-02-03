@@ -13,6 +13,12 @@ export interface SchedulerOptions {
 export class AnalysisScheduler {
     /** 分析队列（按文档 key 管理） */
     private analysisQueue = new Map<string, NodeJS.Timeout>();
+    /** 当前正在处理的文档集合 */
+    private processingDocuments = new Set<string>();
+    /** 在处理期间被标记为需要重跑的任务 */
+    private pendingReschedules = new Map<string, { doc: vscode.TextDocument; runTask: () => Promise<void> | void }>();
+    /** 已取消的文档（避免在处理中触发重跑） */
+    private cancelledDocuments = new Set<string>();
 
     /** 诊断延迟（毫秒） */
     private readonly ANALYSIS_DELAY = config.diagnostics.analysisDelayMs;
@@ -47,6 +53,7 @@ export class AnalysisScheduler {
         onScheduled: (timeout: NodeJS.Timeout) => void
     ): boolean {
         const key = this.getDocumentKey(doc);
+        this.cancelledDocuments.delete(key);
         const {immediate, throttleState} = options;
 
         const existingTimeout = this.analysisQueue.get(key);
@@ -58,10 +65,17 @@ export class AnalysisScheduler {
         const lastGap = throttleState?.lastAnalysis ? now - throttleState.lastAnalysis : Number.POSITIVE_INFINITY;
         const throttleDelay = lastGap < this.MIN_ANALYSIS_INTERVAL ? this.MIN_ANALYSIS_INTERVAL - lastGap : 0;
 
-        if (throttleState?.isAnalyzing) {
-            return false;
+        const shouldSkipSameVersion = !!(throttleState && throttleState.version === doc.version && throttleDelay === 0);
+
+        if (throttleState?.isAnalyzing || this.processingDocuments.has(key)) {
+            if (shouldSkipSameVersion) {
+                return false;
+            }
+            this.pendingReschedules.set(key, {doc, runTask});
+            return true;
         }
-        if (throttleState && throttleState.version === doc.version && throttleDelay === 0) {
+
+        if (shouldSkipSameVersion) {
             return false;
         }
 
@@ -70,6 +84,7 @@ export class AnalysisScheduler {
 
         const timeout = setTimeout(() => {
             this.analysisQueue.delete(key);
+            this.processingDocuments.add(key);
             this.enqueue(doc, runTask);
         }, delay);
 
@@ -86,6 +101,8 @@ export class AnalysisScheduler {
             clearTimeout(timeout);
             this.analysisQueue.delete(key);
         }
+        this.pendingReschedules.delete(key);
+        this.cancelledDocuments.add(key);
     }
 
     public dispose() {
@@ -95,6 +112,9 @@ export class AnalysisScheduler {
         this.analysisQueue.clear();
         this.analysisWaiters = [];
         this.pendingAnalyses.clear();
+        this.processingDocuments.clear();
+        this.pendingReschedules.clear();
+        this.cancelledDocuments.clear();
         this.inFlightAnalyses = 0;
     }
 
@@ -107,10 +127,21 @@ export class AnalysisScheduler {
         const run = async () => {
             try {
                 await this.waitForSlot();
+                if (this.cancelledDocuments.has(key)) {
+                    this.pendingAnalyses.delete(key);
+                    return;
+                }
                 this.pendingAnalyses.delete(key);
                 await runTask();
             } finally {
                 this.releaseSlot();
+                this.processingDocuments.delete(key);
+                const pending = this.pendingReschedules.get(key);
+                if (pending && !this.cancelledDocuments.has(key)) {
+                    this.pendingReschedules.delete(key);
+                    this.processingDocuments.add(key);
+                    this.enqueue(pending.doc, pending.runTask);
+                }
             }
         };
         void run();
@@ -135,5 +166,19 @@ export class AnalysisScheduler {
 
     private getDocumentKey(doc: vscode.TextDocument): string {
         return doc.uri.toString();
+    }
+
+    /**
+     * 获取当前正在处理的文档数量
+     */
+    public getProcessingCount(): number {
+        return this.inFlightAnalyses;
+    }
+
+    /**
+     * 获取队列中的分析任务数量
+     */
+    public getQueuedCount(): number {
+        return this.analysisQueue.size + this.pendingReschedules.size + this.pendingAnalyses.size;
     }
 }

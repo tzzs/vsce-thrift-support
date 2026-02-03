@@ -24,6 +24,12 @@ export class CacheManager {
     private caches: Map<string, Map<string, CacheEntry<any>>> = new Map();
     private configs: Map<string, CacheConfig> = new Map();
 
+    // 添加内存监控集成
+    private readonly MEMORY_MONITORING_ENABLED = true;
+    private cleanupCount: Map<string, number> = new Map();
+    private lastCleanup: Map<string, number> = new Map();
+    private hitCount: Map<string, { hits: number; misses: number }> = new Map();
+
     /**
      * 获取单例实例。
      * @returns {CacheManager} CacheManager 单例
@@ -45,6 +51,9 @@ export class CacheManager {
         if (!this.caches.has(name)) {
             this.caches.set(name, new Map());
         }
+        this.cleanupCount.set(name, 0);
+        this.lastCleanup.set(name, 0);
+        this.hitCount.set(name, { hits: 0, misses: 0 });
     }
 
     /**
@@ -67,7 +76,16 @@ export class CacheManager {
         cache.set(key, {data: value, timestamp: Date.now()});
 
         // Clean up old entries
-        this.cleanup(cache, config);
+        const didCleanup = this.cleanup(cache, config);
+
+        if (didCleanup) {
+            const count = this.cleanupCount.get(cacheName) || 0;
+            this.cleanupCount.set(cacheName, count + 1);
+            this.lastCleanup.set(cacheName, Date.now());
+        }
+
+        // Update memory monitor if available
+        this.updateMemoryMonitor();
     }
 
     /**
@@ -79,24 +97,33 @@ export class CacheManager {
     get<T>(cacheName: string, key: string): T | undefined {
         const cache = this.caches.get(cacheName);
         if (!cache) {
+            this.recordMiss(cacheName);
             return undefined;
         }
         const entry = cache.get(key);
 
         if (!entry) {
+            this.recordMiss(cacheName);
             return undefined;
         }
 
         const config = this.configs.get(cacheName);
         if (!config) {
+            this.recordMiss(cacheName);
             return undefined;
         }
 
         // Check if expired
         if (Date.now() - entry.timestamp > config.ttl) {
             cache.delete(key);
+            this.recordMiss(cacheName);
             return undefined;
         }
+
+        this.recordHit(cacheName);
+
+        // Update memory monitor if available
+        this.updateMemoryMonitor();
 
         return entry.data as T;
     }
@@ -109,6 +136,9 @@ export class CacheManager {
         if (cache) {
             cache.clear();
         }
+
+        // Update memory monitor if available
+        this.updateMemoryMonitor();
     }
 
     /**
@@ -119,6 +149,9 @@ export class CacheManager {
         if (cache) {
             cache.delete(key);
         }
+
+        // Update memory monitor if available
+        this.updateMemoryMonitor();
     }
 
     /**
@@ -126,6 +159,12 @@ export class CacheManager {
      */
     clearAll(): void {
         this.caches.forEach(cache => cache.clear());
+        this.cleanupCount.clear();
+        this.lastCleanup.clear();
+        this.hitCount.clear();
+
+        // Update memory monitor if available
+        this.updateMemoryMonitor();
     }
 
     private getCache(cacheName: string): Map<string, CacheEntry<any>> {
@@ -137,11 +176,13 @@ export class CacheManager {
         return cache;
     }
 
-    private cleanup(cache: Map<string, CacheEntry<any>>, config: CacheConfig): void {
+    private cleanup(cache: Map<string, CacheEntry<any>>, config: CacheConfig): boolean {
+        let removed = false;
         const now = Date.now();
         for (const [key, value] of cache) {
             if (now - value.timestamp > config.ttl) {
                 cache.delete(key);
+                removed = true;
             }
         }
 
@@ -151,6 +192,82 @@ export class CacheManager {
                 break;
             }
             cache.delete(oldestKey);
+            removed = true;
+        }
+        return removed;
+    }
+
+    private recordHit(cacheName: string): void {
+        const stats = this.hitCount.get(cacheName) || { hits: 0, misses: 0 };
+        stats.hits++;
+        this.hitCount.set(cacheName, stats);
+    }
+
+    private recordMiss(cacheName: string): void {
+        const stats = this.hitCount.get(cacheName) || { hits: 0, misses: 0 };
+        stats.misses++;
+        this.hitCount.set(cacheName, stats);
+    }
+
+    /**
+     * 获取指定缓存的统计信息
+     */
+    public getCacheStats(cacheName: string): { size: number; maxSize: number; hitRate: number; cleanupCount: number } {
+        const cache = this.caches.get(cacheName);
+        const config = this.configs.get(cacheName);
+        const cleanup = this.cleanupCount.get(cacheName) || 0;
+        const stats = this.hitCount.get(cacheName) || { hits: 0, misses: 0 };
+
+        const totalAccesses = stats.hits + stats.misses;
+        const hitRate = totalAccesses > 0 ? stats.hits / totalAccesses : 0;
+
+        return {
+            size: cache?.size || 0,
+            maxSize: config?.maxSize || 0,
+            hitRate,
+            cleanupCount: cleanup
+        };
+    }
+
+    /**
+     * 获取所有缓存的统计信息
+     */
+    public getAllCacheStats(): Map<string, { size: number; maxSize: number; hitRate: number; cleanupCount: number }> {
+        const allStats = new Map<string, { size: number; maxSize: number; hitRate: number; cleanupCount: number }>();
+
+        for (const [cacheName] of this.caches) {
+            allStats.set(cacheName, this.getCacheStats(cacheName));
+        }
+
+        return allStats;
+    }
+
+    /**
+     * 更新内存监控中的缓存统计信息
+     */
+    public updateMemoryMonitor(): void {
+        if (!this.MEMORY_MONITORING_ENABLED) {
+            return;
+        }
+
+        // 尝试更新内存监控，延迟导入避免循环依赖
+        try {
+            const module = require('./memory-monitor');
+            const memoryMonitor = module.MemoryMonitor.getInstance();
+
+            for (const [cacheName] of this.caches) {
+                const stats = this.getCacheStats(cacheName);
+                const lastCleanup = this.lastCleanup.get(cacheName) || 0;
+                memoryMonitor.updateCacheStats(cacheName, {
+                    size: stats.size,
+                    maxSize: stats.maxSize,
+                    hitRate: stats.hitRate,
+                    cleanupCount: stats.cleanupCount,
+                    lastCleanup
+                });
+            }
+        } catch (err) {
+            // 忽略错误，避免模块未找到时的问题
         }
     }
 }
