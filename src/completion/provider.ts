@@ -42,7 +42,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         document: vscode.TextDocument,
         position: vscode.Position,
         token: vscode.CancellationToken,
-        _context: vscode.CompletionContext
+        context: vscode.CompletionContext
     ): Promise<vscode.CompletionItem[] | vscode.CompletionList> {
         const thriftDoc = ThriftParser.parseWithCache(document);
         if (token.isCancellationRequested) {

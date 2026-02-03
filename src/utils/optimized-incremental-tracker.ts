@@ -20,10 +20,10 @@ export interface ChangeRecord {
 }
 
 /**
- * IncrementalTracker：记录文档脏区，用于增量格式化/分析。
+ * OptimizedIncrementalTracker：记录文档脏区，用于增量格式化/分析。
  */
-export class IncrementalTracker {
-    private static instance: IncrementalTracker;
+export class OptimizedIncrementalTracker {
+    private static instance: OptimizedIncrementalTracker;
     private dirtyRanges: Map<string, LineRange[]> = new Map();
     private changeRecords: Map<string, ChangeRecord[]> = new Map(); // Track different types of changes
 
@@ -32,9 +32,9 @@ export class IncrementalTracker {
 
     private constructor() {}
 
-    static getInstance(): IncrementalTracker {
+    static getInstance(): OptimizedIncrementalTracker {
         if (!this.instance) {
-            this.instance = new IncrementalTracker();
+            this.instance = new OptimizedIncrementalTracker();
         }
         return this.instance;
     }

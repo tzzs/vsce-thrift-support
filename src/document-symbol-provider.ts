@@ -48,7 +48,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
      */
     public provideDocumentSymbols(
         document: vscode.TextDocument,
-        _token: vscode.CancellationToken
+        token: vscode.CancellationToken
     ): vscode.ProviderResult<vscode.SymbolInformation[] | vscode.DocumentSymbol[]> {
         try {
             const key = document.uri.toString();

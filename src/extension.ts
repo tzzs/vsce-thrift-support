@@ -5,6 +5,7 @@ import {registerProviders} from './setup';
 import {registerCommands} from './commands';
 import {SmartMemoryMonitor, MemoryMonitor} from './utils/memory-monitor';
 import {MemoryAwareCacheManager, CacheManager} from './utils/cache-manager';
+import {performanceMonitor} from './optimized-performance-monitor';
 
 /**
  * 扩展入口，注册所有能力与命令。
@@ -21,8 +22,29 @@ export function activate(context: vscode.ExtensionContext) {
     // 初始化内存管理系统
     initializeMemoryManagement(context, errorHandler);
 
+    // 注册性能监控相关命令
+    registerPerformanceCommands(context, errorHandler);
+
     registerProviders(context, deps);
     registerCommands(context, deps);
+}
+
+/**
+ * 注册性能相关的命令
+ */
+function registerPerformanceCommands(context: vscode.ExtensionContext, errorHandler: ErrorHandler): void {
+    context.subscriptions.push(
+        vscode.commands.registerCommand('thrift.showPerformanceReport', async () => {
+            try {
+                await performanceMonitor.showPerformanceReport();
+            } catch (error) {
+                errorHandler.handleError(error, {
+                    component: 'Extension',
+                    operation: 'showPerformanceReport'
+                });
+            }
+        })
+    );
 }
 
 /**

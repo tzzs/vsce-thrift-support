@@ -99,7 +99,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     provideDocumentFormattingEdits(
         document: vscode.TextDocument,
         options: vscode.FormattingOptions,
-        _token: vscode.CancellationToken
+        token: vscode.CancellationToken
     ): vscode.TextEdit[] {
         try {
             let targetRange: vscode.Range | undefined;
@@ -141,7 +141,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         document: vscode.TextDocument,
         range: vscode.Range,
         options: vscode.FormattingOptions,
-        _token: vscode.CancellationToken
+        token: vscode.CancellationToken
     ): vscode.TextEdit[] {
         try {
             return this.formatRange(document, range, options);

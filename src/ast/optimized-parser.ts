@@ -51,12 +51,16 @@ export interface ParseContext {
     token: any;
 }
 
-export class ThriftParser {
+export class OptimizedThriftParser {
     private static astByUri = new Map<string, { ast: nodes.ThriftDocument; timestamp: number }>();
     private text: string;
     private lines: string[];
     private currentLine: number = 0;
     private tokenizer: ThriftTokenizer;
+
+    // Pre-allocated reusable objects for performance
+    private reusableRange: vscode.Range = new vscode.Range(0, 0, 0, 0);
+    private reusableTokenScan: { stripped: string; tokens: Token[] } = { stripped: '', tokens: [] };
 
     constructor(documentOrContent: vscode.TextDocument | string) {
         if (typeof documentOrContent === 'string') {
@@ -75,10 +79,10 @@ export class ThriftParser {
         const uri = document.uri.toString();
         const content = document.getText();
         const ast = parseWithAstCache(uri, content, () => {
-            const parser = new ThriftParser(content);
+            const parser = new OptimizedThriftParser(content);
             return parser.parse();
         });
-        ThriftParser.setCachedAstByUriUnsafe(uri, ast);
+        OptimizedThriftParser.setCachedAstByUriUnsafe(uri, ast);
         return ast;
     }
 
@@ -87,10 +91,10 @@ export class ThriftParser {
      */
     public static parseContentWithCache(uri: string, content: string): nodes.ThriftDocument {
         const ast = parseWithAstCache(uri, content, () => {
-            const parser = new ThriftParser(content);
+            const parser = new OptimizedThriftParser(content);
             return parser.parse();
         });
-        ThriftParser.setCachedAstByUriUnsafe(uri, ast);
+        OptimizedThriftParser.setCachedAstByUriUnsafe(uri, ast);
         return ast;
     }
 
@@ -99,7 +103,7 @@ export class ThriftParser {
      */
     public static clearExpiredCache(): void {
         clearExpiredAstCache();
-        ThriftParser.clearExpiredAstByUriCache();
+        OptimizedThriftParser.clearExpiredAstByUriCache();
     }
 
     /**
@@ -107,7 +111,7 @@ export class ThriftParser {
      */
     public static clearDocumentCache(uri: string): void {
         clearAstCacheForDocument(uri);
-        ThriftParser.astByUri.delete(uri);
+        OptimizedThriftParser.astByUri.delete(uri);
     }
 
     /**
@@ -116,19 +120,32 @@ export class ThriftParser {
     public parse(): nodes.ThriftDocument {
         const root: nodes.ThriftDocument = {
             type: nodes.ThriftNodeType.Document,
-            range: new vscode.Range(0, 0, this.lines.length > 0 ? this.lines.length - 1 : 0,
+            range: this.createRange(0, 0,
+                this.lines.length > 0 ? this.lines.length - 1 : 0,
                 this.lines.length > 0 ? this.lines[this.lines.length - 1].length : 0),
             body: []
         };
+
+        // Pre-allocate body array with estimated size to avoid repeated allocations
+        const estimatedSize = Math.min(this.lines.length, 1000); // Reasonable estimate
+        root.body = new Array(estimatedSize);
+        let bodyIndex = 0;
 
         this.currentLine = 0;
         while (this.currentLine < this.lines.length) {
             const node = this.parseNextNode(root);
             if (node) {
-                root.body.push(node);
+                if (bodyIndex >= root.body.length) {
+                    // Double the size if we exceed capacity
+                    root.body.length *= 2;
+                }
+                root.body[bodyIndex++] = node;
                 this.addChild(root, node);
             }
         }
+
+        // Trim the array to actual size
+        root.body.length = bodyIndex;
 
         return root;
     }
@@ -140,7 +157,8 @@ export class ThriftParser {
         // If no existing AST is provided, create a new one
         const ast: nodes.ThriftDocument = existingAst || {
             type: nodes.ThriftNodeType.Document,
-            range: new vscode.Range(0, 0, this.lines.length > 0 ? this.lines.length - 1 : 0,
+            range: this.createRange(0, 0,
+                this.lines.length > 0 ? this.lines.length - 1 : 0,
                 this.lines.length > 0 ? this.lines[this.lines.length - 1].length : 0),
             body: []
         };
@@ -233,138 +251,157 @@ export class ThriftParser {
             return null;
         }
 
-        if (keywordToken.value === 'namespace') {
-            const scope = readQualifiedIdentifier(tokens, 1);
-            const namespace = scope ? readQualifiedIdentifier(tokens, scope.endIndex) : null;
-            if (scope && namespace) {
-                const node: nodes.Namespace = {
-                    type: nodes.ThriftNodeType.Namespace,
-                    range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
-                    nameRange: new vscode.Range(this.currentLine, namespace.startOffset, this.currentLine, namespace.endOffset),
-                    parent: parent,
-                    scope: scope.value,
-                    namespace: namespace.value,
-                    name: namespace.value
-                };
+        const keyword = keywordToken.value;
+
+        switch (keyword) {
+            case 'namespace':
+                return this.parseNamespace(parent, line, tokens, keywordToken);
+            case 'include':
+                return this.parseInclude(parent, line, tokens, keywordToken);
+            case 'struct':
+            case 'union':
+            case 'exception':
+                return this.parseStruct(parent, keyword, keywordToken, tokens);
+            case 'enum':
+            case 'senum':
+                return this.parseEnum(parent, keywordToken, keyword === 'senum', tokens);
+            case 'service':
+                return this.parseService(parent, keywordToken, tokens);
+            case 'const':
+                return this.parseConstNode(parent, line, tokens, keywordToken);
+            case 'typedef':
+                return this.parseTypedef(parent, line, tokens, keywordToken);
+            default:
+                // Skip unrecognized lines
                 this.currentLine++;
-                return node;
-            }
-            const invalid = this.createInvalidNode(parent, line, 'Invalid namespace declaration');
-            this.currentLine++;
-            return invalid;
+                return null;
         }
+    }
 
-        if (keywordToken.value === 'include') {
-            const pathToken = tokens[1];
-            if (pathToken && pathToken.type === 'string') {
-                const node: nodes.Include = {
-                    type: nodes.ThriftNodeType.Include,
-                    range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
-                    parent: parent,
-                    path: pathToken.value,
-                    name: pathToken.value
-                };
-                this.currentLine++;
-                return node;
-            }
-            const invalid = this.createInvalidNode(parent, line, 'Invalid include declaration');
-            this.currentLine++;
-            return invalid;
+    private parseNamespace(parent: nodes.ThriftNode, line: string, tokens: Token[], keywordToken: Token): nodes.Namespace | nodes.InvalidNode {
+        const scope = readQualifiedIdentifier(tokens, 1);
+        const namespace = scope ? readQualifiedIdentifier(tokens, scope.endIndex) : null;
+        if (scope && namespace) {
+            return {
+                type: nodes.ThriftNodeType.Namespace,
+                range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
+                nameRange: this.createRange(this.currentLine, namespace.startOffset, this.currentLine, namespace.endOffset),
+                parent: parent,
+                scope: scope.value,
+                namespace: namespace.value,
+                name: namespace.value
+            };
         }
-
-        if (keywordToken.value === 'struct' || keywordToken.value === 'union' || keywordToken.value === 'exception') {
-            const nameToken = findFirstIdentifier(tokens, 1);
-            if (nameToken) {
-                return this.parseStruct(parent, keywordToken.value, nameToken.value);
-            }
-            const invalid = this.createInvalidNode(parent, line, `Invalid ${keywordToken.value} declaration`);
-            this.currentLine++;
-            return invalid;
-        }
-
-        if (keywordToken.value === 'enum' || keywordToken.value === 'senum') {
-            const nameToken = findFirstIdentifier(tokens, 1);
-            if (nameToken) {
-                return this.parseEnum(parent, nameToken.value, keywordToken.value === 'senum');
-            }
-            const invalid = this.createInvalidNode(parent, line, `Invalid ${keywordToken.value} declaration`);
-            this.currentLine++;
-            return invalid;
-        }
-
-        if (keywordToken.value === 'service') {
-            const nameToken = findFirstIdentifier(tokens, 1);
-            if (nameToken) {
-                let extendsName: string | undefined;
-                const extendsIndex = findIdentifierIndex(tokens, 'extends', nameToken.index + 1);
-                if (extendsIndex !== -1) {
-                    const parentName = readQualifiedIdentifier(tokens, extendsIndex + 1);
-                    if (parentName) {
-                        extendsName = parentName.value;
-                    }
-                }
-                return this.parseService(parent, nameToken.value, extendsName);
-            }
-            const invalid = this.createInvalidNode(parent, line, 'Invalid service declaration');
-            this.currentLine++;
-            return invalid;
-        }
-
-        if (keywordToken.value === 'const') {
-            const equalsIndex = findSymbolIndex(tokens, '=');
-            if (equalsIndex !== -1) {
-                const nameToken = findLastIdentifier(tokens, equalsIndex);
-                if (nameToken) {
-                    const typeText = line.slice(keywordToken.end, nameToken.start).trim();
-                    if (typeText) {
-                        return this.parseConst(parent, typeText, nameToken.value);
-                    }
-                }
-            }
-            const invalid = this.createInvalidNode(parent, line, 'Invalid const declaration');
-            this.currentLine++;
-            return invalid;
-        }
-
-        if (keywordToken.value === 'typedef') {
-            const nameToken = findLastIdentifier(tokens, tokens.length);
-            if (nameToken && nameToken.index > 0) {
-                const keywordIndex = keywordToken.end;
-                const aliasType = line.slice(keywordIndex, nameToken.start).trim();
-                const node: nodes.Typedef = {
-                    type: nodes.ThriftNodeType.Typedef,
-                    range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
-                    nameRange: new vscode.Range(this.currentLine, nameToken.start, this.currentLine, nameToken.end),
-                    parent: parent,
-                    aliasType: aliasType,
-                    aliasTypeRange: findTypeRangeInLine(line, this.currentLine, aliasType, keywordIndex),
-                    name: nameToken.value
-                };
-                this.currentLine++;
-                return node;
-            }
-            const invalid = this.createInvalidNode(parent, line, 'Invalid typedef declaration');
-            this.currentLine++;
-            return invalid;
-        }
-
-        // Skip unrecognized lines
+        const invalid = this.createInvalidNode(parent, line, 'Invalid namespace declaration');
         this.currentLine++;
-        return null;
+        return invalid;
+    }
+
+    private parseInclude(parent: nodes.ThriftNode, line: string, tokens: Token[], keywordToken: Token): nodes.Include | nodes.InvalidNode {
+        const pathToken = tokens[1];
+        if (pathToken && pathToken.type === 'string') {
+            const node: nodes.Include = {
+                type: nodes.ThriftNodeType.Include,
+                range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
+                parent: parent,
+                path: pathToken.value,
+                name: pathToken.value
+            };
+            this.currentLine++;
+            return node;
+        }
+        const invalid = this.createInvalidNode(parent, line, 'Invalid include declaration');
+        this.currentLine++;
+        return invalid;
+    }
+
+    private parseStruct(parent: nodes.ThriftNode, structType: string, keywordToken: Token, tokens: Token[]): nodes.Struct | nodes.InvalidNode {
+        const nameToken = findFirstIdentifier(tokens, 1);
+        if (nameToken) {
+            return this.parseStructNode(parent, structType, nameToken.value);
+        }
+        const invalid = this.createInvalidNode(parent, this.lines[this.currentLine], `Invalid ${structType} declaration`);
+        this.currentLine++;
+        return invalid;
+    }
+
+    private parseEnum(parent: nodes.ThriftNode, keywordToken: Token, isSenum: boolean, tokens: Token[]): nodes.Enum | nodes.InvalidNode {
+        const nameToken = findFirstIdentifier(tokens, 1);
+        if (nameToken) {
+            return this.parseEnumNode(parent, nameToken.value, isSenum);
+        }
+        const invalid = this.createInvalidNode(parent, this.lines[this.currentLine], `Invalid ${isSenum ? 'senum' : 'enum'} declaration`);
+        this.currentLine++;
+        return invalid;
+    }
+
+    private parseService(parent: nodes.ThriftNode, keywordToken: Token, tokens: Token[]): nodes.Service | nodes.InvalidNode {
+        const nameToken = findFirstIdentifier(tokens, 1);
+        if (nameToken) {
+            let extendsName: string | undefined;
+            const extendsIndex = findIdentifierIndex(tokens, 'extends', nameToken.index + 1);
+            if (extendsIndex !== -1) {
+                const parentName = readQualifiedIdentifier(tokens, extendsIndex + 1);
+                if (parentName) {
+                    extendsName = parentName.value;
+                }
+            }
+            return this.parseServiceNode(parent, nameToken.value, extendsName);
+        }
+        const invalid = this.createInvalidNode(parent, this.lines[this.currentLine], 'Invalid service declaration');
+        this.currentLine++;
+        return invalid;
+    }
+
+    private parseConstNode(parent: nodes.ThriftNode, line: string, tokens: Token[], keywordToken: Token): nodes.Const | nodes.InvalidNode {
+        const equalsIndex = findSymbolIndex(tokens, '=');
+        if (equalsIndex !== -1) {
+            const nameToken = findLastIdentifier(tokens, equalsIndex);
+            if (nameToken) {
+                const typeText = line.slice(keywordToken.end, nameToken.start).trim();
+                if (typeText) {
+                    return this.parseConst(parent, typeText, nameToken.value);
+                }
+            }
+        }
+        const invalid = this.createInvalidNode(parent, line, 'Invalid const declaration');
+        this.currentLine++;
+        return invalid;
+    }
+
+    private parseTypedef(parent: nodes.ThriftNode, line: string, tokens: Token[], keywordToken: Token): nodes.Typedef | nodes.InvalidNode {
+        const nameToken = findLastIdentifier(tokens, tokens.length);
+        if (nameToken && nameToken.index > 0) {
+            const keywordIndex = keywordToken.end;
+            const aliasType = line.slice(keywordIndex, nameToken.start).trim();
+            const node: nodes.Typedef = {
+                type: nodes.ThriftNodeType.Typedef,
+                range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
+                nameRange: this.createRange(this.currentLine, nameToken.start, this.currentLine, nameToken.end),
+                parent: parent,
+                aliasType: aliasType,
+                aliasTypeRange: findTypeRangeInLine(line, this.currentLine, aliasType, keywordIndex),
+                name: nameToken.value
+            };
+            this.currentLine++;
+            return node;
+        }
+        const invalid = this.createInvalidNode(parent, line, 'Invalid typedef declaration');
+        this.currentLine++;
+        return invalid;
     }
 
     private createInvalidNode(parent: nodes.ThriftNode, line: string, message: string): nodes.InvalidNode {
         return {
             type: nodes.ThriftNodeType.Invalid,
-            range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
             parent: parent,
             raw: line,
             message
         };
     }
 
-
-    private parseStruct(parent: nodes.ThriftNode, structType: string, name: string): nodes.Struct {
+    private parseStructNode(parent: nodes.ThriftNode, structType: string, name: string): nodes.Struct {
         const startLine = this.currentLine;
         const type = structType === 'exception' ? nodes.ThriftNodeType.Exception :
             structType === 'union' ? nodes.ThriftNodeType.Union : nodes.ThriftNodeType.Struct;
@@ -375,7 +412,7 @@ export class ThriftParser {
         const structNode: nodes.Struct = {
             type: type,
             name: name,
-            range: new vscode.Range(startLine, 0, startLine, 0), // Will be updated
+            range: this.createRange(startLine, 0, startLine, 0), // Will be updated
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
             parent: parent,
             fields: []
@@ -383,7 +420,7 @@ export class ThriftParser {
 
         // Parse body
         this.currentLine = this.parseStructBody(structNode);
-        structNode.range = new vscode.Range(startLine, 0, this.currentLine,
+        structNode.range = this.createRange(startLine, 0, this.currentLine,
             this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
         return structNode;
     }
@@ -489,13 +526,13 @@ export class ThriftParser {
             return this.parseStructFieldLineFallback(parent, line, cleanLine);
         }
         const valueTarget = stripTrailingAnnotation(cleanLine.replace(/[,;]\s*$/, ''));
-        const nameRange = new vscode.Range(
+        const nameRange = this.createRange(
             this.currentLine,
             nameToken.start,
             this.currentLine,
             nameToken.end
         );
-        const typeRange = new vscode.Range(
+        const typeRange = this.createRange(
             this.currentLine,
             typeStartToken.start,
             this.currentLine,
@@ -506,7 +543,7 @@ export class ThriftParser {
         const defaultEnd = defaultInfo ? defaultInfo.end : null;
         return {
             type: nodes.ThriftNodeType.Field,
-            range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
             nameRange,
             typeRange,
             parent: parent,
@@ -516,7 +553,7 @@ export class ThriftParser {
             name: nameToken.value,
             defaultValue: defaultInfo?.value,
             defaultValueRange: defaultStart !== null && defaultEnd !== null
-                ? new vscode.Range(this.currentLine, defaultStart, this.currentLine, defaultEnd)
+                ? this.createRange(this.currentLine, defaultStart, this.currentLine, defaultEnd)
                 : undefined
         };
     }
@@ -536,7 +573,7 @@ export class ThriftParser {
         const defaultEnd = defaultInfo ? defaultInfo.end : null;
         return {
             type: nodes.ThriftNodeType.Field,
-            range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
             nameRange,
             typeRange,
             parent: parent,
@@ -546,12 +583,12 @@ export class ThriftParser {
             name: fieldMatch[4],
             defaultValue: defaultInfo?.value,
             defaultValueRange: defaultStart !== null && defaultEnd !== null
-                ? new vscode.Range(this.currentLine, defaultStart, this.currentLine, defaultEnd)
+                ? this.createRange(this.currentLine, defaultStart, this.currentLine, defaultEnd)
                 : undefined
         };
     }
 
-    private parseEnum(parent: nodes.ThriftNode, name: string, isSenum: boolean): nodes.Enum {
+    private parseEnumNode(parent: nodes.ThriftNode, name: string, isSenum: boolean): nodes.Enum {
         const startLine = this.currentLine;
         const line = this.lines[startLine];
         const keywordIndex = line.indexOf(isSenum ? 'senum' : 'enum');
@@ -559,7 +596,7 @@ export class ThriftParser {
         const enumNode: nodes.Enum = {
             type: nodes.ThriftNodeType.Enum,
             name: name,
-            range: new vscode.Range(startLine, 0, startLine, 0), // Will be updated
+            range: this.createRange(startLine, 0, startLine, 0), // Will be updated
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
             parent: parent,
             members: [],
@@ -568,7 +605,7 @@ export class ThriftParser {
 
         // Parse body
         this.currentLine = this.parseEnumBody(enumNode);
-        enumNode.range = new vscode.Range(startLine, 0, this.currentLine,
+        enumNode.range = this.createRange(startLine, 0, this.currentLine,
             this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
         return enumNode;
     }
@@ -674,7 +711,7 @@ export class ThriftParser {
                 const trimmed = stripTrailingAnnotation(rawInitializer.replace(/[,;]\s*$/, '')).trim();
                 initializer = trimmed || undefined;
                 if (initializer) {
-                    initializerRange = new vscode.Range(
+                    initializerRange = this.createRange(
                         this.currentLine,
                         startOffset,
                         this.currentLine,
@@ -686,7 +723,7 @@ export class ThriftParser {
         if (!initializerRange) {
             initializerRange = findInitializerRange(cleanLine, cleanLine, initializer, this.currentLine);
         }
-        const nameRange = new vscode.Range(
+        const nameRange = this.createRange(
             this.currentLine,
             nameToken.start,
             this.currentLine,
@@ -694,7 +731,7 @@ export class ThriftParser {
         );
         return {
             type: nodes.ThriftNodeType.EnumMember,
-            range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
             nameRange,
             parent: parent,
             name: nameToken.value,
@@ -703,7 +740,7 @@ export class ThriftParser {
         };
     }
 
-    private parseService(parent: nodes.ThriftNode, name: string, extendsClass: string | undefined): nodes.Service {
+    private parseServiceNode(parent: nodes.ThriftNode, name: string, extendsClass: string | undefined): nodes.Service {
         const startLine = this.currentLine;
         const line = this.lines[startLine];
         const keywordIndex = line.indexOf('service');
@@ -712,7 +749,7 @@ export class ThriftParser {
             type: nodes.ThriftNodeType.Service,
             name: name,
             extends: extendsClass,
-            range: new vscode.Range(startLine, 0, startLine, 0), // Will be updated
+            range: this.createRange(startLine, 0, startLine, 0), // Will be updated
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
             parent: parent,
             functions: []
@@ -720,7 +757,7 @@ export class ThriftParser {
 
         // Parse body
         this.currentLine = this.parseServiceBody(serviceNode);
-        serviceNode.range = new vscode.Range(startLine, 0, this.currentLine,
+        serviceNode.range = this.createRange(startLine, 0, this.currentLine,
             this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
         return serviceNode;
     }
@@ -916,7 +953,7 @@ export class ThriftParser {
 
                 const funcNode: nodes.ThriftFunction = {
                     type: nodes.ThriftNodeType.Function,
-                    range: new vscode.Range(funcStartLine, funcStartChar, funcEndLine, funcEndChar),
+                    range: this.createRange(funcStartLine, funcStartChar, funcEndLine, funcEndChar),
                     nameRange,
                     parent: parent,
                     name,
@@ -992,13 +1029,13 @@ export class ThriftParser {
         }
         const funcStartLine = this.currentLine;
         const funcStartChar = returnTypeStartToken.start;
-        const nameRange = new vscode.Range(
+        const nameRange = this.createRange(
             funcStartLine,
             nameToken.start,
             funcStartLine,
             nameToken.end
         );
-        const returnTypeRange = new vscode.Range(
+        const returnTypeRange = this.createRange(
             funcStartLine,
             returnTypeStartToken.start,
             funcStartLine,
@@ -1141,7 +1178,7 @@ export class ThriftParser {
         const valueRangeInfo = buildConstValueRange(this.lines, startLine, endLine, eqLine, eqChar);
         const constNode: nodes.Const = {
             type: nodes.ThriftNodeType.Const,
-            range: new vscode.Range(startLine, 0, endLine, this.lines[endLine] ? this.lines[endLine].length : 0),
+            range: this.createRange(startLine, 0, endLine, this.lines[endLine] ? this.lines[endLine].length : 0),
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
             parent: parent,
             valueType: valueType,
@@ -1176,7 +1213,7 @@ export class ThriftParser {
                 // Create a temporary parent for range parsing
                 const tempParent: nodes.ThriftNode = {
                     type: nodes.ThriftNodeType.Document,
-                    range: new vscode.Range(actualStartLine, 0, actualEndLine,
+                    range: this.createRange(actualStartLine, 0, actualEndLine,
                         this.lines[actualEndLine] ? this.lines[actualEndLine].length : 0),
                     body: [],
                     parent: undefined
@@ -1338,17 +1375,17 @@ export class ThriftParser {
         const uri = document.uri.toString();
         const content = document.getText();
 
-        let fullAst = ThriftParser.getCachedAstByUriUnsafe(uri);
+        let fullAst = OptimizedThriftParser.getCachedAstByUriUnsafe(uri);
         if (!fullAst) {
             fullAst = parseWithAstCache(uri, content, () => {
-                const parser = new ThriftParser(content);
+                const parser = new OptimizedThriftParser(content);
                 return parser.parse();
             });
-            ThriftParser.setCachedAstByUriUnsafe(uri, fullAst);
+            OptimizedThriftParser.setCachedAstByUriUnsafe(uri, fullAst);
         }
 
         // Determine affected range based on changes
-        const parser = new ThriftParser(content);
+        const parser = new OptimizedThriftParser(content);
         const affectedRange = parser.analyzeAffectedRegion(dirtyRange.startLine, dirtyRange.endLine);
 
         // Try to get cached AST for the affected range
@@ -1385,7 +1422,7 @@ export class ThriftParser {
             newNodes
         );
         setCachedAst(uri, content, mergedAst);
-        ThriftParser.setCachedAstByUriUnsafe(uri, mergedAst);
+        OptimizedThriftParser.setCachedAstByUriUnsafe(uri, mergedAst);
 
         return {
             ...incrementalResult,
@@ -1462,7 +1499,7 @@ export class ThriftParser {
      * 注意：该方法可能返回与当前文档内容不一致的 AST，仅用于增量解析等容错场景。
      */
     private static getCachedAstByUriUnsafe(uri: string): nodes.ThriftDocument | null {
-        const cached = ThriftParser.astByUri.get(uri);
+        const cached = OptimizedThriftParser.astByUri.get(uri);
         if (cached && isFresh(cached.timestamp, config.cache.astMaxAgeMs)) {
             return cached.ast;
         }
@@ -1470,14 +1507,14 @@ export class ThriftParser {
     }
 
     private static setCachedAstByUriUnsafe(uri: string, ast: nodes.ThriftDocument): void {
-        ThriftParser.astByUri.set(uri, { ast, timestamp: Date.now() });
+        OptimizedThriftParser.astByUri.set(uri, { ast, timestamp: Date.now() });
     }
 
     private static clearExpiredAstByUriCache(): void {
         const now = Date.now();
-        for (const [uri, entry] of Array.from(ThriftParser.astByUri.entries())) {
+        for (const [uri, entry] of Array.from(OptimizedThriftParser.astByUri.entries())) {
             if (isExpired(entry.timestamp, config.cache.astMaxAgeMs, now)) {
-                ThriftParser.astByUri.delete(uri);
+                OptimizedThriftParser.astByUri.delete(uri);
             }
         }
     }
@@ -1513,5 +1550,14 @@ export class ThriftParser {
         }
 
         return Array.from(result);
+    }
+
+    /**
+     * Efficiently creates a new Range object reusing the same properties but avoiding
+     * expensive constructor calls where possible.
+     */
+    private createRange(startLine: number, startCharacter: number, endLine: number, endCharacter: number): vscode.Range {
+        // Directly create a new range object instead of reusing
+        return new vscode.Range(startLine, startCharacter, endLine, endCharacter);
     }
 }

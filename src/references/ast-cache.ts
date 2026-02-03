@@ -2,8 +2,7 @@ import * as vscode from 'vscode';
 import {ThriftParser} from '../ast/parser';
 import * as nodes from '../ast/nodes.types';
 import {config} from '../config';
-import {MemoryAwareCacheManager} from '../utils/cache-manager'; // Import the enhanced cache manager
-import {isFresh} from '../utils/cache-expiry';
+import {MemoryAwareCacheManager} from '../utils/cache-manager';
 
 // Initialize the memory-aware cache manager
 const cacheManager = MemoryAwareCacheManager.getInstance();
@@ -33,7 +32,6 @@ cacheManager.registerCache('references-ast', {
 
 interface CachedAstEntry {
     ast: nodes.ThriftDocument;
-    timestamp: number;
     contentHash: string;
 }
 
@@ -41,11 +39,26 @@ interface CachedAstEntry {
  * Cache ASTs with TTL to avoid repeated parsing.
  */
 export class AstCache {
-    private cache: Map<string, CachedAstEntry> = new Map();
-    private readonly ttlMs: number;
-
     constructor(ttlMs: number = config.references.astCacheTtlMs) {
-        this.ttlMs = ttlMs;
+        if (ttlMs !== config.cache.references.ttlMs) {
+            cacheManager.registerCache('references-ast', {
+                maxSize: config.cache.references.maxSize,
+                ttl: ttlMs,
+                lruK: config.cache.references.lruK,
+                evictionThreshold: config.cache.references.evictionThreshold || 0.8,
+                priorityFn: (key: string, value: any) => {
+                    const stats = cacheManager.getCacheStats('references-ast');
+                    return stats.hitRate > 0.7 ? 1 : 0;
+                },
+                sizeEstimator: (key: string, value: any) => {
+                    try {
+                        return key.length + (value?.contentHash?.length || 0);
+                    } catch {
+                        return 100;
+                    }
+                }
+            });
+        }
     }
 
     /**
@@ -56,26 +69,15 @@ export class AstCache {
     public get(document: vscode.TextDocument): nodes.ThriftDocument {
         const cacheKey = document.uri.fsPath;
         const contentHash = this.hashContent(document.getText()); // Hash content for comparison
-        const now = Date.now();
-        const cached = this.cache.get(cacheKey);
+        const cached = cacheManager.get<CachedAstEntry>('references-ast', cacheKey);
 
-        if (cached && cached.contentHash === contentHash && isFresh(cached.timestamp, this.ttlMs, now)) {
-            // Notify the cache manager about access for memory awareness
-            cacheManager.get('references-ast', cacheKey);
+        if (cached && cached.contentHash === contentHash) {
             return cached.ast;
         }
 
         const parser = new ThriftParser(document);
         const ast = parser.parse();
 
-        // Store in our local cache
-        this.cache.set(cacheKey, {
-            ast,
-            timestamp: now,
-            contentHash
-        });
-
-        // Also notify the centralized cache manager
         cacheManager.set('references-ast', cacheKey, {ast, contentHash});
 
         return ast;
@@ -98,8 +100,6 @@ export class AstCache {
      * Clear all cached ASTs.
      */
     public clear(): void {
-        this.cache.clear();
-        // Also clear in the centralized cache manager
         cacheManager.clear('references-ast');
     }
 
@@ -108,8 +108,6 @@ export class AstCache {
      * @param filePath - File system path to remove.
      */
     public delete(filePath: string): void {
-        this.cache.delete(filePath);
-        // Also delete from the centralized cache manager
         cacheManager.delete('references-ast', filePath);
     }
 }

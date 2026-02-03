@@ -20,7 +20,7 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
      */
     public provideFoldingRanges(
         document: vscode.TextDocument,
-        _context: vscode.FoldingContext,
+        context: vscode.FoldingContext,
         token: vscode.CancellationToken
     ): vscode.ProviderResult<vscode.FoldingRange[]> {
         try {

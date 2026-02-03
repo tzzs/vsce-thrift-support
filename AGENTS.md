@@ -37,6 +37,7 @@
 - DTOs: `xxx.dto.ts`
 - Barrel exports: `index.ts`
 - Linting: keep ESLint clean before submitting.
+- 代码修改后必须执行 `npm run lint:fix` 并解决所有代码规范问题。
 
 ## Testing Guidelines
 

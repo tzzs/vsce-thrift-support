@@ -43,7 +43,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
     public async provideReferences(
         document: vscode.TextDocument,
         position: vscode.Position,
-        _context: vscode.ReferenceContext,
+        context: vscode.ReferenceContext,
         token: vscode.CancellationToken
     ): Promise<vscode.Location[]> {
 
@@ -84,7 +84,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             return cachedReferences;
         }
 
-        const includeDeclaration = _context?.includeDeclaration !== false;
+        const includeDeclaration = context?.includeDeclaration !== false;
 
         // Search in current document
         const currentDocRefs = await findReferencesInDocument(

@@ -66,7 +66,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
     async provideDefinition(
         document: vscode.TextDocument,
         position: vscode.Position,
-        _token: vscode.CancellationToken
+        token: vscode.CancellationToken
     ): Promise<vscode.Definition | undefined> {
         // Check if cursor is on an include statement first
         const includeDefinition = await checkIncludeStatement(document, position, this.errorHandler);

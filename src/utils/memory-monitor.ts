@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ErrorHandler } from './error-handler';
-import {ReportBuilder, formatMb} from './report-builder';
+import { ReportBuilder, formatMb } from './report-builder';
 
 export interface MemoryUsageInfo {
     /** 当前内存使用量（字节） */
@@ -58,11 +58,11 @@ export interface MemoryTrend {
  * 趋势分析器
  */
 class TrendAnalyzer {
-    private samples: {timestamp: number, usage: number}[] = [];
+    private samples: { timestamp: number, usage: number }[] = [];
     private readonly maxSamples: number = 50; // 最多保存50个样本
 
     public addSample(timestamp: number, usage: number): void {
-        this.samples.push({timestamp, usage});
+        this.samples.push({ timestamp, usage });
         if (this.samples.length > this.maxSamples) {
             this.samples = this.samples.slice(-this.maxSamples); // 保留最新的样本
         }
@@ -70,7 +70,7 @@ class TrendAnalyzer {
 
     public calculateTrend(): MemoryTrend {
         if (this.samples.length < 3) {
-            return {slope: 0, stability: 'stable', period: 0};
+            return { slope: 0, stability: 'stable', period: 0 };
         }
 
         // 使用最小二乘法计算趋势线
@@ -105,7 +105,7 @@ class TrendAnalyzer {
     }
 
     public getAverageUsage(): number {
-        if (this.samples.length === 0) return 0;
+        if (this.samples.length === 0) { return 0; }
         const total = this.samples.reduce((sum, sample) => sum + sample.usage, 0);
         return total / this.samples.length;
     }
@@ -304,7 +304,7 @@ export class SmartMemoryMonitor {
             currentUsage = mem.heapUsed || 0;
 
             // 估算缓存占用的内存
-            for (const [_, stats] of this.cacheStats) {
+            for (const stats of this.cacheStats.values()) {
                 // 基于缓存大小估算内存使用（这里使用简单的估算方法）
                 cacheUsed += stats.size * 1024; // 假设每个条目平均占用1KB
                 cacheAllocated += stats.maxSize * 1024;
@@ -377,7 +377,7 @@ export class SmartMemoryMonitor {
             report.add('### 内存优化建议');
             for (const suggestion of suggestions) {
                 const severityIcon = suggestion.severity === 'high' ? '🚨' :
-                                    suggestion.severity === 'medium' ? '⚠️' : '💡';
+                    suggestion.severity === 'medium' ? '⚠️' : '💡';
                 report.add(`- ${severityIcon} **${suggestion.description}** - ${suggestion.recommendation}`);
             }
             report.add();
@@ -490,4 +490,4 @@ export class SmartMemoryMonitor {
 }
 
 // 为了向后兼容，导出原类名
-export class MemoryMonitor extends SmartMemoryMonitor {}
+export class MemoryMonitor extends SmartMemoryMonitor { }

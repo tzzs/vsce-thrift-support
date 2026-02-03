@@ -128,7 +128,11 @@ export class AdvancedLruCache<K, V> {
         this.totalEstimatedSize += estimatedSize;
 
         this.pruneExpired(now);
-        this.evictOverflow();
+
+        // Optimize the eviction strategy by using a more efficient approach
+        if (this.entries.size > this.maxSize * this.evictionThreshold) {
+            this.evictOverflow();
+        }
     }
 
     /**
@@ -246,11 +250,17 @@ export class AdvancedLruCache<K, V> {
             return;
         }
 
+        // 使用更高效的方式清理过期条目
+        const expiredKeys: K[] = [];
         for (const [key, record] of this.entries) {
             if (this.isExpired(record.timestamp, now)) {
+                expiredKeys.push(key);
                 this.totalEstimatedSize -= record.estimatedSize;
-                this.entries.delete(key);
             }
+        }
+
+        for (const key of expiredKeys) {
+            this.entries.delete(key);
         }
     }
 

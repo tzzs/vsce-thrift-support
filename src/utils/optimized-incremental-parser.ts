@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { OptimizedThriftParser as ThriftParser, IncrementalParseResult } from '../ast/optimized-parser';
+import { OptimizedThriftParser, IncrementalParseResult } from '../ast/optimized-parser';
 import { LineRange } from './line-range';
 import { performanceMonitor } from '../performance-monitor';
 import { IncrementalTracker, ChangeType } from './incremental-tracker';
@@ -8,13 +8,13 @@ import {ErrorHandler} from './error-handler';
 /**
  * Incremental parsing manager that coordinates between the parser, cache, tracker and performance monitoring.
  */
-export class IncrementalParserManager {
-    private static instance: IncrementalParserManager;
+export class OptimizedIncrementalParserManager {
+    private static instance: OptimizedIncrementalParserManager;
     private errorHandler = ErrorHandler.getInstance();
 
-    static getInstance(): IncrementalParserManager {
+    static getInstance(): OptimizedIncrementalParserManager {
         if (!this.instance) {
-            this.instance = new IncrementalParserManager();
+            this.instance = new OptimizedIncrementalParserManager();
         }
         return this.instance;
     }
@@ -27,7 +27,7 @@ export class IncrementalParserManager {
         document: vscode.TextDocument,
         dirtyRange?: LineRange
     ): Promise<IncrementalParseResult> {
-        return performanceMonitor.measureAsync('incremental-parser.parseIncrementally', async () => {
+        return performanceMonitor.measureAsync('optimized-incremental-parser.parseIncrementally', async () => {
             // If no dirty range is provided, get it from the tracker
             if (!dirtyRange) {
                 const tracker = IncrementalTracker.getInstance();
@@ -53,9 +53,9 @@ export class IncrementalParserManager {
             const range = dirtyRange;
 
             const result = this.errorHandler.wrapSync(
-                () => ThriftParser.incrementalParseWithCache(document, range),
+                () => OptimizedThriftParser.incrementalParseWithCache(document, range),
                 {
-                    component: 'IncrementalParserManager',
+                    component: 'OptimizedIncrementalParserManager',
                     operation: 'incrementalParseWithCache',
                     filePath: document.uri.fsPath
                 },
@@ -76,11 +76,11 @@ export class IncrementalParserManager {
      * Perform full parsing of a Thrift document.
      */
     private async parseFull(document: vscode.TextDocument): Promise<IncrementalParseResult> {
-        return performanceMonitor.measureAsync('incremental-parser.parseFull', async () => {
+        return performanceMonitor.measureAsync('optimized-incremental-parser.parseFull', async () => {
             const ast = this.errorHandler.wrapSync(
-                () => ThriftParser.parseWithCache(document),
+                () => OptimizedThriftParser.parseWithCache(document),
                 {
-                    component: 'IncrementalParserManager',
+                    component: 'OptimizedIncrementalParserManager',
                     operation: 'parseWithCache',
                     filePath: document.uri.fsPath
                 }
@@ -141,7 +141,7 @@ export class IncrementalParserManager {
      * Synchronous version of full parse for performance comparison
      */
     private parseFullSync(document: vscode.TextDocument): IncrementalParseResult {
-        const ast = ThriftParser.parseWithCache(document);
+        const ast = OptimizedThriftParser.parseWithCache(document);
 
         return {
             ast,
@@ -159,8 +159,8 @@ export class IncrementalParserManager {
             return this.parseFullSync(document);
         }
 
-        // Use the static incremental parse method from ThriftParser
-        const result = ThriftParser.incrementalParseWithCache(document, dirtyRange);
+        // Use the static incremental parse method from OptimizedThriftParser
+        const result = OptimizedThriftParser.incrementalParseWithCache(document, dirtyRange);
 
         if (result) {
             // Successfully performed incremental parsing

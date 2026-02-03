@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import {ThriftParser} from '../ast/parser';
+import {ThriftParser} from '../ast/parser'; // This now exports OptimizedThriftParser
 import {config} from '../config';
 import {ErrorHandler} from '../utils/error-handler';
 import {LineRange, normalizeLineRange, rangeIntersectsLineRange} from '../utils/line-range';

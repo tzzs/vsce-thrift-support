@@ -16,7 +16,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
     /**
      * 预检查重命名位置，返回可重命名范围与占位符。
      */
-    prepareRename(document: vscode.TextDocument, position: vscode.Position, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.Range | {
+    prepareRename(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Range | {
         range: vscode.Range;
         placeholder: string;
     }> {
@@ -38,7 +38,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
     /**
      * 生成重命名的 WorkspaceEdit，尽量使用精确范围替换。
      */
-    async provideRenameEdits(document: vscode.TextDocument, position: vscode.Position, newName: string, _token: vscode.CancellationToken): Promise<vscode.WorkspaceEdit | undefined> {
+    async provideRenameEdits(document: vscode.TextDocument, position: vscode.Position, newName: string, token: vscode.CancellationToken): Promise<vscode.WorkspaceEdit | undefined> {
         return this.errorHandler.wrapAsync(async () => {
             const wordRange = this.getWordRange(document, position);
             if (!wordRange) {
@@ -51,7 +51,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
 
             // Use the references provider to find all occurrences
             const referencesProvider = new ThriftReferencesProvider();
-            const safeToken = _token ?? ({isCancellationRequested: false} as vscode.CancellationToken);
+            const safeToken = token ?? ({isCancellationRequested: false} as vscode.CancellationToken);
             const references = await referencesProvider.provideReferences(
                 document,
                 position,

@@ -153,6 +153,7 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "lint": "eslint --cache src --ext ts",
+    "lint:fix": "eslint --cache src --ext ts --fix",
     "clean": "rimraf out",
     "build": "npm run clean && npm run compile",
     "package": "npx @vscode/vsce package",

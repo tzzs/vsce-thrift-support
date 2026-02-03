@@ -1,5 +1,5 @@
 import {isExpired} from './cache-expiry';
-import {AdvancedLruCache, AdvancedCacheOptions} from './lru-cache';
+import {AdvancedLruCache, AdvancedCacheOptions} from './optimized-lru-cache';
 
 /**
  * 缓存配置项。
@@ -105,7 +105,18 @@ export class MemoryAwareCacheManager {
             throw new Error(`Cache ${cacheName} not registered`);
         }
 
+        const sizeBefore = cache.size();
+        const hadKey = cache.has(key);
+        const expectedSize = hadKey ? sizeBefore : sizeBefore + 1;
+
         cache.set(key, value);
+
+        const sizeAfter = cache.size();
+        if (sizeAfter < expectedSize) {
+            const count = this.cleanupCount.get(cacheName) || 0;
+            this.cleanupCount.set(cacheName, count + 1);
+            this.lastCleanup.set(cacheName, Date.now());
+        }
 
         // Check if we need to adjust for memory pressure
         this.checkAndAdjustForMemoryPressure();

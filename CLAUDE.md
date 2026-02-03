@@ -142,4 +142,15 @@ npm run perf:benchmark    # 运行性能基准测试
 - **代码注释**：保持现有代码的英文注释不变
 - **技术术语**：保留专业术语的英文表达
 
+## 代码规范要求
+
+代码修改完成后，需要执行以下步骤确保代码风格一致性：
+
+1. 运行代码风格修复命令：
+```bash
+npm run lint:fix
+```
+
+2. 解决所有报告的代码规范问题后再提交代码
+
 This ensures clear communication while maintaining the project's international development standards.

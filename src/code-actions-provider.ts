@@ -34,7 +34,7 @@ export class ThriftRefactorCodeActionProvider implements vscode.CodeActionProvid
     async provideCodeActions(
         document: vscode.TextDocument,
         range: vscode.Range | vscode.Selection,
-        _context: vscode.CodeActionContext,
+        context: vscode.CodeActionContext,
         token: vscode.CancellationToken
     ): Promise<vscode.CodeAction[] | undefined> {
         if (document.languageId !== 'thrift') {
