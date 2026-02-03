@@ -6,9 +6,12 @@ const {
     clearAstCacheForDocument,
     clearExpiredAstCache
 } = require('../../out/ast/cache.js');
+const {CacheManager} = require('../../out/utils/cache-manager.js');
+const {config} = require('../../out/config/index.js');
 
 describe('AST Cache', () => {
     const testUri = 'test.thrift';
+    const cacheManager = CacheManager.getInstance();
 
     afterEach(() => {
         clearAstRegionCacheForDocument(testUri);
@@ -81,25 +84,31 @@ describe('AST Cache', () => {
         const range = {startLine: 0, endLine: 5};
         const content = 'test content';
         const mockNodes = [{type: 'MockType', name: 'node1'}];
+        const key = `${testUri}:${range.startLine}-${range.endLine}`;
 
         setCachedAstRange(testUri, range, content, mockNodes);
         assert.ok(getCachedAstRange(testUri, range, content));
+        assert.ok(cacheManager.get('ast-region', key));
 
         clearAstRegionCacheForDocument(testUri);
         const cachedAfter = getCachedAstRange(testUri, range, content);
         assert.strictEqual(cachedAfter, null);
+        assert.strictEqual(cacheManager.get('ast-region', key), undefined);
     });
 
     it('clears region cache when clearing document cache', () => {
         const range = {startLine: 0, endLine: 5};
         const content = 'test content';
         const mockNodes = [{type: 'MockType', name: 'node1'}];
+        const key = `${testUri}:${range.startLine}-${range.endLine}`;
 
         setCachedAstRange(testUri, range, content, mockNodes);
+        assert.ok(cacheManager.get('ast-region', key));
         clearAstCacheForDocument(testUri);
 
         const cachedAfter = getCachedAstRange(testUri, range, content);
         assert.strictEqual(cachedAfter, null);
+        assert.strictEqual(cacheManager.get('ast-region', key), undefined);
     });
 
     it('expires region cache entries', () => {
@@ -116,6 +125,38 @@ describe('AST Cache', () => {
         clearExpiredAstCache();
         const cachedAfter = getCachedAstRange(testUri, range, content);
         assert.strictEqual(cachedAfter, null);
+
+        Date.now = originalNow;
+    });
+
+    it('clears only expired entries in cache manager', () => {
+        const rangeExpired = {startLine: 0, endLine: 5};
+        const rangeFresh = {startLine: 6, endLine: 10};
+        const content = 'test content';
+        const mockNodes = [{type: 'MockType', name: 'node1'}];
+
+        const originalNow = Date.now;
+        const base = originalNow();
+
+        Date.now = () => base;
+        setCachedAstRange(testUri, rangeExpired, content, mockNodes);
+
+        Date.now = () => base + config.cache.astMaxAgeMs - 1000;
+        setCachedAstRange(testUri, rangeFresh, content, mockNodes);
+
+        const expiredKey = `${testUri}:${rangeExpired.startLine}-${rangeExpired.endLine}`;
+        const freshKey = `${testUri}:${rangeFresh.startLine}-${rangeFresh.endLine}`;
+
+        Date.now = () => base + config.cache.astMaxAgeMs + 1;
+        clearExpiredAstCache();
+
+        const expiredAfter = getCachedAstRange(testUri, rangeExpired, content);
+        const freshAfter = getCachedAstRange(testUri, rangeFresh, content);
+
+        assert.strictEqual(expiredAfter, null);
+        assert.ok(freshAfter, 'Fresh range should remain after cleanup');
+        assert.strictEqual(cacheManager.get('ast-region', expiredKey), undefined);
+        assert.ok(cacheManager.get('ast-region', freshKey));
 
         Date.now = originalNow;
     });

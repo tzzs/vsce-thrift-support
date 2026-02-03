@@ -6,6 +6,10 @@ export interface CacheEntry {
     maxSize: number;
     /** 缓存条目存活时间（毫秒） */
     ttlMs: number;
+    /** LRU-K 参数，默认为2，表示考虑最后2次访问 */
+    lruK?: number;
+    /** 驱逐阈值，当达到这个比例时开始主动驱逐，默认0.8 */
+    evictionThreshold?: number;
 }
 
 /**
@@ -40,6 +44,22 @@ export interface CacheConfig {
     diagnosticsMembers: CacheEntry;
 }
 
+/** 内存管理配置 */
+export interface MemoryConfig {
+    /** 内存使用峰值阈值（默认0.8，即80%） */
+    memoryPressureThreshold: number;
+    /** 内存压力检查间隔（毫秒，默认30秒） */
+    memoryPressureCheckInterval: number;
+    /** GC触发阈值（默认0.8，即80%） */
+    gcThreshold: number;
+    /** 缓存大小动态调整因子（默认1.0，1.0表示根据内存压力自动调整） */
+    dynamicAdjustmentFactor: number;
+    /** 估算单个项目内存占用大小的函数 */
+    itemSizeEstimator: (key: any, value: any) => number;
+    /** 驱逐策略类型 */
+    evictionStrategy: 'lru' | 'lfu' | 'ttl' | 'memory-pressure' | 'priority';
+}
+
 /** 默认缓存条目配置 */
 export const DEFAULT_CACHE_ENTRY: CacheEntry = {maxSize: 100, ttlMs: 10000};
 
@@ -47,17 +67,30 @@ export const DEFAULT_CACHE_ENTRY: CacheEntry = {maxSize: 100, ttlMs: 10000};
 export const cacheConfig: CacheConfig = {
     astMaxAgeMs: 5 * 60 * 1000, // 抽象语法树缓存最大年龄
     includeTypesMaxAgeMs: 3 * 60 * 1000, // 包含类型缓存最大年龄
-    references: {maxSize: 1000, ttlMs: 10000}, // 引用缓存配置
-    workspaceSymbols: {maxSize: 1000, ttlMs: 60000}, // 工作区符号缓存配置
-    fileSymbols: {maxSize: 500, ttlMs: 30000}, // 文件符号缓存配置
-    documentSymbols: {maxSize: 500, ttlMs: 10000}, // 文档符号缓存配置
-    hoverIncludes: {maxSize: 200, ttlMs: 30000}, // 悬停包含缓存配置
-    hoverContent: {maxSize: 100, ttlMs: 10000}, // 悬停内容缓存配置
-    definition: {maxSize: 1000, ttlMs: 10000}, // 定义缓存配置
-    definitionDocument: {maxSize: 500, ttlMs: 10000}, // 定义文档缓存配置
-    definitionWorkspace: {maxSize: 200, ttlMs: 30000}, // 定义工作区缓存配置
-    diagnosticsBlocks: {maxSize: 200, ttlMs: 5 * 60 * 1000}, // 诊断块级缓存配置
-    diagnosticsMembers: {maxSize: 500, ttlMs: 5 * 60 * 1000} // 诊断成员级缓存配置
+    references: {maxSize: 1000, ttlMs: 10000, lruK: 2, evictionThreshold: 0.8}, // 引用缓存配置
+    workspaceSymbols: {maxSize: 1000, ttlMs: 60000, lruK: 2, evictionThreshold: 0.8}, // 工作区符号缓存配置
+    fileSymbols: {maxSize: 500, ttlMs: 30000, lruK: 2, evictionThreshold: 0.7}, // 文件符号缓存配置
+    documentSymbols: {maxSize: 500, ttlMs: 10000, lruK: 2, evictionThreshold: 0.7}, // 文档符号缓存配置
+    hoverIncludes: {maxSize: 200, ttlMs: 30000, lruK: 2, evictionThreshold: 0.8}, // 悬停包含缓存配置
+    hoverContent: {maxSize: 100, ttlMs: 10000, lruK: 2, evictionThreshold: 0.7}, // 悬停内容缓存配置
+    definition: {maxSize: 1000, ttlMs: 10000, lruK: 2, evictionThreshold: 0.8}, // 定义缓存配置
+    definitionDocument: {maxSize: 500, ttlMs: 10000, lruK: 2, evictionThreshold: 0.8}, // 定义文档缓存配置
+    definitionWorkspace: {maxSize: 200, ttlMs: 30000, lruK: 2, evictionThreshold: 0.8}, // 定义工作区缓存配置
+    diagnosticsBlocks: {maxSize: 200, ttlMs: 5 * 60 * 1000, lruK: 2, evictionThreshold: 0.7}, // 诊断块级缓存配置
+    diagnosticsMembers: {maxSize: 500, ttlMs: 5 * 60 * 1000, lruK: 2, evictionThreshold: 0.7} // 诊断成员级缓存配置
+};
+
+/** 内存配置默认值 */
+export const memoryConfig: MemoryConfig = {
+    memoryPressureThreshold: 0.8,
+    memoryPressureCheckInterval: 30000,
+    gcThreshold: 0.8,
+    dynamicAdjustmentFactor: 1.0,
+    itemSizeEstimator: (key: any, value: any) => {
+        // 简单的估算函数，实际可以根据需要更复杂
+        return JSON.stringify({ key, value }).length;
+    },
+    evictionStrategy: 'lru'
 };
 
 /**
@@ -118,5 +151,7 @@ export const config = {
         formattingEnabled: true,
         /** 单次允许的最大脏区行数，超限则退回全量 */
         maxDirtyLines: 200
-    }
+    },
+    /** 内存管理配置 */
+    memory: memoryConfig
 };

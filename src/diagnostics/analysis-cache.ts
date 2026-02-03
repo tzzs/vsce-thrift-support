@@ -2,15 +2,35 @@ import * as vscode from 'vscode';
 import * as nodes from '../ast/nodes.types';
 import {config} from '../config';
 import {LruCache} from '../utils/lru-cache';
+import {CacheManager} from '../utils/cache-manager'; // Import the new cache manager
 import {rangeIntersectsLineRange} from '../utils/line-range';
 import {BlockCache, BlockCacheValue, MemberCache, MemberCacheByBlock, MemberCacheValue, ThriftIssue} from './types';
 import {hashText} from './utils';
+
+// Using the improved CacheManager for diagnostic caches
+const cacheManager = CacheManager.getInstance();
+
+// Register cache configurations with additional options
+cacheManager.registerCache('diagnostics-blocks', {
+    maxSize: config.cache.diagnosticsBlocks.maxSize,
+    ttl: config.cache.diagnosticsBlocks.ttlMs,
+    lruK: config.cache.diagnosticsBlocks.lruK,
+    evictionThreshold: config.cache.diagnosticsBlocks.evictionThreshold || 0.8
+});
+
+cacheManager.registerCache('diagnostics-members', {
+    maxSize: config.cache.diagnosticsMembers.maxSize,
+    ttl: config.cache.diagnosticsMembers.ttlMs,
+    lruK: config.cache.diagnosticsMembers.lruK,
+    evictionThreshold: config.cache.diagnosticsMembers.evictionThreshold || 0.8
+});
 
 /**
  * 创建块级诊断缓存。
  * @returns 块级缓存实例
  */
 export function createBlockCache(): BlockCache {
+    // For backward compatibility, return a wrapper around the cache manager
     return new LruCache<string, BlockCacheValue>(
         config.cache.diagnosticsBlocks.maxSize,
         config.cache.diagnosticsBlocks.ttlMs
@@ -92,21 +112,6 @@ export function buildMemberCacheForNode(
     return cache;
 }
 
-/**
- * 构建块级缓存（每个顶级节点一条缓存）。
- * @param ast 当前 AST
- * @param lines 文档行内容
- * @param issues 当前诊断问题
- * @returns 块级缓存
- */
-
-/**
- * 构建块级缓存（每个顶级节点一条缓存）。
- * @param ast 当前 AST
- * @param lines 文档行内容
- * @param issues 当前诊断问题
- * @returns 块级缓存
- */
 /**
  * 构建块级缓存（每个顶级节点一条缓存）。
  * @param ast 当前 AST

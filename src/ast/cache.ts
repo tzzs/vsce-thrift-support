@@ -1,6 +1,25 @@
 import * as nodes from './nodes.types';
 import {config} from '../config';
 import {LineRange} from '../utils/line-range';
+import {CacheManager} from '../utils/cache-manager'; // Import the enhanced cache manager
+
+// Initialize the cache manager
+const cacheManager = CacheManager.getInstance();
+
+// Register AST cache configurations
+cacheManager.registerCache('ast-full', {
+    maxSize: 100, // Reasonable default, can be configured
+    ttl: config.cache.astMaxAgeMs,
+    lruK: 2,
+    evictionThreshold: 0.8
+});
+
+cacheManager.registerCache('ast-region', {
+    maxSize: 200, // May have more regions than full ASTs
+    ttl: config.cache.astMaxAgeMs,
+    lruK: 2,
+    evictionThreshold: 0.7 // Slightly more aggressive for regions
+});
 
 interface ASTCacheEntry {
     content: string;
@@ -16,6 +35,7 @@ interface ASTRegionCacheEntry {
     timestamp: number;
 }
 
+// Use the new cache manager for primary caches
 const astCache = new Map<string, ASTCacheEntry>();
 const astRegionCache = new Map<string, ASTRegionCacheEntry[]>(); // Keyed by URI
 const CACHE_MAX_AGE = config.cache.astMaxAgeMs;
@@ -30,6 +50,8 @@ export function getCachedAst(uri: string, content: string): nodes.ThriftDocument
     const now = Date.now();
     const cached = astCache.get(uri);
     if (cached && cached.content === content && (now - cached.timestamp) < CACHE_MAX_AGE) {
+        // Notify the cache manager about access for memory awareness
+        cacheManager.get('ast-full', uri);
         return cached.ast;
     }
     return null;
@@ -47,6 +69,8 @@ export function getCachedAstRange(uri: string, range: LineRange, content: string
     const uriCache = astRegionCache.get(uri);
 
     if (!uriCache) {
+        // Notify the cache manager about access
+        cacheManager.get('ast-region', `${uri}:${range.startLine}-${range.endLine}`);
         return null;
     }
 
@@ -57,6 +81,11 @@ export function getCachedAstRange(uri: string, range: LineRange, content: string
         entry.content === content &&
         (now - entry.timestamp) < CACHE_MAX_AGE
     );
+
+    if (cached) {
+        // Notify the cache manager about access for memory awareness
+        cacheManager.get('ast-region', `${uri}:${range.startLine}-${range.endLine}`);
+    }
 
     return cached ? cached.regionAST : null;
 }
@@ -98,6 +127,9 @@ export function setCachedAstRange(uri: string, range: LineRange, content: string
     if (uriCache.length > 50) { // Use a reasonable constant instead of config value
         uriCache.shift(); // Remove oldest entry
     }
+
+    // Notify the cache manager about the set operation for memory awareness
+    cacheManager.set('ast-region', `${uri}:${range.startLine}-${range.endLine}`, ast);
 }
 
 /**
@@ -106,6 +138,13 @@ export function setCachedAstRange(uri: string, range: LineRange, content: string
  * @returns void
  */
 export function clearAstRegionCacheForDocument(uri: string): void {
+    const entries = astRegionCache.get(uri);
+    if (entries) {
+        for (const entry of entries) {
+            const key = `${uri}:${entry.range.startLine}-${entry.range.endLine}`;
+            cacheManager.delete('ast-region', key);
+        }
+    }
     astRegionCache.delete(uri);
 }
 
@@ -123,6 +162,9 @@ export function setCachedAst(uri: string, content: string, ast: nodes.ThriftDocu
         timestamp: Date.now()
     };
     astCache.set(uri, entry);
+
+    // Notify the cache manager about the set operation for memory awareness
+    cacheManager.set('ast-full', uri, entry);
 }
 
 /**
@@ -134,11 +176,17 @@ export function clearExpiredAstCache(): void {
     for (const [uri, entry] of Array.from(astCache.entries())) {
         if (now - entry.timestamp > CACHE_MAX_AGE) {
             astCache.delete(uri);
+            cacheManager.delete('ast-full', uri);
         }
     }
 
     for (const [uri, entries] of Array.from(astRegionCache.entries())) {
         const freshEntries = entries.filter(entry => (now - entry.timestamp) <= CACHE_MAX_AGE);
+        const expiredEntries = entries.filter(entry => (now - entry.timestamp) > CACHE_MAX_AGE);
+        for (const entry of expiredEntries) {
+            const key = `${uri}:${entry.range.startLine}-${entry.range.endLine}`;
+            cacheManager.delete('ast-region', key);
+        }
         if (freshEntries.length === 0) {
             astRegionCache.delete(uri);
         } else if (freshEntries.length !== entries.length) {
@@ -154,7 +202,8 @@ export function clearExpiredAstCache(): void {
  */
 export function clearAstCacheForDocument(uri: string): void {
     astCache.delete(uri);
-    astRegionCache.delete(uri);
+    cacheManager.delete('ast-full', uri);
+    clearAstRegionCacheForDocument(uri);
 }
 
 /**

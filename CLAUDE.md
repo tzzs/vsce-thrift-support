@@ -50,6 +50,26 @@ npm run package      # 生成 .vsix 扩展包
 npm run publish      # 发布到 VS Code Marketplace（需要 VSCE_PAT）
 ```
 
+### 性能测试
+
+```bash
+npm run perf:benchmark    # 运行性能基准测试
+```
+
+## Claude Code 自动化配置
+
+项目已配置 Claude Code hooks，在编写文件前后自动执行构建和测试：
+
+- **PreToolUse**: 在写入文件前运行 `npm run build` 进行预构建验证
+- **PostToolUse**: 在写入文件后运行 `npm run test:single` 进行测试验证
+
+权限配置包括对常用开发工具的访问权限：
+- `Bash(npm *)`, `Bash(npx *)`: 包管理与执行
+- `Bash(tsc *)`, `Bash(ts-node *)`: TypeScript 编译与执行
+- `Bash(mocha *)`: 测试运行
+- `Bash(vsce *)`: VS Code 扩展打包工具
+- `Bash(eslint *)`: 代码质量检查
+
 ## 架构概览
 
 ### 核心模块结构
