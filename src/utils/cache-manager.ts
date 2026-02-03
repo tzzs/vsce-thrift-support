@@ -1,3 +1,5 @@
+import {isExpired} from './cache-expiry';
+
 /**
  * 缓存配置项。
  */
@@ -135,7 +137,7 @@ export class CacheManager {
         }
 
         // Check if expired
-        if (Date.now() - entry.timestamp > config.ttl) {
+        if (isExpired(entry.timestamp, config.ttl)) {
             cache.delete(key);
             this.recordMiss(cacheName);
             return undefined;
@@ -200,30 +202,27 @@ export class CacheManager {
 
         this.lastMemoryCheck = now;
 
-        // 尝试获取内存监控器并评估压力
-        try {
-            const module = require('./memory-monitor');
-            const memoryMonitor = module.MemoryMonitor.getInstance();
+        const memoryMonitor = this.getMemoryMonitor();
+        if (!memoryMonitor) {
+            return;
+        }
 
-            memoryMonitor.recordMemoryUsage();
-            const currentUsage = memoryMonitor.getCurrentUsage();
-            const peakUsage = memoryMonitor.getPeakUsage();
+        memoryMonitor.recordMemoryUsage();
+        const currentUsage = memoryMonitor.getCurrentUsage();
+        const peakUsage = memoryMonitor.getPeakUsage();
 
-            if (peakUsage > 0) {
-                const usageRatio = currentUsage / peakUsage;
+        if (peakUsage > 0) {
+            const usageRatio = currentUsage / peakUsage;
 
-                if (usageRatio > 0.85) {
-                    this.memoryPressureLevel = 'high';
-                    this.performAggressiveCleanup();
-                } else if (usageRatio > 0.7) {
-                    this.memoryPressureLevel = 'medium';
-                    this.performModerateCleanup();
-                } else {
-                    this.memoryPressureLevel = 'normal';
-                }
+            if (usageRatio > 0.85) {
+                this.memoryPressureLevel = 'high';
+                this.performAggressiveCleanup();
+            } else if (usageRatio > 0.7) {
+                this.memoryPressureLevel = 'medium';
+                this.performModerateCleanup();
+            } else {
+                this.memoryPressureLevel = 'normal';
             }
-        } catch (err) {
-            // 忽略错误
         }
     }
 
@@ -284,7 +283,7 @@ export class CacheManager {
         let removed = false;
         const now = Date.now();
         for (const [key, value] of cache) {
-            if (now - value.timestamp > config.ttl) {
+            if (isExpired(value.timestamp, config.ttl, now)) {
                 cache.delete(key);
                 removed = true;
             }
@@ -375,25 +374,43 @@ export class CacheManager {
             return;
         }
 
-        // 尝试更新内存监控，延迟导入避免循环依赖
+        const memoryMonitor = this.getMemoryMonitor();
+        if (!memoryMonitor) {
+            return;
+        }
+
+        for (const [cacheName] of this.caches) {
+            const stats = this.getCacheStats(cacheName);
+            const lastCleanup = this.lastCleanup.get(cacheName) || 0;
+            memoryMonitor.updateCacheStats(cacheName, {
+                name: cacheName,
+                size: stats.size,
+                maxSize: stats.maxSize,
+                hitRate: stats.hitRate,
+                cleanupCount: stats.cleanupCount,
+                lastCleanup
+            });
+        }
+    }
+
+    private getMemoryMonitor(): {
+        recordMemoryUsage: () => void;
+        getCurrentUsage: () => number;
+        getPeakUsage: () => number;
+        updateCacheStats: (name: string, stats: {
+            name: string;
+            size: number;
+            maxSize: number;
+            hitRate: number;
+            cleanupCount: number;
+            lastCleanup: number;
+        }) => void;
+    } | null {
         try {
             const module = require('./memory-monitor');
-            const memoryMonitor = module.MemoryMonitor.getInstance();
-
-            for (const [cacheName] of this.caches) {
-                const stats = this.getCacheStats(cacheName);
-                const lastCleanup = this.lastCleanup.get(cacheName) || 0;
-                memoryMonitor.updateCacheStats(cacheName, {
-                    name: cacheName,
-                    size: stats.size,
-                    maxSize: stats.maxSize,
-                    hitRate: stats.hitRate,
-                    cleanupCount: stats.cleanupCount,
-                    lastCleanup
-                });
-            }
-        } catch (err) {
-            // 忽略错误，避免模块未找到时的问题
+            return module.MemoryMonitor.getInstance();
+        } catch {
+            return null;
         }
     }
 

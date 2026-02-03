@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import {config} from './config';
 import {ErrorHandler} from './utils/error-handler';
 import { MemoryMonitor } from './utils/memory-monitor';
+import {ReportBuilder, formatMb} from './utils/report-builder';
 
 // 性能监控器 - 跟踪慢操作并提供优化建议
 export interface PerformanceMetrics {
@@ -153,58 +154,63 @@ export class PerformanceMonitor {
         const slowOperations = recentMetrics.filter(m => m.duration > this.slowOperationThreshold);
         const opStats = this.getOperationStats();
 
-        let report = `## Thrift Support 性能报告\n\n`;
-        report += `**统计时间:** ${new Date().toLocaleString()}\n`;
-        report += `**总操作数:** ${this.metrics.length}\n`;
-        report += `**平均响应时间:** ${avgDuration.toFixed(2)}ms\n`;
-        report += `**最大响应时间:** ${maxDuration.toFixed(2)}ms\n`;
-        report += `**慢操作数 (>${this.slowOperationThreshold}ms):** ${slowOperations.length}\n\n`;
+        const report = new ReportBuilder();
+        report.add('## Thrift Support 性能报告');
+        report.add();
+        report.add(`**统计时间:** ${new Date().toLocaleString()}`);
+        report.add(`**总操作数:** ${this.metrics.length}`);
+        report.add(`**平均响应时间:** ${avgDuration.toFixed(2)}ms`);
+        report.add(`**最大响应时间:** ${maxDuration.toFixed(2)}ms`);
+        report.add(`**慢操作数 (>${this.slowOperationThreshold}ms):** ${slowOperations.length}`);
+        report.add();
 
         if (typeof process !== 'undefined' && typeof process.memoryUsage === 'function') {
             const mem = process.memoryUsage();
-            report += `**内存占用:** rss ${(mem.rss / 1024 / 1024).toFixed(1)}MB, heap ${(mem.heapUsed / 1024 / 1024).toFixed(1)}MB\n\n`;
+            report.add(`**内存占用:** rss ${formatMb(mem.rss, 1)}, heap ${formatMb(mem.heapUsed, 1)}`);
+            report.add();
         }
 
         if (opStats.length > 0) {
-            report += `### 操作统计\n`;
+            report.add('### 操作统计');
             opStats.forEach(stat => {
                 const sizeInfo = typeof stat.avgFileSize === 'number'
                     ? `, avgFile=${(stat.avgFileSize / 1024).toFixed(1)}KB`
                     : '';
-                report += `- **${stat.operation}**: count=${stat.count}, avg=${stat.avgDuration.toFixed(2)}ms, p95=${stat.p95Duration.toFixed(2)}ms, max=${stat.maxDuration.toFixed(2)}ms, slow=${stat.slowCount}${sizeInfo}\n`;
+                report.add(`- **${stat.operation}**: count=${stat.count}, avg=${stat.avgDuration.toFixed(2)}ms, p95=${stat.p95Duration.toFixed(2)}ms, max=${stat.maxDuration.toFixed(2)}ms, slow=${stat.slowCount}${sizeInfo}`);
             });
-            report += '\n';
+            report.add();
 
             // Add comparison between incremental and full parsing if both exist
             const incrementalOps = opStats.filter(stat => stat.operation.startsWith('incremental-parse'));
             const fullOps = opStats.filter(stat => stat.operation.startsWith('full-parse'));
 
             if (incrementalOps.length > 0 && fullOps.length > 0) {
-                report += `### 性能对比\n`;
+                report.add('### 性能对比');
                 incrementalOps.forEach(incStat => {
                     fullOps.forEach(fullStat => {
                         if (incStat.operation.replace('incremental-', '').startsWith(fullStat.operation.replace('full-', ''))) {
                             const improvement = ((fullStat.avgDuration - incStat.avgDuration) / fullStat.avgDuration * 100).toFixed(1);
-                            report += `- ${incStat.operation} vs ${fullStat.operation}: ${improvement}% faster (avg: ${incStat.avgDuration.toFixed(2)}ms vs ${fullStat.avgDuration.toFixed(2)}ms)\n`;
+                            report.add(`- ${incStat.operation} vs ${fullStat.operation}: ${improvement}% faster (avg: ${incStat.avgDuration.toFixed(2)}ms vs ${fullStat.avgDuration.toFixed(2)}ms)`);
                         }
                     });
                 });
-                report += '\n';
+                report.add();
             }
         }
 
         if (slowOperations.length > 0) {
-            report += `### 慢操作详情\n`;
+            report.add('### 慢操作详情');
             slowOperations.forEach(metric => {
                 const fileInfo = metric.documentUri ? vscode.workspace.asRelativePath(metric.documentUri) : '未知文件';
-                report += `- **${metric.operation}**: ${metric.duration.toFixed(2)}ms (${fileInfo})\n`;
+                report.add(`- **${metric.operation}**: ${metric.duration.toFixed(2)}ms (${fileInfo})`);
             });
         }
 
         // 添加内存使用报告
-        report += `\n${this.memoryMonitor.getMemoryReport()}`;
+        report.add();
+        report.add(this.memoryMonitor.getMemoryReport());
 
-        return report;
+        return report.toString();
     }
 
     /**

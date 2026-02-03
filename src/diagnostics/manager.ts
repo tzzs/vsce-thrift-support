@@ -4,6 +4,7 @@ import {ThriftParser} from '../ast/parser';
 import {config} from '../config';
 import {ErrorHandler} from '../utils/error-handler';
 import {LineRange, normalizeLineRange, rangeIntersectsLineRange} from '../utils/line-range';
+import {makeLineRangeKey} from '../utils/cache-keys';
 import {PerformanceMonitor, performanceMonitor} from '../performance-monitor';
 import {ThriftIssue} from './types';
 import {logDiagnostics} from './logger';
@@ -229,7 +230,7 @@ export class DiagnosticManager {
                                 : [state.dirtyRange];
                             blockRange = findBestContainingRangeForChanges(state.lastAst, changeRanges);
                             if (blockRange) {
-                                const blockKey = `${blockRange.startLine}-${blockRange.endLine}`;
+                                const blockKey = makeLineRangeKey(blockRange);
                                 const blockLines = lines.slice(blockRange.startLine, blockRange.endLine + 1).join('\n');
                                 const blockHash = hashText(blockLines);
                                 const cachedBlock = state.lastBlockCache?.get(blockKey);
@@ -244,7 +245,7 @@ export class DiagnosticManager {
                                     const partialAst = ThriftParser.parseContentWithCache(partialKey, partialText);
                                     const blockNode = findContainingNode(partialAst, blockRange);
                                     memberRange = findBestContainingMemberRangeForChanges(partialAst, changeRanges);
-                                    const memberKey = memberRange ? `${memberRange.startLine}-${memberRange.endLine}` : null;
+                                    const memberKey = memberRange ? makeLineRangeKey(memberRange) : null;
                                     const memberHash = memberRange
                                         ? hashText(partialLines.slice(memberRange.startLine, memberRange.endLine + 1).join('\n'))
                                         : null;

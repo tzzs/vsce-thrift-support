@@ -75,6 +75,19 @@ export class ErrorHandler {
     }
 
     /**
+     * 安全执行函数，捕获异常并返回回退值。
+     * @param fn 目标函数
+     * @param fallbackValue 回退值
+     */
+    safe<T>(fn: () => T, fallbackValue: T): T {
+        try {
+            return fn();
+        } catch {
+            return fallbackValue;
+        }
+    }
+
+    /**
      * 包装异步函数，自动处理错误。
      * @param fn 目标异步函数
      * @param context 错误上下文

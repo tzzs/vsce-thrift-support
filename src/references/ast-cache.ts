@@ -3,6 +3,7 @@ import {ThriftParser} from '../ast/parser';
 import * as nodes from '../ast/nodes.types';
 import {config} from '../config';
 import {CacheManager} from '../utils/cache-manager'; // Import the enhanced cache manager
+import {isFresh} from '../utils/cache-expiry';
 
 // Initialize the cache manager
 const cacheManager = CacheManager.getInstance();
@@ -43,7 +44,7 @@ export class AstCache {
         const now = Date.now();
         const cached = this.cache.get(cacheKey);
 
-        if (cached && cached.contentHash === contentHash && (now - cached.timestamp) < this.ttlMs) {
+        if (cached && cached.contentHash === contentHash && isFresh(cached.timestamp, this.ttlMs, now)) {
             // Notify the cache manager about access for memory awareness
             cacheManager.get('references-ast', cacheKey);
             return cached.ast;

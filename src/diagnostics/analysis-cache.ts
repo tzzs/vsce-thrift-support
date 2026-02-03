@@ -6,6 +6,7 @@ import {CacheManager} from '../utils/cache-manager'; // Import the new cache man
 import {rangeIntersectsLineRange} from '../utils/line-range';
 import {BlockCache, BlockCacheValue, MemberCache, MemberCacheByBlock, MemberCacheValue, ThriftIssue} from './types';
 import {hashText} from './utils';
+import {makeLineRangeKey} from '../utils/cache-keys';
 
 // Using the improved CacheManager for diagnostic caches
 const cacheManager = CacheManager.getInstance();
@@ -69,7 +70,7 @@ export function createMemberCache(): MemberCache {
 export function buildMemberCache(ast: nodes.ThriftDocument, lines: string[], issues: ThriftIssue[]) {
     const cache = createMemberCacheByBlock();
     for (const node of ast.body) {
-        const blockKey = `${node.range.start.line}-${node.range.end.line}`;
+        const blockKey = makeLineRangeKey({startLine: node.range.start.line, endLine: node.range.end.line});
         cache.set(blockKey, buildMemberCacheForNode(node, lines, issues));
     }
     return cache;
@@ -102,7 +103,7 @@ export function buildMemberCacheForNode(
         const endLine = member.range.end.line;
         const memberText = lines.slice(startLine, endLine + 1).join('\n');
         const memberIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, {startLine, endLine}));
-        const key = `${startLine}-${endLine}`;
+        const key = makeLineRangeKey({startLine, endLine});
         cache.set(key, {
             range: {startLine, endLine},
             hash: hashText(memberText),
@@ -124,7 +125,7 @@ export function buildBlockCache(ast: nodes.ThriftDocument, lines: string[], issu
     for (const node of ast.body) {
         const startLine = node.range.start.line;
         const endLine = node.range.end.line;
-        const key = `${startLine}-${endLine}`;
+        const key = makeLineRangeKey({startLine, endLine});
         const blockText = lines.slice(startLine, endLine + 1).join('\n');
         const blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, {startLine, endLine}));
         cache.set(key, {hash: hashText(blockText), issues: blockIssues});

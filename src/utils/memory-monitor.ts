@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { ErrorHandler } from './error-handler';
+import {ReportBuilder, formatMb} from './report-builder';
 
 export interface MemoryUsageInfo {
     /** 当前内存使用量（字节） */
@@ -64,27 +65,23 @@ export class MemoryMonitor {
      * 记录当前内存使用情况
      */
     public recordMemoryUsage(): void {
-        try {
-            const usage = this.getCurrentMemoryUsage();
+        const usage = this.errorHandler.safe(() => this.getCurrentMemoryUsage(), null);
+        if (!usage) {
+            return;
+        }
 
-            // 更新峰值
-            if (usage.currentUsage > this.peakUsage) {
-                this.peakUsage = usage.currentUsage;
-                usage.peakUsage = this.peakUsage;
-            }
+        // 更新峰值
+        if (usage.currentUsage > this.peakUsage) {
+            this.peakUsage = usage.currentUsage;
+            usage.peakUsage = this.peakUsage;
+        }
 
-            // 添加到历史记录
-            this.memoryHistory.push(usage);
+        // 添加到历史记录
+        this.memoryHistory.push(usage);
 
-            // 限制历史记录大小
-            if (this.memoryHistory.length > this.MAX_HISTORY_SIZE) {
-                this.memoryHistory = this.memoryHistory.slice(-this.MAX_HISTORY_SIZE);
-            }
-        } catch (error) {
-            this.errorHandler.handleError(error, {
-                component: 'MemoryMonitor',
-                operation: 'recordMemoryUsage'
-            });
+        // 限制历史记录大小
+        if (this.memoryHistory.length > this.MAX_HISTORY_SIZE) {
+            this.memoryHistory = this.memoryHistory.slice(-this.MAX_HISTORY_SIZE);
         }
     }
 
@@ -146,38 +143,41 @@ export class MemoryMonitor {
         const latest = this.memoryHistory[this.memoryHistory.length - 1];
         const avgUsage = this.memoryHistory.reduce((sum, m) => sum + m.currentUsage, 0) / this.memoryHistory.length;
 
-        let report = `## Thrift Support 内存使用报告\n\n`;
-        report += `**统计时间:** ${new Date().toLocaleString()}\n`;
-        report += `**当前内存使用:** ${(latest.currentUsage / 1024 / 1024).toFixed(2)} MB\n`;
-        report += `**内存使用峰值:** ${(latest.peakUsage / 1024 / 1024).toFixed(2)} MB\n`;
-        report += `**平均内存使用:** ${(avgUsage / 1024 / 1024).toFixed(2)} MB\n`;
-        report += `**缓存估算使用:** ${(latest.cacheUsed / 1024 / 1024).toFixed(2)} MB\n`;
-        report += `**缓存估算分配:** ${(latest.cacheAllocated / 1024 / 1024).toFixed(2)} MB\n\n`;
+        const report = new ReportBuilder();
+        report.add('## Thrift Support 内存使用报告');
+        report.add();
+        report.add(`**统计时间:** ${new Date().toLocaleString()}`);
+        report.add(`**当前内存使用:** ${formatMb(latest.currentUsage)}`);
+        report.add(`**内存使用峰值:** ${formatMb(latest.peakUsage)}`);
+        report.add(`**平均内存使用:** ${formatMb(avgUsage)}`);
+        report.add(`**缓存估算使用:** ${formatMb(latest.cacheUsed)}`);
+        report.add(`**缓存估算分配:** ${formatMb(latest.cacheAllocated)}`);
+        report.add();
 
         if (this.cacheStats.size > 0) {
-            report += `### 缓存统计\n`;
+            report.add('### 缓存统计');
             for (const [name, stats] of this.cacheStats) {
-                report += `- **${name}**: size=${stats.size}/${stats.maxSize}, hitRate=${(stats.hitRate * 100).toFixed(1)}%, cleanups=${stats.cleanupCount}\n`;
+                report.add(`- **${name}**: size=${stats.size}/${stats.maxSize}, hitRate=${(stats.hitRate * 100).toFixed(1)}%, cleanups=${stats.cleanupCount}`);
             }
-            report += '\n';
+            report.add();
         }
 
         // 添加内存优化建议
-        report += `### 内存优化建议\n`;
+        report.add('### 内存优化建议');
         if (latest.currentUsage > latest.peakUsage * 0.8) {
-            report += '- ⚠️ 当前内存使用接近峰值，考虑清理不必要的缓存\n';
+            report.add('- ⚠️ 当前内存使用接近峰值，考虑清理不必要的缓存');
         }
 
         for (const [name, stats] of this.cacheStats) {
             if (stats.size > stats.maxSize * 0.8) {
-                report += `- ⚠️ 缓存 "${name}" 使用率过高 (${Math.round((stats.size/stats.maxSize)*100)}%)，考虑清理\n`;
+                report.add(`- ⚠️ 缓存 "${name}" 使用率过高 (${Math.round((stats.size / stats.maxSize) * 100)}%)，考虑清理`);
             }
             if (stats.hitRate < 0.5) {
-                report += `- ⚠️ 缓存 "${name}" 命中率较低 (${(stats.hitRate*100).toFixed(1)}%)，考虑调整策略\n`;
+                report.add(`- ⚠️ 缓存 "${name}" 命中率较低 (${(stats.hitRate * 100).toFixed(1)}%)，考虑调整策略`);
             }
         }
 
-        return report;
+        return report.toString();
     }
 
     /**

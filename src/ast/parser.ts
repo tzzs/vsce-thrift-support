@@ -10,6 +10,7 @@ import {
     setCachedAst
 } from './cache';
 import {LineRange} from '../utils/line-range';
+import {isFresh, isExpired} from '../utils/cache-expiry';
 import {
     buildConstValueRange,
     findDefaultValueRange,
@@ -1462,7 +1463,7 @@ export class ThriftParser {
      */
     private static getCachedAstByUriUnsafe(uri: string): nodes.ThriftDocument | null {
         const cached = ThriftParser.astByUri.get(uri);
-        if (cached && (Date.now() - cached.timestamp) < config.cache.astMaxAgeMs) {
+        if (cached && isFresh(cached.timestamp, config.cache.astMaxAgeMs)) {
             return cached.ast;
         }
         return null;
@@ -1475,7 +1476,7 @@ export class ThriftParser {
     private static clearExpiredAstByUriCache(): void {
         const now = Date.now();
         for (const [uri, entry] of Array.from(ThriftParser.astByUri.entries())) {
-            if (now - entry.timestamp > config.cache.astMaxAgeMs) {
+            if (isExpired(entry.timestamp, config.cache.astMaxAgeMs, now)) {
                 ThriftParser.astByUri.delete(uri);
             }
         }

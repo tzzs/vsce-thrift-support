@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import {collapseLineRanges, LineRange, lineRangeFromChange, mergeLineRanges} from '../utils/line-range';
 import {hasStructuralTokens, includesKeyword} from './utils';
+import {ErrorHandler} from '../utils/error-handler';
 
 export interface DirtyChangeSummary {
     /** 脏行数量 */
@@ -42,13 +43,12 @@ export function getDirtyChangeSummary(
             if (includesKeyword(change.text)) {
                 includesMayChange = true;
             } else {
-                try {
-                    const lineText = document.lineAt(change.range.start.line).text;
-                    if (includesKeyword(lineText)) {
-                        includesMayChange = true;
-                    }
-                } catch {
-                    // ignore line lookup failures
+                const lineText = ErrorHandler.getInstance().safe(
+                    () => document.lineAt(change.range.start.line).text,
+                    ''
+                );
+                if (includesKeyword(lineText)) {
+                    includesMayChange = true;
                 }
             }
         }
@@ -67,12 +67,13 @@ export function getDirtyChangeSummary(
             continue;
         }
 
-        try {
-            const lineText = document.lineAt(change.range.start.line).text;
-            if (hasStructuralTokens(lineText)) {
-                structuralChange = true;
-            }
-        } catch {
+        const lineText = ErrorHandler.getInstance().safe(
+            () => document.lineAt(change.range.start.line).text,
+            ''
+        );
+        if (!lineText) {
+            structuralChange = true;
+        } else if (hasStructuralTokens(lineText)) {
             structuralChange = true;
         }
     }

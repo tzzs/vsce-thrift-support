@@ -3,12 +3,14 @@ import { ThriftParser, IncrementalParseResult } from '../ast/parser';
 import { LineRange } from './line-range';
 import { performanceMonitor } from '../performance-monitor';
 import { IncrementalTracker, ChangeType } from './incremental-tracker';
+import {ErrorHandler} from './error-handler';
 
 /**
  * Incremental parsing manager that coordinates between the parser, cache, tracker and performance monitoring.
  */
 export class IncrementalParserManager {
     private static instance: IncrementalParserManager;
+    private errorHandler = ErrorHandler.getInstance();
 
     static getInstance(): IncrementalParserManager {
         if (!this.instance) {
@@ -45,21 +47,28 @@ export class IncrementalParserManager {
                 return await this.parseFull(document);
             }
 
-            try {
-                // Use the static incremental parse method from ThriftParser
-                const result = ThriftParser.incrementalParseWithCache(document, dirtyRange);
-
-                if (result) {
-                    // Successfully performed incremental parsing
-                    return result;
-                } else {
-                    // Fallback to full parsing if incremental parsing isn't available
-                    return await this.parseFull(document);
-                }
-            } catch (error) {
-                console.warn('Incremental parsing failed, falling back to full parsing:', error);
+            if (!dirtyRange) {
                 return await this.parseFull(document);
             }
+            const range = dirtyRange;
+
+            const result = this.errorHandler.wrapSync(
+                () => ThriftParser.incrementalParseWithCache(document, range),
+                {
+                    component: 'IncrementalParserManager',
+                    operation: 'incrementalParseWithCache',
+                    filePath: document.uri.fsPath
+                },
+                null
+            );
+
+            if (result) {
+                // Successfully performed incremental parsing
+                return result;
+            }
+
+            // Fallback to full parsing if incremental parsing isn't available
+            return await this.parseFull(document);
         }, document);
     }
 
@@ -68,17 +77,20 @@ export class IncrementalParserManager {
      */
     private async parseFull(document: vscode.TextDocument): Promise<IncrementalParseResult> {
         return performanceMonitor.measureAsync('incremental-parser.parseFull', async () => {
-            try {
-                const ast = ThriftParser.parseWithCache(document);
+            const ast = this.errorHandler.wrapSync(
+                () => ThriftParser.parseWithCache(document),
+                {
+                    component: 'IncrementalParserManager',
+                    operation: 'parseWithCache',
+                    filePath: document.uri.fsPath
+                }
+            );
 
-                return {
-                    ast,
-                    affectedNodes: [], // For full parse, we consider all nodes as potentially affected
-                    newNodes: ast.body  // All nodes are effectively "new" in a full parse context
-                };
-            } catch (error) {
-                throw new Error(`Full parsing failed: ${error}`);
-            }
+            return {
+                ast,
+                affectedNodes: [], // For full parse, we consider all nodes as potentially affected
+                newNodes: ast.body  // All nodes are effectively "new" in a full parse context
+            };
         }, document);
     }
 

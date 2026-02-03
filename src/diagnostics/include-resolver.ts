@@ -70,6 +70,7 @@ export async function getIncludedFiles(document: vscode.TextDocument): Promise<v
     const includedFiles: vscode.Uri[] = [];
     const documentDir = path.dirname(document.uri.fsPath);
     const ast = ThriftParser.parseWithCache(document);
+    const handler = ErrorHandler.getInstance();
 
     for (const node of ast.body) {
         if (node.type !== nodes.ThriftNodeType.Include) {
@@ -84,11 +85,9 @@ export async function getIncludedFiles(document: vscode.TextDocument): Promise<v
             fullPath = path.resolve(documentDir, includePath);
         }
 
-        try {
-            const uri = vscode.Uri.file(fullPath);
+        const uri = handler.safe(() => vscode.Uri.file(fullPath), null);
+        if (uri) {
             includedFiles.push(uri);
-        } catch {
-            // Invalid path, skip
         }
     }
 
@@ -108,21 +107,25 @@ export async function collectIncludedTypes(
     log?: (message: string) => void
 ): Promise<Map<string, string>> {
     const includedTypes = new Map<string, string>();
+    const handler = errorHandler ?? ErrorHandler.getInstance();
     const includedFiles = await getIncludedFiles(document);
     const now = Date.now();
     const decoder = new TextDecoder('utf-8');
 
     for (const includedFile of includedFiles) {
-        try {
+        const result = await handler.wrapAsync(async () => {
             const includedFileKey = includedFile.toString();
 
-            let fileStats;
-            try {
-                const stat = await vscode.workspace.fs.stat(includedFile);
-                fileStats = {mtime: stat.mtime, size: stat.size};
-            } catch {
-                fileStats = null;
-            }
+            const stat = await handler.wrapAsync(
+                () => Promise.resolve(vscode.workspace.fs.stat(includedFile)),
+                {
+                    component: 'DiagnosticManager',
+                    operation: 'statIncludedFile',
+                    filePath: includedFile.fsPath
+                },
+                null
+            );
+            const fileStats = stat ? {mtime: stat.mtime, size: stat.size} : null;
 
             const cachedStats = includeFileStats.get(includedFileKey);
             const cachedTypes = includeTypesCache.get(includedFileKey);
@@ -139,12 +142,7 @@ export async function collectIncludedTypes(
                 if (log) {
                     log(`[Diagnostics] Using cached types for included file: ${path.basename(includedFile.fsPath)}`);
                 }
-                for (const [name, kind] of cachedTypes) {
-                    if (!includedTypes.has(name)) {
-                        includedTypes.set(name, kind);
-                    }
-                }
-                continue;
+                return {types: cachedTypes};
             }
 
             if (log) {
@@ -161,7 +159,7 @@ export async function collectIncludedTypes(
                 text = decoder.decode(content);
             }
 
-            const types = parseTypesFromContent(text, includedFileKey);
+            const types = new Map(parseTypesFromContent(text, includedFileKey));
 
             includeTypesCache.set(includedFileKey, new Map(types));
             includeFileTimestamps.set(includedFileKey, now);
@@ -169,21 +167,22 @@ export async function collectIncludedTypes(
                 includeFileStats.set(includedFileKey, fileStats);
             }
 
-            for (const [name, kind] of types) {
-                if (!includedTypes.has(name)) {
-                    includedTypes.set(name, kind);
-                }
-            }
-        } catch (error) {
-            if (errorHandler) {
-                errorHandler.handleError(error, {
-                    component: 'DiagnosticManager',
-                    operation: 'collectIncludedTypes',
-                    filePath: includedFile.fsPath,
-                    additionalInfo: {reason: 'includedFileAnalysis'}
-                });
-            }
+            return {types};
+        }, {
+            component: 'DiagnosticManager',
+            operation: 'collectIncludedTypes',
+            filePath: includedFile.fsPath,
+            additionalInfo: {reason: 'includedFileAnalysis'}
+        }, null);
+
+        if (!result) {
             continue;
+        }
+
+        for (const [name, kind] of result.types) {
+            if (!includedTypes.has(name)) {
+                includedTypes.set(name, kind);
+            }
         }
     }
 
