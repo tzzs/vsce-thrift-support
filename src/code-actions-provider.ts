@@ -36,66 +36,89 @@ export class ThriftRefactorCodeActionProvider {
         context: vscode.CodeActionContext,
         token: vscode.CancellationToken
     ): vscode.ProviderResult<vscode.CodeAction[]> {
-        if (document.languageId !== 'thrift' || token.isCancellationRequested) {
-            return;
-        }
-
-        const actions: vscode.CodeAction[] = [];
-
-        // Extract type (typedef) from selection or current token
-        const extract = new vscode.CodeAction('Extract type (typedef)', vscode.CodeActionKind.RefactorExtract);
-        extract.command = { command: 'thrift.refactor.extractType', title: 'Extract type (typedef)' };
-        actions.push(extract);
-
-        // Move type to another file (struct/enum/service/typedef)
-        const move = new vscode.CodeAction('Move type to file...', vscode.CodeActionKind.Refactor);
-        move.command = { command: 'thrift.refactor.moveType', title: 'Move type to file...' };
-        actions.push(move);
-
-        const position = (range as vscode.Selection).active ?? range.start;
-        const lineText = document.lineAt(position.line).text;
-
-        // 1) QuickFix: insert include for namespaced reference Foo.Bar when missing
-        const nsRegex = /\b([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\b/g;
-        const includeSet = this.collectExistingIncludes(document);
-        const createdNs = new Set<string>();
-        const nsMatches = Array.from(lineText.matchAll(nsRegex));
-
-        // Process namespace matches synchronously
-        for (const m of nsMatches) {
-            const ns = m[1];
-            const fileName = `${ns}.thrift`;
-            if (!includeSet.has(fileName) && !createdNs.has(ns) && token.isCancellationRequested) {
-                break;
+        try {
+            if (document.languageId !== 'thrift' || (token && token.isCancellationRequested)) {
+                return undefined;
             }
 
-            // For now, we'll add a placeholder if the namespace is referenced
-            if (!includeSet.has(fileName) && !createdNs.has(ns)) {
-                const fix = new vscode.CodeAction(`Insert include "${fileName}"`, vscode.CodeActionKind.QuickFix);
-                fix.edit = new vscode.WorkspaceEdit();
-                const insertLine = this.computeIncludeInsertLine(document);
-                fix.edit.insert(document.uri, new vscode.Position(insertLine, 0), `include "${fileName}"\n`);
-                fix.isPreferred = true;
-                actions.push(fix);
-                createdNs.add(ns);
-            }
-        }
+            const actions: vscode.CodeAction[] = [];
 
-        // 2) QuickFix: for unqualified identifier provide include choices when multiple workspace definitions exist
-        const wordRange = document.getWordRangeAtPosition(position, /[A-Za-z_][A-Za-z0-9_]*/);
-        if (wordRange && !token.isCancellationRequested) {
-            const word = document.getText(wordRange);
-            if (word && !lineText.includes(`${word}.`)) {
-                // We'll add the basic include suggestion without workspace lookup for sync method
-                const fix = new vscode.CodeAction(`Insert include "${word.toLowerCase()}.thrift"`, vscode.CodeActionKind.QuickFix);
-                fix.edit = new vscode.WorkspaceEdit();
-                const insertLine = this.computeIncludeInsertLine(document);
-                fix.edit.insert(document.uri, new vscode.Position(insertLine, 0), `include "${word.toLowerCase()}.thrift"\n`);
-                actions.push(fix);
-            }
-        }
+            // Extract type (typedef) from selection or current token
+            const extract = new vscode.CodeAction('Extract type (typedef)', vscode.CodeActionKind.RefactorExtract);
+            extract.command = { command: 'thrift.refactor.extractType', title: 'Extract type (typedef)' };
+            actions.push(extract);
 
-        return actions;
+            // Move type to another file (struct/enum/service/typedef)
+            // Using 'refactor.move' string with type assertion because VS Code API doesn't have RefactorMove constant
+            // but the extension needs this specific kind for proper categorization in the UI
+            const move = new vscode.CodeAction('Move type to file...', 'refactor.move' as unknown as vscode.CodeActionKind);
+            move.command = { command: 'thrift.refactor.moveType', title: 'Move type to file...' };
+            actions.push(move);
+
+            const position = (range as vscode.Selection).active ?? range.start;
+            let lineText = '';
+            try {
+                lineText = document.lineAt(position.line).text;
+            } catch (error) {
+                this.errorHandler.handleWarning('Failed to get line text in code actions', {
+                    component: 'ThriftRefactorCodeActionProvider',
+                    operation: 'provideCodeActions',
+                    filePath: document.uri?.toString(),
+                    additionalInfo: { position: position, error: error instanceof Error ? error.message : 'Unknown error' }
+                });
+                return [];
+            }
+
+            // 1) QuickFix: insert include for namespaced reference Foo.Bar when missing
+            const nsRegex = /\b([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\b/g;
+            const includeSet = this.collectExistingIncludes(document);
+            const createdNs = new Set<string>();
+            const nsMatches = Array.from(lineText.matchAll(nsRegex));
+
+            // Process namespace matches synchronously
+            for (const m of nsMatches) {
+                const ns = m[1];
+                const fileName = `${ns}.thrift`;
+                if (!includeSet.has(fileName) && !createdNs.has(ns) && (!token || token.isCancellationRequested)) {
+                    break;
+                }
+
+                // For now, we'll add a placeholder if the namespace is referenced
+                if (!includeSet.has(fileName) && !createdNs.has(ns)) {
+                    const fix = new vscode.CodeAction(`Insert include "${fileName}"`, vscode.CodeActionKind.QuickFix);
+                    fix.edit = new vscode.WorkspaceEdit();
+                    const insertLine = this.computeIncludeInsertLine(document);
+                    fix.edit.insert(document.uri, new vscode.Position(insertLine, 0), `include "${fileName}"\n`);
+                    fix.isPreferred = true;
+                    actions.push(fix);
+                    createdNs.add(ns);
+                }
+            }
+
+            // 2) QuickFix: for unqualified identifier provide include choices when multiple workspace definitions exist
+            const wordRange = document.getWordRangeAtPosition(position, /[A-Za-z_][A-Za-z0-9_]*/);
+            if (wordRange && (!token || !token.isCancellationRequested)) {
+                const word = document.getText(wordRange);
+                if (word && !lineText.includes(`${word}.`)) {
+                    // We'll add the basic include suggestion without workspace lookup for sync method
+                    const fix = new vscode.CodeAction(`Insert include "${word.toLowerCase()}.thrift"`, vscode.CodeActionKind.QuickFix);
+                    fix.edit = new vscode.WorkspaceEdit();
+                    const insertLine = this.computeIncludeInsertLine(document);
+                    fix.edit.insert(document.uri, new vscode.Position(insertLine, 0), `include "${word.toLowerCase()}.thrift"\n`);
+                    actions.push(fix);
+                }
+            }
+
+            return actions;
+        } catch (error) {
+            this.errorHandler.handleWarning('CodeActionProvider failed', {
+                component: 'ThriftRefactorCodeActionProvider',
+                operation: 'provideCodeActions',
+                filePath: document.uri?.toString(),
+                additionalInfo: { error: error instanceof Error ? error.message : 'Unknown error' }
+            });
+            return [];
+        }
     }
 
     private collectExistingIncludes(document: vscode.TextDocument): Set<string> {
