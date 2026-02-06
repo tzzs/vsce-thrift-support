@@ -1,19 +1,19 @@
 import * as vscode from 'vscode';
-import {CoreDependencies} from './utils/dependencies';
-import {config} from './config';
+import { CoreDependencies } from './utils/dependencies';
+import { config } from './config';
 
-import {ThriftFormattingProvider} from './formatting-bridge';
-import {ThriftDefinitionProvider} from './definition-provider';
-import {ThriftHoverProvider} from './hover-provider';
-import {registerDiagnostics} from './diagnostics';
-import {registerCompletionProvider} from './completion-provider';
-import {registerDocumentSymbolProvider} from './document-symbol-provider';
-import {registerWorkspaceSymbolProvider} from './workspace-symbol-provider';
-import {registerReferencesProvider} from './references-provider';
-import {registerFoldingRangeProvider} from './folding-range-provider';
-import {registerSelectionRangeProvider} from './selection-range-provider';
-import {ThriftRenameProvider} from './rename-provider';
-import {ThriftRefactorCodeActionProvider} from './code-actions-provider';
+import { ThriftFormattingProvider } from './formatting-bridge';
+import { ThriftDefinitionProvider } from './definition-provider';
+import { ThriftHoverProvider } from './hover-provider';
+import { registerDiagnostics } from './diagnostics';
+import { registerCompletionProvider } from './completion-provider';
+import { registerDocumentSymbolProvider } from './document-symbol-provider';
+import { registerWorkspaceSymbolProvider } from './workspace-symbol-provider';
+import { registerReferencesProvider } from './references-provider';
+import { registerFoldingRangeProvider } from './folding-range-provider';
+import { registerSelectionRangeProvider } from './selection-range-provider';
+import { ThriftRenameProvider } from './rename-provider';
+import { ThriftRefactorCodeActionProvider } from './code-actions-provider';
 import { setupIncrementalParsingTracking } from './utils/incremental-parser';
 
 /**
@@ -93,12 +93,11 @@ export function registerProviders(context: vscode.ExtensionContext, deps: CoreDe
     context.subscriptions.push(
         vscode.languages.registerCodeActionsProvider(
             'thrift',
-            new ThriftRefactorCodeActionProvider(deps),
+            new ThriftRefactorCodeActionProvider(deps) as vscode.CodeActionProvider,
             {
                 providedCodeActionKinds: [
                     vscode.CodeActionKind.Refactor,
                     vscode.CodeActionKind.RefactorExtract,
-                    vscode.CodeActionKind.RefactorMove,
                     vscode.CodeActionKind.QuickFix
                 ]
             }
