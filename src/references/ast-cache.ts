@@ -29,7 +29,7 @@ cacheManager.registerCache('references-ast', {
                 }
             }
             return key.length + contentHashLength;
-        } catch (e) {
+        } catch (_e) {
             // Fallback to a simple size if there are issues
             return 100; // Default size
         }
