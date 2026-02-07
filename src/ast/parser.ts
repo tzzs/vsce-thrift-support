@@ -70,26 +70,34 @@ export class ThriftParser {
 
     /**
      * 带缓存的解析入口（基于文档内容）。
+     * 使用 URI + 版本号 + 内容哈希 作为缓存键，提高缓存命中率。
      */
     public static parseWithCache(document: vscode.TextDocument): nodes.ThriftDocument {
         const uri = document.uri.toString();
         const content = document.getText();
+        const version = document.version;
+
+        // 使用优化的缓存键：URI + 版本号 + 内容哈希
         const ast = parseWithAstCache(uri, content, () => {
             const parser = new ThriftParser(content);
             return parser.parse();
-        });
+        }, version);
+
         ThriftParser.setCachedAstByUriUnsafe(uri, ast);
         return ast;
     }
 
     /**
      * 带缓存的解析入口（基于 URI 与内容）。
+     * 使用 URI + 内容哈希 作为缓存键。
      */
     public static parseContentWithCache(uri: string, content: string): nodes.ThriftDocument {
+        // 使用优化的缓存键：URI + 内容哈希
         const ast = parseWithAstCache(uri, content, () => {
             const parser = new ThriftParser(content);
             return parser.parse();
         });
+
         ThriftParser.setCachedAstByUriUnsafe(uri, ast);
         return ast;
     }

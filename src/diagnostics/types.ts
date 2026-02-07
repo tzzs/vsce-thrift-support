@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import {LineRange} from '../utils/line-range';
-import {LruCache} from '../utils/lru-cache';
+import {LruCache} from '../utils/optimized-lru-cache';
 import * as nodes from '../ast/nodes.types';
 
 export type ThriftIssue = {

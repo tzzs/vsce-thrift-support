@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as nodes from '../ast/nodes.types';
 import {config} from '../config';
-import {LruCache} from '../utils/lru-cache';
+import {LruCache} from '../utils/optimized-lru-cache';
 import {CacheManager} from '../utils/cache-manager'; // Import the new cache manager
 import {rangeIntersectsLineRange} from '../utils/line-range';
 import {BlockCache, BlockCacheValue, MemberCache, MemberCacheByBlock, MemberCacheValue, ThriftIssue} from './types';

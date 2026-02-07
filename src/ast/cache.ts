@@ -2,7 +2,7 @@ import * as nodes from './nodes.types';
 import {config} from '../config';
 import {LineRange} from '../utils/line-range';
 import {CacheManager} from '../utils/cache-manager'; // Import the enhanced cache manager
-import {makeUriRangeKey} from '../utils/cache-keys';
+import {makeUriRangeKey, makeUriContentKey} from '../utils/cache-keys';
 import {isFresh, isExpired} from '../utils/cache-expiry';
 import {OptimizedThriftParser} from './optimized-parser';
 
@@ -47,16 +47,24 @@ const CACHE_MAX_AGE = config.cache.astMaxAgeMs;
  * 获取缓存中的 AST（若命中且未过期）。
  * @param uri 文档 URI
  * @param content 文档内容
+ * @param version 版本号（可选）
  * @returns 缓存命中时返回 AST，否则返回 null
  */
-export function getCachedAst(uri: string, content: string): nodes.ThriftDocument | null {
+export function getCachedAst(uri: string, content: string, version?: number): nodes.ThriftDocument | null {
     const now = Date.now();
-    const cached = astCache.get(uri);
+
+    // 尝试使用优化的缓存键查找
+    const cacheKey = makeUriContentKey(uri, content, version);
+
+    // 先检查 astCache Map
+    const cached = astCache.get(cacheKey) || astCache.get(uri); // 向后兼容
+
     if (cached && cached.content === content && isFresh(cached.timestamp, CACHE_MAX_AGE, now)) {
         // Notify the cache manager about access for memory awareness
-        cacheManager.get('ast-full', uri);
+        cacheManager.get('ast-full', cacheKey);
         return cached.ast;
     }
+
     return null;
 }
 
@@ -156,18 +164,23 @@ export function clearAstRegionCacheForDocument(uri: string): void {
  * @param uri 文档 URI
  * @param content 文档内容
  * @param ast 解析后的 AST
+ * @param version 版本号（可选）
  * @returns void
  */
-export function setCachedAst(uri: string, content: string, ast: nodes.ThriftDocument): void {
+export function setCachedAst(uri: string, content: string, ast: nodes.ThriftDocument, version?: number): void {
     const entry = {
         content,
         ast,
         timestamp: Date.now()
     };
-    astCache.set(uri, entry);
+
+    // 使用优化的缓存键
+    const cacheKey = makeUriContentKey(uri, content, version);
+
+    astCache.set(cacheKey, entry);
 
     // Notify the cache manager about the set operation for memory awareness
-    cacheManager.set('ast-full', uri, entry);
+    cacheManager.set('ast-full', cacheKey, entry);
 }
 
 /**
@@ -203,8 +216,13 @@ export function clearExpiredAstCache(): void {
  * @returns void
  */
 export function clearAstCacheForDocument(uri: string): void {
-    astCache.delete(uri);
-    cacheManager.delete('ast-full', uri);
+    // Clear all entries that start with the URI
+    for (const key of astCache.keys()) {
+        if (key.startsWith(uri)) {
+            astCache.delete(key);
+            cacheManager.delete('ast-full', key);
+        }
+    }
     clearAstRegionCacheForDocument(uri);
 }
 
@@ -213,19 +231,21 @@ export function clearAstCacheForDocument(uri: string): void {
  * @param uri 文档 URI
  * @param content 文档内容
  * @param parse 解析函数
+ * @param version 版本号（可选）
  * @returns AST
  */
 export function parseWithAstCache(
     uri: string,
     content: string,
-    parse: () => nodes.ThriftDocument
+    parse: () => nodes.ThriftDocument,
+    version?: number
 ): nodes.ThriftDocument {
-    const cached = getCachedAst(uri, content);
+    const cached = getCachedAst(uri, content, version);
     if (cached) {
         return cached;
     }
     const ast = parse();
-    setCachedAst(uri, content, ast);
+    setCachedAst(uri, content, ast, version);
     return ast;
 }
 

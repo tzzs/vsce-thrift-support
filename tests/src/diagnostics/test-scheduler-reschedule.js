@@ -107,11 +107,25 @@ describe('diagnostics-scheduler-reschedule', () => {
             await gate;
         };
 
+        // 需要调度3个以上的文档才能触发排队，因为maxConcurrentAnalyses现在是3
         scheduler.schedule(docA, {immediate: true}, runTask, () => {});
         scheduler.schedule(docB, {immediate: true}, runTask, () => {});
 
+        const docC = {
+            uri: {toString: () => 'file:///queued-c.thrift'},
+            version: 1
+        };
+        const docD = {
+            uri: {toString: () => 'file:///queued-d.thrift'},
+            version: 1
+        };
+
+        scheduler.schedule(docC, {immediate: true}, runTask, () => {});
+        scheduler.schedule(docD, {immediate: true}, runTask, () => {});
+
         await new Promise((resolve) => setTimeout(resolve, 10));
 
+        // 前3个应该立即执行，第4个应该排队
         assert.ok(
             scheduler.getQueuedCount() >= 1,
             'Queued count should include pending analyses waiting on slots'

@@ -67,17 +67,17 @@ export const DEFAULT_CACHE_ENTRY: CacheEntry = {maxSize: 100, ttlMs: 10000};
 export const cacheConfig: CacheConfig = {
     astMaxAgeMs: 5 * 60 * 1000, // 抽象语法树缓存最大年龄
     includeTypesMaxAgeMs: 3 * 60 * 1000, // 包含类型缓存最大年龄
-    references: {maxSize: 1000, ttlMs: 10000, lruK: 2, evictionThreshold: 0.8}, // 引用缓存配置
+    references: {maxSize: 1000, ttlMs: 30000, lruK: 2, evictionThreshold: 0.8}, // 引用缓存配置 - 从 10s 延长至 30s
     workspaceSymbols: {maxSize: 1000, ttlMs: 60000, lruK: 2, evictionThreshold: 0.8}, // 工作区符号缓存配置
     fileSymbols: {maxSize: 500, ttlMs: 30000, lruK: 2, evictionThreshold: 0.7}, // 文件符号缓存配置
-    documentSymbols: {maxSize: 500, ttlMs: 10000, lruK: 2, evictionThreshold: 0.7}, // 文档符号缓存配置
+    documentSymbols: {maxSize: 500, ttlMs: 30000, lruK: 2, evictionThreshold: 0.7}, // 文档符号缓存配置 - 从 10s 延长至 30s
     hoverIncludes: {maxSize: 200, ttlMs: 30000, lruK: 2, evictionThreshold: 0.8}, // 悬停包含缓存配置
-    hoverContent: {maxSize: 100, ttlMs: 10000, lruK: 2, evictionThreshold: 0.7}, // 悬停内容缓存配置
-    definition: {maxSize: 1000, ttlMs: 10000, lruK: 2, evictionThreshold: 0.8}, // 定义缓存配置
-    definitionDocument: {maxSize: 500, ttlMs: 10000, lruK: 2, evictionThreshold: 0.8}, // 定义文档缓存配置
+    hoverContent: {maxSize: 100, ttlMs: 30000, lruK: 2, evictionThreshold: 0.7}, // 悬停内容缓存配置 - 从 10s 延长至 30s
+    definition: {maxSize: 1000, ttlMs: 30000, lruK: 2, evictionThreshold: 0.8}, // 定义缓存配置 - 从 10s 延长至 30s
+    definitionDocument: {maxSize: 500, ttlMs: 30000, lruK: 2, evictionThreshold: 0.8}, // 定义文档缓存配置 - 从 10s 延长至 30s
     definitionWorkspace: {maxSize: 200, ttlMs: 30000, lruK: 2, evictionThreshold: 0.8}, // 定义工作区缓存配置
-    diagnosticsBlocks: {maxSize: 200, ttlMs: 5 * 60 * 1000, lruK: 2, evictionThreshold: 0.7}, // 诊断块级缓存配置
-    diagnosticsMembers: {maxSize: 500, ttlMs: 5 * 60 * 1000, lruK: 2, evictionThreshold: 0.7} // 诊断成员级缓存配置
+    diagnosticsBlocks: {maxSize: 500, ttlMs: 10 * 60 * 1000, lruK: 2, evictionThreshold: 0.7}, // 诊断块级缓存配置 - 从 5min 延长至 10min，maxSize 从 200 提升至 500
+    diagnosticsMembers: {maxSize: 1000, ttlMs: 10 * 60 * 1000, lruK: 2, evictionThreshold: 0.7} // 诊断成员级缓存配置 - 从 5min 延长至 10min，maxSize 从 500 提升至 1000
 };
 
 /** 内存配置默认值 */
@@ -87,8 +87,37 @@ export const memoryConfig: MemoryConfig = {
     gcThreshold: 0.8,
     dynamicAdjustmentFactor: 1.0,
     itemSizeEstimator: (key: any, value: any) => {
-        // 简单的估算函数，实际可以根据需要更复杂
-        return JSON.stringify({ key, value }).length;
+        // 改进的内存估算函数，考虑对象结构深度和类型
+        const estimate = (obj: any): number => {
+            if (obj === null || obj === undefined) return 8;
+            if (typeof obj === 'boolean') return 4;
+            if (typeof obj === 'number') return 8;
+            if (typeof obj === 'string') return obj.length * 2 + 48; // Unicode 字符 + 对象开销
+            if (typeof obj === 'symbol') return 32;
+            if (typeof obj === 'bigint') return 16;
+
+            // 对象或数组
+            if (Array.isArray(obj)) {
+                let size = 64; // Array 对象开销
+                for (const item of obj) {
+                    size += estimate(item) + 8; // 数组元素引用
+                }
+                return size;
+            }
+
+            if (typeof obj === 'object') {
+                let size = 64; // 对象开销
+                for (const [k, v] of Object.entries(obj)) {
+                    size += k.length * 2 + 32; // 键的开销
+                    size += estimate(v); // 值的开销
+                }
+                return size;
+            }
+
+            return 64; // 默认对象大小
+        };
+
+        return estimate(key) + estimate(value) + 16; // 键值对总大小
     },
     evictionStrategy: 'lru'
 };
@@ -131,8 +160,8 @@ export const config = {
         analysisDelayMs: 300,
         /** 最小分析间隔（毫秒） */
         minAnalysisIntervalMs: 1000,
-        /** 并发诊断分析上限 */
-        maxConcurrentAnalyses: 1,
+        /** 并发诊断分析上限 - 从 1 提升至 3 以提升多文件处理能力 */
+        maxConcurrentAnalyses: 3,
         /** 依赖文件分析延迟倍数 */
         dependentAnalysisDelayFactor: 2
     },
