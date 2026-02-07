@@ -95,7 +95,6 @@ export function parseFieldList(text: string, baseLine: number, baseChar: number)
             range: new vscode.Range(startPos.line, startPos.char, endPos.line, endPos.char),
             nameRange: new vscode.Range(nameStart.line, nameStart.char, nameEnd.line, nameEnd.char),
             typeRange: new vscode.Range(typeStart.line, typeStart.char, typeEnd.line, typeEnd.char),
-            parent: null as any,
             id: parseInt(tokens[idIndex].value, 10),
             requiredness: requiredness ?? 'required',
             fieldType,

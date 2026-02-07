@@ -4,6 +4,7 @@ import {ThriftParser} from '../ast/parser';
 import {CacheManager} from '../utils/cache-manager';
 import {config} from '../config';
 import {createLocation} from '../utils/vscode-utils';
+import {ErrorHandler} from '../utils/error-handler';
 
 export class DefinitionLookup {
     private readonly decoder = new TextDecoder('utf-8');
@@ -11,11 +12,11 @@ export class DefinitionLookup {
     constructor(private readonly cacheManager: CacheManager) {
     }
 
-    public async findDefinitionInDocument(
+    public findDefinitionInDocument(
         uri: vscode.Uri,
         text: string,
         typeName: string
-    ): Promise<vscode.Location | undefined> {
+    ): vscode.Location | undefined {
         const cacheKey = `document_${uri.toString()}_${typeName}`;
         const cached = this.cacheManager.get<vscode.Location[]>('document', cacheKey);
         if (cached && cached.length > 0) {
@@ -48,7 +49,10 @@ export class DefinitionLookup {
 
         const locations: vscode.Location[] = [];
         if (!vscode.workspace) {
-            console.error('[DefinitionLookup] vscode.workspace is missing, falling back to empty file list');
+            ErrorHandler.getInstance().handleWarning('vscode.workspace is missing, falling back to empty file list', {
+                component: 'DefinitionLookup',
+                operation: 'findDefinitionInWorkspace'
+            });
             this.cacheManager.set('workspace', cacheKey, locations);
             return locations;
         }
@@ -65,12 +69,12 @@ export class DefinitionLookup {
                     text = this.decoder.decode(content);
                 }
 
-                const def = await this.findDefinitionInDocument(file, text, typeName);
+                const def = this.findDefinitionInDocument(file, text, typeName);
                 if (def) {
                     locations.push(def);
                 }
             } catch {
-
+                continue;
             }
         }
 

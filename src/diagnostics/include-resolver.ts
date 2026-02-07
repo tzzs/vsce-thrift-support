@@ -66,7 +66,7 @@ function parseTypesFromContent(content: string, uri: string): Map<string, string
  * @param document 当前文档
  * @returns 解析得到的包含文件 URI 数组
  */
-export async function getIncludedFiles(document: vscode.TextDocument): Promise<vscode.Uri[]> {
+export function getIncludedFiles(document: vscode.TextDocument): vscode.Uri[] {
     const includedFiles: vscode.Uri[] = [];
     const documentDir = path.dirname(document.uri.fsPath);
     const ast = ThriftParser.parseWithCache(document);
@@ -108,7 +108,7 @@ export async function collectIncludedTypes(
 ): Promise<Map<string, string>> {
     const includedTypes = new Map<string, string>();
     const handler = errorHandler ?? ErrorHandler.getInstance();
-    const includedFiles = await getIncludedFiles(document);
+    const includedFiles = getIncludedFiles(document);
     const now = Date.now();
     const decoder = new TextDecoder('utf-8');
 

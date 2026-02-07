@@ -37,7 +37,7 @@ function calculateAnnotationStartPosition(
         w += maxNameWidth;
         if (field.suffix) {
             let s = field.suffix;
-            if (/\,\s*$/.test(s)) {
+            if (/,\s*$/.test(s)) {
                 s = s.replace(/,\s*$/, '');
             }
             if (s.includes('=')) {
@@ -49,7 +49,7 @@ function calculateAnnotationStartPosition(
         w += field.name.length;
         if (field.suffix) {
             let s = field.suffix;
-            if (/\,\s*$/.test(s)) {
+            if (/,\s*$/.test(s)) {
                 s = s.replace(/,\s*$/, '');
             }
             if (s.includes('=')) {
@@ -172,11 +172,6 @@ export function formatStructFields(
 
         // Add comma width if present (for idempotency, use hasCommaForWidth instead of checking field.suffix)
         // Also add comma width when in 'add' mode and there's no semicolon
-        let finalHasComma = hasCommaForWidth;
-        if (options.trailingComma === 'add' && !/;/.test(field.suffix || '')) {
-            finalHasComma = true;
-        }
-
         if (options.trailingComma === 'preserve' && hasCommaForWidth) {
             contentWidth += 1;
         } else if (options.trailingComma === 'add' && !/;/.test(field.suffix || '')) {

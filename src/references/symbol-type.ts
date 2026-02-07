@@ -14,12 +14,12 @@ interface SymbolTypeDeps {
  * @param deps - Dependency providers.
  * @returns Symbol type string or null.
  */
-export async function getSymbolType(
+export function getSymbolType(
     document: vscode.TextDocument,
     position: vscode.Position,
     symbolName: string,
     deps: SymbolTypeDeps
-): Promise<string | null> {
+): string | null {
     if (symbolName.includes('.')) {
         return 'type';
     }

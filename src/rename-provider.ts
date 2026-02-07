@@ -21,6 +21,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         placeholder: string;
     }> {
         return this.errorHandler.wrapSync(() => {
+            void token;
             const wordRange = this.getWordRange(document, position);
             if (!wordRange) {
                 return Promise.reject('No symbol to rename at cursor');

@@ -116,7 +116,11 @@ export function setCachedAstRange(uri: string, range: LineRange, content: string
         astRegionCache.set(uri, []);
     }
 
-    const uriCache = astRegionCache.get(uri)!;
+    let uriCache = astRegionCache.get(uri);
+    if (!uriCache) {
+        uriCache = [];
+        astRegionCache.set(uri, uriCache);
+    }
 
     // Remove existing entry for this range to avoid duplicates
     const existingIndex = uriCache.findIndex(entry =>

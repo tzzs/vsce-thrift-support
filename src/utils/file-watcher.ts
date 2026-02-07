@@ -33,8 +33,7 @@ class WatcherWrapper implements TestableFileSystemWatcher {
     public onDidCreate(listener: WatchEventCallback): vscode.Disposable {
         this.createCallbacks.add(listener);
         const disposable = this.underlying.onDidCreate?.(listener) ?? {
-            dispose: () => {
-            }
+            dispose: () => undefined
         };
         return {
             dispose: () => {
@@ -47,8 +46,7 @@ class WatcherWrapper implements TestableFileSystemWatcher {
     public onDidChange(listener: WatchEventCallback): vscode.Disposable {
         this.changeCallbacks.add(listener);
         const disposable = this.underlying.onDidChange?.(listener) ?? {
-            dispose: () => {
-            }
+            dispose: () => undefined
         };
         return {
             dispose: () => {
@@ -61,8 +59,7 @@ class WatcherWrapper implements TestableFileSystemWatcher {
     public onDidDelete(listener: WatchEventCallback): vscode.Disposable {
         this.deleteCallbacks.add(listener);
         const disposable = this.underlying.onDidDelete?.(listener) ?? {
-            dispose: () => {
-            }
+            dispose: () => undefined
         };
         return {
             dispose: () => {
@@ -112,7 +109,7 @@ export class ThriftFileWatcher {
         return this.instance;
     }
 
-    public createWatcher(pattern: string, onChange: () => void): vscode.FileSystemWatcher {
+    public createWatcher(pattern: string, onChange: () => void): TestableFileSystemWatcher {
         const watcher = this.getOrCreateWatcher(pattern);
         watcher.onDidCreate(() => onChange());
         watcher.onDidChange(() => onChange());
@@ -127,7 +124,7 @@ export class ThriftFileWatcher {
             onChange?: (uri: vscode.Uri) => void;
             onDelete?: (uri: vscode.Uri) => void;
         }
-    ): vscode.FileSystemWatcher {
+    ): TestableFileSystemWatcher {
         const watcher = this.getOrCreateWatcher(pattern);
         if (handlers.onCreate) {
             watcher.onDidCreate(handlers.onCreate);
@@ -142,14 +139,17 @@ export class ThriftFileWatcher {
     }
 
     public dispose(): void {
-        this.watchers.forEach(watcher => watcher.dispose());
+        this.watchers.forEach(watcher => {
+            watcher.dispose();
+        });
         this.watchers.clear();
     }
 
     private getOrCreateWatcher(pattern: string): TestableFileSystemWatcher {
         const key = `thrift-${pattern}`;
-        if (this.watchers.has(key)) {
-            return this.watchers.get(key)!;
+        const existing = this.watchers.get(key);
+        if (existing) {
+            return existing;
         }
         const underlying = vscode.workspace.createFileSystemWatcher(pattern);
         const wrapper = new WatcherWrapper(underlying);

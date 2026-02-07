@@ -6,8 +6,8 @@ import {CacheConfig, config, MemoryConfig} from './index';
  */
 export interface ConfigChange {
     key: string;
-    oldValue: any;
-    newValue: any;
+    oldValue: unknown;
+    newValue: unknown;
 }
 
 /**
@@ -29,11 +29,11 @@ export class ConfigService {
      * @returns 配置值
      */
     get<T>(key: string, fallback?: T): T {
-        const value = this.workspaceConfig.get(key);
+        const value = this.workspaceConfig.get<T>(key);
         if (value === undefined) {
-            return fallback !== undefined ? fallback : this.getFromDefaults(key);
+            return fallback !== undefined ? fallback : (this.getFromDefaults(key) as T);
         }
-        return value as T;
+        return value;
     }
 
     /**
@@ -41,13 +41,18 @@ export class ConfigService {
      * @param key 配置键
      * @returns 默认值
      */
-    private getFromDefaults(key: string): any {
+    private getFromDefaults(key: string): unknown {
         const parts = key.split('.');
-        let current: any = this.defaults;
+        let current: unknown = this.defaults;
 
         for (const part of parts) {
-            if (current && typeof current === 'object' && part in current) {
-                current = current[part];
+            if (current && typeof current === 'object') {
+                const record = current as Record<string, unknown>;
+                if (part in record) {
+                    current = record[part];
+                    continue;
+                }
+                return undefined;
             } else {
                 return undefined;
             }
@@ -86,13 +91,13 @@ export class ConfigService {
                 const affectedKeys = this.getAffectedKeys(event);
 
                 for (const key of affectedKeys) {
-                    const oldValue = this.get(key);
+                    const oldValue = this.get<unknown>(key);
                     // Note: We can't easily get the new value without re-reading
                     // For simplicity, we'll just notify that the config changed
                     changes.push({
                         key,
                         oldValue,
-                        newValue: this.workspaceConfig.get(key)
+                        newValue: this.workspaceConfig.get<unknown>(key)
                     });
                 }
 
@@ -122,8 +127,12 @@ export class ConfigService {
         const keys: string[] = [];
 
         // 检查所有可能的配置键
-        const checkKey = (prefix: string, obj: any) => {
-            for (const [key, value] of Object.entries(obj)) {
+        const checkKey = (prefix: string, obj: unknown) => {
+            if (!obj || typeof obj !== 'object') {
+                return;
+            }
+            const record = obj as Record<string, unknown>;
+            for (const [key, value] of Object.entries(record)) {
                 const fullKey = prefix ? `${prefix}.${key}` : key;
                 if (event.affectsConfiguration(`thrift.${fullKey}`)) {
                     keys.push(fullKey);
@@ -145,7 +154,7 @@ export class ConfigService {
      * @param value 值
      * @returns 验证结果
      */
-    validate(key: string, value: any): {valid: boolean; error?: string} {
+    validate(key: string, value: unknown): {valid: boolean; error?: string} {
         switch (key) {
             case 'format.indentSize':
                 if (typeof value !== 'number' || value < 1 || value > 8) {

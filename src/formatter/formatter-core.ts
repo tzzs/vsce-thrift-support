@@ -1,3 +1,4 @@
+import type {TextDocument} from 'vscode';
 import {ConstField, EnumField, StructField, ThriftFormattingOptions} from '../interfaces.types';
 import {ThriftParser} from '../ast/parser';
 import {buildAstIndex} from './ast-index';
@@ -85,7 +86,7 @@ export function formatThriftContent(
             getText: () => content,
             uri: {toString: () => `mock:formatter:${hashContent(content)}`},
             version: 1
-        } as any;
+        } as unknown as TextDocument;
 
         const incrementalResult = ThriftParser.incrementalParseWithCache(mockDocument, dirtyRange);
         ast = incrementalResult?.ast || new ThriftParser(content).parse();

@@ -1,15 +1,16 @@
+import {MemoryMonitor} from './memory-monitor';
 import {AdvancedCacheOptions, AdvancedLruCache} from './optimized-lru-cache';
 
 /**
  * 缓存配置项。
  */
-export interface CacheConfig {
+export interface CacheConfig<K = string, V = unknown> {
     maxSize: number;
     ttl: number; // Time to live in milliseconds
     lruK?: number; // LRU-K parameter for considering past K accesses
     evictionThreshold?: number; // Threshold for proactive eviction
-    priorityFn?: (key: any, value: any) => number; // Priority function
-    sizeEstimator?: (key: any, value: any) => number; // Size estimator function
+    priorityFn?: (key: K, value: V) => number; // Priority function
+    sizeEstimator?: (key: K, value: V) => number; // Size estimator function
 }
 
 /**
@@ -38,8 +39,8 @@ export interface CacheStatistics {
  */
 export class MemoryAwareCacheManager {
     private static instance: MemoryAwareCacheManager;
-    private caches: Map<string, AdvancedLruCache<any, any>> = new Map(); // Changed to <any, any> to handle generic constraints
-    private configs: Map<string, CacheConfig> = new Map();
+    private caches: Map<string, AdvancedLruCache<string, unknown>> = new Map();
+    private configs: Map<string, CacheConfig<string, unknown>> = new Map();
 
     // 添加内存监控集成
     private readonly MEMORY_MONITORING_ENABLED = true;
@@ -74,7 +75,7 @@ export class MemoryAwareCacheManager {
         this.configs.set(name, config);
 
         // 创建新的高级缓存实例
-        const cacheOptions: AdvancedCacheOptions = {
+        const cacheOptions: AdvancedCacheOptions<string, unknown> = {
             maxSize: config.maxSize,
             ttlMs: config.ttl,
             lruK: config.lruK,
@@ -235,7 +236,7 @@ export class MemoryAwareCacheManager {
             const usageRatio = memoryUsage / peakUsage;
 
             // 根据内存使用率动态调整缓存容量
-            for (const [cacheName, cache] of this.caches.entries()) {
+            for (const [cacheName] of this.caches.entries()) {
                 const config = this.configs.get(cacheName);
                 if (config) {
                     let adjustedMaxSize = config.maxSize;
@@ -272,7 +273,7 @@ export class MemoryAwareCacheManager {
      */
     private getPeakUsageEstimate(): number {
         let estimatedPeak = 0;
-        for (const [cacheName, cache] of this.caches.entries()) {
+        for (const [cacheName] of this.caches.entries()) {
             const config = this.configs.get(cacheName);
             if (config) {
                 // 粗略估算内存使用
@@ -307,6 +308,7 @@ export class MemoryAwareCacheManager {
     private performModerateCleanup(): void {
         // 适度清理，只处理特别大的缓存
         for (const [cacheName, cache] of this.caches.entries()) {
+            void cacheName;
             if (cache.size() > 0) {
                 // 触发内部的清理逻辑
             }
@@ -371,7 +373,7 @@ export class MemoryAwareCacheManager {
             return;
         }
 
-        for (const [cacheName, cache] of this.caches.entries()) {
+        for (const [cacheName] of this.caches.entries()) {
             const stats = this.getCacheStats(cacheName);
             const lastCleanup = this.lastCleanup.get(cacheName) || 0;
 
@@ -387,22 +389,9 @@ export class MemoryAwareCacheManager {
         }
     }
 
-    private getMemoryMonitor(): {
-        recordMemoryUsage: () => void;
-        getCurrentUsage: () => number;
-        getPeakUsage: () => number;
-        updateCacheStats: (name: string, stats: {
-            name: string;
-            size: number;
-            maxSize: number;
-            hitRate: number;
-            cleanupCount: number;
-            lastCleanup: number;
-        }) => void;
-    } | null {
+    private getMemoryMonitor(): MemoryMonitor | null {
         try {
-            const module = require('./memory-monitor');
-            return module.MemoryMonitor.getInstance();
+            return MemoryMonitor.getInstance();
         } catch {
             return null;
         }

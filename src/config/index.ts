@@ -55,7 +55,7 @@ export interface MemoryConfig {
     /** 缓存大小动态调整因子（默认1.0，1.0表示根据内存压力自动调整） */
     dynamicAdjustmentFactor: number;
     /** 估算单个项目内存占用大小的函数 */
-    itemSizeEstimator: (key: any, value: any) => number;
+    itemSizeEstimator: (key: unknown, value: unknown) => number;
     /** 驱逐策略类型 */
     evictionStrategy: 'lru' | 'lfu' | 'ttl' | 'memory-pressure' | 'priority';
 }
@@ -86,9 +86,9 @@ export const memoryConfig: MemoryConfig = {
     memoryPressureCheckInterval: 30000,
     gcThreshold: 0.8,
     dynamicAdjustmentFactor: 1.0,
-    itemSizeEstimator: (key: any, value: any) => {
+    itemSizeEstimator: (key: unknown, value: unknown) => {
         // 改进的内存估算函数，考虑对象结构深度和类型
-        const estimate = (obj: any): number => {
+        const estimate = (obj: unknown): number => {
             if (obj === null || obj === undefined) {
                 return 8;
             }
@@ -119,7 +119,8 @@ export const memoryConfig: MemoryConfig = {
 
             if (typeof obj === 'object') {
                 let size = 64; // 对象开销
-                for (const [k, v] of Object.entries(obj)) {
+                const record = obj as Record<string, unknown>;
+                for (const [k, v] of Object.entries(record)) {
                     size += k.length * 2 + 32; // 键的开销
                     size += estimate(v); // 值的开销
                 }

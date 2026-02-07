@@ -31,6 +31,8 @@ export class IncrementalTracker {
     private readonly maxRecords = 100; // Limit records to prevent memory issues
 
     private constructor() {
+        this.dirtyRanges = new Map();
+        this.changeRecords = new Map();
     }
 
     static getInstance(): IncrementalTracker {
@@ -53,24 +55,24 @@ export class IncrementalTracker {
         const key = event.document.uri.toString();
 
         // Use a more efficient approach to get or create arrays
-        let ranges = this.dirtyRanges.get(key);
-        if (!ranges) {
-            ranges = [];
+        const existingRanges = this.dirtyRanges.get(key);
+        const ranges = existingRanges ?? [];
+        if (!existingRanges) {
             this.dirtyRanges.set(key, ranges);
         }
 
-        let records = this.changeRecords.get(key);
-        if (!records) {
-            records = [];
+        const existingRecords = this.changeRecords.get(key);
+        const records = existingRecords ?? [];
+        if (!existingRecords) {
             this.changeRecords.set(key, records);
         }
 
         event.contentChanges.forEach(change => {
             const range = lineRangeFromChange(change);
-            ranges!.push(range);
+            ranges.push(range);
 
             // Add change record
-            records!.push({
+            records.push({
                 type: changeType,
                 range,
                 timestamp: Date.now()

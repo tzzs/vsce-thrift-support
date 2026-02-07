@@ -48,7 +48,7 @@ export interface IncrementalParseResult {
 export interface ParseContext {
     currentLine: number;
     lines: string[];
-    token: any;
+    token: ThriftTokenizer;
 }
 
 export class ThriftParser {
@@ -419,7 +419,6 @@ export class ThriftParser {
         while (this.currentLine < this.lines.length && braceCount > 0) {
             const line = this.lines[this.currentLine];
             const scan = this.scanLine(line);
-            const trimmed = scan.stripped.trim();
 
             const braceStats = this.countBraces(scan.tokens);
             if (braceStats.open > 0 || braceStats.close > 0) {
@@ -756,7 +755,6 @@ export class ThriftParser {
         while (this.currentLine < this.lines.length && braceCount > 0) {
             const line = this.lines[this.currentLine];
             const scan = this.scanLine(line);
-            const trimmed = scan.stripped.trim();
 
             const braceStats = this.countBraces(scan.tokens);
             if (braceStats.open > 0 || braceStats.close > 0) {

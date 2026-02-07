@@ -77,7 +77,7 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             // Only allow hover for definitions in current document or explicitly included files
             const allowed = new Set<string>();
             allowed.add(document.uri.fsPath);
-            const includes = await this.getIncludedFiles(document);
+            const includes = this.getIncludedFiles(document);
             for (const u of includes) {
                 allowed.add(u.fsPath);
             }
@@ -128,7 +128,9 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
         return ThriftHoverProvider.definitionProvider;
     }
 
-    private normalizeDefinition(def: vscode.Definition | undefined): vscode.Location | undefined {
+    private normalizeDefinition(
+        def: vscode.Definition | vscode.Location | vscode.LocationLink | undefined
+    ): vscode.Location | undefined {
         if (!def) {
             return undefined;
         }
@@ -137,20 +139,19 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
                 return undefined;
             }
             // Recursively normalize the first entry
-            return this.normalizeDefinition(def[0] as any);
+            return this.normalizeDefinition(def[0]);
         }
         // def can be a Location or a LocationLink
         if ('uri' in def && 'range' in def) {
-            return def ;
+            return def;
         }
         if ('targetUri' in def && 'targetRange' in def) {
-            const link = def as vscode.LocationLink;
-            return createLocation(link.targetUri, link.targetRange);
+            return createLocation(def.targetUri, def.targetRange);
         }
         return undefined;
     }
 
-    private async getIncludedFiles(document: vscode.TextDocument): Promise<vscode.Uri[]> {
+    private getIncludedFiles(document: vscode.TextDocument): vscode.Uri[] {
         // 使用缓存键
         const cacheKey = document.uri.toString();
         const cacheName = 'hoverIncludes';

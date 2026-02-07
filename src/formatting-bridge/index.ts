@@ -102,6 +102,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         token: vscode.CancellationToken
     ): vscode.TextEdit[] {
         try {
+            void token;
             let targetRange: vscode.Range | undefined;
             let useMinimalPatch = false;
 
@@ -144,6 +145,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         token: vscode.CancellationToken
     ): vscode.TextEdit[] {
         try {
+            void token;
             return this.formatRange(document, range, options);
         } catch (error) {
             this.errorHandler.handleError(error, {

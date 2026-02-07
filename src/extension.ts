@@ -4,7 +4,6 @@ import {createCoreDependencies} from './utils/dependencies';
 import {registerProviders} from './setup';
 import {registerCommands} from './commands';
 import {MemoryMonitor} from './utils/memory-monitor';
-import {CacheManager} from './utils/cache-manager';
 import {performanceMonitor} from './performance-monitor';
 
 /**
@@ -86,7 +85,6 @@ function initializeMemoryManagement(context: vscode.ExtensionContext, errorHandl
             vscode.workspace.onDidChangeConfiguration(e => {
                 if (e.affectsConfiguration('thrift.performance')) {
                     // 当性能配置改变时，可能需要调整内存策略
-                    const cacheManager = CacheManager.getInstance();
                     // 根据配置可能调整动态调整因子
                 }
             })

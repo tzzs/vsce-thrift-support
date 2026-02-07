@@ -60,7 +60,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         }
 
         const symbolName = document.getText(wordRange);
-        const symbolType = await getSymbolType(document, position, symbolName, {
+        const symbolType = getSymbolType(document, position, symbolName, {
             getCachedAst: (doc) => this.astCache.get(doc)
         });
 
@@ -87,7 +87,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         const includeDeclaration = context?.includeDeclaration;
 
         // Search in current document
-        const currentDocRefs = await findReferencesInDocument(
+        const currentDocRefs = findReferencesInDocument(
             document.uri,
             document.getText(),
             symbolName,
@@ -131,7 +131,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                     continue;
                 }
 
-                const refs = await this.errorHandler.wrapAsync(
+                const refs = this.errorHandler.wrapSync(
                     () => findReferencesInDocument(
                         file,
                         text,

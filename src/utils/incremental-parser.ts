@@ -77,14 +77,14 @@ export class IncrementalParserManager {
      */
     private async parseFull(document: vscode.TextDocument): Promise<IncrementalParseResult> {
         return performanceMonitor.measureAsync('incremental-parser.parseFull', async () => {
-            const ast = this.errorHandler.wrapSync(
+            const ast = await Promise.resolve(this.errorHandler.wrapSync(
                 () => ThriftParser.parseWithCache(document),
                 {
                     component: 'IncrementalParserManager',
                     operation: 'parseWithCache',
                     filePath: document.uri.fsPath
                 }
-            );
+            ));
 
             return {
                 ast,
@@ -101,10 +101,6 @@ export class IncrementalParserManager {
         document: vscode.TextDocument,
         dirtyRange?: LineRange
     ): Promise<{result: IncrementalParseResult; wasIncremental: boolean; improvement: number}> {
-        // Create synchronous functions for performance measurement
-        const fullParseFn = () => this.parseFullSync(document);
-        const incrementalParseFn = () => this.parseIncrementallySync(document, dirtyRange);
-
         // Since measureIncrementalParsing is synchronous, we need to handle async operations differently
         // First measure full parse time
         let fullDuration = 0;

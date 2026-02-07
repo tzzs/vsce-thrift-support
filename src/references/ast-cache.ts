@@ -13,16 +13,22 @@ cacheManager.registerCache('references-ast', {
     ttl: config.cache.references.ttlMs,
     lruK: config.cache.references.lruK,
     evictionThreshold: config.cache.references.evictionThreshold || 0.8,
-    priorityFn: (key: string, value: any) => {
-        // Higher priority for more frequently accessed files
+    priorityFn: () => {
         const stats = cacheManager.getCacheStats('references-ast');
-        return stats.hitRate > 0.7 ? 1 : 0; // High priority if hit rate is high
+        return stats.hitRate > 0.7 ? 1 : 0;
     },
-    sizeEstimator: (key: string, value: any) => {
+    sizeEstimator: (key: string, value: unknown) => {
         // Estimate memory usage based on the file path length and content length
         // Since AST objects may have circular references, we'll estimate based on simpler metrics
         try {
-            return key.length + (value?.contentHash?.length || 0);
+            let contentHashLength = 0;
+            if (typeof value === 'object' && value) {
+                const record = value as {contentHash?: unknown};
+                if (typeof record.contentHash === 'string') {
+                    contentHashLength = record.contentHash.length;
+                }
+            }
+            return key.length + contentHashLength;
         } catch (e) {
             // Fallback to a simple size if there are issues
             return 100; // Default size
@@ -46,13 +52,20 @@ export class AstCache {
                 ttl: ttlMs,
                 lruK: config.cache.references.lruK,
                 evictionThreshold: config.cache.references.evictionThreshold || 0.8,
-                priorityFn: (key: string, value: any) => {
+                priorityFn: () => {
                     const stats = cacheManager.getCacheStats('references-ast');
                     return stats.hitRate > 0.7 ? 1 : 0;
                 },
-                sizeEstimator: (key: string, value: any) => {
+                sizeEstimator: (key: string, value: unknown) => {
                     try {
-                        return key.length + (value?.contentHash?.length || 0);
+                        let contentHashLength = 0;
+                        if (typeof value === 'object' && value) {
+                            const record = value as {contentHash?: unknown};
+                            if (typeof record.contentHash === 'string') {
+                                contentHashLength = record.contentHash.length;
+                            }
+                        }
+                        return key.length + contentHashLength;
                     } catch {
                         return 100;
                     }

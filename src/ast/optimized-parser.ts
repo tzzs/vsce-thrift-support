@@ -48,7 +48,7 @@ export interface IncrementalParseResult {
 export interface ParseContext {
     currentLine: number;
     lines: string[];
-    token: any;
+    token: ThriftTokenizer;
 }
 
 export class OptimizedThriftParser {
@@ -128,7 +128,7 @@ export class OptimizedThriftParser {
 
         // Pre-allocate body array with estimated size to avoid repeated allocations
         const estimatedSize = Math.min(this.lines.length, 1000); // Reasonable estimate
-        root.body = new Array(estimatedSize);
+        root.body = new Array<nodes.ThriftNode>(estimatedSize);
         let bodyIndex = 0;
 
         this.currentLine = 0;
@@ -279,6 +279,7 @@ export class OptimizedThriftParser {
     }
 
     private parseNamespace(parent: nodes.ThriftNode, line: string, tokens: Token[], keywordToken: Token): nodes.Namespace | nodes.InvalidNode {
+        void keywordToken;
         const scope = readQualifiedIdentifier(tokens, 1);
         const namespace = scope ? readQualifiedIdentifier(tokens, scope.endIndex) : null;
         if (scope && namespace) {
@@ -298,6 +299,7 @@ export class OptimizedThriftParser {
     }
 
     private parseInclude(parent: nodes.ThriftNode, line: string, tokens: Token[], keywordToken: Token): nodes.Include | nodes.InvalidNode {
+        void keywordToken;
         const pathToken = tokens[1];
         if (pathToken && pathToken.type === 'string') {
             const node: nodes.Include = {
@@ -448,7 +450,6 @@ export class OptimizedThriftParser {
         while (this.currentLine < this.lines.length && braceCount > 0) {
             const line = this.lines[this.currentLine];
             const scan = this.scanLine(line);
-            const trimmed = scan.stripped.trim();
 
             const braceStats = this.countBraces(scan.tokens);
             if (braceStats.open > 0 || braceStats.close > 0) {
@@ -629,7 +630,8 @@ export class OptimizedThriftParser {
         while (this.currentLine < this.lines.length && braceCount > 0) {
             const line = this.lines[this.currentLine];
             const scan = this.scanLine(line);
-            const trimmed = scan.stripped.trim();
+            const stripped = typeof scan.stripped === 'string' ? scan.stripped : String(scan.stripped ?? '');
+            const trimmed = stripped.trim();
 
             if (trimmed.includes('{')) {
                 braceCount++;
@@ -785,7 +787,6 @@ export class OptimizedThriftParser {
         while (this.currentLine < this.lines.length && braceCount > 0) {
             const line = this.lines[this.currentLine];
             const scan = this.scanLine(line);
-            const trimmed = scan.stripped.trim();
 
             const braceStats = this.countBraces(scan.tokens);
             if (braceStats.open > 0 || braceStats.close > 0) {

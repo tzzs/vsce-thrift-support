@@ -68,6 +68,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         position: vscode.Position,
         token: vscode.CancellationToken
     ): Promise<vscode.Definition | undefined> {
+        void token;
         // Check if cursor is on an include statement first
         const includeDefinition = await checkIncludeStatement(document, position, this.errorHandler);
         if (includeDefinition) {
@@ -136,13 +137,13 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         }
 
         // Search in current document
-        const currentDocDefinition = await this.definitionLookup.findDefinitionInDocument(document.uri, document.getText(), searchTypeName);
+        const currentDocDefinition = this.definitionLookup.findDefinitionInDocument(document.uri, document.getText(), searchTypeName);
         if (currentDocDefinition) {
             return currentDocDefinition;
         }
 
         // Search in included files
-        const includedFiles = await getIncludedFiles(document, this.errorHandler);
+        const includedFiles = getIncludedFiles(document, this.errorHandler);
         const decoder = new TextDecoder('utf-8');
         for (const includedFile of includedFiles) {
             try {
@@ -165,7 +166,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                     }
                 }
 
-                const definition = await this.definitionLookup.findDefinitionInDocument(includedFile, text, searchTypeName);
+                const definition = this.definitionLookup.findDefinitionInDocument(includedFile, text, searchTypeName);
                 if (definition) {
                     return definition;
                 }

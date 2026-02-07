@@ -7,7 +7,7 @@ export interface ErrorContext {
     component: string;
     operation: string;
     filePath?: string;
-    additionalInfo?: Record<string, any>;
+    additionalInfo?: Record<string, unknown>;
 }
 
 /**
@@ -68,11 +68,6 @@ export class ErrorHandler {
         this.incrementCounter(this.errorStats.byComponent, context.component);
         this.incrementCounter(this.errorStats.byOperation, context.operation);
 
-        const logMessage = this.formatLogMessage(errorMessage, context, 'error');
-
-        // 记录到控制台
-        console.error(logMessage);
-
         // 如果是用户操作相关的错误，显示通知
         if (this.shouldShowNotification(context)) {
             this.showErrorNotification(errorMessage, context);
@@ -88,11 +83,6 @@ export class ErrorHandler {
      * @param context 错误上下文
      */
     handleWarning(message: string, context: ErrorContext): void {
-        const logMessage = this.formatLogMessage(message, context, 'warning');
-
-        // 记录到控制台
-        console.warn(logMessage);
-
         // 更新性能统计
         this.errorStats.warnings++;
         this.incrementCounter(this.errorStats.byComponent, context.component);
@@ -107,9 +97,6 @@ export class ErrorHandler {
      * @param context 错误上下文
      */
     handleInfo(message: string, context: ErrorContext): void {
-        const logMessage = this.formatLogMessage(message, context, 'info');
-        console.log(logMessage);
-
         // 更新性能统计
         this.errorStats.infos++;
         this.incrementCounter(this.errorStats.byComponent, context.component);
@@ -203,10 +190,10 @@ export class ErrorHandler {
 
     private showErrorNotification(message: string, context: ErrorContext): void {
         const shortMessage = `[Thrift Support] ${context.operation} failed: ${message}`;
-        vscode.window.showErrorMessage(shortMessage, 'Details').then(selection => {
+        void vscode.window.showErrorMessage(shortMessage, 'Details').then(selection => {
             if (selection === 'Details') {
                 const details = this.formatLogMessage(message, context);
-                vscode.window.showErrorMessage(details);
+                void vscode.window.showErrorMessage(details);
             }
         });
     }

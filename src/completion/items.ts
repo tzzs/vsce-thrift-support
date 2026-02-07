@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import {config} from '../config';
+import {ErrorHandler} from '../utils/error-handler';
 
 export const KEYWORDS = [
     'namespace', 'include', 'cpp_include', 'php_include', 'py_module',
@@ -70,7 +71,7 @@ export function addEnumValueCompletions(completions: vscode.CompletionItem[], va
  */
 export async function provideIncludePathCompletions(
     document: vscode.TextDocument,
-    errorHandler: any // Simplified type to avoid circular dependency or import issue
+    errorHandler: ErrorHandler | undefined
 ): Promise<vscode.CompletionItem[]> {
     const completions: vscode.CompletionItem[] = [];
     const documentDir = path.dirname(document.uri.fsPath);
@@ -101,7 +102,7 @@ export async function provideIncludePathCompletions(
             completions.push(item);
         });
     } catch (error) {
-        if (errorHandler && errorHandler.handleError) {
+        if (errorHandler) {
             errorHandler.handleError(error, {
                 component: 'ThriftCompletionProvider',
                 operation: 'provideIncludePathCompletions',

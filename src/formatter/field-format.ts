@@ -76,7 +76,7 @@ export function formatEnumFields(
     }
 
     if (options.alignAnnotations) {
-        interim.forEach(({base, annotation, hasComma, hasSemicolon}) => {
+        interim.forEach(({base, annotation}) => {
             let line = base;
             if (annotation) {
                 const currentWidth = base.length - indent.length;
@@ -86,7 +86,7 @@ export function formatEnumFields(
             maxContentWidth = Math.max(maxContentWidth, line.length - indent.length);
         });
     } else {
-        interim.forEach(({base, annotation, hasComma, hasSemicolon}) => {
+        interim.forEach(({base, annotation}) => {
             let line = base;
             if (annotation) {
                 line = base + ' ' + annotation;

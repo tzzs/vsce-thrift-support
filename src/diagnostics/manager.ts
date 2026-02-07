@@ -92,7 +92,7 @@ export class DiagnosticManager {
             skipDependents = true;
         }
 
-        logDiagnostics(`[Diagnostics] Schedule analysis for ${path.basename(doc.uri.fsPath)}, immediate=${immediate}, skipDependents=${skipDependents}${triggerInfo}${dirtyInfo}`);
+        logDiagnostics(`[Diagnostics] Schedule analysis for ${path.basename(doc.uri.fsPath)}, immediate=${String(immediate)}, skipDependents=${String(skipDependents)}${triggerInfo}${dirtyInfo}`);
 
         const prevState = this.documentStates.get(key);
 
@@ -102,17 +102,17 @@ export class DiagnosticManager {
                 immediate,
                 throttleState: prevState
             },
-            () => this.performAnalysis(doc),
+            () => {
+                void this.performAnalysis(doc);
+            },
             (timeout: NodeJS.Timeout) => {
+                void timeout;
                 // Keep track if needed, but scheduler handles queue
             }
         );
 
         if (!scheduled && !prevState?.isAnalyzing) {
-            // Maybe explicitly skipped due to throttling without new changes?
-            // But we need to update state if parameters changed?
-            // Actually scheduler logic handles throttling check.
-            // We persist state update regardless to capture latest intentions.
+            void 0;
         }
 
         // Update state to reflect pending analysis parameters
@@ -205,7 +205,7 @@ export class DiagnosticManager {
                 'Thrift诊断分析',
                 async () => {
                     try {
-                        const includedFiles = await getIncludedFiles(doc);
+                        const includedFiles = getIncludedFiles(doc);
                         const cachedIncludedTypes = state.useCachedIncludes
                             ? collectIncludedTypesFromCache(includedFiles)
                             : null;
@@ -269,7 +269,11 @@ export class DiagnosticManager {
                                         if (!state.lastBlockCache) {
                                             state.lastBlockCache = createBlockCache();
                                         }
-                                        const blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, blockRange!));
+                                        let blockIssues = issues;
+                                        if (blockRange) {
+                                            const blockRangeValue = blockRange;
+                                            blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, blockRangeValue));
+                                        }
                                         state.lastBlockCache.set(blockKey, {hash: blockHash, issues: blockIssues});
                                         if (!state.lastMemberCache) {
                                             state.lastMemberCache = createMemberCacheByBlock();

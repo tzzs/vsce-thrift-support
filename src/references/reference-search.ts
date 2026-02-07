@@ -19,14 +19,14 @@ interface ReferenceSearchDeps {
  * @param token - Optional cancellation token.
  * @returns Reference locations.
  */
-export async function findReferencesInDocument(
+export function findReferencesInDocument(
     uri: vscode.Uri,
     text: string,
     symbolName: string,
     includeDeclaration: boolean,
     deps: ReferenceSearchDeps,
     token?: vscode.CancellationToken
-): Promise<vscode.Location[]> {
+): vscode.Location[] {
     if (token && token.isCancellationRequested) {
         return [];
     }

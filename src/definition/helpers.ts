@@ -40,9 +40,6 @@ export function getWordRangeAtPosition(
 
     // Fallback: try adjacent lines if no word found at current position
     // This improves robustness in edge cases (e.g., empty lines, boundaries)
-    const lineCount = typeof document.lineCount === 'number'
-        ? document.lineCount
-        : position.line + 3;
     const offsets = [1, -1, 2, -2];
     for (const offset of offsets) {
         const targetLine = position.line + offset;
@@ -65,7 +62,7 @@ export function getWordRangeAtPosition(
                 return fallbackRange;
             }
         } catch {
-
+            continue;
         }
     }
 
@@ -142,7 +139,7 @@ export async function findIncludeForNamespace(
                 return createLocation(document.uri, new vscode.Range(i, 0, i, 0));
             }
         } catch {
-
+            continue;
         }
     }
 
@@ -171,7 +168,7 @@ export async function resolveModulePath(includePath: string, documentDir: string
             await vscode.workspace.fs.stat(uri);
             return normalized;
         } catch {
-
+            continue;
         }
     }
 
@@ -188,10 +185,10 @@ export function fileDeclaresNamespace(text: string, namespace: string): boolean 
     return namespaceRegex.test(text);
 }
 
-export async function getIncludedFiles(
+export function getIncludedFiles(
     document: vscode.TextDocument,
     errorHandler: ErrorHandler
-): Promise<vscode.Uri[]> {
+): vscode.Uri[] {
     const text = document.getText();
     const lines = text.split('\n');
     const includedFiles: vscode.Uri[] = [];

@@ -51,6 +51,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
         token: vscode.CancellationToken
     ): vscode.ProviderResult<vscode.SymbolInformation[] | vscode.DocumentSymbol[]> {
         try {
+            void token;
             const key = document.uri.toString();
 
             // 从缓存管理器获取缓存
@@ -100,65 +101,71 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
         const selectionRange = node.range; // Ideally this points to just the identifier
 
         switch (node.type) {
-            case nodes.ThriftNodeType.Namespace:
+            case nodes.ThriftNodeType.Namespace: {
                 kind = vscode.SymbolKind.Namespace;
-                name = `namespace ${(node ).scope}`;
-                detail = `${name} ${(node ).namespace}`;
+                name = `namespace ${node.scope}`;
+                detail = `${name} ${node.namespace}`;
                 break;
-            case nodes.ThriftNodeType.Include:
+            }
+            case nodes.ThriftNodeType.Include: {
                 kind = vscode.SymbolKind.File;
                 name = `include ${name}`;
                 detail = `include ${name}`;
                 break;
-            case nodes.ThriftNodeType.Const:
+            }
+            case nodes.ThriftNodeType.Const: {
                 kind = vscode.SymbolKind.Constant;
-                const constNode = node ;
-                detail = `const ${constNode.valueType} ${name}`;
+                detail = `const ${node.valueType} ${name}`;
                 break;
-            case nodes.ThriftNodeType.Typedef:
-                kind = vscode.SymbolKind.TypeParameter; // VSCode doesn't have Typedef kind, TypeParameter or Interface is close
-                const typedefNode = node ;
-                detail = `typedef ${typedefNode.aliasType} ${name}`;
+            }
+            case nodes.ThriftNodeType.Typedef: {
+                kind = vscode.SymbolKind.TypeParameter;
+                detail = `typedef ${node.aliasType} ${name}`;
                 break;
-            case nodes.ThriftNodeType.Struct:
+            }
+            case nodes.ThriftNodeType.Struct: {
                 kind = vscode.SymbolKind.Struct;
                 detail = `struct ${name}`;
                 break;
-            case nodes.ThriftNodeType.Union:
+            }
+            case nodes.ThriftNodeType.Union: {
                 kind = vscode.SymbolKind.Struct;
                 detail = `union ${name}`;
                 break;
-            case nodes.ThriftNodeType.Exception:
-                kind = vscode.SymbolKind.Class; // Exception is close to Class
+            }
+            case nodes.ThriftNodeType.Exception: {
+                kind = vscode.SymbolKind.Class;
                 detail = `exception ${name}`;
                 break;
-            case nodes.ThriftNodeType.Enum:
+            }
+            case nodes.ThriftNodeType.Enum: {
                 kind = vscode.SymbolKind.Enum;
                 detail = `enum ${name}`;
                 break;
-            case nodes.ThriftNodeType.Service:
+            }
+            case nodes.ThriftNodeType.Service: {
                 kind = vscode.SymbolKind.Interface;
-                const serviceNode = node ;
-                detail = `service ${name}${serviceNode.extends ? ' extends ' + serviceNode.extends : ''}`;
+                detail = `service ${name}${node.extends ? ` extends ${node.extends}` : ''}`;
                 break;
-            case nodes.ThriftNodeType.EnumMember:
+            }
+            case nodes.ThriftNodeType.EnumMember: {
                 kind = vscode.SymbolKind.EnumMember;
-                const enumMember = node ;
                 detail = name;
-                if (enumMember.initializer) {
-                    detail += ` = ${enumMember.initializer}`;
+                if (node.initializer) {
+                    detail += ` = ${node.initializer}`;
                 }
                 break;
-            case nodes.ThriftNodeType.Field:
+            }
+            case nodes.ThriftNodeType.Field: {
                 kind = vscode.SymbolKind.Field;
-                const fieldNode = node ;
-                detail = `${fieldNode.id}: ${fieldNode.requiredness ? fieldNode.requiredness + ' ' : ''}${fieldNode.fieldType} ${name}`;
+                detail = `${node.id}: ${node.requiredness ? node.requiredness + ' ' : ''}${node.fieldType} ${name}`;
                 break;
-            case nodes.ThriftNodeType.Function:
+            }
+            case nodes.ThriftNodeType.Function: {
                 kind = vscode.SymbolKind.Method;
-                const funcNode = node ;
-                detail = `${funcNode.oneway ? 'oneway ' : ''}${funcNode.returnType} ${name}`;
+                detail = `${node.oneway ? 'oneway ' : ''}${node.returnType} ${name}`;
                 break;
+            }
             default:
                 return null;
         }
@@ -175,7 +182,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
         if (node.type === nodes.ThriftNodeType.Struct ||
             node.type === nodes.ThriftNodeType.Union ||
             node.type === nodes.ThriftNodeType.Exception) {
-            const structNode = node ;
+            const structNode = node;
             for (const field of structNode.fields) {
                 const childSym = this.createSymbol(field);
                 if (childSym) {

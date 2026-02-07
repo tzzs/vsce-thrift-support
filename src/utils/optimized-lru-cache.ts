@@ -1,4 +1,4 @@
-export interface AdvancedCacheOptions {
+export interface AdvancedCacheOptions<K = unknown, V = unknown> {
     maxSize: number;
     ttlMs: number;
     // LRU-K参数，表示考虑过去K次访问
@@ -6,9 +6,9 @@ export interface AdvancedCacheOptions {
     // 驱逐阈值，当达到这个比例时开始主动驱逐
     evictionThreshold?: number;
     // 优先级函数
-    priorityFn?: (key: any, value: any) => number;
+    priorityFn?: (key: K, value: V) => number;
     // 内存估算函数
-    sizeEstimator?: (key: any, value: any) => number;
+    sizeEstimator?: (key: K, value: V) => number;
 }
 
 interface CacheItem<V> {
@@ -35,7 +35,7 @@ export class AdvancedLruCache<K, V> {
      * 创建高级LRU缓存，支持LRU-K和优先级功能。
      * @param options 缓存配置选项
      */
-    constructor(options: AdvancedCacheOptions) {
+    constructor(options: AdvancedCacheOptions<K, V>) {
         this.maxSize = Math.max(0, options.maxSize);
         this.ttlMs = Math.max(0, options.ttlMs);
         this.lruK = options.lruK ?? 2; // 默认为2，考虑最近2次访问
@@ -109,8 +109,8 @@ export class AdvancedLruCache<K, V> {
             priority = this.priorityFn(key, value);
         }
 
-        if (this.entries.has(key)) {
-            const existing = this.entries.get(key)!;
+        const existing = this.entries.get(key);
+        if (existing) {
             this.totalEstimatedSize -= existing.estimatedSize;
             this.entries.delete(key);
         }
@@ -211,7 +211,7 @@ export class AdvancedLruCache<K, V> {
         const entriesArray = Array.from(this.entries.entries());
 
         // 如果有优先级信息，使用优先级作为主要驱逐依据
-        if (entriesArray.some(([key, item]) => item.priority !== undefined)) {
+        if (entriesArray.some(([, item]) => item.priority !== undefined)) {
             const lowestPriorityEntry = entriesArray.reduce((lowest, current) => {
                 const currentPriority = current[1].priority ?? Number.POSITIVE_INFINITY;
                 const lowestPriority = lowest[1].priority ?? Number.POSITIVE_INFINITY;
@@ -353,11 +353,15 @@ export class LruCache<K, V> {
 
     private evictOverflow(): void {
         while (this.entries.size > this.maxSize) {
-            const oldestKey = this.entries.keys().next().value;
-            if (oldestKey === undefined) {
+            let deleted = false;
+            for (const key of this.entries.keys()) {
+                this.entries.delete(key);
+                deleted = true;
                 break;
             }
-            this.entries.delete(oldestKey);
+            if (!deleted) {
+                break;
+            }
         }
     }
 

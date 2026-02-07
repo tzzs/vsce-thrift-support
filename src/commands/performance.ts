@@ -6,37 +6,36 @@ export function registerPerformanceCommands(context: vscode.ExtensionContext, de
 
     // Register performance monitoring commands
     context.subscriptions.push(
-        vscode.commands.registerCommand('thrift.showPerformanceReport', () => {
-            performanceMonitor.showPerformanceReport();
+        vscode.commands.registerCommand('thrift.showPerformanceReport', async () => {
+            await performanceMonitor.showPerformanceReport();
         })
     );
 
     // Add command to clear performance data
     context.subscriptions.push(
-        vscode.commands.registerCommand('thrift.clearPerformanceData', () => {
+        vscode.commands.registerCommand('thrift.clearPerformanceData', async () => {
             performanceMonitor.clearMetrics();
-            vscode.window.showInformationMessage('Thrift Support: Performance metrics cleared');
+            await vscode.window.showInformationMessage('Thrift Support: Performance metrics cleared');
         })
     );
 
     // Add command to show memory usage report
     context.subscriptions.push(
-        vscode.commands.registerCommand('thrift.showMemoryReport', () => {
+        vscode.commands.registerCommand('thrift.showMemoryReport', async () => {
             const report = memoryMonitor.getMemoryReport();
-            const doc = vscode.workspace.openTextDocument({
+            const doc = await vscode.workspace.openTextDocument({
                 content: report,
                 language: 'markdown'
-            }).then(doc => {
-                vscode.window.showTextDocument(doc, {preview: true});
             });
+            await vscode.window.showTextDocument(doc, {preview: true});
         })
     );
 
     // Add command to force garbage collection (when available)
     context.subscriptions.push(
-        vscode.commands.registerCommand('thrift.forceGarbageCollection', () => {
+        vscode.commands.registerCommand('thrift.forceGarbageCollection', async () => {
             memoryMonitor.forceGarbageCollection();
-            vscode.window.showInformationMessage('Thrift Support: Garbage collection forced');
+            await vscode.window.showInformationMessage('Thrift Support: Garbage collection forced');
         })
     );
 }
