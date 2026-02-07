@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import {config} from '../config';
-import {collapseLineRanges, LineRange, lineRangeFromChange, lineRangeLineCount, mergeLineRanges} from './line-range';
+import {LineRange, lineRangeFromChange} from './line-range';
 
 /**
  * Parse change types to distinguish between formatting and parsing changes
@@ -30,7 +30,8 @@ export class IncrementalTracker {
     // Pre-allocated arrays to reduce allocation
     private readonly maxRecords = 100; // Limit records to prevent memory issues
 
-    private constructor() {}
+    private constructor() {
+    }
 
     static getInstance(): IncrementalTracker {
         if (!this.instance) {
@@ -77,12 +78,12 @@ export class IncrementalTracker {
         });
 
         // Optimize the merge operation by reducing redundant work
-        this.dirtyRanges.set(key, this.mergeLineRangesOptimized(ranges!));
+        this.dirtyRanges.set(key, this.mergeLineRangesOptimized(ranges));
 
         // Efficiently limit records to prevent memory issues
-        if (records!.length > this.maxRecords) {
+        if (records.length > this.maxRecords) {
             // Use slice to keep only the last N records efficiently
-            records!.splice(0, records!.length - this.maxRecords);
+            records.splice(0, records.length - this.maxRecords);
         }
     }
 
@@ -182,7 +183,7 @@ export class IncrementalTracker {
     /**
      * 获取最近的解析变更范围。
      */
-    getRecentParsingChanges(document: vscode.TextDocument, withinMs: number = 5000): LineRange[] {
+    getRecentParsingChanges(document: vscode.TextDocument, withinMs = 5000): LineRange[] {
         const key = document.uri.toString();
         const records = this.changeRecords.get(key) ?? [];
 

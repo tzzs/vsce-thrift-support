@@ -31,7 +31,7 @@ export function buildAstIndex(ast: nodes.ThriftDocument): AstIndex {
             case nodes.ThriftNodeType.Struct:
             case nodes.ThriftNodeType.Union:
             case nodes.ThriftNodeType.Exception: {
-                const structNode = node as nodes.Struct;
+                const structNode = node ;
                 structStarts.set(structNode.range.start.line, structNode);
                 structNode.fields.forEach(field => {
                     structFieldIndex.set(field.range.start.line, field);
@@ -39,7 +39,7 @@ export function buildAstIndex(ast: nodes.ThriftDocument): AstIndex {
                 break;
             }
             case nodes.ThriftNodeType.Enum: {
-                const enumNode = node as nodes.Enum;
+                const enumNode = node ;
                 enumStarts.set(enumNode.range.start.line, enumNode);
                 enumNode.members.forEach(member => {
                     enumMemberIndex.set(member.range.start.line, member);
@@ -47,7 +47,7 @@ export function buildAstIndex(ast: nodes.ThriftDocument): AstIndex {
                 break;
             }
             case nodes.ThriftNodeType.Service: {
-                const serviceNode = node as nodes.Service;
+                const serviceNode = node ;
                 serviceStarts.set(serviceNode.range.start.line, serviceNode);
                 serviceNode.functions.forEach(fn => {
                     serviceFunctionIndex.set(fn.range.start.line, fn);
@@ -55,7 +55,7 @@ export function buildAstIndex(ast: nodes.ThriftDocument): AstIndex {
                 break;
             }
             case nodes.ThriftNodeType.Const: {
-                const constNode = node as nodes.Const;
+                const constNode = node ;
                 constStarts.set(constNode.range.start.line, constNode);
                 constEnds.set(constNode.range.start.line, constNode.range.end.line);
                 break;

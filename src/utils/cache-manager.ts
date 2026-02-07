@@ -1,5 +1,4 @@
-import {isExpired} from './cache-expiry';
-import {AdvancedLruCache, AdvancedCacheOptions} from './optimized-lru-cache';
+import {AdvancedCacheOptions, AdvancedLruCache} from './optimized-lru-cache';
 
 /**
  * 缓存配置项。
@@ -46,14 +45,14 @@ export class MemoryAwareCacheManager {
     private readonly MEMORY_MONITORING_ENABLED = true;
     private cleanupCount: Map<string, number> = new Map();
     private lastCleanup: Map<string, number> = new Map();
-    private hitCount: Map<string, { hits: number; misses: number }> = new Map();
+    private hitCount: Map<string, {hits: number; misses: number}> = new Map();
 
     // 添加内存压力监控相关属性
     private memoryPressureLevel: 'normal' | 'medium' | 'high' = 'normal';
-    private lastMemoryCheck: number = 0;
-    private memoryCheckInterval: number = 30000; // 30秒检查一次
-    private gcThreshold: number = 0.8; // GC触发阈值
-    private dynamicAdjustmentFactor: number = 1.0; // 动态调整因子
+    private lastMemoryCheck = 0;
+    private memoryCheckInterval = 30000; // 30秒检查一次
+    private gcThreshold = 0.8; // GC触发阈值
+    private dynamicAdjustmentFactor = 1.0; // 动态调整因子
 
     /**
      * 获取单例实例。
@@ -89,7 +88,7 @@ export class MemoryAwareCacheManager {
 
         this.cleanupCount.set(name, 0);
         this.lastCleanup.set(name, 0);
-        this.hitCount.set(name, { hits: 0, misses: 0 });
+        this.hitCount.set(name, {hits: 0, misses: 0});
     }
 
     /**
@@ -315,13 +314,13 @@ export class MemoryAwareCacheManager {
     }
 
     private recordHit(cacheName: string): void {
-        const stats = this.hitCount.get(cacheName) || { hits: 0, misses: 0 };
+        const stats = this.hitCount.get(cacheName) || {hits: 0, misses: 0};
         stats.hits++;
         this.hitCount.set(cacheName, stats);
     }
 
     private recordMiss(cacheName: string): void {
-        const stats = this.hitCount.get(cacheName) || { hits: 0, misses: 0 };
+        const stats = this.hitCount.get(cacheName) || {hits: 0, misses: 0};
         stats.misses++;
         this.hitCount.set(cacheName, stats);
     }
@@ -329,11 +328,11 @@ export class MemoryAwareCacheManager {
     /**
      * 获取指定缓存的统计信息
      */
-    public getCacheStats(cacheName: string): { size: number; maxSize: number; hitRate: number; cleanupCount: number } {
+    public getCacheStats(cacheName: string): {size: number; maxSize: number; hitRate: number; cleanupCount: number} {
         const cache = this.caches.get(cacheName);
         const config = this.configs.get(cacheName);
         const cleanup = this.cleanupCount.get(cacheName) || 0;
-        const stats = this.hitCount.get(cacheName) || { hits: 0, misses: 0 };
+        const stats = this.hitCount.get(cacheName) || {hits: 0, misses: 0};
 
         const totalAccesses = stats.hits + stats.misses;
         const hitRate = totalAccesses > 0 ? stats.hits / totalAccesses : 0;
@@ -349,8 +348,8 @@ export class MemoryAwareCacheManager {
     /**
      * 获取所有缓存的统计信息
      */
-    public getAllCacheStats(): Map<string, { size: number; maxSize: number; hitRate: number; cleanupCount: number }> {
-        const allStats = new Map<string, { size: number; maxSize: number; hitRate: number; cleanupCount: number }>();
+    public getAllCacheStats(): Map<string, {size: number; maxSize: number; hitRate: number; cleanupCount: number}> {
+        const allStats = new Map<string, {size: number; maxSize: number; hitRate: number; cleanupCount: number}>();
 
         for (const [cacheName] of this.caches) {
             allStats.set(cacheName, this.getCacheStats(cacheName));
@@ -439,4 +438,5 @@ export class MemoryAwareCacheManager {
 }
 
 // 为了保持向后兼容性，继续导出原类名
-export class CacheManager extends MemoryAwareCacheManager {}
+export class CacheManager extends MemoryAwareCacheManager {
+}

@@ -1,6 +1,6 @@
-import {Token, ThriftTokenizer, tokenizeLine} from './tokenizer';
+import {ThriftTokenizer, Token, tokenizeLine} from './tokenizer';
 
-export type TokenWithIndex = Token & { index: number };
+export type TokenWithIndex = Token & {index: number};
 
 export function filterMeaningfulTokens(tokens: Token[]): Token[] {
     return tokens.filter(token => token.type !== 'whitespace' && token.type !== 'comment');

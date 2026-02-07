@@ -6,7 +6,7 @@ import * as nodes from '../ast/nodes.types';
  * @param line 原始行文本
  * @returns 代码与注释
  */
-export function splitLineComment(line: string): { code: string; comment: string } {
+export function splitLineComment(line: string): {code: string; comment: string} {
     let inS = false;
     let inD = false;
     let escaped = false;
@@ -58,7 +58,7 @@ export function splitLineComment(line: string): { code: string; comment: string 
  * @param source 原始文本
  * @returns 基础文本与注解文本
  */
-export function splitTrailingAnnotation(source: string): { base: string; annotation: string } {
+export function splitTrailingAnnotation(source: string): {base: string; annotation: string} {
     const trimmed = source.trimEnd();
     if (!trimmed.endsWith(')')) {
         return {base: source.trim(), annotation: ''};
@@ -67,7 +67,7 @@ export function splitTrailingAnnotation(source: string): { base: string; annotat
     let inD = false;
     let escaped = false;
     const stack: number[] = [];
-    let lastPair: { start: number; end: number } | null = null;
+    let lastPair: {start: number; end: number} | null = null;
 
     for (let i = 0; i < trimmed.length; i++) {
         const ch = trimmed[i];

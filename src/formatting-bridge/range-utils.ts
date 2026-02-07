@@ -69,7 +69,7 @@ export function buildMinimalEdits(
 }
 
 function getOffsetAt(document: vscode.TextDocument, position: vscode.Position): number {
-    const docAny = document as vscode.TextDocument & { offsetAt?: (pos: vscode.Position) => number };
+    const docAny = document as vscode.TextDocument & {offsetAt?: (pos: vscode.Position) => number};
     if (typeof docAny.offsetAt === 'function') {
         return docAny.offsetAt(position);
     }

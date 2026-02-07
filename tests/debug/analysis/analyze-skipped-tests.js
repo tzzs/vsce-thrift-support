@@ -124,13 +124,13 @@ function analyzeSkippedTests() {
     const categories = {};
     skippedFiles.forEach(item => {
         if (item.reason.includes('Compiled module not found')) {
-            if (!categories.compile) categories.compile = [];
+            if (!categories.compile) {categories.compile = [];}
             categories.compile.push(item);
         } else if (item.reason.includes('Module not found')) {
-            if (!categories.missing) categories.missing = [];
+            if (!categories.missing) {categories.missing = [];}
             categories.missing.push(item);
         } else {
-            if (!categories.other) categories.other = [];
+            if (!categories.other) {categories.other = [];}
             categories.other.push(item);
         }
     });

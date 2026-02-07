@@ -3,9 +3,9 @@ import {ErrorHandler} from './utils/error-handler';
 import {createCoreDependencies} from './utils/dependencies';
 import {registerProviders} from './setup';
 import {registerCommands} from './commands';
-import {SmartMemoryMonitor, MemoryMonitor} from './utils/memory-monitor';
-import {MemoryAwareCacheManager, CacheManager} from './utils/cache-manager';
-import {performanceMonitor} from './optimized-performance-monitor';
+import {MemoryMonitor} from './utils/memory-monitor';
+import {CacheManager} from './utils/cache-manager';
+import {performanceMonitor} from './performance-monitor';
 
 /**
  * 扩展入口，注册所有能力与命令。

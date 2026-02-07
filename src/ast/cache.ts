@@ -2,9 +2,10 @@ import * as nodes from './nodes.types';
 import {config} from '../config';
 import {LineRange} from '../utils/line-range';
 import {CacheManager} from '../utils/cache-manager'; // Import the enhanced cache manager
-import {makeUriRangeKey, makeUriContentKey} from '../utils/cache-keys';
-import {isFresh, isExpired} from '../utils/cache-expiry';
+import {makeUriContentKey, makeUriRangeKey} from '../utils/cache-keys';
+import {isExpired, isFresh} from '../utils/cache-expiry';
 import {OptimizedThriftParser} from './optimized-parser';
+// Only export optimized parser if it hasn't been exported already
 
 // Initialize the cache manager
 const cacheManager = CacheManager.getInstance();
@@ -249,9 +250,7 @@ export function parseWithAstCache(
     return ast;
 }
 
-// Only export optimized parser if it hasn't been exported already
-import { ThriftParser as ExistingThriftParser } from './parser';
 // Don't re-export if already defined in original module
 
 // Export optimized parser
-export { OptimizedThriftParser as ThriftParser };
+export {OptimizedThriftParser as ThriftParser};

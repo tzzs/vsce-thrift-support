@@ -20,8 +20,8 @@ export function getWordRangeAtPosition(
     const includeMatch = text.match(/^(\s*)include\s+["']([^"']+)["']/);
     if (includeMatch) {
         const includeStart = text.indexOf('include');
-        const quoteStart = text.indexOf('"') !== -1 ? text.indexOf('"') : text.indexOf("'");
-        const quoteEnd = text.lastIndexOf('"') !== -1 ? text.lastIndexOf('"') : text.lastIndexOf("'");
+        const quoteStart = text.indexOf('"') !== -1 ? text.indexOf('"') : text.indexOf('\'');
+        const quoteEnd = text.lastIndexOf('"') !== -1 ? text.lastIndexOf('"') : text.lastIndexOf('\'');
 
         if (position.character >= includeStart && position.character <= quoteEnd) {
             if (position.character >= includeStart && position.character < includeStart + 7) {
@@ -65,7 +65,7 @@ export function getWordRangeAtPosition(
                 return fallbackRange;
             }
         } catch {
-            continue;
+
         }
     }
 
@@ -87,8 +87,8 @@ export async function checkIncludeStatement(
     const includePath = includeMatch[1];
     const documentDir = path.dirname(document.uri.fsPath);
     const fullLineText = line.text;
-    const quoteStart = fullLineText.indexOf('"') !== -1 ? fullLineText.indexOf('"') : fullLineText.indexOf("'");
-    const quoteEnd = fullLineText.lastIndexOf('"') !== -1 ? fullLineText.lastIndexOf('"') : fullLineText.lastIndexOf("'");
+    const quoteStart = fullLineText.indexOf('"') !== -1 ? fullLineText.indexOf('"') : fullLineText.indexOf('\'');
+    const quoteEnd = fullLineText.lastIndexOf('"') !== -1 ? fullLineText.lastIndexOf('"') : fullLineText.lastIndexOf('\'');
 
     if (position.character >= quoteStart && position.character <= quoteEnd) {
         const resolvedPath = await resolveModulePath(includePath, documentDir);
@@ -142,7 +142,7 @@ export async function findIncludeForNamespace(
                 return createLocation(document.uri, new vscode.Range(i, 0, i, 0));
             }
         } catch {
-            continue;
+
         }
     }
 
@@ -171,7 +171,7 @@ export async function resolveModulePath(includePath: string, documentDir: string
             await vscode.workspace.fs.stat(uri);
             return normalized;
         } catch {
-            continue;
+
         }
     }
 

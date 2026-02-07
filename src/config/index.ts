@@ -89,12 +89,24 @@ export const memoryConfig: MemoryConfig = {
     itemSizeEstimator: (key: any, value: any) => {
         // 改进的内存估算函数，考虑对象结构深度和类型
         const estimate = (obj: any): number => {
-            if (obj === null || obj === undefined) {return 8;}
-            if (typeof obj === 'boolean') {return 4;}
-            if (typeof obj === 'number') {return 8;}
-            if (typeof obj === 'string') {return obj.length * 2 + 48;} // Unicode 字符 + 对象开销
-            if (typeof obj === 'symbol') {return 32;}
-            if (typeof obj === 'bigint') {return 16;}
+            if (obj === null || obj === undefined) {
+                return 8;
+            }
+            if (typeof obj === 'boolean') {
+                return 4;
+            }
+            if (typeof obj === 'number') {
+                return 8;
+            }
+            if (typeof obj === 'string') {
+                return obj.length * 2 + 48;
+            } // Unicode 字符 + 对象开销
+            if (typeof obj === 'symbol') {
+                return 32;
+            }
+            if (typeof obj === 'bigint') {
+                return 16;
+            }
 
             // 对象或数组
             if (Array.isArray(obj)) {

@@ -2,13 +2,20 @@
   "root": true,
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
-    "ecmaVersion": 6,
-    "sourceType": "module"
+    "ecmaVersion": "latest",
+    "sourceType": "module",
+    "project": "./tsconfig.json"
   },
   "plugins": [
     "@typescript-eslint"
   ],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:@typescript-eslint/recommended-requiring-type-checking"
+  ],
   "rules": {
+    // 在继承的基础上，保留你个性化的偏好
     "@typescript-eslint/naming-convention": [
       "warn",
       {
@@ -20,15 +27,19 @@
         ]
       }
     ],
-    "@typescript-eslint/semi": "warn",
-    "curly": "warn",
-    "eqeqeq": "warn",
-    "no-throw-literal": "warn",
-    "semi": "off"
+    "eqeqeq": [
+      "error",
+      "always"
+    ],
+    // 建议改为 error，强制使用 === 是行业共识
+    "no-console": "warn",
+    // 生产环境不建议留太多 console
+    "curly": "warn"
   },
   "ignorePatterns": [
     "out",
     "dist",
-    "**/*.d.ts"
+    "**/*.d.ts",
+    "node_modules"
   ]
 }

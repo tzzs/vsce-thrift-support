@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { ThriftFileWatcher } from './utils/file-watcher';
-import { CacheManager } from './utils/cache-manager';
-import { ErrorHandler } from './utils/error-handler';
-import { readThriftFile } from './utils/file-reader';
-import { ThriftParser } from './ast/parser';
+import {ThriftFileWatcher} from './utils/file-watcher';
+import {CacheManager} from './utils/cache-manager';
+import {ErrorHandler} from './utils/error-handler';
+import {readThriftFile} from './utils/file-reader';
+import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes.types';
-import { config } from './config';
-import { CoreDependencies } from './utils/dependencies';
-import { createLocation } from './utils/vscode-utils';
+import {config} from './config';
+import {CoreDependencies} from './utils/dependencies';
+import {createLocation} from './utils/vscode-utils';
 
 /**
  * ThriftWorkspaceSymbolProvider：提供全局符号搜索。
@@ -17,7 +17,7 @@ export class ThriftWorkspaceSymbolProvider {
     private cacheManager: CacheManager;
     private fileWatcher: vscode.FileSystemWatcher | undefined;
     private workspaceFileList: Set<string> = new Set();
-    private lastFileListUpdate: number = 0;
+    private lastFileListUpdate = 0;
     private readonly FILE_LIST_UPDATE_INTERVAL = config.workspaceSymbols.fileListUpdateIntervalMs;
     private errorHandler: ErrorHandler;
     private readonly component = 'ThriftWorkspaceSymbolProvider';

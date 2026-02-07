@@ -7,7 +7,7 @@ import {ErrorHandler} from '../utils/error-handler';
 
 const includeTypesCache = new Map<string, Map<string, string>>();
 const includeFileTimestamps = new Map<string, number>();
-const includeFileStats = new Map<string, { mtime: number; size: number }>();
+const includeFileStats = new Map<string, {mtime: number; size: number}>();
 const INCLUDE_CACHE_MAX_AGE = config.cache.includeTypesMaxAgeMs;
 
 /**
@@ -26,7 +26,7 @@ export function collectTypesFromAst(ast: nodes.ThriftDocument): Map<string, stri
                 break;
             case nodes.ThriftNodeType.Enum:
                 if (node.name) {
-                    typeKind.set(node.name, (node as nodes.Enum).isSenum ? 'senum' : 'enum');
+                    typeKind.set(node.name, (node ).isSenum ? 'senum' : 'enum');
                 }
                 break;
             case nodes.ThriftNodeType.Struct:
@@ -76,7 +76,7 @@ export async function getIncludedFiles(document: vscode.TextDocument): Promise<v
         if (node.type !== nodes.ThriftNodeType.Include) {
             continue;
         }
-        const includePath = (node as nodes.Include).path;
+        const includePath = (node ).path;
         let fullPath: string;
 
         if (path.isAbsolute(includePath)) {

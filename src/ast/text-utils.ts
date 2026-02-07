@@ -63,7 +63,7 @@ export function stripLineComments(line: string): string {
  * @returns 去除注解后的行内容
  */
 export function stripTrailingAnnotation(line: string): string {
-    let trimmed = line.trimEnd();
+    const trimmed = line.trimEnd();
     if (!trimmed.endsWith(')')) {
         return line;
     }
@@ -120,8 +120,8 @@ export function stripTrailingAnnotation(line: string): string {
  * @param text 输入文本
  * @returns 分割后的文本片段及其起始偏移量数组
  */
-export function splitTopLevelCommasWithOffsets(text: string): Array<{ text: string; start: number }> {
-    const parts: Array<{ text: string; start: number }> = [];
+export function splitTopLevelCommasWithOffsets(text: string): Array<{text: string; start: number}> {
+    const parts: Array<{text: string; start: number}> = [];
     let start = 0;
     let depthAngle = 0;
     let depthBracket = 0;
@@ -227,7 +227,7 @@ export function offsetToPosition(
     baseLine: number,
     baseChar: number,
     offset: number
-): { line: number; char: number } {
+): {line: number; char: number} {
     let line = baseLine;
     let char = baseChar;
     for (let i = 0; i < offset && i < text.length; i++) {
@@ -252,7 +252,7 @@ export function readParenthesizedText(
     lines: string[],
     startLine: number,
     startChar: number
-): { text: string; endLine: number; endChar: number } | null {
+): {text: string; endLine: number; endChar: number} | null {
     let line = startLine;
     let char = startChar;
     let depth = 1;
@@ -298,7 +298,7 @@ export function findFirstNonWhitespaceAfter(
     line: number,
     char: number,
     limitLine: number
-): { line: number; char: number } | null {
+): {line: number; char: number} | null {
     let currentLine = line;
     let currentChar = char + 1;
     while (currentLine < lines.length && currentLine <= limitLine) {
@@ -327,7 +327,7 @@ export function findLastNonWhitespaceUpTo(
     lines: string[],
     startLine: number,
     endLine: number
-): { line: number; char: number } | null {
+): {line: number; char: number} | null {
     for (let line = endLine; line >= startLine; line--) {
         const text = lines[line] ?? '';
         for (let i = text.length - 1; i >= 0; i--) {

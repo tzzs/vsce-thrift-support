@@ -76,7 +76,7 @@ export function rangeContainsLineRange(range: vscode.Range, lineRange: LineRange
     return range.start.line <= lineRange.startLine && range.end.line >= lineRange.endLine;
 }
 
-export function lineRangeFromChange(change: { range: vscode.Range; text: string }): LineRange {
+export function lineRangeFromChange(change: {range: vscode.Range; text: string}): LineRange {
     const startLine = change.range.start.line;
     const lineDelta = change.text.split('\n').length - 1;
     const endLine = change.range.end.line + lineDelta;

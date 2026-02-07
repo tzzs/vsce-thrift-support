@@ -1,6 +1,5 @@
-import * as vscode from 'vscode';
-import { ErrorHandler } from './error-handler';
-import { ReportBuilder, formatMb } from './report-builder';
+import {ErrorHandler} from './error-handler';
+import {formatMb, ReportBuilder} from './report-builder';
 
 export interface MemoryUsageInfo {
     /** 当前内存使用量（字节） */
@@ -58,11 +57,11 @@ export interface MemoryTrend {
  * 趋势分析器
  */
 class TrendAnalyzer {
-    private samples: { timestamp: number, usage: number }[] = [];
+    private samples: {timestamp: number, usage: number}[] = [];
     private readonly maxSamples: number = 50; // 最多保存50个样本
 
     public addSample(timestamp: number, usage: number): void {
-        this.samples.push({ timestamp, usage });
+        this.samples.push({timestamp, usage});
         if (this.samples.length > this.maxSamples) {
             this.samples = this.samples.slice(-this.maxSamples); // 保留最新的样本
         }
@@ -70,7 +69,7 @@ class TrendAnalyzer {
 
     public calculateTrend(): MemoryTrend {
         if (this.samples.length < 3) {
-            return { slope: 0, stability: 'stable', period: 0 };
+            return {slope: 0, stability: 'stable', period: 0};
         }
 
         // 使用最小二乘法计算趋势线
@@ -105,7 +104,9 @@ class TrendAnalyzer {
     }
 
     public getAverageUsage(): number {
-        if (this.samples.length === 0) { return 0; }
+        if (this.samples.length === 0) {
+            return 0;
+        }
         const total = this.samples.reduce((sum, sample) => sum + sample.usage, 0);
         return total / this.samples.length;
     }
@@ -223,10 +224,14 @@ class OptimizationAdvisor {
 
     private severityScore(severity: string): number {
         switch (severity) {
-            case 'high': return 3;
-            case 'medium': return 2;
-            case 'low': return 1;
-            default: return 0;
+            case 'high':
+                return 3;
+            case 'medium':
+                return 2;
+            case 'low':
+                return 1;
+            default:
+                return 0;
         }
     }
 }
@@ -239,7 +244,7 @@ export class SmartMemoryMonitor {
 
     private memoryHistory: MemoryUsageInfo[] = [];
     private cacheStats: Map<string, CacheStatistics> = new Map();
-    private peakUsage: number = 0;
+    private peakUsage = 0;
     private errorHandler: ErrorHandler;
     private readonly MAX_HISTORY_SIZE = 100; // 保留最近100条记录
     private readonly MEMORY_CHECK_INTERVAL = 30000; // 30秒检查一次
@@ -333,7 +338,7 @@ export class SmartMemoryMonitor {
             lastCleanup: 0
         };
 
-        const updatedStats = { ...existing, ...stats };
+        const updatedStats = {...existing, ...stats};
         this.cacheStats.set(cacheName, updatedStats);
     }
 
@@ -423,7 +428,7 @@ export class SmartMemoryMonitor {
     /**
      * 检查是否内存使用过高
      */
-    public isHighMemoryUsage(thresholdRatio: number = 0.8): boolean {
+    public isHighMemoryUsage(thresholdRatio = 0.8): boolean {
         if (this.memoryHistory.length === 0) {
             return false;
         }
@@ -452,7 +457,7 @@ export class SmartMemoryMonitor {
     public generateOptimizationSuggestions(): MemoryOptimizationSuggestion[] {
         const latest = this.memoryHistory.length > 0
             ? this.memoryHistory[this.memoryHistory.length - 1]
-            : { currentUsage: 0, peakUsage: this.peakUsage };
+            : {currentUsage: 0, peakUsage: this.peakUsage};
 
         const trend = this.trendAnalyzer.calculateTrend();
 
@@ -490,4 +495,5 @@ export class SmartMemoryMonitor {
 }
 
 // 为了向后兼容，导出原类名
-export class MemoryMonitor extends SmartMemoryMonitor { }
+export class MemoryMonitor extends SmartMemoryMonitor {
+}

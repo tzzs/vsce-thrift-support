@@ -176,7 +176,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                     filePath: includedFile.fsPath,
                     additionalInfo: {searchTypeName}
                 });
-                continue;
+
             }
         }
 

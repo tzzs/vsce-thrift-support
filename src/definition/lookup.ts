@@ -70,7 +70,7 @@ export class DefinitionLookup {
                     locations.push(def);
                 }
             } catch {
-                continue;
+
             }
         }
 
@@ -84,7 +84,7 @@ export class DefinitionLookup {
         }
 
         if (node.type === nodes.ThriftNodeType.Document) {
-            const doc = node as nodes.ThriftDocument;
+            const doc = node ;
             if (doc.body) {
                 for (const item of doc.body) {
                     if (!this.traverseAST(item, callback)) {
@@ -95,28 +95,28 @@ export class DefinitionLookup {
         } else if (node.type === nodes.ThriftNodeType.Struct ||
             node.type === nodes.ThriftNodeType.Union ||
             node.type === nodes.ThriftNodeType.Exception) {
-            const struct = node as nodes.Struct;
+            const struct = node ;
             for (const field of struct.fields) {
                 if (!this.traverseAST(field, callback)) {
                     return false;
                 }
             }
         } else if (node.type === nodes.ThriftNodeType.Enum) {
-            const enumNode = node as nodes.Enum;
+            const enumNode = node ;
             for (const member of enumNode.members) {
                 if (!this.traverseAST(member, callback)) {
                     return false;
                 }
             }
         } else if (node.type === nodes.ThriftNodeType.Service) {
-            const service = node as nodes.Service;
+            const service = node ;
             for (const func of service.functions) {
                 if (!this.traverseAST(func, callback)) {
                     return false;
                 }
             }
         } else if (node.type === nodes.ThriftNodeType.Function) {
-            const func = node as nodes.ThriftFunction;
+            const func = node ;
             for (const arg of func.arguments) {
                 if (!this.traverseAST(arg, callback)) {
                     return false;

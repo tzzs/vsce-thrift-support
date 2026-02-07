@@ -8,7 +8,6 @@ import {clearIncludeCaches} from './include-resolver';
 import {getDirtyChangeSummary} from './change-detector';
 import {DiagnosticManager} from './manager';
 import {logDiagnostics} from './logger';
-import {PerformanceMonitor} from '../performance-monitor';
 
 /**
  * 注册诊断能力与文件监听。

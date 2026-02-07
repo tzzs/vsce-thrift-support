@@ -3,14 +3,13 @@
  */
 
 import * as vscode from 'vscode';
-import * as path from 'path';
-import { readThriftFile } from './utils/file-reader';
-import { ThriftParser } from './ast/parser';
+import {readThriftFile} from './utils/file-reader';
+import {ThriftParser} from './ast/parser';
 import * as nodes from './ast/nodes.types';
-import { collectIncludes, collectTopLevelTypes } from './ast/utils';
-import { config } from './config';
-import { ErrorHandler } from './utils/error-handler';
-import { CoreDependencies } from './utils/dependencies';
+import {collectIncludes, collectTopLevelTypes} from './ast/utils';
+import {config} from './config';
+import {ErrorHandler} from './utils/error-handler';
+import {CoreDependencies} from './utils/dependencies';
 
 /**
  * ThriftRefactorCodeActionProvider：提供重构与 Quick Fix。
@@ -19,7 +18,7 @@ export class ThriftRefactorCodeActionProvider {
     static readonly providedCodeActionKinds = [
         vscode.CodeActionKind.Refactor,
         vscode.CodeActionKind.RefactorExtract,
-        vscode.CodeActionKind.QuickFix,
+        vscode.CodeActionKind.QuickFix
     ];
     private errorHandler: ErrorHandler;
 
@@ -45,14 +44,14 @@ export class ThriftRefactorCodeActionProvider {
 
             // Extract type (typedef) from selection or current token
             const extract = new vscode.CodeAction('Extract type (typedef)', vscode.CodeActionKind.RefactorExtract);
-            extract.command = { command: 'thrift.refactor.extractType', title: 'Extract type (typedef)' };
+            extract.command = {command: 'thrift.refactor.extractType', title: 'Extract type (typedef)'};
             actions.push(extract);
 
             // Move type to another file (struct/enum/service/typedef)
             // Using 'refactor.move' string with type assertion because VS Code API doesn't have RefactorMove constant
             // but the extension needs this specific kind for proper categorization in the UI
             const move = new vscode.CodeAction('Move type to file...', 'refactor.move' as unknown as vscode.CodeActionKind);
-            move.command = { command: 'thrift.refactor.moveType', title: 'Move type to file...' };
+            move.command = {command: 'thrift.refactor.moveType', title: 'Move type to file...'};
             actions.push(move);
 
             const position = (range as vscode.Selection).active ?? range.start;
@@ -64,7 +63,10 @@ export class ThriftRefactorCodeActionProvider {
                     component: 'ThriftRefactorCodeActionProvider',
                     operation: 'provideCodeActions',
                     filePath: document.uri?.toString(),
-                    additionalInfo: { position: position, error: error instanceof Error ? error.message : 'Unknown error' }
+                    additionalInfo: {
+                        position: position,
+                        error: error instanceof Error ? error.message : 'Unknown error'
+                    }
                 });
                 return [];
             }
@@ -115,7 +117,7 @@ export class ThriftRefactorCodeActionProvider {
                 component: 'ThriftRefactorCodeActionProvider',
                 operation: 'provideCodeActions',
                 filePath: document.uri?.toString(),
-                additionalInfo: { error: error instanceof Error ? error.message : 'Unknown error' }
+                additionalInfo: {error: error instanceof Error ? error.message : 'Unknown error'}
             });
             return [];
         }
@@ -142,7 +144,7 @@ export class ThriftRefactorCodeActionProvider {
     }
 
     private getDocumentAst(document: vscode.TextDocument): nodes.ThriftDocument {
-        const uri = (document as vscode.TextDocument).uri;
+        const uri = (document ).uri;
         if (uri && typeof uri.toString === 'function') {
             return ThriftParser.parseWithCache(document);
         }
@@ -150,8 +152,8 @@ export class ThriftRefactorCodeActionProvider {
         return parser.parse();
     }
 
-    private async findWorkspaceDefinitions(typeName: string): Promise<Array<{ uri: vscode.Uri }>> {
-        const results: Array<{ uri: vscode.Uri }> = [];
+    private async findWorkspaceDefinitions(typeName: string): Promise<Array<{uri: vscode.Uri}>> {
+        const results: Array<{uri: vscode.Uri}> = [];
         const files = await vscode.workspace.findFiles(config.filePatterns.thrift);
         for (const file of files) {
             try {
@@ -167,14 +169,14 @@ export class ThriftRefactorCodeActionProvider {
                         node.type === nodes.ThriftNodeType.Typedef)
                 );
                 if (hasType) {
-                    results.push({ uri: file });
+                    results.push({uri: file});
                 }
             } catch {
                 this.errorHandler.handleWarning('Workspace type scan failed', {
                     component: 'ThriftRefactorCodeActionProvider',
                     operation: 'findWorkspaceDefinitions',
                     filePath: file.fsPath,
-                    additionalInfo: { typeName }
+                    additionalInfo: {typeName}
                 });
             }
         }

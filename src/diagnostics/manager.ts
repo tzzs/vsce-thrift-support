@@ -65,8 +65,8 @@ export class DiagnosticManager {
      */
     public scheduleAnalysis(
         doc: vscode.TextDocument,
-        immediate: boolean = false,
-        skipDependents: boolean = false,
+        immediate = false,
+        skipDependents = false,
         triggerSource?: string,
         dirtyLineCount?: number,
         includesMayChange?: boolean,
@@ -385,7 +385,7 @@ export class DiagnosticManager {
     /**
      * 获取诊断调度器信息（用于性能监控）
      */
-    public getSchedulerInfo(): { queued: number; processing: number } {
+    public getSchedulerInfo(): {queued: number; processing: number} {
         return {
             queued: this.scheduler.getQueuedCount(),
             processing: this.scheduler.getProcessingCount()

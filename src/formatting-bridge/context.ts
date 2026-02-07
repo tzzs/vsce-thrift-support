@@ -19,7 +19,7 @@ export interface FormattingContext {
 export function computeInitialContext(
     document: vscode.TextDocument,
     start: vscode.Position,
-    useCachedAst: boolean = false
+    useCachedAst = false
 ): FormattingContext {
     try {
         let ast: nodes.ThriftDocument;

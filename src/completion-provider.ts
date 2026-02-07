@@ -15,7 +15,7 @@ export function registerCompletionProvider(context: vscode.ExtensionContext, dep
         provider,
         '.',
         '"',
-        "'",
+        '\'',
         ':',
         ' ',
         '='

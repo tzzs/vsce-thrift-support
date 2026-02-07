@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import {config} from './config';
 import {ErrorHandler} from './utils/error-handler';
-import { MemoryMonitor } from './utils/memory-monitor';
-import {ReportBuilder, formatMb} from './utils/report-builder';
+import {MemoryMonitor} from './utils/memory-monitor';
+import {formatMb, ReportBuilder} from './utils/report-builder';
 
 // 性能监控器 - 跟踪慢操作并提供优化建议
 export interface PerformanceMetrics {
@@ -225,8 +225,8 @@ export class PerformanceMonitor {
         fullParseFn: () => T,
         incrementalParseFn: () => T,
         document?: vscode.TextDocument,
-        dirtyRange?: { startLine: number; endLine: number }
-    ): { result: T; wasIncremental: boolean; improvement: number } {
+        dirtyRange?: {startLine: number; endLine: number}
+    ): {result: T; wasIncremental: boolean; improvement: number} {
         let fullDuration = 0;
         let incrementalDuration = 0;
         let result: T;
@@ -256,7 +256,7 @@ export class PerformanceMonitor {
         const improvement = fullDuration > 0 ?
             ((fullDuration - incrementalDuration) / fullDuration * 100) : 0;
 
-        return { result, wasIncremental, improvement };
+        return {result, wasIncremental, improvement};
     }
 
     /**
@@ -282,9 +282,9 @@ export class PerformanceMonitor {
      * 统计慢操作的次数与平均耗时。
      * @returns 慢操作统计列表
      */
-    public getSlowOperationStats(): { operation: string; count: number; avgDuration: number }[] {
+    public getSlowOperationStats(): {operation: string; count: number; avgDuration: number}[] {
         const slowOps = this.metrics.filter(m => m.duration > this.slowOperationThreshold);
-        const stats = new Map<string, { count: number; totalDuration: number }>();
+        const stats = new Map<string, {count: number; totalDuration: number}>();
 
         slowOps.forEach(metric => {
             const existing = stats.get(metric.operation) || {count: 0, totalDuration: 0};

@@ -207,7 +207,7 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
             for (let j = 0; j < line.length; j++) {
                 const char = line[j];
 
-                if (!inString && (char === '"' || char === "'")) {
+                if (!inString && (char === '"' || char === '\'')) {
                     inString = true;
                     stringChar = char;
                 } else if (inString && char === stringChar && line[j - 1] !== '\\') {
@@ -238,7 +238,7 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
             for (let j = i === startLine ? startChar : 0; j < line.length; j++) {
                 const char = line[j];
 
-                if (!inString && (char === '"' || char === "'")) {
+                if (!inString && (char === '"' || char === '\'')) {
                     inString = true;
                     stringChar = char;
                 } else if (inString && char === stringChar && line[j - 1] !== '\\') {

@@ -10,9 +10,9 @@ export type ThriftIssue = {
     code?: string;
 };
 
-export type BlockCacheValue = { hash: number; issues: ThriftIssue[] };
-export type MemberCacheValue = { range: LineRange; hash: number; issues: ThriftIssue[] };
-export type BlockAstCacheEntry = { hash: number; node: nodes.ThriftNode };
+export type BlockCacheValue = {hash: number; issues: ThriftIssue[]};
+export type MemberCacheValue = {range: LineRange; hash: number; issues: ThriftIssue[]};
+export type BlockAstCacheEntry = {hash: number; node: nodes.ThriftNode};
 export type BlockCache = LruCache<string, BlockCacheValue>;
 export type MemberCache = LruCache<string, MemberCacheValue>;
 export type MemberCacheByBlock = LruCache<string, MemberCache>;

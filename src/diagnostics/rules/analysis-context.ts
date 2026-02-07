@@ -16,7 +16,7 @@ export function collectIncludeAliasesFromAst(ast: nodes.ThriftDocument): Set<str
     const includeAliases = new Set<string>();
     for (const node of ast.body) {
         if (node.type === nodes.ThriftNodeType.Include) {
-            const includePath = (node as nodes.Include).path;
+            const includePath = (node ).path;
             const alias = path.basename(includePath, '.thrift');
             if (alias) {
                 includeAliases.add(alias);

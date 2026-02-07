@@ -4,13 +4,13 @@ import {config} from '../config';
 import {
     clearAstCacheForDocument,
     clearExpiredAstCache,
-    parseWithAstCache,
     getCachedAstRange,
-    setCachedAstRange,
-    setCachedAst
+    parseWithAstCache,
+    setCachedAst,
+    setCachedAstRange
 } from './cache';
 import {LineRange} from '../utils/line-range';
-import {isFresh, isExpired} from '../utils/cache-expiry';
+import {isExpired, isFresh} from '../utils/cache-expiry';
 import {
     buildConstValueRange,
     findDefaultValueRange,
@@ -52,10 +52,10 @@ export interface ParseContext {
 }
 
 export class ThriftParser {
-    private static astByUri = new Map<string, { ast: nodes.ThriftDocument; timestamp: number }>();
+    private static astByUri = new Map<string, {ast: nodes.ThriftDocument; timestamp: number}>();
     private text: string;
     private lines: string[];
-    private currentLine: number = 0;
+    private currentLine = 0;
     private tokenizer: ThriftTokenizer;
 
     constructor(documentOrContent: vscode.TextDocument | string) {
@@ -163,7 +163,7 @@ export class ThriftParser {
             if (node) {
                 ast.body = ast.body.filter(existing =>
                     !(existing.range.start.line <= node.range.end.line &&
-                      existing.range.end.line >= node.range.start.line)
+                        existing.range.end.line >= node.range.start.line)
                 );
                 ast.body.push(node);
                 this.addChild(ast, node);
@@ -190,7 +190,7 @@ export class ThriftParser {
         }
     }
 
-    private scanLine(line: string): { stripped: string; tokens: Token[] } {
+    private scanLine(line: string): {stripped: string; tokens: Token[]} {
         const scan = this.tokenizer.scanLine(line);
         return {
             stripped: scan.stripped,
@@ -198,7 +198,7 @@ export class ThriftParser {
         };
     }
 
-    private countBraces(tokens: Token[]): { open: number; close: number } {
+    private countBraces(tokens: Token[]): {open: number; close: number} {
         let open = 0;
         let close = 0;
         for (const token of tokens) {
@@ -786,7 +786,7 @@ export class ThriftParser {
                 const throwsFields: nodes.Field[] = [];
 
                 const parenStartPos = line.indexOf('(');
-                let argResult: { text: string; endLine: number; endChar: number } | null = null;
+                let argResult: {text: string; endLine: number; endChar: number} | null = null;
                 if (parenStartPos !== -1) {
                     argResult = readParenthesizedText(this.lines, this.currentLine, parenStartPos + 1);
                     if (argResult) {
@@ -907,7 +907,7 @@ export class ThriftParser {
                     funcEndLine,
                     funcEndChar
                 );
-                let throwsResult: { text: string; endLine: number; endChar: number } | null = null;
+                let throwsResult: {text: string; endLine: number; endChar: number} | null = null;
                 if (throwsStart) {
                     throwsResult = readParenthesizedText(this.lines, throwsStart.line, throwsStart.char + 1);
                     if (throwsResult) {
@@ -1208,7 +1208,7 @@ export class ThriftParser {
     /**
      * 更新分析受更改影响的区域（扩展脏区算法），现在具有更精确的依赖分析。
      */
-    public analyzeAffectedRegion(startLine: number, endLine: number): { start: number; end: number } {
+    public analyzeAffectedRegion(startLine: number, endLine: number): {start: number; end: number} {
         // Start with the initial range
         let affectedStart = startLine;
         let affectedEnd = endLine;
@@ -1218,7 +1218,7 @@ export class ThriftParser {
         for (let line = startLine; line >= 0 && line > startLine - 50; line--) { // Limit expansion for performance
             const text = this.lines[line];
             if (text && (text.trim().match(/\b(struct|service|enum|union|exception)\s+\w+/) ||
-                         text.trim().includes('{'))) {
+                text.trim().includes('{'))) {
                 // Found a top-level construct definition
                 affectedStart = line;
 
@@ -1248,7 +1248,7 @@ export class ThriftParser {
             }
         }
 
-        return { start: affectedStart, end: affectedEnd };
+        return {start: affectedStart, end: affectedEnd};
     }
 
     /**
@@ -1264,7 +1264,7 @@ export class ThriftParser {
 
             // Look for type references in the node content
             if (node.type === nodes.ThriftNodeType.Service) {
-                const service = node as nodes.Service;
+                const service = node ;
                 for (const func of service.functions) {
                     // Find dependencies in function return types and argument types
                     this.addTypeDependency(ast, func.returnType, nodeDeps);
@@ -1276,14 +1276,14 @@ export class ThriftParser {
                     }
                 }
             } else if (node.type === nodes.ThriftNodeType.Struct ||
-                      node.type === nodes.ThriftNodeType.Exception ||
-                      node.type === nodes.ThriftNodeType.Union) {
-                const structLike = node as nodes.Struct;
+                node.type === nodes.ThriftNodeType.Exception ||
+                node.type === nodes.ThriftNodeType.Union) {
+                const structLike = node ;
                 for (const field of structLike.fields) {
                     this.addTypeDependency(ast, field.fieldType, nodeDeps);
                 }
             } else if (node.type === nodes.ThriftNodeType.Const) {
-                const constNode = node as nodes.Const;
+                const constNode = node ;
                 this.addTypeDependency(ast, constNode.valueType, nodeDeps);
             }
 
@@ -1296,7 +1296,9 @@ export class ThriftParser {
     }
 
     private addTypeDependency(ast: nodes.ThriftDocument, typeStr: string | undefined, deps: nodes.ThriftNode[]): void {
-        if (!typeStr) {return;}
+        if (!typeStr) {
+            return;
+        }
 
         // Extract potential type names from typeStr (handles complex types like list<string>, map<i32, string>, etc.)
         const typeMatches = typeStr.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) || [];
@@ -1305,9 +1307,9 @@ export class ThriftParser {
             for (const potentialDep of ast.body) {
                 if (potentialDep.name === typeName &&
                     (potentialDep.type === nodes.ThriftNodeType.Struct ||
-                     potentialDep.type === nodes.ThriftNodeType.Enum ||
-                     potentialDep.type === nodes.ThriftNodeType.Typedef ||
-                     potentialDep.type === nodes.ThriftNodeType.Service)) {
+                        potentialDep.type === nodes.ThriftNodeType.Enum ||
+                        potentialDep.type === nodes.ThriftNodeType.Typedef ||
+                        potentialDep.type === nodes.ThriftNodeType.Service)) {
                     if (!deps.includes(potentialDep)) {
                         deps.push(potentialDep);
                     }
@@ -1362,11 +1364,11 @@ export class ThriftParser {
         // Try to get cached AST for the affected range
         const rangeContent = parser.extractRangeContent(affectedRange.start, affectedRange.end);
         let newNodes = getCachedAstRange(uri,
-            { startLine: affectedRange.start, endLine: affectedRange.end },
+            {startLine: affectedRange.start, endLine: affectedRange.end},
             rangeContent
         );
 
-        let affectedNodes: nodes.ThriftNode[] = [];
+        const affectedNodes: nodes.ThriftNode[] = [];
 
         if (!newNodes) {
             // Parse the affected range if not in cache
@@ -1388,7 +1390,7 @@ export class ThriftParser {
 
         const mergedAst = parser.mergeIncrementalResults(fullAst, incrementalResult);
         setCachedAstRange(uri,
-            { startLine: affectedRange.start, endLine: affectedRange.end },
+            {startLine: affectedRange.start, endLine: affectedRange.end},
             rangeContent,
             newNodes
         );
@@ -1478,7 +1480,7 @@ export class ThriftParser {
     }
 
     private static setCachedAstByUriUnsafe(uri: string, ast: nodes.ThriftDocument): void {
-        ThriftParser.astByUri.set(uri, { ast, timestamp: Date.now() });
+        ThriftParser.astByUri.set(uri, {ast, timestamp: Date.now()});
     }
 
     private static clearExpiredAstByUriCache(): void {

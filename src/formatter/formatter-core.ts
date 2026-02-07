@@ -38,6 +38,8 @@ import {isServiceMethodLine} from './service-method';
 import {formatStructContentLine} from './struct-content';
 import {formatSingleLineEnum, formatSingleLineService, formatSingleLineStruct} from './single-line-format';
 import {normalizeGenericsInSignature, splitTopLevelParts} from './text-utils';
+import {LineRange} from '../utils/line-range';
+import {hashContent} from '../utils/cache-keys';
 
 const DEFAULT_FORMAT_OPTIONS: ThriftFormattingOptions = {
     trailingComma: 'preserve',
@@ -60,14 +62,37 @@ const DEFAULT_FORMAT_OPTIONS: ThriftFormattingOptions = {
  * Format Thrift source with unified rules.
  * @param content - Raw Thrift content to format.
  * @param options - Formatting options.
+ * @param dirtyRange - Optional dirty range for incremental formatting.
  * @returns Formatted Thrift content.
  */
 export function formatThriftContent(
     content: string,
-    options: ThriftFormattingOptions = DEFAULT_FORMAT_OPTIONS
+    options: ThriftFormattingOptions = DEFAULT_FORMAT_OPTIONS,
+    dirtyRange?: LineRange
 ): string {
     const lines = content.split(/\r?\n/);
-    const ast = new ThriftParser(content).parse();
+
+    const lastLineIndex = Math.max(0, lines.length - 1);
+    if (dirtyRange) {
+        const startLine = Math.max(0, Math.min(dirtyRange.startLine, lastLineIndex));
+        const endLine = Math.max(0, Math.min(dirtyRange.endLine, lastLineIndex));
+        dirtyRange = {startLine, endLine};
+    }
+
+    let ast;
+    if (dirtyRange && options.incrementalFormattingEnabled) {
+        const mockDocument = {
+            getText: () => content,
+            uri: {toString: () => `mock:formatter:${hashContent(content)}`},
+            version: 1
+        } as any;
+
+        const incrementalResult = ThriftParser.incrementalParseWithCache(mockDocument, dirtyRange);
+        ast = incrementalResult?.ast || new ThriftParser(content).parse();
+    } else {
+        ast = new ThriftParser(content).parse();
+    }
+
     const astIndex = buildAstIndex(ast);
     const {
         structStarts,
@@ -94,8 +119,8 @@ export function formatThriftContent(
     let constBlockIndentLevel: number | null = null;
 
     for (let i = 0; i < lines.length; i++) {
-        let originalLine = lines[i];
-        let line = originalLine.trim();
+        const originalLine = lines[i];
+        const line = originalLine.trim();
         const isConstStart = constStarts.has(i);
         const isStructStart = structStarts.has(i) || isStructStartLine(line);
         const isEnumStart = enumStarts.has(i) || isEnumStartLine(line);

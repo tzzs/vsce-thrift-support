@@ -14,7 +14,7 @@ import {getSymbolType} from './references/symbol-type';
  * ThriftReferencesProvider：提供引用查找与跨文件扫描。
  */
 export class ThriftReferencesProvider implements vscode.ReferenceProvider {
-    private isScanning: boolean = false;
+    private isScanning = false;
     private fileList: ThriftFileList;
 
     // 缓存管理器
@@ -84,7 +84,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             return cachedReferences;
         }
 
-        const includeDeclaration = context?.includeDeclaration !== false;
+        const includeDeclaration = context?.includeDeclaration;
 
         // Search in current document
         const currentDocRefs = await findReferencesInDocument(

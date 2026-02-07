@@ -112,7 +112,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
      * 获取可稳定比对的 URI 键。
      */
     private getUriKey(uri: vscode.Uri): string {
-        const uriAny = uri as unknown as { fsPath?: string; path?: string; toString?: () => string };
+        const uriAny = uri as unknown as {fsPath?: string; path?: string; toString?: () => string};
         return uriAny.fsPath || uriAny.path || (uriAny.toString ? uriAny.toString() : '');
     }
 
@@ -125,7 +125,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         cache: Map<string, vscode.TextDocument>
     ): Promise<vscode.TextDocument | undefined> {
         const key = this.getUriKey(uri);
-        const fallbackKey = this.getUriKey(fallback.uri as vscode.Uri);
+        const fallbackKey = this.getUriKey(fallback.uri );
         if (key && key === fallbackKey) {
             return fallback;
         }

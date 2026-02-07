@@ -3,7 +3,7 @@ import {config} from '../config';
 
 export interface SchedulerOptions {
     immediate?: boolean;
-    throttleState?: { lastAnalysis?: number; isAnalyzing: boolean; version: number };
+    throttleState?: {lastAnalysis?: number; isAnalyzing: boolean; version: number};
 }
 
 /**
@@ -16,7 +16,7 @@ export class AnalysisScheduler {
     /** 当前正在处理的文档集合 */
     private processingDocuments = new Set<string>();
     /** 在处理期间被标记为需要重跑的任务 */
-    private pendingReschedules = new Map<string, { doc: vscode.TextDocument; runTask: () => Promise<void> | void }>();
+    private pendingReschedules = new Map<string, {doc: vscode.TextDocument; runTask: () => Promise<void> | void}>();
     /** 已取消的文档（避免在处理中触发重跑） */
     private cancelledDocuments = new Set<string>();
 

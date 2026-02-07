@@ -29,7 +29,7 @@ export class AdvancedLruCache<K, V> {
     private readonly sizeEstimator?: (key: K, value: V) => number;
 
     private entries: Map<K, CacheItem<V>> = new Map();
-    private totalEstimatedSize: number = 0;
+    private totalEstimatedSize = 0;
 
     /**
      * 创建高级LRU缓存，支持LRU-K和优先级功能。
@@ -181,7 +181,9 @@ export class AdvancedLruCache<K, V> {
      * 获取缓存容量利用率。
      */
     utilization(): number {
-        if (this.maxSize === 0) {return 0;}
+        if (this.maxSize === 0) {
+            return 0;
+        }
         return this.entries.size / this.maxSize;
     }
 
@@ -276,7 +278,7 @@ export class AdvancedLruCache<K, V> {
 export class LruCache<K, V> {
     private readonly maxSize: number;
     private readonly ttlMs: number;
-    private entries: Map<K, { value: V; timestamp: number }> = new Map();
+    private entries: Map<K, {value: V; timestamp: number}> = new Map();
 
     /**
      * 创建 LRU 缓存。

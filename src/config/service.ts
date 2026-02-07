@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { config, CacheConfig, MemoryConfig } from './index';
+import {CacheConfig, config, MemoryConfig} from './index';
 
 /**
  * 配置变更事件
@@ -145,23 +145,23 @@ export class ConfigService {
      * @param value 值
      * @returns 验证结果
      */
-    validate(key: string, value: any): { valid: boolean; error?: string } {
+    validate(key: string, value: any): {valid: boolean; error?: string} {
         switch (key) {
             case 'format.indentSize':
                 if (typeof value !== 'number' || value < 1 || value > 8) {
-                    return { valid: false, error: 'Indent size must be between 1 and 8' };
+                    return {valid: false, error: 'Indent size must be between 1 and 8'};
                 }
                 break;
             case 'format.maxLineLength':
                 if (typeof value !== 'number' || value < 40 || value > 200) {
-                    return { valid: false, error: 'Max line length must be between 40 and 200' };
+                    return {valid: false, error: 'Max line length must be between 40 and 200'};
                 }
                 break;
             default:
                 // 其他配置使用宽松验证
                 break;
         }
-        return { valid: true };
+        return {valid: true};
     }
 
     /**

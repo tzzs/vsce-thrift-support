@@ -1,7 +1,7 @@
 export class ReportBuilder {
     private lines: string[] = [];
 
-    add(line: string = ''): void {
+    add(line = ''): void {
         this.lines.push(line);
     }
 
@@ -14,6 +14,6 @@ export class ReportBuilder {
     }
 }
 
-export function formatMb(bytes: number, decimals: number = 2): string {
+export function formatMb(bytes: number, decimals = 2): string {
     return `${(bytes / 1024 / 1024).toFixed(decimals)} MB`;
 }

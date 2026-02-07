@@ -29,7 +29,7 @@ export function formatConstFields(
 
     const indent = deps.getIndent(indentLevel, options);
     const valueIndent = deps.getIndent(indentLevel + 1, options);
-    const alignComments = options.alignComments !== false;
+    const alignComments = options.alignComments;
 
     const adjFields = fields.map((f) => {
         let value = f.value;
@@ -67,7 +67,7 @@ export function formatConstFields(
                     }
                     continue;
                 }
-                if (ch === '"' || ch === "'") {
+                if (ch === '"' || ch === '\'') {
                     inString = true;
                     stringChar = ch;
                     current += ch;

@@ -141,7 +141,7 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
         }
         // def can be a Location or a LocationLink
         if ('uri' in def && 'range' in def) {
-            return def as vscode.Location;
+            return def ;
         }
         if ('targetUri' in def && 'targetRange' in def) {
             const link = def as vscode.LocationLink;

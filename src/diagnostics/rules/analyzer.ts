@@ -55,21 +55,21 @@ export function analyzeThriftAst(
     for (const node of ast.body) {
         switch (node.type) {
             case nodes.ThriftNodeType.Service:
-                checkService(node as nodes.Service, lines, definedTypes, includeAliases, typeKind, issues);
+                checkService(node , lines, definedTypes, includeAliases, typeKind, issues);
                 break;
             case nodes.ThriftNodeType.Struct:
             case nodes.ThriftNodeType.Union:
             case nodes.ThriftNodeType.Exception:
-                checkStruct(node as nodes.Struct, definedTypes, includeAliases, issues);
+                checkStruct(node , definedTypes, includeAliases, issues);
                 break;
             case nodes.ThriftNodeType.Typedef:
-                checkTypedef(node as nodes.Typedef, lines, definedTypes, includeAliases, issues);
+                checkTypedef(node , lines, definedTypes, includeAliases, issues);
                 break;
             case nodes.ThriftNodeType.Const:
-                checkConst(node as nodes.Const, lines, definedTypes, includeAliases, issues);
+                checkConst(node , lines, definedTypes, includeAliases, issues);
                 break;
             case nodes.ThriftNodeType.Enum:
-                checkEnum(node as nodes.Enum, issues);
+                checkEnum(node , issues);
                 break;
             default:
                 break;

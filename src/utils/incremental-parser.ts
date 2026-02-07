@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import { OptimizedThriftParser as ThriftParser, IncrementalParseResult } from '../ast/optimized-parser';
-import { LineRange } from './line-range';
-import { performanceMonitor } from '../performance-monitor';
-import { IncrementalTracker, ChangeType } from './incremental-tracker';
+import {IncrementalParseResult, OptimizedThriftParser as ThriftParser} from '../ast/optimized-parser';
+import {LineRange} from './line-range';
+import {performanceMonitor} from '../performance-monitor';
+import {ChangeType, IncrementalTracker} from './incremental-tracker';
 import {ErrorHandler} from './error-handler';
 
 /**
@@ -100,7 +100,7 @@ export class IncrementalParserManager {
     public async parseWithPerformanceComparison(
         document: vscode.TextDocument,
         dirtyRange?: LineRange
-    ): Promise<{ result: IncrementalParseResult; wasIncremental: boolean; improvement: number }> {
+    ): Promise<{result: IncrementalParseResult; wasIncremental: boolean; improvement: number}> {
         // Create synchronous functions for performance measurement
         const fullParseFn = () => this.parseFullSync(document);
         const incrementalParseFn = () => this.parseIncrementallySync(document, dirtyRange);
@@ -134,7 +134,7 @@ export class IncrementalParserManager {
             wasIncremental = false;
         }
 
-        return { result, wasIncremental, improvement };
+        return {result, wasIncremental, improvement};
     }
 
     /**

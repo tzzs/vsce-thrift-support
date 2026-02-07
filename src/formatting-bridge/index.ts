@@ -160,15 +160,25 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         document: vscode.TextDocument,
         range: vscode.Range,
         options: vscode.FormattingOptions,
-        useMinimalPatch: boolean = false
+        useMinimalPatch = false
     ): vscode.TextEdit[] {
         const text = document.getText(range);
         const fmtOptions = resolveFormattingOptions(document, range, options, useMinimalPatch, {
             computeInitialContext
         });
+        fmtOptions.incrementalFormattingEnabled = useMinimalPatch;
 
         const formatter = new ThriftFormatter({errorHandler: this.errorHandler});
-        const formattedText = formatter.formatThriftCode(text, fmtOptions);
+
+        let dirtyRange: LineRange | undefined;
+        if (useMinimalPatch) {
+            const lineCount = text.split(/\r?\n/).length;
+            const startLine = 0;
+            const endLine = Math.max(0, lineCount - 1);
+            dirtyRange = {startLine, endLine};
+        }
+
+        const formattedText = formatter.formatThriftCode(text, fmtOptions, dirtyRange);
 
         if (!useMinimalPatch) {
             return [vscode.TextEdit.replace(range, formattedText)];

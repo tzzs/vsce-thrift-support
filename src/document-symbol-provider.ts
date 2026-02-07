@@ -102,8 +102,8 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
         switch (node.type) {
             case nodes.ThriftNodeType.Namespace:
                 kind = vscode.SymbolKind.Namespace;
-                name = `namespace ${(node as nodes.Namespace).scope}`;
-                detail = `${name} ${(node as nodes.Namespace).namespace}`;
+                name = `namespace ${(node ).scope}`;
+                detail = `${name} ${(node ).namespace}`;
                 break;
             case nodes.ThriftNodeType.Include:
                 kind = vscode.SymbolKind.File;
@@ -112,12 +112,12 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
                 break;
             case nodes.ThriftNodeType.Const:
                 kind = vscode.SymbolKind.Constant;
-                const constNode = node as nodes.Const;
+                const constNode = node ;
                 detail = `const ${constNode.valueType} ${name}`;
                 break;
             case nodes.ThriftNodeType.Typedef:
                 kind = vscode.SymbolKind.TypeParameter; // VSCode doesn't have Typedef kind, TypeParameter or Interface is close
-                const typedefNode = node as nodes.Typedef;
+                const typedefNode = node ;
                 detail = `typedef ${typedefNode.aliasType} ${name}`;
                 break;
             case nodes.ThriftNodeType.Struct:
@@ -138,12 +138,12 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
                 break;
             case nodes.ThriftNodeType.Service:
                 kind = vscode.SymbolKind.Interface;
-                const serviceNode = node as nodes.Service;
+                const serviceNode = node ;
                 detail = `service ${name}${serviceNode.extends ? ' extends ' + serviceNode.extends : ''}`;
                 break;
             case nodes.ThriftNodeType.EnumMember:
                 kind = vscode.SymbolKind.EnumMember;
-                const enumMember = node as nodes.EnumMember;
+                const enumMember = node ;
                 detail = name;
                 if (enumMember.initializer) {
                     detail += ` = ${enumMember.initializer}`;
@@ -151,12 +151,12 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
                 break;
             case nodes.ThriftNodeType.Field:
                 kind = vscode.SymbolKind.Field;
-                const fieldNode = node as nodes.Field;
+                const fieldNode = node ;
                 detail = `${fieldNode.id}: ${fieldNode.requiredness ? fieldNode.requiredness + ' ' : ''}${fieldNode.fieldType} ${name}`;
                 break;
             case nodes.ThriftNodeType.Function:
                 kind = vscode.SymbolKind.Method;
-                const funcNode = node as nodes.ThriftFunction;
+                const funcNode = node ;
                 detail = `${funcNode.oneway ? 'oneway ' : ''}${funcNode.returnType} ${name}`;
                 break;
             default:
@@ -175,7 +175,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
         if (node.type === nodes.ThriftNodeType.Struct ||
             node.type === nodes.ThriftNodeType.Union ||
             node.type === nodes.ThriftNodeType.Exception) {
-            const structNode = node as nodes.Struct;
+            const structNode = node ;
             for (const field of structNode.fields) {
                 const childSym = this.createSymbol(field);
                 if (childSym) {
@@ -183,7 +183,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
                 }
             }
         } else if (node.type === nodes.ThriftNodeType.Enum) {
-            const enumNode = node as nodes.Enum;
+            const enumNode = node ;
             for (const member of enumNode.members) {
                 const childSym = this.createSymbol(member);
                 if (childSym) {
@@ -191,7 +191,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
                 }
             }
         } else if (node.type === nodes.ThriftNodeType.Service) {
-            const serviceNode = node as nodes.Service;
+            const serviceNode = node ;
             for (const func of serviceNode.functions) {
                 const childSym = this.createSymbol(func);
                 if (childSym) {

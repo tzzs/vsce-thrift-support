@@ -89,13 +89,13 @@ export function buildMemberCacheForNode(
     issues: ThriftIssue[]
 ) {
     const cache = createMemberCache();
-    let members: Array<{ range: vscode.Range }> = [];
+    let members: Array<{range: vscode.Range}> = [];
     if (node.type === nodes.ThriftNodeType.Struct || node.type === nodes.ThriftNodeType.Union || node.type === nodes.ThriftNodeType.Exception) {
-        members = (node as nodes.Struct).fields;
+        members = (node ).fields;
     } else if (node.type === nodes.ThriftNodeType.Enum) {
-        members = (node as nodes.Enum).members;
+        members = (node ).members;
     } else if (node.type === nodes.ThriftNodeType.Service) {
-        members = (node as nodes.Service).functions;
+        members = (node ).functions;
     }
 
     for (const member of members) {

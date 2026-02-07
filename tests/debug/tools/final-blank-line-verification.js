@@ -85,10 +85,10 @@ const {createVscodeMock, installVscodeMock} = require('../../mock_vscode.js');
 
     let origBlanks = [], formBlanks = [];
     origUserLines.forEach((line, i) => {
-        if (line.trim() === '') origBlanks.push(i + 1);
+        if (line.trim() === '') {origBlanks.push(i + 1);}
     });
     formUserLines.forEach((line, i) => {
-        if (line.trim() === '') formBlanks.push(i + 1);
+        if (line.trim() === '') {formBlanks.push(i + 1);}
     });
 
     console.log('\n📊 COMPARISON RESULTS:');
