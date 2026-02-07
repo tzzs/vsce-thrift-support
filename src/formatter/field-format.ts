@@ -28,15 +28,6 @@ export function formatEnumFields(
     const indent = deps.getIndent(indentLevel, options);
 
     const maxNameWidth = Math.max(...fields.map(f => f.name.length), 0);
-    let maxAnnotationWidth = 0;
-    if (options.alignAnnotations) {
-        fields.forEach(f => {
-            if (f.annotation) {
-                maxAnnotationWidth = Math.max(maxAnnotationWidth, f.annotation.length);
-            }
-        });
-    }
-
     let maxContentWidth = 0;
     let maxAnnoStart = 0;
     const interim: Array<{
@@ -70,10 +61,6 @@ export function formatEnumFields(
         const valueStr = '' + f.value;
         base += valueStr;
 
-        if (!hasSemicolon && options.trailingComma !== 'add' && hasComma) {
-            base += ',';
-        }
-
         const baseWidth = base.length - indent.length;
         if (options.alignAnnotations && f.annotation) {
             maxAnnoStart = Math.max(maxAnnoStart, baseWidth);
@@ -89,17 +76,17 @@ export function formatEnumFields(
     }
 
     if (options.alignAnnotations) {
-        interim.forEach(({base, annotation}) => {
+        interim.forEach(({base, annotation, hasComma, hasSemicolon}) => {
             let line = base;
             if (annotation) {
                 const currentWidth = base.length - indent.length;
                 const spaces = maxAnnoStart - currentWidth + 1;
-                line = base + ' '.repeat(Math.max(1, spaces)) + annotation.padEnd(maxAnnotationWidth);
+                line = base + ' '.repeat(Math.max(1, spaces)) + annotation;
             }
             maxContentWidth = Math.max(maxContentWidth, line.length - indent.length);
         });
     } else {
-        interim.forEach(({base, annotation}) => {
+        interim.forEach(({base, annotation, hasComma, hasSemicolon}) => {
             let line = base;
             if (annotation) {
                 line = base + ' ' + annotation;
@@ -110,30 +97,34 @@ export function formatEnumFields(
 
     return interim.map(({base, comment, hasComma, hasSemicolon, annotation}) => {
         let line = base;
+
         if (annotation) {
             if (options.alignAnnotations) {
-                const currentWidth = base.length - indent.length;
+                const currentWidth = line.length - indent.length;
                 const spaces = maxAnnoStart - currentWidth + 1;
-                line = base + ' '.repeat(Math.max(1, spaces)) + annotation.padEnd(maxAnnotationWidth);
+                line += ' '.repeat(Math.max(1, spaces)) + annotation;
             } else {
-                line = base + ' ' + annotation;
+                line += ' ' + annotation;
             }
         }
+
         if (comment) {
             if (options.alignComments) {
                 const currentWidth = line.length - indent.length;
                 const pad = Math.max(1, maxContentWidth - currentWidth + 1);
-                line = line + ' '.repeat(pad) + comment;
+                line += ' '.repeat(pad) + comment;
             } else {
-                line = line + ' ' + comment;
+                line += ' ' + comment;
             }
         }
+
+        // Add comma or semicolon at the end of the line (after comment if present)
         if (hasSemicolon) {
             line += ';';
-        }
-        if (!hasSemicolon && hasComma && options.trailingComma === 'add') {
+        } else if (hasComma) {
             line += ',';
         }
+
         return line;
     });
 }

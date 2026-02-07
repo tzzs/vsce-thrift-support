@@ -171,7 +171,15 @@ export function formatStructFields(
         }
 
         // Add comma width if present (for idempotency, use hasCommaForWidth instead of checking field.suffix)
+        // Also add comma width when in 'add' mode and there's no semicolon
+        let finalHasComma = hasCommaForWidth;
+        if (options.trailingComma === 'add' && !/;/.test(field.suffix || '')) {
+            finalHasComma = true;
+        }
+
         if (options.trailingComma === 'preserve' && hasCommaForWidth) {
+            contentWidth += 1;
+        } else if (options.trailingComma === 'add' && !/;/.test(field.suffix || '')) {
             contentWidth += 1;
         }
 
@@ -238,8 +246,14 @@ export function formatStructFields(
         // These spaces are not meaningful content
         cleanSuffix = cleanSuffix.replace(/\s+$/, '');
 
+        // Remove trailing comma from suffix (we'll add it back later before annotation/comment)
         if (hasComma) {
             cleanSuffix = cleanSuffix.replace(/,\s*$/, '');
+        }
+
+        // Remove semicolon from suffix (we'll add it back later before annotation/comment)
+        if (hasSemicolon) {
+            cleanSuffix = cleanSuffix.replace(/;/g, '');
         }
 
         if (cleanSuffix && cleanSuffix.includes('=')) {
@@ -264,31 +278,32 @@ export function formatStructFields(
             }
         }
 
-            if (field.annotation) {
-                if (options.alignAnnotations) {
-                    const currentWidth = formattedLine.length - deps.getIndent(indentLevel, options).length;
-                    const spaces = targetAnnoStart - currentWidth + 1;
-                    formattedLine += ' '.repeat(Math.max(0, spaces)) + field.annotation;
-                } else {
-                    formattedLine += ' ' + field.annotation;
-                }
+        if (field.annotation) {
+            if (options.alignAnnotations) {
+                const currentWidth = formattedLine.length - deps.getIndent(indentLevel, options).length;
+                const spaces = targetAnnoStart - currentWidth + 1;
+                formattedLine += ' '.repeat(Math.max(0, spaces)) + field.annotation;
+            } else {
+                formattedLine += ' ' + field.annotation;
             }
+        }
 
-            if (field.comment) {
-                if (options.alignComments) {
-                    const currentWidth = formattedLine.length - deps.getIndent(indentLevel, options).length;
-                    const diff = maxContentWidth - currentWidth;
-                    const basePad = Math.max(1, diff + 1);
-                    const padSpaces = commentCount > 1 ? basePad : 1;
-                    formattedLine += ' '.repeat(padSpaces) + field.comment;
-                } else {
-                    formattedLine += ' ' + field.comment;
-                }
+        if (field.comment) {
+            if (options.alignComments) {
+                const currentWidth = formattedLine.length - deps.getIndent(indentLevel, options).length;
+                const diff = maxContentWidth - currentWidth;
+                const basePad = Math.max(1, diff + 1);
+                const padSpaces = commentCount > 1 ? basePad : 1;
+                formattedLine += ' '.repeat(padSpaces) + field.comment;
+            } else {
+                formattedLine += ' ' + field.comment;
             }
+        }
 
-        // Add comma after all other content (after annotations and comments)
-        // Only add comma if we have one and there's no semicolon
-        if (hasComma && !hasSemicolon) {
+        // Add comma or semicolon at the end of the line (after comment if present)
+        if (hasSemicolon) {
+            formattedLine += ';';
+        } else if (hasComma) {
             formattedLine += ',';
         }
 
