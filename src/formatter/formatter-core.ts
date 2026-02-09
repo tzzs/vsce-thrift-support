@@ -40,7 +40,7 @@ import {formatStructContentLine} from './struct-content';
 import {formatSingleLineEnum, formatSingleLineService, formatSingleLineStruct} from './single-line-format';
 import {normalizeGenericsInSignature, splitTopLevelParts} from './text-utils';
 import {LineRange} from '../utils/line-range';
-import {hashContent} from '../utils/cache-keys';
+import {hashContent} from '../utils/cache-expiry';
 
 const DEFAULT_FORMAT_OPTIONS: ThriftFormattingOptions = {
     trailingComma: 'preserve',

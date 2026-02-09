@@ -24,7 +24,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
             void token;
             const wordRange = this.getWordRange(document, position);
             if (!wordRange) {
-                return Promise.reject('No symbol to rename at cursor');
+                return Promise.reject(new Error('No symbol to rename at cursor'));
             }
             const placeholder = document.getText(wordRange);
             return {range: wordRange, placeholder};
@@ -32,8 +32,8 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
             component: 'ThriftRenameProvider',
             operation: 'prepareRename',
             filePath: document.uri.fsPath,
-            additionalInfo: {position: position.toString()}
-        }, Promise.reject('Rename failed'));
+            additionalInfo: {position: `${position.line}:${position.character}`}
+        }, Promise.reject(new Error('Rename failed')));
     }
 
     /**
@@ -88,7 +88,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
             component: 'ThriftRenameProvider',
             operation: 'provideRenameEdits',
             filePath: document.uri.fsPath,
-            additionalInfo: {position: position.toString(), newName}
+            additionalInfo: {position: `${position.line}:${position.character}`, newName}
         }, undefined);
     }
 

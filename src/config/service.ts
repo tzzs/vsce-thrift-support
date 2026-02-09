@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import {CacheConfig, config, MemoryConfig} from './index';
+import {getAllCacheConfigs, updateCacheConfig} from './cache-config';
 
 /**
  * 配置变更事件
@@ -46,7 +47,7 @@ export class ConfigService {
         let current: unknown = this.defaults;
 
         for (const part of parts) {
-            if (current && typeof current === 'object') {
+            if (current && typeof current === 'object' && !Array.isArray(current)) {
                 const record = current as Record<string, unknown>;
                 if (part in record) {
                     current = record[part];
@@ -67,6 +68,27 @@ export class ConfigService {
      */
     getCacheConfig(): CacheConfig {
         return this.defaults.cache;
+    }
+
+    /**
+     * 获取所有缓存配置
+     * @returns 所有缓存配置
+     */
+    getAllCacheConfigs(): Record<string, import('../utils/cache-manager').CacheConfig> {
+        return getAllCacheConfigs();
+    }
+
+    /**
+     * 更新特定缓存配置
+     * @param name 缓存名称
+     * @param updates 配置更新
+     * @returns 更新后的配置，失败返回 null
+     */
+    updateCacheConfig(
+        name: string,
+        updates: Partial<import('../utils/cache-manager').CacheConfig>
+    ): import('../utils/cache-manager').CacheConfig | null {
+        return updateCacheConfig(name, updates);
     }
 
     /**
@@ -155,21 +177,70 @@ export class ConfigService {
      * @returns 验证结果
      */
     validate(key: string, value: unknown): {valid: boolean; error?: string} {
-        switch (key) {
-            case 'format.indentSize':
-                if (typeof value !== 'number' || value < 1 || value > 8) {
-                    return {valid: false, error: 'Indent size must be between 1 and 8'};
-                }
-                break;
-            case 'format.maxLineLength':
-                if (typeof value !== 'number' || value < 40 || value > 200) {
-                    return {valid: false, error: 'Max line length must be between 40 and 200'};
-                }
-                break;
-            default:
-                // 其他配置使用宽松验证
-                break;
+        // 验证 indentSize
+        if (key === 'format.indentSize') {
+            if (typeof value !== 'number') {
+                return {valid: false, error: 'Indent size must be a number'};
+            }
+            if (value < 1 || value > 8) {
+                return {valid: false, error: 'Indent size must be between 1 and 8'};
+            }
+            return {valid: true};
         }
+
+        // 验证 maxLineLength
+        if (key === 'format.maxLineLength') {
+            if (typeof value !== 'number') {
+                return {valid: false, error: 'Max line length must be a number'};
+            }
+            if (value < 40 || value > 200) {
+                return {valid: false, error: 'Max line length must be between 40 and 200'};
+            }
+            return {valid: true};
+        }
+
+        // 验证 trailingComma
+        if (key === 'format.trailingComma') {
+            if (typeof value !== 'string') {
+                return {valid: false, error: 'Trailing comma must be a string'};
+            }
+            const validValues = ['preserve', 'add', 'remove'];
+            if (!validValues.includes(value)) {
+                return {valid: false, error: `Trailing comma must be one of: ${validValues.join(', ')}`};
+            }
+            return {valid: true};
+        }
+
+        // 验证布尔类型配置
+        const booleanKeys = [
+            'format.alignTypes',
+            'format.alignNames',
+            'format.alignAssignments',
+            'format.alignStructDefaults',
+            'format.alignAnnotations',
+            'format.alignComments',
+            'diagnostics.debug'
+        ];
+        if (booleanKeys.includes(key)) {
+            if (typeof value !== 'boolean') {
+                return {valid: false, error: `${key} must be a boolean`};
+            }
+            return {valid: true};
+        }
+
+        // 验证 collectionStyle
+        if (key === 'format.collectionStyle') {
+            if (typeof value !== 'string') {
+                return {valid: false, error: 'Collection style must be a string'};
+            }
+            const validValues = ['preserve', 'multiline', 'auto'];
+            if (!validValues.includes(value)) {
+                return {valid: false, error: `Collection style must be one of: ${validValues.join(', ')}`};
+            }
+            return {valid: true};
+        }
+
+        // 其他配置使用宽松验证
         return {valid: true};
     }
 

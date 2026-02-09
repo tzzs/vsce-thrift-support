@@ -124,7 +124,7 @@ export function computeInitialContext(
             inEnum,
             inService
         };
-    } catch (_error) {
+    } catch {
         return {indentLevel: 0, inStruct: false, inEnum: false, inService: false};
     }
 }

@@ -41,7 +41,7 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
                     component: 'ThriftSelectionRangeProvider',
                     operation: 'provideSelectionRanges',
                     filePath: document.uri.fsPath,
-                    additionalInfo: {position: position.toString()}
+                    additionalInfo: {position: `${position.line}:${position.character}`}
                 });
             }
         }

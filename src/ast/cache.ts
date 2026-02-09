@@ -3,29 +3,21 @@ import {config} from '../config';
 import {LineRange} from '../utils/line-range';
 import {CacheManager} from '../utils/cache-manager'; // Import the enhanced cache manager
 import {makeUriContentKey, makeUriRangeKey} from '../utils/cache-keys';
-import {isExpired, isFresh} from '../utils/cache-expiry';
+import {isExpired, isFresh, hashContent} from '../utils/cache-expiry';
+import {CACHE_CONFIGS} from '../config/cache-config';
 import {OptimizedThriftParser} from './optimized-parser';
 // Only export optimized parser if it hasn't been exported already
 
 // Initialize the cache manager
 const cacheManager = CacheManager.getInstance();
 
-// Register AST cache configurations
-cacheManager.registerCache('ast-full', {
-    maxSize: 100, // Reasonable default, can be configured
-    ttl: config.cache.astMaxAgeMs,
-    lruK: 2,
-    evictionThreshold: 0.8
-});
+// Register AST cache configurations using centralized configs
+cacheManager.registerCache('ast-full', CACHE_CONFIGS['ast-full']);
 
-cacheManager.registerCache('ast-region', {
-    maxSize: 200, // May have more regions than full ASTs
-    ttl: config.cache.astMaxAgeMs,
-    lruK: 2,
-    evictionThreshold: 0.7 // Slightly more aggressive for regions
-});
+cacheManager.registerCache('ast-region', CACHE_CONFIGS['ast-region']);
 
 interface ASTCacheEntry {
+    contentHash: string; // 内容哈希，用于验证一致性
     content: string;
     ast: nodes.ThriftDocument;
     timestamp: number;
@@ -33,6 +25,7 @@ interface ASTCacheEntry {
 
 // New interface for region-based cache entries
 interface ASTRegionCacheEntry {
+    contentHash: string; // 内容哈希，用于验证一致性
     content: string;
     regionAST: nodes.ThriftNode[];
     range: LineRange;
@@ -60,10 +53,14 @@ export function getCachedAst(uri: string, content: string, version?: number): no
     // 先检查 astCache Map
     const cached = astCache.get(cacheKey) || astCache.get(uri); // 向后兼容
 
-    if (cached && cached.content === content && isFresh(cached.timestamp, CACHE_MAX_AGE, now)) {
-        // Notify the cache manager about access for memory awareness
-        cacheManager.get('ast-full', cacheKey);
-        return cached.ast;
+    if (cached && isFresh(cached.timestamp, CACHE_MAX_AGE, now)) {
+        // 验证内容哈希以确保缓存数据一致性
+        const currentHash = hashContent(content);
+        if (cached.contentHash === currentHash && cached.content === content) {
+            // Notify the cache manager about access for memory awareness
+            cacheManager.get('ast-full', cacheKey);
+            return cached.ast;
+        }
     }
 
     return null;
@@ -91,16 +88,20 @@ export function getCachedAstRange(uri: string, range: LineRange, content: string
     const cached = uriCache.find(entry =>
         entry.range.startLine === range.startLine &&
         entry.range.endLine === range.endLine &&
-        entry.content === content &&
         isFresh(entry.timestamp, CACHE_MAX_AGE, now)
     );
 
     if (cached) {
-        // Notify the cache manager about access for memory awareness
-        cacheManager.get('ast-region', cacheKey);
+        // 验证内容哈希以确保缓存数据一致性
+        const currentHash = hashContent(content);
+        if (cached.contentHash === currentHash && cached.content === content) {
+            // Notify the cache manager about access for memory awareness
+            cacheManager.get('ast-region', cacheKey);
+            return cached.regionAST;
+        }
     }
 
-    return cached ? cached.regionAST : null;
+    return null;
 }
 
 /**
@@ -132,8 +133,9 @@ export function setCachedAstRange(uri: string, range: LineRange, content: string
         uriCache.splice(existingIndex, 1);
     }
 
-    // Add new entry
+    // Add new entry with content hash for validation
     uriCache.push({
+        contentHash: hashContent(content), // 生成内容哈希
         content,
         regionAST: ast,
         range,
@@ -174,6 +176,7 @@ export function clearAstRegionCacheForDocument(uri: string): void {
  */
 export function setCachedAst(uri: string, content: string, ast: nodes.ThriftDocument, version?: number): void {
     const entry = {
+        contentHash: hashContent(content), // 生成内容哈希
         content,
         ast,
         timestamp: Date.now()

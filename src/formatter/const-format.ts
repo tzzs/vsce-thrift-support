@@ -33,7 +33,7 @@ export function formatConstFields(
 
     const adjFields = fields.map((f) => {
         let value = f.value;
-        const isInlineCollection = !value.includes('\n') && ((/^\[.*\]$/.test(value)) || (/^\{.*\}$/.test(value)));
+        const isInlineCollection = !value.includes('\n') && ((/^\[.*]$/.test(value)) || (/^\{.*}$/.test(value)));
 
         let shouldExpand = false;
         if (isInlineCollection) {

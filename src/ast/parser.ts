@@ -156,17 +156,46 @@ export class ThriftParser {
         // Save current state
         const originalCurrentLine = this.currentLine;
 
+        // Create a map to track existing nodes by their range for efficient lookup
+        const existingNodeMap = new Map<string, nodes.ThriftNode>();
+        if (existingAst) {
+            for (const node of existingAst.body) {
+                const key = `${node.range.start.line}-${node.range.end.line}`;
+                existingNodeMap.set(key, node);
+            }
+        }
+
         // Parse the specific section
         this.currentLine = startLine;
         while (this.currentLine <= endLine && this.currentLine < this.lines.length) {
-            const node = this.parseNextNode(ast);
-            if (node) {
-                ast.body = ast.body.filter(existing =>
-                    !(existing.range.start.line <= node.range.end.line &&
-                        existing.range.end.line >= node.range.start.line)
-                );
-                ast.body.push(node);
-                this.addChild(ast, node);
+            const line = this.lines[this.currentLine];
+            if (line.trim()) {
+                const node = this.parseNextNode(ast);
+                if (node) {
+                    // Check if there's an existing node that overlaps with the new node
+                    const overlapKey = `${node.range.start.line}-${node.range.end.line}`;
+                    const existingNode = existingNodeMap.get(overlapKey);
+
+                    if (!existingNode) {
+                        // No overlap, simply add the new node
+                        ast.body.push(node);
+                        this.addChild(ast, node);
+                    } else {
+                        // Overlap detected - replace the existing node
+                        const index = ast.body.findIndex(n =>
+                            n.range.start.line === existingNode.range.start.line &&
+                            n.range.end.line === existingNode.range.end.line
+                        );
+                        if (index !== -1) {
+                            ast.body[index] = node;
+                        } else {
+                            ast.body.push(node);
+                        }
+                        this.addChild(ast, node);
+                    }
+                }
+            } else {
+                this.currentLine++;
             }
         }
 

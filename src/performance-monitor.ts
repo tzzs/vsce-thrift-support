@@ -3,6 +3,7 @@ import {config} from './config';
 import {ErrorHandler} from './utils/error-handler';
 import {MemoryMonitor} from './utils/memory-monitor';
 import {formatMb, ReportBuilder} from './utils/report-builder';
+import {sampler} from './utils/sampler';
 
 // 性能监控器 - 跟踪慢操作并提供优化建议
 export interface PerformanceMetrics {
@@ -71,69 +72,87 @@ export class PerformanceMonitor {
      * @returns 函数执行结果
      */
     public measure<T>(operation: string, fn: () => T, document?: vscode.TextDocument): T {
-        // 在操作前后记录内存使用情况
-        this.memoryMonitor.recordMemoryUsage();
+        const shouldSample = sampler.shouldSample(operation);
+
+        // 采样时记录内存使用
+        if (shouldSample) {
+            this.memoryMonitor.recordMemoryUsage();
+        }
 
         const start = performance.now();
         let result: T;
         try {
             result = fn();
         } finally {
-            this.memoryMonitor.recordMemoryUsage();
+            if (shouldSample) {
+                this.memoryMonitor.recordMemoryUsage();
+            }
         }
         const duration = performance.now() - start;
 
-        // 记录性能指标
-        const metric: PerformanceMetrics = {
-            operation,
-            duration,
-            timestamp: Date.now(),
-            documentUri: document?.uri.toString(),
-            fileSize: document ? document.getText().length : undefined
-        };
+        // 采样时记录性能指标
+        if (shouldSample) {
+            const metric: PerformanceMetrics = {
+                operation,
+                duration,
+                timestamp: Date.now(),
+                documentUri: document?.uri.toString(),
+                fileSize: document ? document.getText().length : undefined
+            };
 
-        this.recordMetric(metric);
+            this.recordMetric(metric);
 
-        // 如果操作很慢，发出警告
-        if (duration > this.slowOperationThreshold) {
-            this.warnSlowOperation(metric);
+            // 如果操作很慢，发出警告
+            if (duration > this.slowOperationThreshold) {
+                this.warnSlowOperation(metric);
+            }
         }
 
         return result;
     }
 
     /**
-     * 异步测量指定操作的耗时。
+     * 异步测量指定操作的耗时（采样版本，降低开销）。
      * @param operation 操作名称
      * @param fn 要执行的异步函数
      * @param document 相关文档（可选）
      * @returns 函数执行结果 promise
      */
     public async measureAsync<T>(operation: string, fn: () => Promise<T>, document?: vscode.TextDocument): Promise<T> {
-        // 在操作前后记录内存使用情况
-        this.memoryMonitor.recordMemoryUsage();
+        const shouldSample = sampler.shouldSample(operation);
+
+        // 采样时记录内存使用
+        if (shouldSample) {
+            this.memoryMonitor.recordMemoryUsage();
+        }
 
         const start = performance.now();
         let result: T;
         try {
             result = await fn();
         } finally {
-            this.memoryMonitor.recordMemoryUsage();
+            if (shouldSample) {
+                this.memoryMonitor.recordMemoryUsage();
+            }
         }
         const duration = performance.now() - start;
 
-        const metric: PerformanceMetrics = {
-            operation,
-            duration,
-            timestamp: Date.now(),
-            documentUri: document?.uri.toString(),
-            fileSize: document ? document.getText().length : undefined
-        };
+        // 采样时记录性能指标
+        if (shouldSample) {
+            const metric: PerformanceMetrics = {
+                operation,
+                duration,
+                timestamp: Date.now(),
+                documentUri: document?.uri.toString(),
+                fileSize: document ? document.getText().length : undefined
+            };
 
-        this.recordMetric(metric);
+            this.recordMetric(metric);
 
-        if (duration > this.slowOperationThreshold) {
-            this.warnSlowOperation(metric);
+            // 如果操作很慢，发出警告
+            if (duration > this.slowOperationThreshold) {
+                this.warnSlowOperation(metric);
+            }
         }
 
         return result;

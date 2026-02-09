@@ -188,7 +188,7 @@ export class ScanningAnalyzer {
         const key = `${eventName}:${path.basename(filePath)}`;
         this.eventTriggerMap.set(key, (this.eventTriggerMap.get(key) || 0) + 1);
 
-        const timestamp = new Date().toISOString().substr(11, 8);
+        const timestamp = new Date().toISOString().substring(11, 8);
         this.logInfo('logEvent', `[${timestamp}] ${eventName}: ${path.basename(filePath)}`);
     }
 

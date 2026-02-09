@@ -94,7 +94,7 @@ export async function checkIncludeStatement(
                 const uri = vscode.Uri.file(resolvedPath);
                 await vscode.workspace.fs.stat(uri);
                 return createLocation(uri, new vscode.Range(0, 0, 0, 0));
-            } catch (_error) {
+            } catch {
                 errorHandler.handleWarning(`Include file not found: ${includePath}`, {
                     component: 'ThriftDefinitionProvider',
                     operation: 'resolveIncludePath',
@@ -210,7 +210,7 @@ export function getIncludedFiles(
         try {
             const uri = vscode.Uri.file(fullPath);
             includedFiles.push(uri);
-        } catch (_error) {
+        } catch {
             errorHandler.handleWarning(`Invalid include path: ${includePath}`, {
                 component: 'ThriftDefinitionProvider',
                 operation: 'getIncludedFiles',

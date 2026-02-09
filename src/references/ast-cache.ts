@@ -3,38 +3,19 @@ import {ThriftParser} from '../ast/parser';
 import * as nodes from '../ast/nodes.types';
 import {config} from '../config';
 import {MemoryAwareCacheManager} from '../utils/cache-manager';
+import {CACHE_CONFIGS} from '../config/cache-config';
 
 // Initialize the memory-aware cache manager
 const cacheManager = MemoryAwareCacheManager.getInstance();
 
-// Register the AST cache configuration
-cacheManager.registerCache('references-ast', {
+// Register the AST cache configuration using centralized configs
+const referencesAstConfig = CACHE_CONFIGS['references-ast'] ?? {
     maxSize: config.cache.references.maxSize,
     ttl: config.cache.references.ttlMs,
     lruK: config.cache.references.lruK,
-    evictionThreshold: config.cache.references.evictionThreshold || 0.8,
-    priorityFn: () => {
-        const stats = cacheManager.getCacheStats('references-ast');
-        return stats.hitRate > 0.7 ? 1 : 0;
-    },
-    sizeEstimator: (key: string, value: unknown) => {
-        // Estimate memory usage based on the file path length and content length
-        // Since AST objects may have circular references, we'll estimate based on simpler metrics
-        try {
-            let contentHashLength = 0;
-            if (typeof value === 'object' && value) {
-                const record = value as {contentHash?: unknown};
-                if (typeof record.contentHash === 'string') {
-                    contentHashLength = record.contentHash.length;
-                }
-            }
-            return key.length + contentHashLength;
-        } catch (_e) {
-            // Fallback to a simple size if there are issues
-            return 100; // Default size
-        }
-    }
-});
+    evictionThreshold: config.cache.references.evictionThreshold || 0.8
+};
+cacheManager.registerCache('references-ast', referencesAstConfig);
 
 interface CachedAstEntry {
     ast: nodes.ThriftDocument;

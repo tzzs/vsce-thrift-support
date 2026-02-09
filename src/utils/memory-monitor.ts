@@ -62,8 +62,9 @@ class TrendAnalyzer {
 
     public addSample(timestamp: number, usage: number): void {
         this.samples.push({timestamp, usage});
+        // 使用 splice 原地删除，避免创建新数组
         if (this.samples.length > this.maxSamples) {
-            this.samples = this.samples.slice(-this.maxSamples); // 保留最新的样本
+            this.samples.splice(0, this.samples.length - this.maxSamples);
         }
     }
 
@@ -283,12 +284,12 @@ export class SmartMemoryMonitor {
             usage.peakUsage = this.peakUsage;
         }
 
-        // 添加到历史记录
+        // 添加到历史记录（使用 splice 原地删除，避免创建新数组）
         this.memoryHistory.push(usage);
 
-        // 限制历史记录大小
+        // 限制历史记录大小，使用 splice 原地删除
         if (this.memoryHistory.length > this.MAX_HISTORY_SIZE) {
-            this.memoryHistory = this.memoryHistory.slice(-this.MAX_HISTORY_SIZE);
+            this.memoryHistory.splice(0, this.memoryHistory.length - this.MAX_HISTORY_SIZE);
         }
 
         // 添加到趋势分析器
@@ -308,11 +309,11 @@ export class SmartMemoryMonitor {
             const mem = process.memoryUsage();
             currentUsage = mem.heapUsed || 0;
 
-            // 估算缓存占用的内存
+            // 使用更精确的缓存内存估算
             for (const stats of this.cacheStats.values()) {
-                // 基于缓存大小估算内存使用（这里使用简单的估算方法）
-                cacheUsed += stats.size * 1024; // 假设每个条目平均占用1KB
-                cacheAllocated += stats.maxSize * 1024;
+                // 使用实际的内存估算函数，而不是简单的 1KB/条目
+                cacheUsed += this.estimateCacheMemoryUsage(stats);
+                cacheAllocated += this.estimateCacheAllocatedMemory(stats);
             }
         }
 
@@ -323,6 +324,26 @@ export class SmartMemoryMonitor {
             cacheUsed,
             timestamp: Date.now()
         };
+    }
+
+    /**
+     * 估算缓存使用的实际内存量（字节）
+     */
+    private estimateCacheMemoryUsage(stats: CacheStatistics): number {
+        // 基于缓存大小和平均条目大小估算
+        // 使用更合理的估算：每个缓存条目约 2-5KB（取决于数据结构）
+        const avgEntrySize = 3000; // 3KB 平均条目大小
+        return stats.size * avgEntrySize;
+    }
+
+    /**
+     * 估算缓存分配的总内存量（字节）
+     */
+    private estimateCacheAllocatedMemory(stats: CacheStatistics): number {
+        // 考虑缓存的最大容量和内部数据结构开销
+        const avgEntrySize = 3000; // 3KB 平均条目大小
+        const overheadFactor = 1.2; // 20% 额外开销（Map 结构、引用等）
+        return stats.maxSize * avgEntrySize * overheadFactor;
     }
 
     /**

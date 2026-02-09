@@ -3,10 +3,13 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
-export default tseslint.config(
+export default [
   {
     ignores: ['out', 'dist', '**/*.d.ts', 'node_modules'],
   },
+  eslint.configs.recommended,
+  ...tseslint.configs.recommended,
+  ...tseslint.configs.recommendedTypeChecked,
   {
     files: ['src/**/*.ts'],
     languageOptions: {
@@ -27,6 +30,7 @@ export default tseslint.config(
         clearTimeout: 'readonly',
         setInterval: 'readonly',
         clearInterval: 'readonly',
+        console: 'readonly',
         global: 'readonly',
         NodeJS: 'readonly',
       },
@@ -35,11 +39,6 @@ export default tseslint.config(
       '@typescript-eslint': tseslint.plugin,
     },
     rules: {
-      // Inherited from eslint:recommended + @typescript-eslint/recommended + @typescript-eslint/recommended-type-checked
-      ...eslint.configs.recommended.rules,
-      ...tseslint.configs.recommended.rules,
-      ...tseslint.configs.recommendedTypeChecked.rules,
-
       // Custom rules from original .eslintrc.json
       '@typescript-eslint/naming-convention': [
         'warn',
@@ -60,5 +59,5 @@ export default tseslint.config(
         },
       ],
     },
-  }
-);
+  },
+];

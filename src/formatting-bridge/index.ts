@@ -152,7 +152,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
                 component: 'ThriftFormattingProvider',
                 operation: 'provideDocumentRangeFormattingEdits',
                 filePath: document.uri.fsPath,
-                additionalInfo: {range: range.toString()}
+                additionalInfo: {range: `${range.start.line}:${range.start.character}-${range.end.line}:${range.end.character}`}
             });
             return [];
         }

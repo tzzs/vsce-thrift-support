@@ -114,7 +114,7 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             component: 'ThriftHoverProvider',
             operation: 'provideHover',
             filePath: document.uri.fsPath,
-            additionalInfo: {position: position.toString()}
+            additionalInfo: {position: `${position.line}:${position.character}`}
         }, undefined);
     }
 
