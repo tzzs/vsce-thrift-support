@@ -76,20 +76,26 @@ export function formatEnumFields(
     }
 
     if (options.alignAnnotations) {
-        interim.forEach(({base, annotation}) => {
+        interim.forEach(({base, annotation, hasComma, hasSemicolon}) => {
             let line = base;
             if (annotation) {
                 const currentWidth = base.length - indent.length;
                 const spaces = maxAnnoStart - currentWidth + 1;
                 line = base + ' '.repeat(Math.max(1, spaces)) + annotation;
             }
+            if (hasSemicolon || hasComma) {
+                line += hasSemicolon ? ';' : ',';
+            }
             maxContentWidth = Math.max(maxContentWidth, line.length - indent.length);
         });
     } else {
-        interim.forEach(({base, annotation}) => {
+        interim.forEach(({base, annotation, hasComma, hasSemicolon}) => {
             let line = base;
             if (annotation) {
                 line = base + ' ' + annotation;
+            }
+            if (hasSemicolon || hasComma) {
+                line += hasSemicolon ? ';' : ',';
             }
             maxContentWidth = Math.max(maxContentWidth, line.length - indent.length);
         });
@@ -108,6 +114,12 @@ export function formatEnumFields(
             }
         }
 
+        if (hasSemicolon) {
+            line += ';';
+        } else if (hasComma) {
+            line += ',';
+        }
+
         if (comment) {
             if (options.alignComments) {
                 const currentWidth = line.length - indent.length;
@@ -116,13 +128,6 @@ export function formatEnumFields(
             } else {
                 line += ' ' + comment;
             }
-        }
-
-        // Add comma or semicolon at the end of the line (after comment if present)
-        if (hasSemicolon) {
-            line += ';';
-        } else if (hasComma) {
-            line += ',';
         }
 
         return line;

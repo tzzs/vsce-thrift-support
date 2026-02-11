@@ -134,7 +134,26 @@ SERVER_ERROR = 500
             assertFormatted(input, expected);
         });
 
-        // 测试6: 注解对齐
+        // 测试6: Union 注释对齐
+        test('Union 注释对齐', () => {
+            const input = `union SearchCriteria {
+1: string name, // 按姓名搜索
+2: Email email, // 按邮箱搜索
+3: UserId id, // 按用户ID搜索
+4: list<string> tags // 按标签列表搜索
+}`;
+
+            const expected = `union SearchCriteria {
+	1: string       name,  // 按姓名搜索
+	2: Email        email, // 按邮箱搜索
+	3: UserId       id,    // 按用户ID搜索
+	4: list<string> tags   // 按标签列表搜索
+}`;
+
+            assertFormatted(input, expected);
+        });
+
+        // 测试7: 注解对齐
         test('注解对齐', () => {
             const input = `struct User {
 1: i32 id (api.query = "id");
@@ -151,7 +170,7 @@ SERVER_ERROR = 500
             assertFormatted(input, expected);
         });
 
-        // 测试7: 服务方法参数对齐
+        // 测试8: 服务方法参数对齐
         test('服务方法参数对齐', () => {
             const input = `service UserService {
 User createUser(1: string username, 2: string email, 3: i32 age);
@@ -168,7 +187,7 @@ list<User> searchUsers(1: string query, 2: i32 limit, 3: i32 offset);
             assertFormatted(input, expected);
         });
 
-        // 测试8: 混合对齐选项测试
+        // 测试9: 混合对齐选项测试
         test('混合对齐选项测试', () => {
             const input = `struct MixedConfig {
 1: i32 port = 8080;

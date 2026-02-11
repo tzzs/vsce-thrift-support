@@ -89,6 +89,8 @@ export function formatStructFields(
     let maxNameWidth = 0;
     let maxAnnotationWidth = 0;
     let maxContentWidth = 0;
+    let maxContentWidthNoPunct = 0;
+    let minContentWidthNoPunct = Number.MAX_SAFE_INTEGER;
 
     const parsedFields = sortedFields.map(field => {
         maxFieldIdWidth = Math.max(maxFieldIdWidth, field.id.length);
@@ -129,16 +131,8 @@ export function formatStructFields(
         // Trailing spaces in suffix are alignment padding and should be ignored
         let cleanSuffixForWidth = field.suffix || '';
         // Detect comma from suffix (original location)
-        let hasCommaForWidth = field.suffix ? /,\s*$/.test(field.suffix) : false;
-
-        // Idempotency fix: when preserving commas, if we have a comment/annotation
-        // and the field is likely not the last one, assume comma should be present
-        // This handles cases where comma was moved to end in previous format pass
-        if (options.trailingComma === 'preserve' && !hasCommaForWidth && (field.comment || field.annotation)) {
-            // Heuristic: fields with comments/annotations in a struct are usually not the last field
-            // This is imperfect but ensures idempotency for common cases
-            hasCommaForWidth = true;
-        }
+        const hasCommaForWidth = field.suffix ? /,\s*$/.test(field.suffix) : false;
+        const hasSemicolonForWidth = field.suffix ? /;/.test(field.suffix) : false;
 
         // Remove trailing spaces that are just for alignment
         // These spaces are not meaningful content and should not affect width calculation
@@ -151,7 +145,7 @@ export function formatStructFields(
             cleanSuffixForWidth = cleanSuffixForWidth.replace(/\s*=\s*/, ' = ');
         }
 
-        if (options.alignFieldNames && (cleanSuffixForWidth || field.annotation || field.comment)) {
+        if (options.alignFieldNames && (cleanSuffixForWidth || field.annotation)) {
             contentWidth += maxNameWidth;
             if (cleanSuffixForWidth) {
                 contentWidth += cleanSuffixForWidth.length;
@@ -170,15 +164,19 @@ export function formatStructFields(
             contentWidth += 1 + field.annotation.length;
         }
 
-        // Add comma width if present (for idempotency, use hasCommaForWidth instead of checking field.suffix)
-        // Also add comma width when in 'add' mode and there's no semicolon
-        if (options.trailingComma === 'preserve' && hasCommaForWidth) {
-            contentWidth += 1;
-        } else if (options.trailingComma === 'add' && !/;/.test(field.suffix || '')) {
-            contentWidth += 1;
+        maxContentWidthNoPunct = Math.max(maxContentWidthNoPunct, contentWidth);
+        minContentWidthNoPunct = Math.min(minContentWidthNoPunct, contentWidth);
+
+        let punctuationWidth = 0;
+        if (hasSemicolonForWidth) {
+            punctuationWidth = 1;
+        } else if (options.trailingComma === 'add') {
+            punctuationWidth = 1;
+        } else if (options.trailingComma === 'preserve' && hasCommaForWidth) {
+            punctuationWidth = 1;
         }
 
-        maxContentWidth = Math.max(maxContentWidth, contentWidth);
+        maxContentWidth = Math.max(maxContentWidth, contentWidth + punctuationWidth);
     });
 
     const targetAnnoStart = (() => {
@@ -261,10 +259,14 @@ export function formatStructFields(
             hasComma = false;
         }
 
-        if (options.alignFieldNames && (field.suffix || field.annotation || field.comment)) {
-            formattedLine += field.name.padEnd(maxNameWidth);
+        if (options.alignFieldNames && (cleanSuffix || field.annotation)) {
             if (cleanSuffix) {
+                formattedLine += field.name.padEnd(maxNameWidth);
                 formattedLine += cleanSuffix;
+            } else if (field.annotation) {
+                formattedLine += field.name.padEnd(maxNameWidth);
+            } else {
+                formattedLine += field.name;
             }
         } else {
             formattedLine += field.name;
@@ -283,23 +285,33 @@ export function formatStructFields(
             }
         }
 
+        if (hasSemicolon) {
+            formattedLine += ';';
+        } else if (hasComma) {
+            formattedLine += ',';
+        }
+
         if (field.comment) {
             if (options.alignComments) {
                 const currentWidth = formattedLine.length - deps.getIndent(indentLevel, options).length;
-                const diff = maxContentWidth - currentWidth;
-                const basePad = Math.max(1, diff + 1);
+                let basePad = 1;
+                if (options.trailingComma === 'add' || maxContentWidthNoPunct === minContentWidthNoPunct) {
+                    basePad = Math.max(1, maxContentWidth - currentWidth + 1);
+                } else {
+                    const currentWidthNoPunct = currentWidth - ((hasComma || hasSemicolon) ? 1 : 0);
+                    const usePunctWidth = maxContentWidth > maxContentWidthNoPunct;
+                    if (usePunctWidth) {
+                        basePad = Math.max(1, maxContentWidth - currentWidth + 1);
+                    } else {
+                        const extraSpace = (hasComma || hasSemicolon) ? 0 : 1;
+                        basePad = Math.max(1, maxContentWidthNoPunct - currentWidthNoPunct + extraSpace);
+                    }
+                }
                 const padSpaces = commentCount > 1 ? basePad : 1;
                 formattedLine += ' '.repeat(padSpaces) + field.comment;
             } else {
                 formattedLine += ' ' + field.comment;
             }
-        }
-
-        // Add comma or semicolon at the end of the line (after comment if present)
-        if (hasSemicolon) {
-            formattedLine += ';';
-        } else if (hasComma) {
-            formattedLine += ',';
         }
 
         return formattedLine;
