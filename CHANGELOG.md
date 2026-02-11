@@ -1,5 +1,30 @@
 # Changelog | 更新日志
 
+## [2.1.0](https://github.com/tzzs/vsce-thrift-support/compare/v2.0.1...v2.1.0) (2026-02-11)
+
+### 🎉 Happy Chinese New Year 2026!
+
+### Features
+
+* add incremental parsing workflow ([807ebd0](https://github.com/tzzs/vsce-thrift-support/commit/807ebd0e2d5fbbe7fc5cc618b9f31dae27f65259))
+* enhance performance monitoring ([b694ebf](https://github.com/tzzs/vsce-thrift-support/commit/b694ebfb749bbd50ba14cb90229b1ebc1d642d18))
+* implement comprehensive memory management optimizations for Thrift extension ([919cc76](https://github.com/tzzs/vsce-thrift-support/commit/919cc7632f5fb78f9676b87b77de9dd1d17d89f1))
+* implement comprehensive memory management optimizations for Thrift extension ([962b873](https://github.com/tzzs/vsce-thrift-support/commit/962b873f7ed56c30b06ae7d98231a38d4b1b0f06))
+* implement comprehensive performance and memory optimizations for Thrift extension ([23857cd](https://github.com/tzzs/vsce-thrift-support/commit/23857cda48fb4a2f510eab986d3fb345a55d80ec))
+* implement comprehensive performance optimizations and caching improvements ([5f36b3c](https://github.com/tzzs/vsce-thrift-support/commit/5f36b3c765fd2593dcea943c9ee8a276d5772731))
+* implement comprehensive performance optimizations for Thrift extension ([ae5d72c](https://github.com/tzzs/vsce-thrift-support/commit/ae5d72ceace24438fb642cd4eeb7a88757c14af3))
+* upgrade to ESLint v9 with flat config ([c3c28ac](https://github.com/tzzs/vsce-thrift-support/commit/c3c28ac9efcb0d32825ee69ffdd2fe4af6d80218))
+
+
+### Bug Fixes
+
+* address code review findings and improve code quality ([3116a86](https://github.com/tzzs/vsce-thrift-support/commit/3116a86eb03d87423c008f8e4c1722353047586b))
+* address code review findings and improve performance optimizations ([3399d71](https://github.com/tzzs/vsce-thrift-support/commit/3399d719250f9120c13d261c902bc6eed5bde071))
+* address code review findings and improve test coverage ([52012c1](https://github.com/tzzs/vsce-thrift-support/commit/52012c12ab6e27f68b477c02858e635bfa7a667e))
+* **formatter:** append trailing punctuation at end of line after comments ([c0083fd](https://github.com/tzzs/vsce-thrift-support/commit/c0083fd83a1d16fe5471ca8bc30c4f0937fb75ac))
+* improve type safety and robustness in performance optimization code ([5296537](https://github.com/tzzs/vsce-thrift-support/commit/52965379a2f301b839137bf5023e1129b432766b))
+* resolve VS Code API type errors in providers ([855be41](https://github.com/tzzs/vsce-thrift-support/commit/855be41dc8b57d905404a0222177ab651331875e))
+
 ## [2.0.1](https://github.com/tzzs/vsce-thrift-support/compare/v2.0.0...v2.0.1) (2026-01-12)
 
 
