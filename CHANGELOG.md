@@ -2,6 +2,7 @@
 
 ## [2.1.0](https://github.com/tzzs/vsce-thrift-support/compare/v2.0.1...v2.1.0) (2026-02-11)
 
+### 🎉 Happy Chinese New Year 2026!
 
 ### Features
 
