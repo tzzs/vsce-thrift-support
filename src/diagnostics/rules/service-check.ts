@@ -47,10 +47,11 @@ export function checkService(
 
     // Check functions
     for (const fn of node.functions) {
+        const fnName = fn.name ?? 'unknown';
         if (fn.oneway) {
             if (fn.returnType.trim() !== 'void') {
                 issues.push({
-                    message: `oneway method '${fn.name}' must return void`,
+                    message: `oneway method '${fnName}' must return void`,
                     range: fn.range,
                     severity: vscode.DiagnosticSeverity.Error,
                     code: 'service.oneway.returnNotVoid'
@@ -58,7 +59,7 @@ export function checkService(
             }
             if (fn.throws && fn.throws.length > 0) {
                 issues.push({
-                    message: `oneway method '${fn.name}' must not declare throws`,
+                    message: `oneway method '${fnName}' must not declare throws`,
                     range: fn.range,
                     severity: vscode.DiagnosticSeverity.Error,
                     code: 'service.oneway.hasThrows'

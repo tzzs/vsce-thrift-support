@@ -14,7 +14,7 @@ import {getSymbolType} from './references/symbol-type';
  * ThriftReferencesProvider：提供引用查找与跨文件扫描。
  */
 export class ThriftReferencesProvider implements vscode.ReferenceProvider {
-    private isScanning: boolean = false;
+    private isScanning = false;
     private fileList: ThriftFileList;
 
     // 缓存管理器
@@ -43,7 +43,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
     public async provideReferences(
         document: vscode.TextDocument,
         position: vscode.Position,
-        _context: vscode.ReferenceContext,
+        context: vscode.ReferenceContext,
         token: vscode.CancellationToken
     ): Promise<vscode.Location[]> {
 
@@ -60,7 +60,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         }
 
         const symbolName = document.getText(wordRange);
-        const symbolType = await getSymbolType(document, position, symbolName, {
+        const symbolType = getSymbolType(document, position, symbolName, {
             getCachedAst: (doc) => this.astCache.get(doc)
         });
 
@@ -84,10 +84,10 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             return cachedReferences;
         }
 
-        const includeDeclaration = _context?.includeDeclaration !== false;
+        const includeDeclaration = context?.includeDeclaration;
 
         // Search in current document
-        const currentDocRefs = await findReferencesInDocument(
+        const currentDocRefs = findReferencesInDocument(
             document.uri,
             document.getText(),
             symbolName,
@@ -117,26 +117,38 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                     continue; // Skip current document, already processed
                 }
 
-                try {
-                    const text = await readThriftFile(file);
+                const text = await this.errorHandler.wrapAsync(
+                    () => readThriftFile(file),
+                    {
+                        component: 'ThriftReferencesProvider',
+                        operation: 'readThriftFile',
+                        filePath: file?.fsPath || 'unknown',
+                        additionalInfo: {symbolName}
+                    },
+                    undefined
+                );
+                if (text === undefined) {
+                    continue;
+                }
 
-                    const refs = await findReferencesInDocument(
+                const refs = this.errorHandler.wrapSync(
+                    () => findReferencesInDocument(
                         file,
                         text,
                         symbolName,
                         includeDeclaration,
                         {errorHandler: this.errorHandler},
                         token
-                    );
-                    references.push(...refs);
-                } catch (error) {
-                    this.errorHandler.handleError(error, {
+                    ),
+                    {
                         component: 'ThriftReferencesProvider',
                         operation: 'findReferencesInFile',
                         filePath: file?.fsPath || 'unknown',
                         additionalInfo: {symbolName}
-                    });
-                }
+                    },
+                    []
+                );
+                references.push(...refs);
             }
 
             // 缓存结果

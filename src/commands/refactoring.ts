@@ -159,7 +159,7 @@ export function registerRefactoringCommands(context: vscode.ExtensionContext) {
             // Guard: avoid silently overwriting an existing file
             try {
                 await vscode.workspace.fs.stat(targetUri);
-                vscode.window.showWarningMessage(
+                await vscode.window.showWarningMessage(
                     `Target file "${targetName}" already exists. Move cancelled to avoid overwriting.`
                 );
                 return;
@@ -169,7 +169,7 @@ export function registerRefactoringCommands(context: vscode.ExtensionContext) {
             // Ensure include line exists
             const includeLine = `include "${targetName}"`;
             const docText = doc.getText();
-            if (!new RegExp(`^\\s*include\\s+[\"\']${targetName}[\"\']`, 'm').test(docText)) {
+            if (!new RegExp(`^\\s*include\\s+['"]${targetName}['"]`, 'm').test(docText)) {
                 edit.insert(doc.uri, new vscode.Position(0, 0), includeLine + '\n');
             }
             // Remove original block

@@ -1,15 +1,16 @@
 import * as vscode from 'vscode';
+import {ErrorHandler} from '../utils/error-handler';
+
+const diagnosticsChannel = vscode.window.createOutputChannel('Thrift Diagnostics');
 
 /**
  * 判断是否启用诊断调试日志。
  * @returns 是否启用
  */
 export function isDiagnosticsDebugEnabled(): boolean {
-    try {
+    return ErrorHandler.getInstance().safe(() => {
         return !!vscode.workspace.getConfiguration('thrift').get('diagnostics.debug', false);
-    } catch {
-        return false;
-    }
+    }, false);
 }
 
 /**
@@ -21,5 +22,5 @@ export function logDiagnostics(message: string): void {
     if (!isDiagnosticsDebugEnabled()) {
         return;
     }
-    console.log(message);
+    diagnosticsChannel.appendLine(message);
 }

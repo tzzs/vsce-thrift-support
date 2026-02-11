@@ -1,9 +1,10 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import {ThriftParser} from '../ast/parser';
+import {ThriftParser} from '../ast/parser'; // This now exports OptimizedThriftParser
 import {config} from '../config';
 import {ErrorHandler} from '../utils/error-handler';
 import {LineRange, normalizeLineRange, rangeIntersectsLineRange} from '../utils/line-range';
+import {makeLineRangeKey} from '../utils/cache-keys';
 import {PerformanceMonitor, performanceMonitor} from '../performance-monitor';
 import {ThriftIssue} from './types';
 import {logDiagnostics} from './logger';
@@ -64,8 +65,8 @@ export class DiagnosticManager {
      */
     public scheduleAnalysis(
         doc: vscode.TextDocument,
-        immediate: boolean = false,
-        skipDependents: boolean = false,
+        immediate = false,
+        skipDependents = false,
         triggerSource?: string,
         dirtyLineCount?: number,
         includesMayChange?: boolean,
@@ -91,7 +92,7 @@ export class DiagnosticManager {
             skipDependents = true;
         }
 
-        logDiagnostics(`[Diagnostics] Schedule analysis for ${path.basename(doc.uri.fsPath)}, immediate=${immediate}, skipDependents=${skipDependents}${triggerInfo}${dirtyInfo}`);
+        logDiagnostics(`[Diagnostics] Schedule analysis for ${path.basename(doc.uri.fsPath)}, immediate=${String(immediate)}, skipDependents=${String(skipDependents)}${triggerInfo}${dirtyInfo}`);
 
         const prevState = this.documentStates.get(key);
 
@@ -101,17 +102,17 @@ export class DiagnosticManager {
                 immediate,
                 throttleState: prevState
             },
-            () => this.performAnalysis(doc),
+            () => {
+                void this.performAnalysis(doc);
+            },
             (timeout: NodeJS.Timeout) => {
+                void timeout;
                 // Keep track if needed, but scheduler handles queue
             }
         );
 
         if (!scheduled && !prevState?.isAnalyzing) {
-            // Maybe explicitly skipped due to throttling without new changes?
-            // But we need to update state if parameters changed? 
-            // Actually scheduler logic handles throttling check. 
-            // We persist state update regardless to capture latest intentions.
+            void 0;
         }
 
         // Update state to reflect pending analysis parameters
@@ -204,7 +205,7 @@ export class DiagnosticManager {
                 'Thrift诊断分析',
                 async () => {
                     try {
-                        const includedFiles = await getIncludedFiles(doc);
+                        const includedFiles = getIncludedFiles(doc);
                         const cachedIncludedTypes = state.useCachedIncludes
                             ? collectIncludedTypesFromCache(includedFiles)
                             : null;
@@ -229,7 +230,7 @@ export class DiagnosticManager {
                                 : [state.dirtyRange];
                             blockRange = findBestContainingRangeForChanges(state.lastAst, changeRanges);
                             if (blockRange) {
-                                const blockKey = `${blockRange.startLine}-${blockRange.endLine}`;
+                                const blockKey = makeLineRangeKey(blockRange);
                                 const blockLines = lines.slice(blockRange.startLine, blockRange.endLine + 1).join('\n');
                                 const blockHash = hashText(blockLines);
                                 const cachedBlock = state.lastBlockCache?.get(blockKey);
@@ -244,7 +245,7 @@ export class DiagnosticManager {
                                     const partialAst = ThriftParser.parseContentWithCache(partialKey, partialText);
                                     const blockNode = findContainingNode(partialAst, blockRange);
                                     memberRange = findBestContainingMemberRangeForChanges(partialAst, changeRanges);
-                                    const memberKey = memberRange ? `${memberRange.startLine}-${memberRange.endLine}` : null;
+                                    const memberKey = memberRange ? makeLineRangeKey(memberRange) : null;
                                     const memberHash = memberRange
                                         ? hashText(partialLines.slice(memberRange.startLine, memberRange.endLine + 1).join('\n'))
                                         : null;
@@ -268,7 +269,11 @@ export class DiagnosticManager {
                                         if (!state.lastBlockCache) {
                                             state.lastBlockCache = createBlockCache();
                                         }
-                                        const blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, blockRange!));
+                                        let blockIssues = issues;
+                                        if (blockRange) {
+                                            const blockRangeValue = blockRange;
+                                            blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, blockRangeValue));
+                                        }
                                         state.lastBlockCache.set(blockKey, {hash: blockHash, issues: blockIssues});
                                         if (!state.lastMemberCache) {
                                             state.lastMemberCache = createMemberCacheByBlock();
@@ -379,5 +384,15 @@ export class DiagnosticManager {
         logDiagnostics(`[Diagnostics] Incremental merge applied for ${path.basename(doc.uri.fsPath)} (lines ${lineRange.startLine}-${lineRange.endLine})`);
 
         return merged;
+    }
+
+    /**
+     * 获取诊断调度器信息（用于性能监控）
+     */
+    public getSchedulerInfo(): {queued: number; processing: number} {
+        return {
+            queued: this.scheduler.getQueuedCount(),
+            processing: this.scheduler.getProcessingCount()
+        };
     }
 }

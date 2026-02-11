@@ -12,7 +12,7 @@ export function findNodeAtPosition(
     position: vscode.Position
 ): nodes.ThriftNode | undefined {
     const rangeContains = (
-        range: vscode.Range | { start: vscode.Position; end: vscode.Position } | undefined,
+        range: vscode.Range | {start: vscode.Position; end: vscode.Position} | undefined,
         pos: vscode.Position
     ): boolean => {
         if (!range) {
@@ -31,7 +31,7 @@ export function findNodeAtPosition(
 
     function findDeepestNode(nodesArray: nodes.ThriftNode[]): nodes.ThriftNode | undefined {
         for (const node of nodesArray) {
-            if (rangeContains(node.range as vscode.Range, position)) {
+            if (rangeContains(node.range , position)) {
                 if (node.children) {
                     const childResult = findDeepestNode(node.children);
                     if (childResult) {
@@ -40,7 +40,7 @@ export function findNodeAtPosition(
                 }
 
                 if (node.type === nodes.ThriftNodeType.Document) {
-                    const docNode = node as nodes.ThriftDocument;
+                    const docNode = node ;
                     if (docNode.body) {
                         const childResult = findDeepestNode(docNode.body);
                         if (childResult) {
@@ -50,7 +50,7 @@ export function findNodeAtPosition(
                 } else if (node.type === nodes.ThriftNodeType.Struct ||
                     node.type === nodes.ThriftNodeType.Union ||
                     node.type === nodes.ThriftNodeType.Exception) {
-                    const structNode = node as nodes.Struct;
+                    const structNode = node ;
                     if (structNode.fields) {
                         const childResult = findDeepestNode(structNode.fields);
                         if (childResult) {
@@ -58,7 +58,7 @@ export function findNodeAtPosition(
                         }
                     }
                 } else if (node.type === nodes.ThriftNodeType.Enum) {
-                    const enumNode = node as nodes.Enum;
+                    const enumNode = node ;
                     if (enumNode.members) {
                         const childResult = findDeepestNode(enumNode.members);
                         if (childResult) {
@@ -66,7 +66,7 @@ export function findNodeAtPosition(
                         }
                     }
                 } else if (node.type === nodes.ThriftNodeType.Service) {
-                    const serviceNode = node as nodes.Service;
+                    const serviceNode = node ;
                     if (serviceNode.functions) {
                         const childResult = findDeepestNode(serviceNode.functions);
                         if (childResult) {
@@ -74,7 +74,7 @@ export function findNodeAtPosition(
                         }
                     }
                 } else if (node.type === nodes.ThriftNodeType.Function) {
-                    const funcNode = node as nodes.ThriftFunction;
+                    const funcNode = node ;
                     if (funcNode.arguments) {
                         const childResult = findDeepestNode(funcNode.arguments);
                         if (childResult) {

@@ -8,7 +8,7 @@ import {
     rangeIntersectsLineRange
 } from '../utils/line-range';
 
-export function stripCommentsFromLine(rawLine: string, state: { inBlock: boolean }): string {
+export function stripCommentsFromLine(rawLine: string, state: {inBlock: boolean}): string {
     let out = '';
     let inS = false, inD = false, escaped = false;
     for (let i = 0; i < rawLine.length;) {
@@ -31,7 +31,7 @@ export function stripCommentsFromLine(rawLine: string, state: { inBlock: boolean
             }
         }
 
-        if ((ch === '"' && !inS && !escaped) || (ch === "'" && !inD && !escaped)) {
+        if ((ch === '"' && !inS && !escaped) || (ch === '\'' && !inD && !escaped)) {
             if (ch === '"') {
                 inD = !inD;
             } else {
@@ -190,13 +190,13 @@ export function findBestContainingMemberRange(ast: nodes.ThriftDocument, dirtyRa
         if (!rangeContainsLineRange(node.range, normalized)) {
             continue;
         }
-        let members: Array<{ range: vscode.Range }> = [];
+        let members: Array<{range: vscode.Range}> = [];
         if (node.type === nodes.ThriftNodeType.Struct || node.type === nodes.ThriftNodeType.Union || node.type === nodes.ThriftNodeType.Exception) {
-            members = (node as nodes.Struct).fields;
+            members = (node ).fields;
         } else if (node.type === nodes.ThriftNodeType.Enum) {
-            members = (node as nodes.Enum).members;
+            members = (node ).members;
         } else if (node.type === nodes.ThriftNodeType.Service) {
-            members = (node as nodes.Service).functions;
+            members = (node ).functions;
         } else {
             continue;
         }
@@ -226,13 +226,13 @@ export function findBestContainingMemberRangeForChanges(ast: nodes.ThriftDocumen
         if (!containsAll) {
             continue;
         }
-        let members: Array<{ range: vscode.Range }> = [];
+        let members: Array<{range: vscode.Range}> = [];
         if (node.type === nodes.ThriftNodeType.Struct || node.type === nodes.ThriftNodeType.Union || node.type === nodes.ThriftNodeType.Exception) {
-            members = (node as nodes.Struct).fields;
+            members = (node ).fields;
         } else if (node.type === nodes.ThriftNodeType.Enum) {
-            members = (node as nodes.Enum).members;
+            members = (node ).members;
         } else if (node.type === nodes.ThriftNodeType.Service) {
-            members = (node as nodes.Service).functions;
+            members = (node ).functions;
         } else {
             continue;
         }
@@ -284,6 +284,6 @@ export function hashText(text: string): number {
     return hash;
 }
 
-export function filterIssuesByLineRange(issues: { range: vscode.Range }[], lineRange: LineRange) {
+export function filterIssuesByLineRange(issues: {range: vscode.Range}[], lineRange: LineRange) {
     return issues.filter(issue => rangeIntersectsLineRange(issue.range, lineRange));
 }

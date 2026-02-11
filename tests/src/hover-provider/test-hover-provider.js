@@ -10,14 +10,9 @@ function createMockDocument(text, fileName = 'test.thrift') {
     const uri = vscode.Uri.file(path.join(__dirname, '..', '..', 'test-files', fileName));
 
     const document = {
-        uri: uri,
-        languageId: 'thrift',
-        getText: () => text,
-        lineAt: (line) => ({
-            text: lines[line] || '',
-            lineNumber: line
-        }),
-        getWordRangeAtPosition: (position) => {
+        uri: uri, languageId: 'thrift', getText: () => text, lineAt: (line) => ({
+            text: lines[line] || '', lineNumber: line
+        }), getWordRangeAtPosition: (position) => {
             const lineText = lines[position.line] || '';
             const wordRegex = /\b([A-Za-z_][A-Za-z0-9_]*)\b/g;
             let match;
@@ -29,15 +24,13 @@ function createMockDocument(text, fileName = 'test.thrift') {
                 }
             }
             return null;
-        },
-        offsetAt: (position) => {
+        }, offsetAt: (position) => {
             let offset = 0;
             for (let i = 0; i < position.line; i++) {
                 offset += (lines[i] || '').length + 1;
             }
             return offset + position.character;
-        },
-        positionAt: (offset) => {
+        }, positionAt: (offset) => {
             let currentOffset = 0;
             for (let i = 0; i < lines.length; i++) {
                 const lineLength = (lines[i] || '').length + 1;
@@ -83,22 +76,12 @@ struct Profile {
         const structDocument = createMockDocument(structText);
         const structPosition = createMockPosition(7, 18);
 
-        const structHover = await provider.provideHover(
-            structDocument,
-            structPosition,
-            createMockCancellationToken()
-        );
+        const structHover = await provider.provideHover(structDocument, structPosition, createMockCancellationToken());
 
         if (structHover) {
             assert(structHover.contents, 'Should have hover contents');
-            assert(
-                structHover.contents.value.includes('struct UniqueStruct123'),
-                'Should show struct signature'
-            );
-            assert(
-                structHover.contents.value.includes('UniqueStruct123 information structure'),
-                'Should include documentation'
-            );
+            assert(structHover.contents.value.includes('struct UniqueStruct123'), 'Should show struct signature');
+            assert(structHover.contents.value.includes('UniqueStruct123 information structure'), 'Should include documentation');
         }
 
         const enumText = `// Status enumeration
@@ -113,11 +96,7 @@ struct User {
         const enumDocument = createMockDocument(enumText);
         const enumPosition = createMockPosition(7, 18);
 
-        const enumHover = await provider.provideHover(
-            enumDocument,
-            enumPosition,
-            createMockCancellationToken()
-        );
+        const enumHover = await provider.provideHover(enumDocument, enumPosition, createMockCancellationToken());
 
         if (enumHover) {
             assert(enumHover.contents, 'Should have hover contents');
@@ -134,11 +113,7 @@ struct User {
         const serviceDocument = createMockDocument(serviceText);
         const servicePosition = createMockPosition(6, 18);
 
-        const serviceHover = await provider.provideHover(
-            serviceDocument,
-            servicePosition,
-            createMockCancellationToken()
-        );
+        const serviceHover = await provider.provideHover(serviceDocument, servicePosition, createMockCancellationToken());
 
         if (serviceHover) {
             assert(serviceHover.contents, 'Should have hover contents');

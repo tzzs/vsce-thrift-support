@@ -41,7 +41,7 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
                     component: 'ThriftSelectionRangeProvider',
                     operation: 'provideSelectionRanges',
                     filePath: document.uri.fsPath,
-                    additionalInfo: {position: position.toString()}
+                    additionalInfo: {position: `${position.line}:${position.character}`}
                 });
             }
         }
@@ -209,7 +209,7 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
         return true;
     }
 
-    private buildSelectionChain(ranges: vscode.Range[]): vscode.SelectionRange {
+    private buildSelectionChain(ranges: vscode.Range[]): vscode.SelectionRange | undefined {
         const ordered = ranges.slice().sort((a, b) => {
             const sizeA = (a.end.line - a.start.line) * 100000 + (a.end.character - a.start.character);
             const sizeB = (b.end.line - b.start.line) * 100000 + (b.end.character - b.start.character);
@@ -240,7 +240,7 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
             }
             current = selection;
         }
-        return head!;
+        return head;
     }
 
     private sameRange(a: vscode.Range, b: vscode.Range): boolean {

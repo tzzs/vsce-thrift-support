@@ -6,7 +6,7 @@ import {config} from '../config';
  */
 export class ThriftFileList {
     private workspaceFileList: Set<string> = new Set();
-    private lastFileListUpdate: number = 0;
+    private lastFileListUpdate = 0;
     private readonly updateIntervalMs: number;
 
     constructor(updateIntervalMs: number = config.references.fileListUpdateIntervalMs) {

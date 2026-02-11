@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import {ThriftIssue} from '../types';
 
 export function checkSyntax(codeLines: string[], issues: ThriftIssue[]) {
-    const stack: { ch: string; line: number; char: number }[] = [];
+    const stack: {ch: string; line: number; char: number}[] = [];
     for (let lineNo = 0; lineNo < codeLines.length; lineNo++) {
         const line = codeLines[lineNo];
         let inS = false, inD = false, escaped = false;

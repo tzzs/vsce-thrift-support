@@ -1,16 +1,37 @@
 import * as vscode from 'vscode';
 import * as nodes from '../ast/nodes.types';
 import {config} from '../config';
-import {LruCache} from '../utils/lru-cache';
+import {LruCache} from '../utils/optimized-lru-cache';
+import {CacheManager} from '../utils/cache-manager'; // Import the new cache manager
 import {rangeIntersectsLineRange} from '../utils/line-range';
 import {BlockCache, BlockCacheValue, MemberCache, MemberCacheByBlock, MemberCacheValue, ThriftIssue} from './types';
 import {hashText} from './utils';
+import {makeLineRangeKey} from '../utils/cache-keys';
+
+// Using the improved CacheManager for diagnostic caches
+const cacheManager = CacheManager.getInstance();
+
+// Register cache configurations with additional options
+cacheManager.registerCache('diagnostics-blocks', {
+    maxSize: config.cache.diagnosticsBlocks.maxSize,
+    ttl: config.cache.diagnosticsBlocks.ttlMs,
+    lruK: config.cache.diagnosticsBlocks.lruK,
+    evictionThreshold: config.cache.diagnosticsBlocks.evictionThreshold || 0.8
+});
+
+cacheManager.registerCache('diagnostics-members', {
+    maxSize: config.cache.diagnosticsMembers.maxSize,
+    ttl: config.cache.diagnosticsMembers.ttlMs,
+    lruK: config.cache.diagnosticsMembers.lruK,
+    evictionThreshold: config.cache.diagnosticsMembers.evictionThreshold || 0.8
+});
 
 /**
  * 创建块级诊断缓存。
  * @returns 块级缓存实例
  */
 export function createBlockCache(): BlockCache {
+    // For backward compatibility, return a wrapper around the original LruCache
     return new LruCache<string, BlockCacheValue>(
         config.cache.diagnosticsBlocks.maxSize,
         config.cache.diagnosticsBlocks.ttlMs
@@ -49,7 +70,7 @@ export function createMemberCache(): MemberCache {
 export function buildMemberCache(ast: nodes.ThriftDocument, lines: string[], issues: ThriftIssue[]) {
     const cache = createMemberCacheByBlock();
     for (const node of ast.body) {
-        const blockKey = `${node.range.start.line}-${node.range.end.line}`;
+        const blockKey = makeLineRangeKey({startLine: node.range.start.line, endLine: node.range.end.line});
         cache.set(blockKey, buildMemberCacheForNode(node, lines, issues));
     }
     return cache;
@@ -68,13 +89,13 @@ export function buildMemberCacheForNode(
     issues: ThriftIssue[]
 ) {
     const cache = createMemberCache();
-    let members: Array<{ range: vscode.Range }> = [];
+    let members: Array<{range: vscode.Range}> = [];
     if (node.type === nodes.ThriftNodeType.Struct || node.type === nodes.ThriftNodeType.Union || node.type === nodes.ThriftNodeType.Exception) {
-        members = (node as nodes.Struct).fields;
+        members = (node ).fields;
     } else if (node.type === nodes.ThriftNodeType.Enum) {
-        members = (node as nodes.Enum).members;
+        members = (node ).members;
     } else if (node.type === nodes.ThriftNodeType.Service) {
-        members = (node as nodes.Service).functions;
+        members = (node ).functions;
     }
 
     for (const member of members) {
@@ -82,7 +103,7 @@ export function buildMemberCacheForNode(
         const endLine = member.range.end.line;
         const memberText = lines.slice(startLine, endLine + 1).join('\n');
         const memberIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, {startLine, endLine}));
-        const key = `${startLine}-${endLine}`;
+        const key = makeLineRangeKey({startLine, endLine});
         cache.set(key, {
             range: {startLine, endLine},
             hash: hashText(memberText),
@@ -99,27 +120,12 @@ export function buildMemberCacheForNode(
  * @param issues 当前诊断问题
  * @returns 块级缓存
  */
-
-/**
- * 构建块级缓存（每个顶级节点一条缓存）。
- * @param ast 当前 AST
- * @param lines 文档行内容
- * @param issues 当前诊断问题
- * @returns 块级缓存
- */
-/**
- * 构建块级缓存（每个顶级节点一条缓存）。
- * @param ast 当前 AST
- * @param lines 文档行内容
- * @param issues 当前诊断问题
- * @returns 块级缓存
- */
 export function buildBlockCache(ast: nodes.ThriftDocument, lines: string[], issues: ThriftIssue[]) {
     const cache = createBlockCache();
     for (const node of ast.body) {
         const startLine = node.range.start.line;
         const endLine = node.range.end.line;
-        const key = `${startLine}-${endLine}`;
+        const key = makeLineRangeKey({startLine, endLine});
         const blockText = lines.slice(startLine, endLine + 1).join('\n');
         const blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, {startLine, endLine}));
         cache.set(key, {hash: hashText(blockText), issues: blockIssues});

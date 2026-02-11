@@ -23,7 +23,7 @@ function run() {
     config.incremental.maxDirtyLines = 10;
 
     try {
-        const tracker = new IncrementalTracker();
+        const tracker = IncrementalTracker.getInstance();
         const text = [
             'struct A {',
             '1:i32 id',

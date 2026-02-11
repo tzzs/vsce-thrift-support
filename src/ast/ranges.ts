@@ -6,7 +6,7 @@ import {escapeRegExp, findFirstNonWhitespaceAfter, findLastNonWhitespaceUpTo, sl
  * @param segmentText 字段文本
  * @returns 默认值信息或 null
  */
-export function findDefaultValueRange(segmentText: string): { start: number; end: number; value: string } | null {
+export function findDefaultValueRange(segmentText: string): {start: number; end: number; value: string} | null {
     let depthAngle = 0;
     let depthBracket = 0;
     let depthBrace = 0;
@@ -106,7 +106,7 @@ export function findThrowsStartInRange(
     startChar: number,
     endLine: number,
     endChar: number
-): { line: number; char: number } | null {
+): {line: number; char: number} | null {
     let seenThrows = false;
     for (let line = startLine; line < lines.length; line++) {
         if (line > endLine) {
@@ -150,7 +150,7 @@ export function buildConstValueRange(
     endLine: number,
     eqLine: number,
     eqChar: number
-): { range?: vscode.Range; value: string } {
+): {range?: vscode.Range; value: string} {
     if (eqLine < 0 || eqChar < 0) {
         return {range: undefined, value: ''};
     }

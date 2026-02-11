@@ -13,11 +13,11 @@ import {createLocation} from './utils/vscode-utils';
 /**
  * ThriftWorkspaceSymbolProvider：提供全局符号搜索。
  */
-export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvider {
+export class ThriftWorkspaceSymbolProvider {
     private cacheManager: CacheManager;
     private fileWatcher: vscode.FileSystemWatcher | undefined;
     private workspaceFileList: Set<string> = new Set();
-    private lastFileListUpdate: number = 0;
+    private lastFileListUpdate = 0;
     private readonly FILE_LIST_UPDATE_INTERVAL = config.workspaceSymbols.fileListUpdateIntervalMs;
     private errorHandler: ErrorHandler;
     private readonly component = 'ThriftWorkspaceSymbolProvider';
@@ -52,10 +52,10 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
     /**
      * 返回匹配查询的工作区符号列表。
      */
-    public async provideWorkspaceSymbols(
+    public provideWorkspaceSymbols(
         query: string,
         token: vscode.CancellationToken
-    ): Promise<vscode.SymbolInformation[]> {
+    ): vscode.ProviderResult<vscode.SymbolInformation[]> {
         const cacheKey = query || 'all';
 
         // 先从缓存中获取
@@ -67,39 +67,46 @@ export class ThriftWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProv
             return cached;
         }
 
-        const allSymbols: vscode.SymbolInformation[] = [];
+        // 实际实现需要查找工作区内的所有符号
+        return this.doProvideWorkspaceSymbols(query, token);
+    }
 
-        // 智能文件列表更新 - 只在需要时更新
-        const thriftFiles = await this.getThriftFiles();
-
-        for (const file of thriftFiles) {
-            if (token.isCancellationRequested) {
-                break;
-            }
-
-            try {
-                const symbols = await this.getSymbolsForFile(file);
-                allSymbols.push(...symbols);
-            } catch (error) {
-                this.errorHandler.handleError(error, {
-                    component: 'ThriftWorkspaceSymbolProvider',
-                    operation: 'getSymbolsForFile',
-                    filePath: file.fsPath,
-                    additionalInfo: {query}
-                });
-            }
+    private async doProvideWorkspaceSymbols(
+        query: string,
+        token: vscode.CancellationToken
+    ): Promise<vscode.SymbolInformation[]> {
+        if (token.isCancellationRequested) {
+            return [];
         }
 
-        // Filter by query if provided
-        let filteredSymbols = allSymbols;
-        if (query) {
-            filteredSymbols = this.filterSymbols(allSymbols, query);
+        try {
+            const thriftFiles = await this.getThriftFiles();
+
+            // 收集所有符号
+            const allSymbols: vscode.SymbolInformation[] = [];
+            for (const uri of thriftFiles) {
+                if (token.isCancellationRequested) {
+                    break;
+                }
+
+                const fileSymbols = await this.getSymbolsForFile(uri);
+                const filteredSymbols = this.filterSymbols(fileSymbols, query);
+                allSymbols.push(...filteredSymbols);
+            }
+
+            // 缓存结果（如果查询为空，表示获取所有符号）
+            if (!query) {
+                this.cacheManager.set('workspaceSymbols', 'all', allSymbols);
+            }
+
+            return allSymbols;
+        } catch (error) {
+            this.errorHandler.handleError(error, {
+                component: this.component,
+                operation: 'doProvideWorkspaceSymbols'
+            });
+            return [];
         }
-
-        // 缓存结果
-        this.cacheManager.set('workspaceSymbols', cacheKey, filteredSymbols);
-
-        return filteredSymbols;
     }
 
     /**
@@ -359,7 +366,7 @@ export function registerWorkspaceSymbolProvider(
     deps?: Partial<CoreDependencies>
 ) {
     const provider = new ThriftWorkspaceSymbolProvider(deps);
-    const disposable = vscode.languages.registerWorkspaceSymbolProvider(provider);
+    const disposable = vscode.languages.registerWorkspaceSymbolProvider(provider as vscode.WorkspaceSymbolProvider);
     context.subscriptions.push(disposable);
     context.subscriptions.push(provider); // for dispose()
 }

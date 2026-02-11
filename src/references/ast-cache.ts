@@ -2,21 +2,57 @@ import * as vscode from 'vscode';
 import {ThriftParser} from '../ast/parser';
 import * as nodes from '../ast/nodes.types';
 import {config} from '../config';
+import {MemoryAwareCacheManager} from '../utils/cache-manager';
+import {CACHE_CONFIGS} from '../config/cache-config';
+
+// Initialize the memory-aware cache manager
+const cacheManager = MemoryAwareCacheManager.getInstance();
+
+// Register the AST cache configuration using centralized configs
+const referencesAstConfig = CACHE_CONFIGS['references-ast'] ?? {
+    maxSize: config.cache.references.maxSize,
+    ttl: config.cache.references.ttlMs,
+    lruK: config.cache.references.lruK,
+    evictionThreshold: config.cache.references.evictionThreshold || 0.8
+};
+cacheManager.registerCache('references-ast', referencesAstConfig);
 
 interface CachedAstEntry {
     ast: nodes.ThriftDocument;
-    timestamp: number;
+    contentHash: string;
 }
 
 /**
  * Cache ASTs with TTL to avoid repeated parsing.
  */
 export class AstCache {
-    private cache: Map<string, CachedAstEntry> = new Map();
-    private readonly ttlMs: number;
-
     constructor(ttlMs: number = config.references.astCacheTtlMs) {
-        this.ttlMs = ttlMs;
+        if (ttlMs !== config.cache.references.ttlMs) {
+            cacheManager.registerCache('references-ast', {
+                maxSize: config.cache.references.maxSize,
+                ttl: ttlMs,
+                lruK: config.cache.references.lruK,
+                evictionThreshold: config.cache.references.evictionThreshold || 0.8,
+                priorityFn: () => {
+                    const stats = cacheManager.getCacheStats('references-ast');
+                    return stats.hitRate > 0.7 ? 1 : 0;
+                },
+                sizeEstimator: (key: string, value: unknown) => {
+                    try {
+                        let contentHashLength = 0;
+                        if (typeof value === 'object' && value) {
+                            const record = value as {contentHash?: unknown};
+                            if (typeof record.contentHash === 'string') {
+                                contentHashLength = record.contentHash.length;
+                            }
+                        }
+                        return key.length + contentHashLength;
+                    } catch {
+                        return 100;
+                    }
+                }
+            });
+        }
     }
 
     /**
@@ -26,23 +62,39 @@ export class AstCache {
      */
     public get(document: vscode.TextDocument): nodes.ThriftDocument {
         const cacheKey = document.uri.fsPath;
-        const now = Date.now();
-        const cached = this.cache.get(cacheKey);
-        if (cached && (now - cached.timestamp) < this.ttlMs) {
+        const contentHash = this.hashContent(document.getText()); // Hash content for comparison
+        const cached = cacheManager.get<CachedAstEntry>('references-ast', cacheKey);
+
+        if (cached && cached.contentHash === contentHash) {
             return cached.ast;
         }
 
         const parser = new ThriftParser(document);
         const ast = parser.parse();
-        this.cache.set(cacheKey, {ast, timestamp: now});
+
+        cacheManager.set('references-ast', cacheKey, {ast, contentHash});
+
         return ast;
+    }
+
+    /**
+     * Helper to create a simple hash of content
+     */
+    private hashContent(content: string): string {
+        let hash = 0;
+        for (let i = 0; i < content.length; i++) {
+            const char = content.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        return hash.toString();
     }
 
     /**
      * Clear all cached ASTs.
      */
     public clear(): void {
-        this.cache.clear();
+        cacheManager.clear('references-ast');
     }
 
     /**
@@ -50,6 +102,6 @@ export class AstCache {
      * @param filePath - File system path to remove.
      */
     public delete(filePath: string): void {
-        this.cache.delete(filePath);
+        cacheManager.delete('references-ast', filePath);
     }
 }

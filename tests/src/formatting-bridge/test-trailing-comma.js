@@ -140,4 +140,52 @@ describe('trailing-comma', () => {
 
         assert.ok(noSpaceBeforeComma1 && noSpaceBeforeComma2, 'Comma should be tight to closing paren');
     });
+
+    it('should place trailing comma after line comments in struct add mode', () => {
+        const input = `struct S {
+    1: string a (anno='x') // c1
+    2: i32 b // c2
+}`;
+        const output = formatWithTrailingComma(input, 'add');
+        const lines = output.split('\n');
+        const l1 = lines[1] || '';
+        const l2 = lines[2] || '';
+
+        assert.ok(/\/\/.*,\s*$/.test(l1), 'Comma should be at end after comment');
+        assert.ok(/\/\/.*,\s*$/.test(l2), 'Comma should be at end after comment');
+        assert.ok(!/,\s*\/\//.test(l1), 'Comma should not be before comment');
+        assert.ok(!/,\s*\/\//.test(l2), 'Comma should not be before comment');
+    });
+
+    it('should place semicolon after line comments in enum add mode', () => {
+        const input = `enum E {
+    A = 1; // a
+    B = 2 // b
+}`;
+        const output = formatWithTrailingComma(input, 'add');
+        const lines = output.split('\n');
+        const l1 = lines[1] || '';
+        const l2 = lines[2] || '';
+
+        assert.ok(/\/\/.*;\s*$/.test(l1), 'Semicolon should be at end after comment');
+        assert.ok(/\/\/.*,\s*$/.test(l2), 'Comma should be at end after comment');
+        assert.ok(!/;\s*\/\//.test(l1), 'Semicolon should not be before comment');
+        assert.ok(!/,\s*\/\//.test(l2), 'Comma should not be before comment');
+    });
+
+    it('should remove comma before comment in enum remove mode', () => {
+        const input = `enum E {
+    A = 1, // a
+    B = 2 // b
+}`;
+        const output = formatWithTrailingComma(input, 'remove');
+        const lines = output.split('\n');
+        const l1 = lines[1] || '';
+        const l2 = lines[2] || '';
+
+        assert.ok(/\/\/.*\s*$/.test(l1), 'Comment should remain at line end');
+        assert.ok(/\/\/.*\s*$/.test(l2), 'Comment should remain at line end');
+        assert.ok(!/,\s*\/\//.test(l1), 'Comma should be removed before comment');
+        assert.ok(!/,\s*$/.test(l2), 'No trailing comma for remove mode');
+    });
 });

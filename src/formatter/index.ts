@@ -1,4 +1,5 @@
 import {ThriftFormattingOptions} from '../interfaces.types';
+import {LineRange} from '../utils/line-range';
 import {ErrorHandler} from '../utils/error-handler';
 import {CoreDependencies} from '../utils/dependencies';
 import {formatThriftContent} from './formatter-core';
@@ -16,9 +17,9 @@ export class ThriftFormatter {
     /**
      * 格式化指定文本内容。
      */
-    public format(content: string, options?: ThriftFormattingOptions): string {
+    public format(content: string, options?: ThriftFormattingOptions, dirtyRange?: LineRange): string {
         try {
-            return formatThriftContent(content, options);
+            return formatThriftContent(content, options, dirtyRange);
         } catch (error) {
             this.errorHandler.handleError(error, {
                 component: 'ThriftFormatter',
@@ -29,9 +30,9 @@ export class ThriftFormatter {
         }
     }
 
-    public formatThriftCode(text: string, options: ThriftFormattingOptions): string {
+    public formatThriftCode(text: string, options: ThriftFormattingOptions, dirtyRange?: LineRange): string {
         // Delegate to the existing format method
-        return this.format(text, options);
+        return this.format(text, options, dirtyRange);
     }
 
 }

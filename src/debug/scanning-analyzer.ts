@@ -142,7 +142,7 @@ export class ScanningAnalyzer {
      */
     private analyzeReferenceProviderTriggers(): void {
         this.logInfo('analyzeReferenceProviderTriggers', '引用提供器触发机制:');
-        this.logInfo('analyzeReferenceProviderTriggers', '- 用户选择 \"Find All References\"');
+        this.logInfo('analyzeReferenceProviderTriggers', '- 用户选择 "Find All References"');
         this.logInfo('analyzeReferenceProviderTriggers', '- 或 VS Code 自动触发引用分析');
         this.logInfo('analyzeReferenceProviderTriggers', '- provideReferences → 扫描整个工作区');
         this.logInfo('analyzeReferenceProviderTriggers', '- 内置语言服务: 使用索引，第三方扩展: 实时扫描');
@@ -188,7 +188,7 @@ export class ScanningAnalyzer {
         const key = `${eventName}:${path.basename(filePath)}`;
         this.eventTriggerMap.set(key, (this.eventTriggerMap.get(key) || 0) + 1);
 
-        const timestamp = new Date().toISOString().substr(11, 8);
+        const timestamp = new Date().toISOString().substring(11, 8);
         this.logInfo('logEvent', `[${timestamp}] ${eventName}: ${path.basename(filePath)}`);
     }
 

@@ -89,7 +89,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     private errorHandler: ErrorHandler;
 
     constructor(deps?: Partial<CoreDependencies>) {
-        this.incrementalTracker = deps?.incrementalTracker ?? new IncrementalTracker();
+        this.incrementalTracker = deps?.incrementalTracker ?? IncrementalTracker.getInstance();
         this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
     }
 
@@ -99,9 +99,10 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     provideDocumentFormattingEdits(
         document: vscode.TextDocument,
         options: vscode.FormattingOptions,
-        _token: vscode.CancellationToken
+        token: vscode.CancellationToken
     ): vscode.TextEdit[] {
         try {
+            void token;
             let targetRange: vscode.Range | undefined;
             let useMinimalPatch = false;
 
@@ -141,16 +142,17 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         document: vscode.TextDocument,
         range: vscode.Range,
         options: vscode.FormattingOptions,
-        _token: vscode.CancellationToken
+        token: vscode.CancellationToken
     ): vscode.TextEdit[] {
         try {
+            void token;
             return this.formatRange(document, range, options);
         } catch (error) {
             this.errorHandler.handleError(error, {
                 component: 'ThriftFormattingProvider',
                 operation: 'provideDocumentRangeFormattingEdits',
                 filePath: document.uri.fsPath,
-                additionalInfo: {range: range.toString()}
+                additionalInfo: {range: `${range.start.line}:${range.start.character}-${range.end.line}:${range.end.character}`}
             });
             return [];
         }
@@ -160,15 +162,25 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
         document: vscode.TextDocument,
         range: vscode.Range,
         options: vscode.FormattingOptions,
-        useMinimalPatch: boolean = false
+        useMinimalPatch = false
     ): vscode.TextEdit[] {
         const text = document.getText(range);
         const fmtOptions = resolveFormattingOptions(document, range, options, useMinimalPatch, {
             computeInitialContext
         });
+        fmtOptions.incrementalFormattingEnabled = useMinimalPatch;
 
         const formatter = new ThriftFormatter({errorHandler: this.errorHandler});
-        const formattedText = formatter.formatThriftCode(text, fmtOptions);
+
+        let dirtyRange: LineRange | undefined;
+        if (useMinimalPatch) {
+            const lineCount = text.split(/\r?\n/).length;
+            const startLine = 0;
+            const endLine = Math.max(0, lineCount - 1);
+            dirtyRange = {startLine, endLine};
+        }
+
+        const formattedText = formatter.formatThriftCode(text, fmtOptions, dirtyRange);
 
         if (!useMinimalPatch) {
             return [vscode.TextEdit.replace(range, formattedText)];

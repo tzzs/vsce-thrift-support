@@ -1,6 +1,16 @@
 import * as vscode from 'vscode';
 import * as nodes from './nodes.types';
-import {clearAstCacheForDocument, clearExpiredAstCache, parseWithAstCache} from './cache';
+import {config} from '../config';
+import {
+    clearAstCacheForDocument,
+    clearExpiredAstCache,
+    getCachedAstRange,
+    parseWithAstCache,
+    setCachedAst,
+    setCachedAstRange
+} from './cache';
+import {LineRange} from '../utils/line-range';
+import {isExpired, isFresh} from '../utils/cache-expiry';
 import {
     buildConstValueRange,
     findDefaultValueRange,
@@ -24,10 +34,28 @@ import {
 } from './token-utils';
 import {ThriftTokenizer, Token} from './tokenizer';
 
+export interface ParseRegion {
+    startLine: number;
+    endLine: number;
+}
+
+export interface IncrementalParseResult {
+    ast: nodes.ThriftDocument;
+    affectedNodes: nodes.ThriftNode[];
+    newNodes: nodes.ThriftNode[];
+}
+
+export interface ParseContext {
+    currentLine: number;
+    lines: string[];
+    token: ThriftTokenizer;
+}
+
 export class ThriftParser {
+    private static astByUri = new Map<string, {ast: nodes.ThriftDocument; timestamp: number}>();
     private text: string;
     private lines: string[];
-    private currentLine: number = 0;
+    private currentLine = 0;
     private tokenizer: ThriftTokenizer;
 
     constructor(documentOrContent: vscode.TextDocument | string) {
@@ -42,24 +70,36 @@ export class ThriftParser {
 
     /**
      * 带缓存的解析入口（基于文档内容）。
+     * 使用 URI + 版本号 + 内容哈希 作为缓存键，提高缓存命中率。
      */
     public static parseWithCache(document: vscode.TextDocument): nodes.ThriftDocument {
         const uri = document.uri.toString();
         const content = document.getText();
-        return parseWithAstCache(uri, content, () => {
+        const version = document.version;
+
+        // 使用优化的缓存键：URI + 版本号 + 内容哈希
+        const ast = parseWithAstCache(uri, content, () => {
             const parser = new ThriftParser(content);
             return parser.parse();
-        });
+        }, version);
+
+        ThriftParser.setCachedAstByUriUnsafe(uri, ast);
+        return ast;
     }
 
     /**
      * 带缓存的解析入口（基于 URI 与内容）。
+     * 使用 URI + 内容哈希 作为缓存键。
      */
     public static parseContentWithCache(uri: string, content: string): nodes.ThriftDocument {
-        return parseWithAstCache(uri, content, () => {
+        // 使用优化的缓存键：URI + 内容哈希
+        const ast = parseWithAstCache(uri, content, () => {
             const parser = new ThriftParser(content);
             return parser.parse();
         });
+
+        ThriftParser.setCachedAstByUriUnsafe(uri, ast);
+        return ast;
     }
 
     /**
@@ -67,6 +107,7 @@ export class ThriftParser {
      */
     public static clearExpiredCache(): void {
         clearExpiredAstCache();
+        ThriftParser.clearExpiredAstByUriCache();
     }
 
     /**
@@ -74,6 +115,7 @@ export class ThriftParser {
      */
     public static clearDocumentCache(uri: string): void {
         clearAstCacheForDocument(uri);
+        ThriftParser.astByUri.delete(uri);
     }
 
     /**
@@ -99,6 +141,70 @@ export class ThriftParser {
         return root;
     }
 
+    /**
+     * 解析文档的一部分，并将其集成到现有AST中
+     */
+    public parseSection(startLine: number, endLine: number, existingAst?: nodes.ThriftDocument): nodes.ThriftDocument {
+        // If no existing AST is provided, create a new one
+        const ast: nodes.ThriftDocument = existingAst || {
+            type: nodes.ThriftNodeType.Document,
+            range: new vscode.Range(0, 0, this.lines.length > 0 ? this.lines.length - 1 : 0,
+                this.lines.length > 0 ? this.lines[this.lines.length - 1].length : 0),
+            body: []
+        };
+
+        // Save current state
+        const originalCurrentLine = this.currentLine;
+
+        // Create a map to track existing nodes by their range for efficient lookup
+        const existingNodeMap = new Map<string, nodes.ThriftNode>();
+        if (existingAst) {
+            for (const node of existingAst.body) {
+                const key = `${node.range.start.line}-${node.range.end.line}`;
+                existingNodeMap.set(key, node);
+            }
+        }
+
+        // Parse the specific section
+        this.currentLine = startLine;
+        while (this.currentLine <= endLine && this.currentLine < this.lines.length) {
+            const line = this.lines[this.currentLine];
+            if (line.trim()) {
+                const node = this.parseNextNode(ast);
+                if (node) {
+                    // Check if there's an existing node that overlaps with the new node
+                    const overlapKey = `${node.range.start.line}-${node.range.end.line}`;
+                    const existingNode = existingNodeMap.get(overlapKey);
+
+                    if (!existingNode) {
+                        // No overlap, simply add the new node
+                        ast.body.push(node);
+                        this.addChild(ast, node);
+                    } else {
+                        // Overlap detected - replace the existing node
+                        const index = ast.body.findIndex(n =>
+                            n.range.start.line === existingNode.range.start.line &&
+                            n.range.end.line === existingNode.range.end.line
+                        );
+                        if (index !== -1) {
+                            ast.body[index] = node;
+                        } else {
+                            ast.body.push(node);
+                        }
+                        this.addChild(ast, node);
+                    }
+                }
+            } else {
+                this.currentLine++;
+            }
+        }
+
+        // Restore original state
+        this.currentLine = originalCurrentLine;
+
+        return ast;
+    }
+
     private ensureChildren(node: nodes.ThriftNode): nodes.ThriftNode[] {
         if (!node.children) {
             node.children = [];
@@ -113,7 +219,7 @@ export class ThriftParser {
         }
     }
 
-    private scanLine(line: string): { stripped: string; tokens: Token[] } {
+    private scanLine(line: string): {stripped: string; tokens: Token[]} {
         const scan = this.tokenizer.scanLine(line);
         return {
             stripped: scan.stripped,
@@ -121,7 +227,7 @@ export class ThriftParser {
         };
     }
 
-    private countBraces(tokens: Token[]): { open: number; close: number } {
+    private countBraces(tokens: Token[]): {open: number; close: number} {
         let open = 0;
         let close = 0;
         for (const token of tokens) {
@@ -342,7 +448,6 @@ export class ThriftParser {
         while (this.currentLine < this.lines.length && braceCount > 0) {
             const line = this.lines[this.currentLine];
             const scan = this.scanLine(line);
-            const trimmed = scan.stripped.trim();
 
             const braceStats = this.countBraces(scan.tokens);
             if (braceStats.open > 0 || braceStats.close > 0) {
@@ -679,7 +784,6 @@ export class ThriftParser {
         while (this.currentLine < this.lines.length && braceCount > 0) {
             const line = this.lines[this.currentLine];
             const scan = this.scanLine(line);
-            const trimmed = scan.stripped.trim();
 
             const braceStats = this.countBraces(scan.tokens);
             if (braceStats.open > 0 || braceStats.close > 0) {
@@ -709,7 +813,7 @@ export class ThriftParser {
                 const throwsFields: nodes.Field[] = [];
 
                 const parenStartPos = line.indexOf('(');
-                let argResult: { text: string; endLine: number; endChar: number } | null = null;
+                let argResult: {text: string; endLine: number; endChar: number} | null = null;
                 if (parenStartPos !== -1) {
                     argResult = readParenthesizedText(this.lines, this.currentLine, parenStartPos + 1);
                     if (argResult) {
@@ -830,7 +934,7 @@ export class ThriftParser {
                     funcEndLine,
                     funcEndChar
                 );
-                let throwsResult: { text: string; endLine: number; endChar: number } | null = null;
+                let throwsResult: {text: string; endLine: number; endChar: number} | null = null;
                 if (throwsStart) {
                     throwsResult = readParenthesizedText(this.lines, throwsStart.line, throwsStart.char + 1);
                     if (throwsResult) {
@@ -1086,4 +1190,365 @@ export class ThriftParser {
         return constNode;
     }
 
+    /**
+     * 解析指定行范围的内容，用于增量解析。
+     */
+    public parseRange(startLine: number, endLine: number): nodes.ThriftNode[] {
+        const nodesInRange: nodes.ThriftNode[] = [];
+
+        // Adjust bounds to ensure they are valid
+        const actualStartLine = Math.max(0, Math.min(startLine, this.lines.length - 1));
+        const actualEndLine = Math.max(actualStartLine, Math.min(endLine, this.lines.length - 1));
+
+        // Save current state to restore after parsing range
+        const originalCurrentLine = this.currentLine;
+
+        this.currentLine = actualStartLine;
+
+        while (this.currentLine <= actualEndLine && this.currentLine < this.lines.length) {
+            const line = this.lines[this.currentLine];
+            if (line.trim()) {  // Only parse non-empty lines
+                // Create a temporary parent for range parsing
+                const tempParent: nodes.ThriftNode = {
+                    type: nodes.ThriftNodeType.Document,
+                    range: new vscode.Range(actualStartLine, 0, actualEndLine,
+                        this.lines[actualEndLine] ? this.lines[actualEndLine].length : 0),
+                    body: [],
+                    parent: undefined
+                };
+
+                const node = this.parseNextNode(tempParent);
+                if (node) {
+                    nodesInRange.push(node);
+                }
+            } else {
+                this.currentLine++;
+            }
+        }
+
+        // Restore original state
+        this.currentLine = originalCurrentLine;
+
+        return nodesInRange;
+    }
+
+    /**
+     * 更新分析受更改影响的区域（扩展脏区算法），现在具有更精确的依赖分析。
+     */
+    public analyzeAffectedRegion(startLine: number, endLine: number): {start: number; end: number} {
+        // Start with the initial range
+        let affectedStart = startLine;
+        let affectedEnd = endLine;
+
+        // Expand upward to capture multi-line constructs that might be affected
+        // For example, if we modify the middle of a struct, we need to capture the whole struct
+        for (let line = startLine; line >= 0 && line > startLine - 50; line--) { // Limit expansion for performance
+            const text = this.lines[line];
+            if (text && (text.trim().match(/\b(struct|service|enum|union|exception)\s+\w+/) ||
+                text.trim().includes('{'))) {
+                // Found a top-level construct definition
+                affectedStart = line;
+
+                // Now expand downward to find the end of this construct
+                let braceDepth = 0;
+                for (let searchLine = line; searchLine < this.lines.length && searchLine < line + 100; searchLine++) {
+                    const searchText = this.lines[searchLine];
+                    const openBraces = (searchText.match(/{/g) || []).length;
+                    const closeBraces = (searchText.match(/}/g) || []).length;
+                    braceDepth += openBraces - closeBraces;
+
+                    if (braceDepth <= 0) {
+                        affectedEnd = Math.max(affectedEnd, searchLine);
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+
+        // Expand downward to capture continuation of constructs that might span multiple lines
+        for (let line = endLine; line < this.lines.length && line < endLine + 20; line++) {
+            const text = this.lines[line];
+            if (text && (text.includes('}') || text.trim().endsWith(';') || text.trim().endsWith(','))) {
+                affectedEnd = line;
+                break;
+            }
+        }
+
+        return {start: affectedStart, end: affectedEnd};
+    }
+
+    /**
+     * 分析 AST 节点之间的依赖关系。
+     */
+    public analyzeDependencies(ast: nodes.ThriftDocument): Map<nodes.ThriftNode, nodes.ThriftNode[]> {
+        const dependencies = new Map<nodes.ThriftNode, nodes.ThriftNode[]>();
+
+        // Simple dependency analysis: identify references between nodes
+        // For example, if a service uses a struct, the service depends on the struct
+        for (const node of ast.body) {
+            const nodeDeps: nodes.ThriftNode[] = [];
+
+            // Look for type references in the node content
+            if (node.type === nodes.ThriftNodeType.Service) {
+                const service = node ;
+                for (const func of service.functions) {
+                    // Find dependencies in function return types and argument types
+                    this.addTypeDependency(ast, func.returnType, nodeDeps);
+                    for (const arg of func.arguments) {
+                        this.addTypeDependency(ast, arg.fieldType, nodeDeps);
+                    }
+                    for (const thr of func.throws) {
+                        this.addTypeDependency(ast, thr.fieldType, nodeDeps);
+                    }
+                }
+            } else if (node.type === nodes.ThriftNodeType.Struct ||
+                node.type === nodes.ThriftNodeType.Exception ||
+                node.type === nodes.ThriftNodeType.Union) {
+                const structLike = node ;
+                for (const field of structLike.fields) {
+                    this.addTypeDependency(ast, field.fieldType, nodeDeps);
+                }
+            } else if (node.type === nodes.ThriftNodeType.Const) {
+                const constNode = node ;
+                this.addTypeDependency(ast, constNode.valueType, nodeDeps);
+            }
+
+            if (nodeDeps.length > 0) {
+                dependencies.set(node, nodeDeps);
+            }
+        }
+
+        return dependencies;
+    }
+
+    private addTypeDependency(ast: nodes.ThriftDocument, typeStr: string | undefined, deps: nodes.ThriftNode[]): void {
+        if (!typeStr) {
+            return;
+        }
+
+        // Extract potential type names from typeStr (handles complex types like list<string>, map<i32, string>, etc.)
+        const typeMatches = typeStr.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) || [];
+        for (const typeName of typeMatches) {
+            // Look for nodes with matching names
+            for (const potentialDep of ast.body) {
+                if (potentialDep.name === typeName &&
+                    (potentialDep.type === nodes.ThriftNodeType.Struct ||
+                        potentialDep.type === nodes.ThriftNodeType.Enum ||
+                        potentialDep.type === nodes.ThriftNodeType.Typedef ||
+                        potentialDep.type === nodes.ThriftNodeType.Service)) {
+                    if (!deps.includes(potentialDep)) {
+                        deps.push(potentialDep);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * 从解析上下文中恢复解析状态。
+     */
+    public saveParseContext(): ParseContext {
+        return {
+            currentLine: this.currentLine,
+            lines: this.lines,
+            token: this.tokenizer
+        };
+    }
+
+    /**
+     * 恢复解析上下文。
+     */
+    public restoreParseContext(context: ParseContext): void {
+        this.currentLine = context.currentLine;
+        this.lines = context.lines;
+        this.tokenizer = context.token;
+    }
+
+    /**
+     * 带缓存的增量解析入口。
+     */
+    public static incrementalParseWithCache(
+        document: vscode.TextDocument,
+        dirtyRange: LineRange
+    ): IncrementalParseResult | null {
+        const uri = document.uri.toString();
+        const content = document.getText();
+
+        let fullAst = ThriftParser.getCachedAstByUriUnsafe(uri);
+        if (!fullAst) {
+            fullAst = parseWithAstCache(uri, content, () => {
+                const parser = new ThriftParser(content);
+                return parser.parse();
+            });
+            ThriftParser.setCachedAstByUriUnsafe(uri, fullAst);
+        }
+
+        // Determine affected range based on changes
+        const parser = new ThriftParser(content);
+        const affectedRange = parser.analyzeAffectedRegion(dirtyRange.startLine, dirtyRange.endLine);
+
+        // Try to get cached AST for the affected range
+        const rangeContent = parser.extractRangeContent(affectedRange.start, affectedRange.end);
+        let newNodes = getCachedAstRange(uri,
+            {startLine: affectedRange.start, endLine: affectedRange.end},
+            rangeContent
+        );
+
+        const affectedNodes: nodes.ThriftNode[] = [];
+
+        if (!newNodes) {
+            // Parse the affected range if not in cache
+            newNodes = parser.parseRange(affectedRange.start, affectedRange.end);
+        }
+
+        // Identify which existing nodes in the full AST overlap with the affected range
+        for (const node of fullAst.body) {
+            if (node.range.start.line <= affectedRange.end && node.range.end.line >= affectedRange.start) {
+                affectedNodes.push(node);
+            }
+        }
+
+        const incrementalResult: IncrementalParseResult = {
+            ast: fullAst,
+            affectedNodes: affectedNodes,
+            newNodes: newNodes
+        };
+
+        const mergedAst = parser.mergeIncrementalResults(fullAst, incrementalResult);
+        setCachedAstRange(uri,
+            {startLine: affectedRange.start, endLine: affectedRange.end},
+            rangeContent,
+            newNodes
+        );
+        setCachedAst(uri, content, mergedAst);
+        ThriftParser.setCachedAstByUriUnsafe(uri, mergedAst);
+
+        return {
+            ...incrementalResult,
+            ast: mergedAst
+        };
+    }
+
+    /**
+     * Helper method to extract content for a specific range
+     */
+    private extractRangeContent(startLine: number, endLine: number): string {
+        return this.lines.slice(startLine, endLine + 1).join('\n');
+    }
+
+    /**
+     * 合并增量解析结果到完整 AST 中。
+     */
+    public mergeIncrementalResults(
+        fullAst: nodes.ThriftDocument,
+        incrementalResult: IncrementalParseResult
+    ): nodes.ThriftDocument {
+        // If there are no new nodes, return the original AST
+        if (!incrementalResult.newNodes || incrementalResult.newNodes.length === 0) {
+            return fullAst;
+        }
+
+        // Create a copy of the full AST to avoid modifying the original
+        const updatedAst: nodes.ThriftDocument = {
+            ...fullAst,
+            body: [...fullAst.body]
+        };
+
+        // Remove affected nodes that will be replaced
+        if (incrementalResult.affectedNodes && incrementalResult.affectedNodes.length > 0) {
+            updatedAst.body = updatedAst.body.filter(node =>
+                !incrementalResult.affectedNodes.some(affectedNode =>
+                    this.rangesOverlap(affectedNode.range, node.range)
+                )
+            );
+        }
+
+        // Add or update the new nodes in the appropriate positions
+        for (const newNode of incrementalResult.newNodes) {
+            this.reparentNode(updatedAst, newNode);
+            // Find the position where this node should be inserted based on line numbers
+            let inserted = false;
+
+            for (let i = 0; i < updatedAst.body.length; i++) {
+                if (updatedAst.body[i].range.start.line > newNode.range.start.line) {
+                    updatedAst.body.splice(i, 0, newNode);
+                    inserted = true;
+                    break;
+                }
+            }
+
+            // If not inserted yet, append to the end
+            if (!inserted) {
+                updatedAst.body.push(newNode);
+            }
+        }
+
+        // Re-sort the body by line number to maintain order
+        updatedAst.body.sort((a, b) => a.range.start.line - b.range.start.line);
+
+        return updatedAst;
+    }
+
+    private rangesOverlap(a: vscode.Range, b: vscode.Range): boolean {
+        return a.start.line <= b.end.line && a.end.line >= b.start.line;
+    }
+
+    /**
+     * 获取缓存中的 AST（按 URI，忽略内容匹配）。
+     * 注意：该方法可能返回与当前文档内容不一致的 AST，仅用于增量解析等容错场景。
+     */
+    private static getCachedAstByUriUnsafe(uri: string): nodes.ThriftDocument | null {
+        const cached = ThriftParser.astByUri.get(uri);
+        if (cached && isFresh(cached.timestamp, config.cache.astMaxAgeMs)) {
+            return cached.ast;
+        }
+        return null;
+    }
+
+    private static setCachedAstByUriUnsafe(uri: string, ast: nodes.ThriftDocument): void {
+        ThriftParser.astByUri.set(uri, {ast, timestamp: Date.now()});
+    }
+
+    private static clearExpiredAstByUriCache(): void {
+        const now = Date.now();
+        for (const [uri, entry] of Array.from(ThriftParser.astByUri.entries())) {
+            if (isExpired(entry.timestamp, config.cache.astMaxAgeMs, now)) {
+                ThriftParser.astByUri.delete(uri);
+            }
+        }
+    }
+
+    private reparentNode(parent: nodes.ThriftNode, node: nodes.ThriftNode): void {
+        node.parent = parent;
+        const children = this.getChildNodes(node);
+        children.forEach(child => this.reparentNode(node, child));
+    }
+
+    private getChildNodes(node: nodes.ThriftNode): nodes.ThriftNode[] {
+        const result = new Set<nodes.ThriftNode>();
+
+        if (node.children) {
+            node.children.forEach(child => result.add(child));
+        }
+
+        if (node.type === nodes.ThriftNodeType.Document) {
+            (node.body ?? []).forEach(child => result.add(child));
+        } else if (node.type === nodes.ThriftNodeType.Enum) {
+            (node.members ?? []).forEach(child => result.add(child));
+        } else if (
+            node.type === nodes.ThriftNodeType.Struct ||
+            node.type === nodes.ThriftNodeType.Union ||
+            node.type === nodes.ThriftNodeType.Exception
+        ) {
+            (node.fields ?? []).forEach(child => result.add(child));
+        } else if (node.type === nodes.ThriftNodeType.Service) {
+            (node.functions ?? []).forEach(child => result.add(child));
+        } else if (node.type === nodes.ThriftNodeType.Function) {
+            (node.arguments ?? []).forEach(child => result.add(child));
+            (node.throws ?? []).forEach(child => result.add(child));
+        }
+
+        return Array.from(result);
+    }
 }

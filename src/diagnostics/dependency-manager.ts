@@ -41,10 +41,12 @@ export class DependencyManager {
             const includedKey = includedFile.toString();
             newIncludes.add(includedKey);
 
-            if (!this.fileDependencies.has(includedKey)) {
-                this.fileDependencies.set(includedKey, new Set<string>());
+            let dependents = this.fileDependencies.get(includedKey);
+            if (!dependents) {
+                dependents = new Set<string>();
+                this.fileDependencies.set(includedKey, dependents);
             }
-            this.fileDependencies.get(includedKey)!.add(docKey);
+            dependents.add(docKey);
         }
 
         this.fileIncludes.set(docKey, newIncludes);

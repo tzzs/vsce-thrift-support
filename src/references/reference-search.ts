@@ -19,31 +19,29 @@ interface ReferenceSearchDeps {
  * @param token - Optional cancellation token.
  * @returns Reference locations.
  */
-export async function findReferencesInDocument(
+export function findReferencesInDocument(
     uri: vscode.Uri,
     text: string,
     symbolName: string,
     includeDeclaration: boolean,
     deps: ReferenceSearchDeps,
     token?: vscode.CancellationToken
-): Promise<vscode.Location[]> {
+): vscode.Location[] {
     if (token && token.isCancellationRequested) {
         return [];
     }
 
     const references: vscode.Location[] = [];
-    let ast: nodes.ThriftDocument;
-
-    try {
+    const ast = deps.errorHandler.wrapSync(() => {
         const parser = new ThriftParser(text);
-        ast = parser.parse();
-    } catch (error) {
-        deps.errorHandler.handleError(error, {
-            component: 'ThriftReferencesProvider',
-            operation: 'parseAst',
-            filePath: uri.fsPath,
-            additionalInfo: {symbolName}
-        });
+        return parser.parse();
+    }, {
+        component: 'ThriftReferencesProvider',
+        operation: 'parseAst',
+        filePath: uri.fsPath,
+        additionalInfo: {symbolName}
+    }, null);
+    if (!ast) {
         return references;
     }
 
@@ -54,7 +52,7 @@ export async function findReferencesInDocument(
     const contextCallback = (node: nodes.ThriftNode, entering: boolean) => {
         if (node.type === nodes.ThriftNodeType.Function) {
             if (entering) {
-                currentFunction = node as nodes.ThriftFunction;
+                currentFunction = node ;
                 inFunctionArguments = false;
                 inFunctionThrows = false;
             } else {
@@ -66,7 +64,7 @@ export async function findReferencesInDocument(
 
         if (node.type === nodes.ThriftNodeType.Field) {
             if (entering) {
-                const field = node as nodes.Field;
+                const field = node ;
                 if (currentFunction && currentFunction.arguments && currentFunction.arguments.includes(field)) {
                     inFunctionArguments = true;
                     inFunctionThrows = false;
@@ -112,7 +110,7 @@ export async function findReferencesInDocument(
         }
 
         if (node.type === nodes.ThriftNodeType.Function) {
-            const func = node as nodes.ThriftFunction;
+            const func = node ;
             if (func.returnType === symbolName) {
                 references.push(createLocation(uri, func.returnTypeRange ?? func.range));
             }
@@ -123,7 +121,7 @@ export async function findReferencesInDocument(
         }
 
         if (node.type === nodes.ThriftNodeType.Field) {
-            const field = node as nodes.Field;
+            const field = node ;
             if (!inFunctionArguments) {
                 if (field.fieldType === symbolName) {
                     references.push(createLocation(uri, field.typeRange ?? field.range));

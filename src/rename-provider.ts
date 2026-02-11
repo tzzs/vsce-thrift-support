@@ -16,33 +16,31 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
     /**
      * 预检查重命名位置，返回可重命名范围与占位符。
      */
-    prepareRename(document: vscode.TextDocument, position: vscode.Position, _token: vscode.CancellationToken): vscode.ProviderResult<vscode.Range | {
+    prepareRename(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.Range | {
         range: vscode.Range;
         placeholder: string;
     }> {
-        try {
+        return this.errorHandler.wrapSync(() => {
+            void token;
             const wordRange = this.getWordRange(document, position);
             if (!wordRange) {
-                return Promise.reject('No symbol to rename at cursor');
+                return Promise.reject(new Error('No symbol to rename at cursor'));
             }
             const placeholder = document.getText(wordRange);
             return {range: wordRange, placeholder};
-        } catch (error) {
-            this.errorHandler.handleError(error, {
-                component: 'ThriftRenameProvider',
-                operation: 'prepareRename',
-                filePath: document.uri.fsPath,
-                additionalInfo: {position: position.toString()}
-            });
-            return Promise.reject('Rename failed');
-        }
+        }, {
+            component: 'ThriftRenameProvider',
+            operation: 'prepareRename',
+            filePath: document.uri.fsPath,
+            additionalInfo: {position: `${position.line}:${position.character}`}
+        }, Promise.reject(new Error('Rename failed')));
     }
 
     /**
      * 生成重命名的 WorkspaceEdit，尽量使用精确范围替换。
      */
-    async provideRenameEdits(document: vscode.TextDocument, position: vscode.Position, newName: string, _token: vscode.CancellationToken): Promise<vscode.WorkspaceEdit | undefined> {
-        try {
+    async provideRenameEdits(document: vscode.TextDocument, position: vscode.Position, newName: string, token: vscode.CancellationToken): Promise<vscode.WorkspaceEdit | undefined> {
+        return this.errorHandler.wrapAsync(async () => {
             const wordRange = this.getWordRange(document, position);
             if (!wordRange) {
                 return undefined;
@@ -54,7 +52,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
 
             // Use the references provider to find all occurrences
             const referencesProvider = new ThriftReferencesProvider();
-            const safeToken = _token ?? ({isCancellationRequested: false} as vscode.CancellationToken);
+            const safeToken = token ?? ({isCancellationRequested: false} as vscode.CancellationToken);
             const references = await referencesProvider.provideReferences(
                 document,
                 position,
@@ -86,15 +84,12 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
             }
 
             return edit;
-        } catch (error) {
-            this.errorHandler.handleError(error, {
-                component: 'ThriftRenameProvider',
-                operation: 'provideRenameEdits',
-                filePath: document.uri.fsPath,
-                additionalInfo: {position: position.toString(), newName}
-            });
-            return undefined;
-        }
+        }, {
+            component: 'ThriftRenameProvider',
+            operation: 'provideRenameEdits',
+            filePath: document.uri.fsPath,
+            additionalInfo: {position: `${position.line}:${position.character}`, newName}
+        }, undefined);
     }
 
     /**
@@ -118,7 +113,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
      * 获取可稳定比对的 URI 键。
      */
     private getUriKey(uri: vscode.Uri): string {
-        const uriAny = uri as unknown as { fsPath?: string; path?: string; toString?: () => string };
+        const uriAny = uri as unknown as {fsPath?: string; path?: string; toString?: () => string};
         return uriAny.fsPath || uriAny.path || (uriAny.toString ? uriAny.toString() : '');
     }
 
@@ -131,7 +126,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         cache: Map<string, vscode.TextDocument>
     ): Promise<vscode.TextDocument | undefined> {
         const key = this.getUriKey(uri);
-        const fallbackKey = this.getUriKey(fallback.uri as vscode.Uri);
+        const fallbackKey = this.getUriKey(fallback.uri );
         if (key && key === fallbackKey) {
             return fallback;
         }

@@ -7,7 +7,17 @@ export interface ErrorContext {
     component: string;
     operation: string;
     filePath?: string;
-    additionalInfo?: Record<string, any>;
+    additionalInfo?: Record<string, unknown>;
+}
+
+/**
+ * 错误聚合统计
+ */
+interface ErrorAggregation {
+    count: number;
+    firstSeen: number;
+    lastSeen: number;
+    message: string;
 }
 
 /**
@@ -15,6 +25,20 @@ export interface ErrorContext {
  */
 export class ErrorHandler {
     private static instance: ErrorHandler;
+
+    // 错误聚合缓存
+    private errorAggregations = new Map<string, ErrorAggregation>();
+    private readonly AGGREGATION_WINDOW_MS = 300000; // 5 分钟聚合窗口
+    private readonly MAX_AGGREGATION_COUNT = 100; // 最多聚合 100 次
+
+    // 性能统计
+    private errorStats = {
+        total: 0,
+        warnings: 0,
+        infos: 0,
+        byComponent: new Map<string, number>(),
+        byOperation: new Map<string, number>()
+    };
 
     /**
      * 获取单例实例。
@@ -34,10 +58,15 @@ export class ErrorHandler {
      */
     handleError(error: unknown, context: ErrorContext): void {
         const errorMessage = this.getErrorMessage(error);
-        const logMessage = this.formatLogMessage(errorMessage, context, 'error');
+        const errorKey = this.getErrorKey(errorMessage, context);
 
-        // 记录到控制台
-        console.error(logMessage);
+        // 更新聚合统计
+        this.updateErrorAggregation(errorKey, errorMessage);
+
+        // 更新性能统计
+        this.errorStats.total++;
+        this.incrementCounter(this.errorStats.byComponent, context.component);
+        this.incrementCounter(this.errorStats.byOperation, context.operation);
 
         // 如果是用户操作相关的错误，显示通知
         if (this.shouldShowNotification(context)) {
@@ -54,10 +83,9 @@ export class ErrorHandler {
      * @param context 错误上下文
      */
     handleWarning(message: string, context: ErrorContext): void {
-        const logMessage = this.formatLogMessage(message, context, 'warning');
-
-        // 记录到控制台
-        console.warn(logMessage);
+        // 更新性能统计
+        this.errorStats.warnings++;
+        this.incrementCounter(this.errorStats.byComponent, context.component);
 
         // 记录到输出通道（如果可用）
         this.logToOutputChannel(new Error(message), context, 'warning');
@@ -69,9 +97,24 @@ export class ErrorHandler {
      * @param context 错误上下文
      */
     handleInfo(message: string, context: ErrorContext): void {
-        const logMessage = this.formatLogMessage(message, context, 'info');
-        console.log(logMessage);
+        // 更新性能统计
+        this.errorStats.infos++;
+        this.incrementCounter(this.errorStats.byComponent, context.component);
+
         this.logToOutputChannel(message, context, 'info');
+    }
+
+    /**
+     * 安全执行函数，捕获异常并返回回退值。
+     * @param fn 目标函数
+     * @param fallbackValue 回退值
+     */
+    safe<T>(fn: () => T, fallbackValue: T): T {
+        try {
+            return fn();
+        } catch {
+            return fallbackValue;
+        }
     }
 
     /**
@@ -86,12 +129,13 @@ export class ErrorHandler {
         context: ErrorContext,
         fallbackValue?: T
     ): Promise<T> {
+        const hasFallback = arguments.length >= 3;
         try {
             return await fn();
         } catch (error) {
             this.handleError(error, context);
-            if (fallbackValue !== undefined) {
-                return fallbackValue;
+            if (hasFallback) {
+                return fallbackValue as T;
             }
             throw error;
         }
@@ -105,12 +149,13 @@ export class ErrorHandler {
      * @returns 函数执行结果，或在出错时返回 fallbackValue（如果提供），否则抛出错误
      */
     wrapSync<T>(fn: () => T, context: ErrorContext, fallbackValue?: T): T {
+        const hasFallback = arguments.length >= 3;
         try {
             return fn();
         } catch (error) {
             this.handleError(error, context);
-            if (fallbackValue !== undefined) {
-                return fallbackValue;
+            if (hasFallback) {
+                return fallbackValue as T;
             }
             throw error;
         }
@@ -145,10 +190,10 @@ export class ErrorHandler {
 
     private showErrorNotification(message: string, context: ErrorContext): void {
         const shortMessage = `[Thrift Support] ${context.operation} failed: ${message}`;
-        vscode.window.showErrorMessage(shortMessage, 'Details').then(selection => {
+        void vscode.window.showErrorMessage(shortMessage, 'Details').then(selection => {
             if (selection === 'Details') {
                 const details = this.formatLogMessage(message, context);
-                vscode.window.showErrorMessage(details);
+                void vscode.window.showErrorMessage(details);
             }
         });
     }
@@ -174,5 +219,80 @@ export class ErrorHandler {
         } catch {
             // 如果输出通道创建失败，忽略
         }
+    }
+
+    /**
+     * 生成错误聚合键（基于消息和上下文）
+     */
+    private getErrorKey(message: string, context: ErrorContext): string {
+        return `${context.component}:${context.operation}:${message.substring(0, 100)}`; // 限制消息长度
+    }
+
+    /**
+     * 更新错误聚合统计
+     */
+    private updateErrorAggregation(key: string, message: string): void {
+        const now = Date.now();
+        const aggregation = this.errorAggregations.get(key);
+
+        if (aggregation) {
+            // 检查是否在聚合窗口内
+            if (now - aggregation.lastSeen < this.AGGREGATION_WINDOW_MS && aggregation.count < this.MAX_AGGREGATION_COUNT) {
+                aggregation.count++;
+                aggregation.lastSeen = now;
+            } else {
+                // 超出窗口，重置计数
+                aggregation.count = 1;
+                aggregation.lastSeen = now;
+            }
+        } else {
+            // 首次出现
+            this.errorAggregations.set(key, {
+                count: 1,
+                firstSeen: now,
+                lastSeen: now,
+                message
+            });
+        }
+    }
+
+    /**
+     * 获取错误聚合统计信息
+     */
+    public getErrorAggregations(): Map<string, ErrorAggregation> {
+        return new Map(this.errorAggregations);
+    }
+
+    /**
+     * 获取错误性能统计
+     */
+    public getErrorStats() {
+        return {
+            ...this.errorStats,
+            byComponent: new Map(this.errorStats.byComponent),
+            byOperation: new Map(this.errorStats.byOperation)
+        };
+    }
+
+    /**
+     * 重置错误统计
+     */
+    public resetStats(): void {
+        this.errorStats = {
+            total: 0,
+            warnings: 0,
+            infos: 0,
+            byComponent: new Map(),
+            byOperation: new Map()
+        };
+        this.errorAggregations.clear();
+    }
+
+    /**
+     * 辅助方法：递增计数器
+     */
+    private incrementCounter(map: Map<string, number>, key: string): void {
+        const current = map.get(key) || 0;
+        map.set(key, current + 1);
     }
 }

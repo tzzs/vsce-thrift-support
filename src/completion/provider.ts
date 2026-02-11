@@ -42,8 +42,9 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         document: vscode.TextDocument,
         position: vscode.Position,
         token: vscode.CancellationToken,
-        _context: vscode.CompletionContext
+        context: vscode.CompletionContext
     ): Promise<vscode.CompletionItem[] | vscode.CompletionList> {
+        void context;
         const thriftDoc = ThriftParser.parseWithCache(document);
         if (token.isCancellationRequested) {
             return [];
@@ -59,7 +60,6 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
             // Check if we are inside quotes
             const quoteMatch = beforeCursor.match(/include\s+(["'])/);
             if (quoteMatch) {
-                const prefix = beforeCursor.substring(beforeCursor.indexOf(quoteMatch[1]) + 1);
                 // Call item helper (note: prefix arg not really used in original implementation logic but passed for potential filtering)
                 const items = await provideIncludePathCompletions(document, this.errorHandler);
                 return items;

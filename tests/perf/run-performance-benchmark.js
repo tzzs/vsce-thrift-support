@@ -80,7 +80,7 @@ async function run() {
     const doc = createDoc(text, 'perf-benchmark.thrift', 1);
 
     const manager = new DiagnosticManager();
-    const tracker = new IncrementalTracker();
+    const tracker = IncrementalTracker.getInstance();
     const formattingProvider = new ThriftFormattingProvider({incrementalTracker: tracker});
 
     config.incremental.analysisEnabled = true;

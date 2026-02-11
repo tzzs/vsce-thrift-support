@@ -42,7 +42,7 @@ Module._load = function(request, parent, isMain) {
                         
                         return {
                             getText: (range) => {
-                                if (!range) return content;
+                                if (!range) {return content;}
                                 
                                 const startLine = range.start.line;
                                 const endLine = range.end.line;

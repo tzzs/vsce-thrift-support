@@ -20,8 +20,8 @@ export function getWordRangeAtPosition(
     const includeMatch = text.match(/^(\s*)include\s+["']([^"']+)["']/);
     if (includeMatch) {
         const includeStart = text.indexOf('include');
-        const quoteStart = text.indexOf('"') !== -1 ? text.indexOf('"') : text.indexOf("'");
-        const quoteEnd = text.lastIndexOf('"') !== -1 ? text.lastIndexOf('"') : text.lastIndexOf("'");
+        const quoteStart = text.indexOf('"') !== -1 ? text.indexOf('"') : text.indexOf('\'');
+        const quoteEnd = text.lastIndexOf('"') !== -1 ? text.lastIndexOf('"') : text.lastIndexOf('\'');
 
         if (position.character >= includeStart && position.character <= quoteEnd) {
             if (position.character >= includeStart && position.character < includeStart + 7) {
@@ -40,9 +40,6 @@ export function getWordRangeAtPosition(
 
     // Fallback: try adjacent lines if no word found at current position
     // This improves robustness in edge cases (e.g., empty lines, boundaries)
-    const lineCount = typeof document.lineCount === 'number'
-        ? document.lineCount
-        : position.line + 3;
     const offsets = [1, -1, 2, -2];
     for (const offset of offsets) {
         const targetLine = position.line + offset;
@@ -87,8 +84,8 @@ export async function checkIncludeStatement(
     const includePath = includeMatch[1];
     const documentDir = path.dirname(document.uri.fsPath);
     const fullLineText = line.text;
-    const quoteStart = fullLineText.indexOf('"') !== -1 ? fullLineText.indexOf('"') : fullLineText.indexOf("'");
-    const quoteEnd = fullLineText.lastIndexOf('"') !== -1 ? fullLineText.lastIndexOf('"') : fullLineText.lastIndexOf("'");
+    const quoteStart = fullLineText.indexOf('"') !== -1 ? fullLineText.indexOf('"') : fullLineText.indexOf('\'');
+    const quoteEnd = fullLineText.lastIndexOf('"') !== -1 ? fullLineText.lastIndexOf('"') : fullLineText.lastIndexOf('\'');
 
     if (position.character >= quoteStart && position.character <= quoteEnd) {
         const resolvedPath = await resolveModulePath(includePath, documentDir);
@@ -97,7 +94,7 @@ export async function checkIncludeStatement(
                 const uri = vscode.Uri.file(resolvedPath);
                 await vscode.workspace.fs.stat(uri);
                 return createLocation(uri, new vscode.Range(0, 0, 0, 0));
-            } catch (error) {
+            } catch {
                 errorHandler.handleWarning(`Include file not found: ${includePath}`, {
                     component: 'ThriftDefinitionProvider',
                     operation: 'resolveIncludePath',
@@ -188,10 +185,10 @@ export function fileDeclaresNamespace(text: string, namespace: string): boolean 
     return namespaceRegex.test(text);
 }
 
-export async function getIncludedFiles(
+export function getIncludedFiles(
     document: vscode.TextDocument,
     errorHandler: ErrorHandler
-): Promise<vscode.Uri[]> {
+): vscode.Uri[] {
     const text = document.getText();
     const lines = text.split('\n');
     const includedFiles: vscode.Uri[] = [];
@@ -213,7 +210,7 @@ export async function getIncludedFiles(
         try {
             const uri = vscode.Uri.file(fullPath);
             includedFiles.push(uri);
-        } catch (error) {
+        } catch {
             errorHandler.handleWarning(`Invalid include path: ${includePath}`, {
                 component: 'ThriftDefinitionProvider',
                 operation: 'getIncludedFiles',

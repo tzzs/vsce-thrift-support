@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import {ErrorHandler} from './error-handler';
 
 type LocationCtor = new (uri: vscode.Uri, range: vscode.Range) => vscode.Location;
 
@@ -18,10 +19,9 @@ const locationCtor: LocationCtor | undefined =
  */
 export function createLocation(uri: vscode.Uri, range: vscode.Range): vscode.Location {
     if (locationCtor) {
-        try {
-            return new locationCtor(uri, range);
-        } catch {
-            // Fall through to fallback
+        const location = ErrorHandler.getInstance().safe(() => new locationCtor(uri, range), null);
+        if (location) {
+            return location;
         }
     }
     return {uri, range} as vscode.Location;

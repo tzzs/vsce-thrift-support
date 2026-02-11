@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
 import {config} from './config';
 import {ErrorHandler} from './utils/error-handler';
+import {MemoryMonitor} from './utils/memory-monitor';
+import {formatMb, ReportBuilder} from './utils/report-builder';
+import {sampler} from './utils/sampler';
 
 // 性能监控器 - 跟踪慢操作并提供优化建议
 export interface PerformanceMetrics {
@@ -40,11 +43,17 @@ export class PerformanceMonitor {
     private errorHandler: ErrorHandler;
     private readonly component = 'PerformanceMonitor';
 
+    // 添加内存监控实例
+    private memoryMonitor: MemoryMonitor;
+
     constructor(options: PerformanceMonitorOptions = {}) {
         this.errorHandler = options.errorHandler ?? new ErrorHandler();
         this.slowOperationThreshold =
             options.slowOperationThreshold ?? config.performance.slowOperationThresholdMs;
         this.maxMetrics = options.maxMetrics ?? config.performance.maxMetrics;
+
+        // 初始化内存监控
+        this.memoryMonitor = MemoryMonitor.getInstance();
     }
 
     /**
@@ -63,53 +72,87 @@ export class PerformanceMonitor {
      * @returns 函数执行结果
      */
     public measure<T>(operation: string, fn: () => T, document?: vscode.TextDocument): T {
+        const shouldSample = sampler.shouldSample(operation);
+
+        // 采样时记录内存使用
+        if (shouldSample) {
+            this.memoryMonitor.recordMemoryUsage();
+        }
+
         const start = performance.now();
-        const result = fn();
+        let result: T;
+        try {
+            result = fn();
+        } finally {
+            if (shouldSample) {
+                this.memoryMonitor.recordMemoryUsage();
+            }
+        }
         const duration = performance.now() - start;
 
-        // 记录性能指标
-        const metric: PerformanceMetrics = {
-            operation,
-            duration,
-            timestamp: Date.now(),
-            documentUri: document?.uri.toString(),
-            fileSize: document ? document.getText().length : undefined
-        };
+        // 采样时记录性能指标
+        if (shouldSample) {
+            const metric: PerformanceMetrics = {
+                operation,
+                duration,
+                timestamp: Date.now(),
+                documentUri: document?.uri.toString(),
+                fileSize: document ? document.getText().length : undefined
+            };
 
-        this.recordMetric(metric);
+            this.recordMetric(metric);
 
-        // 如果操作很慢，发出警告
-        if (duration > this.slowOperationThreshold) {
-            this.warnSlowOperation(metric);
+            // 如果操作很慢，发出警告
+            if (duration > this.slowOperationThreshold) {
+                this.warnSlowOperation(metric);
+            }
         }
 
         return result;
     }
 
     /**
-     * 异步测量指定操作的耗时。
+     * 异步测量指定操作的耗时（采样版本，降低开销）。
      * @param operation 操作名称
      * @param fn 要执行的异步函数
      * @param document 相关文档（可选）
      * @returns 函数执行结果 promise
      */
     public async measureAsync<T>(operation: string, fn: () => Promise<T>, document?: vscode.TextDocument): Promise<T> {
+        const shouldSample = sampler.shouldSample(operation);
+
+        // 采样时记录内存使用
+        if (shouldSample) {
+            this.memoryMonitor.recordMemoryUsage();
+        }
+
         const start = performance.now();
-        const result = await fn();
+        let result: T;
+        try {
+            result = await fn();
+        } finally {
+            if (shouldSample) {
+                this.memoryMonitor.recordMemoryUsage();
+            }
+        }
         const duration = performance.now() - start;
 
-        const metric: PerformanceMetrics = {
-            operation,
-            duration,
-            timestamp: Date.now(),
-            documentUri: document?.uri.toString(),
-            fileSize: document ? document.getText().length : undefined
-        };
+        // 采样时记录性能指标
+        if (shouldSample) {
+            const metric: PerformanceMetrics = {
+                operation,
+                duration,
+                timestamp: Date.now(),
+                documentUri: document?.uri.toString(),
+                fileSize: document ? document.getText().length : undefined
+            };
 
-        this.recordMetric(metric);
+            this.recordMetric(metric);
 
-        if (duration > this.slowOperationThreshold) {
-            this.warnSlowOperation(metric);
+            // 如果操作很慢，发出警告
+            if (duration > this.slowOperationThreshold) {
+                this.warnSlowOperation(metric);
+            }
         }
 
         return result;
@@ -130,38 +173,109 @@ export class PerformanceMonitor {
         const slowOperations = recentMetrics.filter(m => m.duration > this.slowOperationThreshold);
         const opStats = this.getOperationStats();
 
-        let report = `## Thrift Support 性能报告\n\n`;
-        report += `**统计时间:** ${new Date().toLocaleString()}\n`;
-        report += `**总操作数:** ${this.metrics.length}\n`;
-        report += `**平均响应时间:** ${avgDuration.toFixed(2)}ms\n`;
-        report += `**最大响应时间:** ${maxDuration.toFixed(2)}ms\n`;
-        report += `**慢操作数 (>${this.slowOperationThreshold}ms):** ${slowOperations.length}\n\n`;
+        const report = new ReportBuilder();
+        report.add('## Thrift Support 性能报告');
+        report.add();
+        report.add(`**统计时间:** ${new Date().toLocaleString()}`);
+        report.add(`**总操作数:** ${this.metrics.length}`);
+        report.add(`**平均响应时间:** ${avgDuration.toFixed(2)}ms`);
+        report.add(`**最大响应时间:** ${maxDuration.toFixed(2)}ms`);
+        report.add(`**慢操作数 (>${this.slowOperationThreshold}ms):** ${slowOperations.length}`);
+        report.add();
 
         if (typeof process !== 'undefined' && typeof process.memoryUsage === 'function') {
             const mem = process.memoryUsage();
-            report += `**内存占用:** rss ${(mem.rss / 1024 / 1024).toFixed(1)}MB, heap ${(mem.heapUsed / 1024 / 1024).toFixed(1)}MB\n\n`;
+            report.add(`**内存占用:** rss ${formatMb(mem.rss, 1)}, heap ${formatMb(mem.heapUsed, 1)}`);
+            report.add();
         }
 
         if (opStats.length > 0) {
-            report += `### 操作统计\n`;
+            report.add('### 操作统计');
             opStats.forEach(stat => {
                 const sizeInfo = typeof stat.avgFileSize === 'number'
                     ? `, avgFile=${(stat.avgFileSize / 1024).toFixed(1)}KB`
                     : '';
-                report += `- **${stat.operation}**: count=${stat.count}, avg=${stat.avgDuration.toFixed(2)}ms, p95=${stat.p95Duration.toFixed(2)}ms, max=${stat.maxDuration.toFixed(2)}ms, slow=${stat.slowCount}${sizeInfo}\n`;
+                report.add(`- **${stat.operation}**: count=${stat.count}, avg=${stat.avgDuration.toFixed(2)}ms, p95=${stat.p95Duration.toFixed(2)}ms, max=${stat.maxDuration.toFixed(2)}ms, slow=${stat.slowCount}${sizeInfo}`);
             });
-            report += '\n';
+            report.add();
+
+            // Add comparison between incremental and full parsing if both exist
+            const incrementalOps = opStats.filter(stat => stat.operation.startsWith('incremental-parse'));
+            const fullOps = opStats.filter(stat => stat.operation.startsWith('full-parse'));
+
+            if (incrementalOps.length > 0 && fullOps.length > 0) {
+                report.add('### 性能对比');
+                incrementalOps.forEach(incStat => {
+                    fullOps.forEach(fullStat => {
+                        if (incStat.operation.replace('incremental-', '').startsWith(fullStat.operation.replace('full-', ''))) {
+                            const improvement = ((fullStat.avgDuration - incStat.avgDuration) / fullStat.avgDuration * 100).toFixed(1);
+                            report.add(`- ${incStat.operation} vs ${fullStat.operation}: ${improvement}% faster (avg: ${incStat.avgDuration.toFixed(2)}ms vs ${fullStat.avgDuration.toFixed(2)}ms)`);
+                        }
+                    });
+                });
+                report.add();
+            }
         }
 
         if (slowOperations.length > 0) {
-            report += `### 慢操作详情\n`;
+            report.add('### 慢操作详情');
             slowOperations.forEach(metric => {
                 const fileInfo = metric.documentUri ? vscode.workspace.asRelativePath(metric.documentUri) : '未知文件';
-                report += `- **${metric.operation}**: ${metric.duration.toFixed(2)}ms (${fileInfo})\n`;
+                report.add(`- **${metric.operation}**: ${metric.duration.toFixed(2)}ms (${fileInfo})`);
             });
         }
 
-        return report;
+        // 添加内存使用报告
+        report.add();
+        report.add(this.memoryMonitor.getMemoryReport());
+
+        return report.toString();
+    }
+
+    /**
+     * 测量增量解析操作的耗时并与全量解析进行比较。
+     * @param fullParseFn 全量解析函数
+     * @param incrementalParseFn 增量解析函数
+     * @param document 相关文档
+     * @param dirtyRange 变更范围
+     * @returns 增量解析结果
+     */
+    public measureIncrementalParsing<T>(
+        fullParseFn: () => T,
+        incrementalParseFn: () => T,
+        document?: vscode.TextDocument,
+        dirtyRange?: {startLine: number; endLine: number}
+    ): {result: T; wasIncremental: boolean; improvement: number} {
+        let fullDuration = 0;
+        let incrementalDuration = 0;
+        let result: T;
+        let wasIncremental = false;
+
+        // First try incremental parsing if dirty range is provided
+        if (dirtyRange && document) {
+            const incrementalStart = performance.now();
+            result = this.measure(`incremental-parse-region-${dirtyRange.startLine}-${dirtyRange.endLine}`, incrementalParseFn, document);
+            incrementalDuration = performance.now() - incrementalStart;
+            wasIncremental = true;
+
+            // For comparison, also measure full parsing occasionally to maintain statistics
+            const shouldCompare = this.metrics.length < 10 || this.metrics.length % 20 === 0; // Compare periodically
+            if (shouldCompare) {
+                const fullStart = performance.now();
+                this.measure('full-parse-reference', fullParseFn, document);
+                fullDuration = performance.now() - fullStart;
+            }
+        } else {
+            // Fallback to full parsing
+            result = this.measure('full-parse', fullParseFn, document);
+            wasIncremental = false;
+        }
+
+        // Calculate improvement percentage if both measurements are available
+        const improvement = fullDuration > 0 ?
+            ((fullDuration - incrementalDuration) / fullDuration * 100) : 0;
+
+        return {result, wasIncremental, improvement};
     }
 
     /**
@@ -187,9 +301,9 @@ export class PerformanceMonitor {
      * 统计慢操作的次数与平均耗时。
      * @returns 慢操作统计列表
      */
-    public getSlowOperationStats(): { operation: string; count: number; avgDuration: number }[] {
+    public getSlowOperationStats(): {operation: string; count: number; avgDuration: number}[] {
         const slowOps = this.metrics.filter(m => m.duration > this.slowOperationThreshold);
-        const stats = new Map<string, { count: number; totalDuration: number }>();
+        const stats = new Map<string, {count: number; totalDuration: number}>();
 
         slowOps.forEach(metric => {
             const existing = stats.get(metric.operation) || {count: 0, totalDuration: 0};
@@ -243,7 +357,7 @@ export class PerformanceMonitor {
         }
 
         const result: OperationStats[] = [];
-        for (const stat of stats.values()) {
+        for (const stat of Array.from(stats.values())) {
             const durations = this.metrics
                 .filter(m => m.operation === stat.operation)
                 .map(m => m.duration)

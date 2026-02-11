@@ -19,7 +19,7 @@ export interface FormattingContext {
 export function computeInitialContext(
     document: vscode.TextDocument,
     start: vscode.Position,
-    useCachedAst: boolean = false
+    useCachedAst = false
 ): FormattingContext {
     try {
         let ast: nodes.ThriftDocument;
@@ -124,7 +124,7 @@ export function computeInitialContext(
             inEnum,
             inService
         };
-    } catch (error) {
+    } catch {
         return {indentLevel: 0, inStruct: false, inEnum: false, inService: false};
     }
 }

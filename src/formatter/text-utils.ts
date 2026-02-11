@@ -135,7 +135,7 @@ export function normalizeGenericsInSignature(text: string): string {
                 continue;
             }
             res.push(ch);
-            if (ch === "'") {
+            if (ch === '\'') {
                 inS = false;
             }
             continue;
@@ -146,7 +146,7 @@ export function normalizeGenericsInSignature(text: string): string {
             res.push(ch);
             continue;
         }
-        if (ch === "'") {
+        if (ch === '\'') {
             inS = true;
             res.push(ch);
             continue;

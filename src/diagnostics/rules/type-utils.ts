@@ -217,7 +217,7 @@ function isFloatLiteral(text: string): boolean {
  */
 function isQuotedString(text: string): boolean {
     const t = text.trim();
-    if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+    if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith('\'') && t.endsWith('\''))) {
         return t.length >= 2;
     }
     return false;
