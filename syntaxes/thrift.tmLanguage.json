@@ -172,37 +172,17 @@
           "end": ">",
           "patterns": [
             {
-              "name": "storage.type.key.thrift",
-              "patterns": [
-                {
-                  "include": "#types"
-                },
-                {
-                  "include": "#nested-types"
-                },
-                {
-                  "name": "entity.name.type.namespace.thrift",
-                  "match": "[a-zA-Z0-9_]+\\.[A-Z][a-zA-Z0-9_]*"
-                }
-              ]
+              "include": "#types"
+            },
+            {
+              "include": "#nested-types"
+            },
+            {
+              "name": "entity.name.type.namespace.thrift",
+              "match": "[a-zA-Z0-9_]+\\.[A-Z][a-zA-Z0-9_]*"
             },
             {
               "include": "#punctuation-comma"
-            },
-            {
-              "name": "storage.type.value.thrift",
-              "patterns": [
-                {
-                  "include": "#types"
-                },
-                {
-                  "include": "#nested-types"
-                },
-                {
-                  "name": "entity.name.type.namespace.thrift",
-                  "match": "[a-zA-Z0-9_]+\\.[A-Z][a-zA-Z0-9_]*"
-                }
-              ]
             },
             {
               "include": "#comments"
@@ -451,6 +431,18 @@
               "include": "#field-definitions"
             },
             {
+              "include": "#constants"
+            },
+            {
+              "include": "#strings"
+            },
+            {
+              "include": "#operators"
+            },
+            {
+              "include": "#punctuation-comma"
+            },
+            {
               "include": "#annotations"
             }
           ]
@@ -571,6 +563,18 @@
               "include": "#field-definitions"
             },
             {
+              "include": "#constants"
+            },
+            {
+              "include": "#strings"
+            },
+            {
+              "include": "#operators"
+            },
+            {
+              "include": "#punctuation-comma"
+            },
+            {
               "include": "#annotations"
             }
           ]
@@ -602,6 +606,18 @@
             },
             {
               "include": "#field-definitions"
+            },
+            {
+              "include": "#constants"
+            },
+            {
+              "include": "#strings"
+            },
+            {
+              "include": "#operators"
+            },
+            {
+              "include": "#punctuation-comma"
             },
             {
               "include": "#annotations"
@@ -701,16 +717,10 @@
               "name": "keyword.control.thrift"
             }
           },
-          "end": "\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(=\\s*[^,\\n#]*)?\\s*(,)?\\s*(//.*)?$",
+          "end": "\\s+([a-zA-Z_][a-zA-Z0-9_]*)",
           "endCaptures": {
             "1": {
               "name": "variable.other.thrift"
-            },
-            "2": {
-              "name": "keyword.operator.thrift"
-            },
-            "3": {
-              "name": "keyword.operator.thrift"
             }
           },
           "patterns": [
@@ -721,19 +731,7 @@
               "include": "#nested-types"
             },
             {
-              "match": "\\b([A-Z][a-zA-Z0-9_]*)\\.([A-Z_][A-Z0-9_]*)\\b",
-              "name": "constant.other.enum.reference.thrift",
-              "captures": {
-                "1": {
-                  "name": "entity.name.type.thrift"
-                },
-                "2": {
-                  "name": "constant.other.enum.thrift"
-                }
-              }
-            },
-            {
-              "include": "#punctuation-comma"
+              "include": "#annotations"
             },
             {
               "include": "#comments"
@@ -741,107 +739,136 @@
           ]
         }
       ]
-    },
-    "method-definitions": {
-      "patterns": [
-        {
-          "name": "meta.method.return-type.thrift",
-          "match": "\\s*(oneway\\s+)?(void|[a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
-          "captures": {
-            "1": {
-              "name": "keyword.control.thrift"
-            },
-            "2": {
-              "name": "support.type.thrift"
-            },
-            "3": {
-              "name": "entity.name.function.thrift"
-            }
-          }
-        },
-        {
-          "name": "meta.method.stream.thrift",
-          "match": "\\s*(stream|sink)\\s+(void|[a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
-          "captures": {
-            "1": {
-              "name": "keyword.control.thrift"
-            },
-            "2": {
-              "name": "support.type.thrift"
-            },
-            "3": {
-              "name": "entity.name.function.thrift"
-            }
-          }
-        },
-        {
-          "name": "meta.method.thrift",
-          "begin": "\\s*",
-          "end": "\\)",
-          "endCaptures": {
-            "0": {
-              "name": "keyword.operator.thrift"
-            }
+    }
+  },
+  "method-definitions": {
+    "patterns": [
+      {
+        "name": "meta.method.definition.thrift",
+        "begin": "\\s*(oneway\\s+)?(?:(stream|sink)\\s+<([^>]+)>\\s+)?([a-zA-Z_][a-zA-Z0-9_<>, ]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(",
+        "beginCaptures": {
+          "1": {
+            "name": "storage.modifier.thrift"
           },
-          "patterns": [
-            {
-              "include": "#method-parameters"
-            },
-            {
-              "include": "#types"
-            },
-            {
-              "include": "#keywords"
-            },
-            {
-              "name": "meta.method.returns.thrift",
-              "match": "\\s*(throws)\\s*\\(",
-              "captures": {
-                "1": {
-                  "name": "keyword.control.thrift"
-                }
+          "2": {
+            "name": "keyword.control.thrift"
+          },
+          "3": {
+            "patterns": [
+              {
+                "include": "#types"
+              },
+              {
+                "include": "#nested-types"
+              }
+            ]
+          },
+          "4": {
+            "patterns": [
+              {
+                "include": "#types"
+              },
+              {
+                "include": "#nested-types"
+              }
+            ]
+          },
+          "5": {
+            "name": "entity.name.function.thrift"
+          }
+        },
+        "end": "\\)\\s*(?:(throws)\\s*\\(([^)]*)\\))?\\s*(,)?",
+        "endCaptures": {
+          "1": {
+            "name": "keyword.control.thrift"
+          },
+          "2": {
+            "patterns": [
+              {
+                "include": "#method-parameters"
+              }
+            ]
+          },
+          "3": {
+            "name": "punctuation.separator.comma.thrift"
+          }
+        },
+        "patterns": [
+          {
+            "include": "#method-parameters"
+          },
+          {
+            "include": "#comments"
+          }
+        ]
+      },
+      {
+        "name": "meta.method.thrift",
+        "begin": "\\s*",
+        "end": "\\)",
+        "endCaptures": {
+          "0": {
+            "name": "keyword.operator.thrift"
+          }
+        },
+        "patterns": [
+          {
+            "include": "#method-parameters"
+          },
+          {
+            "include": "#types"
+          },
+          {
+            "include": "#keywords"
+          },
+          {
+            "name": "meta.method.returns.thrift",
+            "match": "\\s*(throws)\\s*\\(",
+            "captures": {
+              "1": {
+                "name": "keyword.control.thrift"
               }
             }
-          ]
-        }
-      ]
-    },
-    "method-parameters": {
-      "patterns": [
-        {
-          "name": "meta.parameter.thrift",
-          "begin": "\\s*([0-9]+)\\s*:\\s*",
-          "beginCaptures": {
-            "1": {
-              "name": "constant.numeric.thrift"
-            }
-          },
-          "end": "\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(,)?",
-          "endCaptures": {
-            "1": {
-              "name": "variable.other.thrift"
-            },
-            "2": {
-              "name": "keyword.operator.thrift"
-            }
-          },
-          "patterns": [
-            {
-              "include": "#types"
-            },
-            {
-              "include": "#nested-types"
-            },
-            {
-              "include": "#punctuation-comma"
-            }
-          ]
+          }
+        ]
+      }
+    ]
+  },
+  "method-parameters": {
+    "patterns": [
+      {
+        "name": "meta.parameter.thrift",
+        "begin": "\\s*([0-9]+)\\s*:\\s*",
+        "beginCaptures": {
+          "1": {
+            "name": "constant.numeric.thrift"
+          }
         },
-        {
-          "include": "#comments"
-        }
-      ]
-    }
+        "end": "\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(,)?",
+        "endCaptures": {
+          "1": {
+            "name": "variable.other.thrift"
+          },
+          "2": {
+            "name": "keyword.operator.thrift"
+          }
+        },
+        "patterns": [
+          {
+            "include": "#types"
+          },
+          {
+            "include": "#nested-types"
+          },
+          {
+            "include": "#punctuation-comma"
+          }
+        ]
+      },
+      {
+        "include": "#comments"
+      }
+    ]
   },
   "scopeName": "source.thrift"
 }
