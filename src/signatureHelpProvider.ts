@@ -4,9 +4,7 @@ export class ThriftSignatureHelpProvider implements vscode.SignatureHelpProvider
     
     public provideSignatureHelp(
         document: vscode.TextDocument,
-        position: vscode.Position,
-        token: vscode.CancellationToken,
-        context: vscode.SignatureHelpContext
+        position: vscode.Position
     ): vscode.SignatureHelp | undefined {
         
         const line = document.lineAt(position.line).text;
@@ -72,7 +70,7 @@ export class ThriftSignatureHelpProvider implements vscode.SignatureHelpProvider
         
         if (isDefinition) {
             // 如果是函数定义，从当前文档中查找
-            const defRegex = new RegExp(`(oneway\s+)?void\\s+${functionName}\\s*\\(([^)]*?)\\)`, 'g');
+            const defRegex = new RegExp(`(oneways+)?void\\s+${functionName}\\s*\\(([^)]*?)\\)`, 'g');
             const match = defRegex.exec(text);
             if (match) {
                 const returnType = match[1] ? 'oneway void' : 'void';

@@ -217,12 +217,12 @@ function splitTopLevelAssignments(content: string): string[] {
 
         // Track brackets only outside quoted strings
         if (!inSingleQuote && !inDoubleQuote) {
-            if (ch === '{') braceDepth++;
-            else if (ch === '}') braceDepth = Math.max(0, braceDepth - 1);
-            else if (ch === '[') bracketDepth++;
-            else if (ch === ']') bracketDepth = Math.max(0, bracketDepth - 1);
-            else if (ch === '(') parenDepth++;
-            else if (ch === ')') parenDepth = Math.max(0, parenDepth - 1);
+            if (ch === '{') {braceDepth++;}
+            else if (ch === '}') {braceDepth = Math.max(0, braceDepth - 1);}
+            else if (ch === '[') {bracketDepth++;}
+            else if (ch === ']') {bracketDepth = Math.max(0, bracketDepth - 1);}
+            else if (ch === '(') {parenDepth++;}
+            else if (ch === ')') {parenDepth = Math.max(0, parenDepth - 1);}
         }
 
         // Split on comma at top level
@@ -250,7 +250,7 @@ function splitTopLevelAssignments(content: string): string[] {
  */
 function parseSingleAssignment(assignment: string): AnnotationPair | null {
     // Handle simple assignments like key=value
-    const simpleMatch = assignment.match(/^([A-Za-z_][A-Za-z0-9_\.]*)\s*=\s*(.+)$/);
+    const simpleMatch = assignment.match(/^([A-Za-z_][A-Za-z0-9_.]*)\s*=\s*(.+)$/);
     if (simpleMatch) {
         return {
             key: simpleMatch[1],
