@@ -110,6 +110,58 @@ function testStructFieldFormatting() {
     }
     console.log('✓ 所有字段名保留');
 
+    // Check: 没有重复逗号 (严格检查)
+    const hasDuplicateCommas = /,\s*,/.test(formatted);
+    if (hasDuplicateCommas) {
+        console.error('❌ 发现重复逗号!');
+        const lines = formatted.split('\n');
+        lines.forEach((line, idx) => {
+            if (/,\s*,/.test(line)) {
+                console.error(`  行 ${idx + 1}: ${line}`);
+            }
+        });
+        return false;
+    }
+    console.log('✓ 没有重复逗号');
+
+    // Additional messy-case test: input containing stray commas or duplicated punctuation
+    const messyInput = `struct User {
+  1: required UserId id, ,
+  2: required string name,,
+  3: optional i32    age  ,
+}`;
+
+    const messyDoc = {
+        getText: () => messyInput,
+        lineAt: (line) => ({ text: messyInput.split('\n')[line] || '' }),
+        positionAt: (offset) => {
+            const lines = messyInput.substring(0, offset).split('\n');
+            return new vscode.Position(lines.length - 1, lines[lines.length - 1].length);
+        }
+    };
+
+    const messyEdits = provider.provideDocumentFormattingEdits(
+        messyDoc,
+        { insertSpaces: true, tabSize: 4 },
+        {}
+    );
+
+    if (!messyEdits || messyEdits.length === 0) {
+        console.error('❌ 未返回 messy-case 格式化编辑');
+        return false;
+    }
+
+    const messyFormatted = messyEdits[0].newText;
+    console.log('Messy 格式化结果:');
+    console.log(messyFormatted);
+
+    const hasDupMessy = /,\s*,/.test(messyFormatted);
+    if (hasDupMessy) {
+        console.error('❌ messy-case: 仍然发现重复逗号!');
+        return false;
+    }
+    console.log('✓ messy-case: 没有重复逗号');
+
     return true;
 }
 

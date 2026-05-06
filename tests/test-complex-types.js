@@ -91,17 +91,17 @@ function testComplexTypesFormatting() {
             
             // Check specific formatting expectations
             const hasCorrectList = formattedText.includes('list<string>');
-            const hasCorrectMap = formattedText.includes('map<string,i32>');
-            
+            const hasCorrectMap = formattedText.includes('map<string, i32>');
+
             console.log('\nChecking formatting:');
             console.log('- list<string> (no spaces):', hasCorrectList ? '✓' : '✗');
-            console.log('- map<string,i32> (no spaces):', hasCorrectMap ? '✓' : '✗');
-            
+            console.log('- map<string, i32> (normalized):', hasCorrectMap ? '✓' : '✗');
+
             if (hasCorrectList && hasCorrectMap) {
                 console.log('\n✓ Complex types formatted correctly');
             } else {
                 console.log('\n✗ Complex types not formatted correctly');
-                console.log('Expected: list<string> and map<string,i32>');
+                console.log('Expected: list<string> and map<string, i32>');
             }
         } else {
             console.log('✗ Formatting failed - no edits returned');

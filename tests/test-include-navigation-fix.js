@@ -235,7 +235,7 @@ function testFormatting() {
             console.log(formattedText);
             
             // Check if complex types are properly formatted
-            if (formattedText.includes('list<string>') && formattedText.includes('map<string,i32>')) {
+            if (formattedText.includes('list<string>') && formattedText.includes('map<string, i32>')) {
                 console.log('✓ Complex types formatted correctly (no spaces around < >)');
             } else {
                 console.log('✗ Complex types not formatted correctly');

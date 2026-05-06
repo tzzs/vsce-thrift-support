@@ -3,7 +3,7 @@ const vscode = {
   TextEdit: {
     replace: (range, newText) => ({ range, newText })
   },
-  Range: function(startLine, startChar, endLine, endChar) {
+  Range: function (startLine, startChar, endLine, endChar) {
     return { start: { line: startLine, character: startChar }, end: { line: endLine, character: endChar } };
   },
   workspace: {
@@ -31,7 +31,7 @@ const vscode = {
 // Mock the module system
 const Module = require('module');
 const originalRequire = Module.prototype.require;
-Module.prototype.require = function(id) {
+Module.prototype.require = function (id) {
   if (id === 'vscode') {
     return vscode;
   }
@@ -147,6 +147,10 @@ function checkAlignedColumns(lines, extractor) {
   const lastLineIsClosing = /^\s*\]\s*$/.test(outLines[outLines.length - 1]);
 
   const ok = hasOpeningOnFirst && hasItemsIndented && lastLineIsClosing;
+  if (!ok) {
+    console.log('Test 4 Debug:', { hasOpeningOnFirst, hasItemsIndented, lastLineIsClosing });
+    console.log('Lines:', outLines);
+  }
   console.log(ok ? '✓ Expanded to multiline with proper structure' : '✗ Expansion structure incorrect');
   if (!ok) process.exitCode = 1;
 
@@ -159,12 +163,12 @@ function checkAlignedColumns(lines, extractor) {
       '"python",',
       '"cpp",',
       '"javascript"',
-      ']' 
+      ']'
     ].join('\n');
-  
+
     const output = runWithConfig(input, { /* 使用默认配置即可 */ });
     console.log(output);
-  
+
     const lines = output.split('\n');
     // 期望结构：
     // 1) 第一行以 '= [' 结束
@@ -174,12 +178,12 @@ function checkAlignedColumns(lines, extractor) {
     const items = lines.slice(1, -1);
     const itemsIndented = items.every((l) => /^\s{2,}.+/.test(l)); // 至少有若干空格缩进
     const closingAlign = /^\s*\]\s*$/.test(lines[lines.length - 1]);
-  
+
     const ok = hasOpeningOnFirst && items.length >= 1 && itemsIndented && closingAlign;
     console.log(ok ? '✓ Multiline list const is properly indented' : '✗ Multiline list const indentation incorrect');
     if (!ok) process.exitCode = 1;
   })();
-  
+
   // 6) collectionStyle = auto: 短行保持单行
   (function testCollectionStyleAutoShortLine() {
     console.log('\n=== Test 6: collectionStyle = auto keeps short inline ===');
@@ -193,7 +197,7 @@ function checkAlignedColumns(lines, extractor) {
       console.log('✓ Auto mode preserves short inline');
     }
   })();
-  
+
   // 7) collectionStyle = auto: 超长自动展开（考虑注释）
   (function testCollectionStyleAutoLongLineWithComment() {
     console.log('\n=== Test 7: collectionStyle = auto expands when long (including comment) ===');
@@ -215,7 +219,7 @@ function checkAlignedColumns(lines, extractor) {
       console.log('✓ Auto mode expands when exceeding maxLineLength');
     }
   })();
-  
+
   // 8) collectionStyle = auto: 恰好边界（等于 maxLineLength 时不展开）
   (function testCollectionStyleAutoBoundary() {
     console.log('\n=== Test 8: collectionStyle = auto boundary condition ===');

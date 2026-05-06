@@ -19,7 +19,7 @@ const vscode = {
             return {
                 get: (key) => {
                     const fullKey = section ? `${section}.${key}` : key;
-                    return config[fullKey] !== undefined ? config[fullKey] : null;
+                    return config[fullKey] !== undefined ? config[fullKey] : undefined;
                 }
             };
         }
@@ -188,7 +188,7 @@ function testEnumAlignmentConfigurations() {
                         'thrift-support.formatting.alignComments': true,
                         'thrift-support.formatting.indentSize': 4
                     };
-                    return defaults[fullKey] !== undefined ? defaults[fullKey] : true;
+                    return defaults[fullKey] !== undefined ? defaults[fullKey] : undefined;
                 }
             };
         };
