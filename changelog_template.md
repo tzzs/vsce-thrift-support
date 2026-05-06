@@ -16,18 +16,24 @@
 ## [X.Y.Z](https://github.com/OWNER/REPO/compare/vPREVIOUS...vX.Y.Z) (YYYY-MM-DD)
 
 ### 中文版本
+
 #### 新功能
+
 * 作用域：简要描述；如有多点用分号隔开（[abcdef1](https://github.com/OWNER/REPO/commit/abcdef1)）
 * 作用域：简要描述（[1234567](https://github.com/OWNER/REPO/commit/1234567)）
 
 #### 错误修复
+
 * 作用域：简要描述（[89abcde](https://github.com/OWNER/REPO/commit/89abcde)）
 
 #### 性能优化
+
 * 作用域：简要描述（[7654321](https://github.com/OWNER/REPO/commit/7654321)）
 
 <!-- 可选：仅在存在破坏性变更时添加 -->
+
 #### 破坏性变更
+
 * 作用域：变更点与迁移说明（[fedcba9](https://github.com/OWNER/REPO/commit/fedcba9)）
 
 <!-- 可选：需要时启用文档/构建/其他分类；若无内容请删除整个分节
@@ -39,18 +45,25 @@
 -->
 
 ### English Version
+
 #### Features
-* scope: concise description; separate multiple points with semicolons ([abcdef1](https://github.com/OWNER/REPO/commit/abcdef1))
+
+* scope: concise description; separate multiple points with
+  semicolons ([abcdef1](https://github.com/OWNER/REPO/commit/abcdef1))
 * scope: concise description ([1234567](https://github.com/OWNER/REPO/commit/1234567))
 
 #### Bug Fixes
+
 * scope: concise description ([89abcde](https://github.com/OWNER/REPO/commit/89abcde))
 
 #### Performance Improvements
+
 * scope: concise description ([7654321](https://github.com/OWNER/REPO/commit/7654321))
 
 <!-- Optional: only when you have breaking changes -->
+
 #### Breaking Changes
+
 * scope: breaking change and migration notes ([fedcba9](https://github.com/OWNER/REPO/commit/fedcba9))
 
 <!-- Optional: enable when needed; remove if empty

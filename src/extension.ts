@@ -1,229 +1,136 @@
 import * as vscode from 'vscode';
-import { ThriftFormattingProvider } from './formattingProvider';
-import { ThriftDefinitionProvider } from './definitionProvider';
-import { ThriftHoverProvider } from './hoverProvider';
-import { ThriftSignatureHelpProvider } from './signatureHelpProvider';
-import { registerDiagnostics } from './diagnostics';
-import { ThriftRenameProvider } from './renameProvider';
-import { ThriftRefactorCodeActionProvider } from './codeActionsProvider';
-import { registerCompletionProvider } from './completionProvider';
-import { registerDocumentSymbolProvider } from './documentSymbolProvider';
-import { registerWorkspaceSymbolProvider } from './workspaceSymbolProvider';
-import { registerReferencesProvider } from './referencesProvider';
-import { registerFoldingRangeProvider } from './foldingRangeProvider';
-import { registerSelectionRangeProvider } from './selectionRangeProvider';
+import {ErrorHandler} from './utils/error-handler';
+import {createCoreDependencies} from './utils/dependencies';
+import {registerProviders} from './setup';
+import {registerCommands} from './commands';
+import {MemoryMonitor} from './utils/memory-monitor';
+import {performanceMonitor} from './performance-monitor';
 
+/**
+ * 扩展入口，注册所有能力与命令。
+ * @param context 扩展上下文
+ */
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Thrift Support extension is now active!');
+    const deps = createCoreDependencies();
+    const errorHandler = deps.errorHandler;
+    errorHandler.handleInfo('Thrift Support extension is now active!', {
+        component: 'Extension',
+        operation: 'activate'
+    });
 
-    // Register formatting provider
-    const formattingProvider = new ThriftFormattingProvider();
+    // 初始化内存管理系统
+    initializeMemoryManagement(context, errorHandler);
+
+    // 注册性能监控相关命令
+    registerPerformanceCommands(context, errorHandler);
+
+    registerProviders(context, deps);
+    registerCommands(context, deps);
+}
+
+/**
+ * 注册性能相关的命令
+ */
+function registerPerformanceCommands(context: vscode.ExtensionContext, errorHandler: ErrorHandler): void {
     context.subscriptions.push(
-        vscode.languages.registerDocumentFormattingEditProvider('thrift', formattingProvider)
-    ); 
-    context.subscriptions.push(
-        vscode.languages.registerDocumentRangeFormattingEditProvider('thrift', formattingProvider)
-    );
-
-    // Register definition provider for go-to-definition
-    const definitionProvider = new ThriftDefinitionProvider();
-    context.subscriptions.push(
-        vscode.languages.registerDefinitionProvider('thrift', definitionProvider)
-    );
-
-    // Register hover provider for showing symbol documentation on hover
-    const hoverProvider = new ThriftHoverProvider();
-    context.subscriptions.push(
-        vscode.languages.registerHoverProvider('thrift', hoverProvider)
-    );
-
-    // Register signature help provider for function parameter hints
-    const signatureHelpProvider = new ThriftSignatureHelpProvider();
-    context.subscriptions.push(
-        vscode.languages.registerSignatureHelpProvider('thrift', signatureHelpProvider, '(', ',')
-    );
-
-    // Register diagnostics (syntax/type/duplicate id/unknown type)
-    registerDiagnostics(context);
-
-    // Register completion provider for auto-completion
-    registerCompletionProvider(context);
-
-    // Register document symbol provider for outline view
-    registerDocumentSymbolProvider(context);
-
-    // Register workspace symbol provider for global symbol search
-    registerWorkspaceSymbolProvider(context);
-
-    // Register references provider for "Find All References"
-    registerReferencesProvider(context);
-
-    // Register folding range provider for code folding
-    registerFoldingRangeProvider(context);
-
-    // Register selection range provider for smart selection
-    registerSelectionRangeProvider(context);
-
-    // Register rename provider
-    context.subscriptions.push(
-        vscode.languages.registerRenameProvider('thrift', new ThriftRenameProvider())
-    );
-
-    // Register code actions provider (extract/move type + quick fixes)
-    context.subscriptions.push(
-        vscode.languages.registerCodeActionsProvider(
-            'thrift',
-            new ThriftRefactorCodeActionProvider(),
-            { providedCodeActionKinds: [
-                vscode.CodeActionKind.Refactor,
-                vscode.CodeActionKind.RefactorExtract,
-                vscode.CodeActionKind.RefactorMove,
-                vscode.CodeActionKind.QuickFix,
-            ]}
-        )
-    );
-
-    // Register formatting commands
-    context.subscriptions.push(
-        vscode.commands.registerCommand('thrift.format.document', async () => {
-            const editor = vscode.window.activeTextEditor;
-            if (editor && editor.document.languageId === 'thrift') {
-                await vscode.commands.executeCommand('editor.action.formatDocument');
+        vscode.commands.registerCommand('thrift.showPerformanceReport', async () => {
+            try {
+                await performanceMonitor.showPerformanceReport();
+            } catch (error) {
+                errorHandler.handleError(error, {
+                    component: 'Extension',
+                    operation: 'showPerformanceReport'
+                });
             }
-        })
-    );
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand('thrift.format.selection', async () => {
-            const editor = vscode.window.activeTextEditor;
-            if (editor && editor.document.languageId === 'thrift') {
-                await vscode.commands.executeCommand('editor.action.formatSelection');
-            }
-        })
-    );
-
-    // Refactor: extract type definition
-    context.subscriptions.push(
-        vscode.commands.registerCommand('thrift.refactor.extractType', async () => {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor || editor.document.languageId !== 'thrift') {return;}
-            const doc = editor.document;
-            const sel = editor.selection;
-            const fullLine = doc.lineAt(sel.active.line).text;
-            const selectedText = doc.getText(sel) || undefined;
-
-            // Try to infer type from current line if no selection
-            let typeText = selectedText && selectedText.trim().length > 0 ? selectedText.trim() : undefined;
-            if (!typeText) {
-                // match field: 1: required list<string> items,
-                const m = fullLine.match(/^(\s*)\d+\s*:\s*(?:required|optional)?\s*([^\s,;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/);
-                if (m) {typeText = m[2];}
-            }
-            if (!typeText) {return;}
-
-            const newTypeName = await vscode.window.showInputBox({ prompt: 'New type name', value: 'ExtractedType' });
-            if (!newTypeName) {return;}
-
-            const edit = new vscode.WorkspaceEdit();
-
-            // Insert typedef at a suitable location: after last include/namespace or at top
-            const text = doc.getText();
-            const lines = text.split('\n');
-            let insertLine = 0;
-            for (let i = 0; i < lines.length; i++) {
-                if (/^\s*(include\s+['"].+['"]|namespace\s+)/.test(lines[i])) {
-                    insertLine = i + 1;
-                }
-            }
-            const typedefLine = `typedef ${typeText} ${newTypeName}`;
-            edit.insert(doc.uri, new vscode.Position(insertLine, 0), typedefLine + '\n\n');
-
-            // Replace original type text at current line if present in the line
-            const typeIdx = fullLine.indexOf(typeText);
-            if (typeIdx >= 0) {
-                const lineNo = sel.active.line;
-                edit.replace(
-                    doc.uri,
-                    new vscode.Range(lineNo, typeIdx, lineNo, typeIdx + typeText.length),
-                    newTypeName
-                );
-            }
-
-            await vscode.workspace.applyEdit(edit);
-        })
-    );
-
-    // Refactor: move type to another file
-    context.subscriptions.push(
-        vscode.commands.registerCommand('thrift.refactor.moveType', async () => {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor || editor.document.languageId !== 'thrift') {return;}
-            const doc = editor.document;
-            const sel = editor.selection;
-            const pos = sel.active;
-
-            // Heuristic: find the enclosing type block (struct/enum/service/typedef)
-            let startLine = 0;
-            let endLine = doc.lineCount - 1;
-            for (let i = pos.line; i >= 0; i--) {
-                const t = doc.lineAt(i).text;
-                if (/^\s*(struct|enum|service|typedef)\s+[A-Za-z_][A-Za-z0-9_]*/.test(t)) {
-                    startLine = i;
-                    break;
-                }
-            }
-            for (let i = pos.line; i < doc.lineCount; i++) {
-                const t = doc.lineAt(i).text;
-                if (t.includes('{')) { startLine = Math.min(startLine, i); break; }
-            }
-            for (let i = pos.line; i < doc.lineCount; i++) {
-                const t = doc.lineAt(i).text;
-                if (t.includes('}')) { endLine = i; break; }
-            }
-
-            const typeDeclLine = doc.lineAt(startLine).text;
-            const m = typeDeclLine.match(/^\s*(struct|enum|service|typedef)\s+([A-Za-z_][A-Za-z0-9_]*)/);
-            if (!m) {return;}
-            const typeName = m[2];
-
-            // Find matching closing brace if not found yet
-            if (endLine < startLine) {
-                // Find matching closing brace
-                let depth = 0;
-                for (let i = pos.line; i < doc.lineCount; i++) {
-                    const t = doc.lineAt(i).text;
-                    if (t.includes('{')) { if (depth === 0) {startLine = i;} depth++; }
-                    if (t.includes('}')) { depth--; if (depth === 0) { endLine = i; break; } }
-                }
-            }
-
-            const typeBlock = doc.getText(new vscode.Range(startLine, 0, endLine, doc.lineAt(endLine).text.length));
-
-            const defaultFileName = `${typeName}.thrift`;
-            const targetName = await vscode.window.showInputBox({ prompt: 'Target .thrift file name', value: defaultFileName });
-            if (!targetName) {return;}
-
-            const folder = vscode.Uri.file(require('path').dirname(doc.uri.fsPath));
-            const targetUri = vscode.Uri.file(require('path').join(folder.fsPath, targetName));
-
-            const edit = new vscode.WorkspaceEdit();
-            // Ensure include line exists
-            const includeLine = `include "${targetName}"`;
-            const docText = doc.getText();
-            if (!new RegExp(`^\\s*include\\s+[\"\']${targetName}[\"\']`, 'm').test(docText)) {
-                edit.insert(doc.uri, new vscode.Position(0, 0), includeLine + '\n');
-            }
-            // Remove original block
-            edit.delete(doc.uri, new vscode.Range(startLine, 0, endLine + 1, 0));
-            // Create new file and insert block
-            edit.createFile(targetUri, { overwrite: true });
-            edit.insert(targetUri, new vscode.Position(0, 0), typeBlock + '\n');
-
-            await vscode.workspace.applyEdit(edit);
         })
     );
 }
 
+/**
+ * 初始化内存管理系统
+ */
+function initializeMemoryManagement(context: vscode.ExtensionContext, errorHandler: ErrorHandler): void {
+    try {
+        // 获取智能内存监控器实例
+        const memoryMonitor = MemoryMonitor.getInstance();
+
+        // 定期记录内存使用情况
+        const memoryCheckInterval = setInterval(() => {
+            memoryMonitor.recordMemoryUsage();
+        }, 30000); // 每30秒检查一次
+
+        // 注册内存相关的命令
+        context.subscriptions.push(
+            vscode.commands.registerCommand('thrift.showMemoryReport', () => {
+                try {
+                    const report = memoryMonitor.getMemoryReport();
+                    const panel = vscode.window.createWebviewPanel(
+                        'thriftMemoryReport',
+                        'Thrift Memory Report',
+                        vscode.ViewColumn.One,
+                        {}
+                    );
+                    panel.webview.html = `<pre>${report}</pre>`;
+                } catch (error) {
+                    errorHandler.handleError(error, {
+                        component: 'Extension',
+                        operation: 'showMemoryReport'
+                    });
+                }
+            })
+        );
+
+        // 监听内存警告事件
+        context.subscriptions.push(
+            vscode.workspace.onDidChangeConfiguration(e => {
+                if (e.affectsConfiguration('thrift.performance')) {
+                    // 当性能配置改变时，可能需要调整内存策略
+                    // 根据配置可能调整动态调整因子
+                }
+            })
+        );
+
+        // 在扩展激活时立即记录一次内存使用情况
+        memoryMonitor.recordMemoryUsage();
+
+        // 存储清理函数以便在扩展停用时使用
+        context.subscriptions.push({
+            dispose: () => {
+                clearInterval(memoryCheckInterval);
+            }
+        });
+
+        errorHandler.handleInfo('Memory management system initialized', {
+            component: 'Extension',
+            operation: 'initializeMemoryManagement'
+        });
+    } catch (error) {
+        errorHandler.handleError(error, {
+            component: 'Extension',
+            operation: 'initializeMemoryManagement'
+        });
+    }
+}
+
+/**
+ * 扩展停用时清理资源。
+ */
 export function deactivate() {
-    console.log('Thrift Support extension is now deactivated!');
+    const errorHandler = new ErrorHandler();
+
+    // 获取内存监控器实例并执行清理
+    try {
+        const memoryMonitor = MemoryMonitor.getInstance();
+        memoryMonitor.forceGarbageCollection(); // 尝试强制垃圾回收
+    } catch (error) {
+        errorHandler.handleError(error, {
+            component: 'Extension',
+            operation: 'deactivate-memory-monitor'
+        });
+    }
+
+    errorHandler.handleInfo('Thrift Support extension is now deactivated!', {
+        component: 'Extension',
+        operation: 'deactivate'
+    });
 }

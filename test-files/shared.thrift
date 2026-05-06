@@ -9,5 +9,5 @@ enum SharedEnum {
     OPTION2 = 2
 }
 
-service SharedService {
-}
+
+service SharedService {}

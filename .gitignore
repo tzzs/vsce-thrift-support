@@ -55,3 +55,11 @@ build
 .pnp.*
 coverage
 .claude/
+test-thrift/
+.idea/
+.nyc_cache/
+.nyc_output/
+.vscode/
+.qoder/
+.codex/
+.trae/
