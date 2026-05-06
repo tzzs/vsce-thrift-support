@@ -287,15 +287,12 @@ export function extractAnnotationsFromField(line: string): {
     annotations: AnnotationNode[];
 } {
     const parseResult = parseAnnotations(line);
-    
+
     // Reconstruct the field line without annotations
     let fieldLine = parseResult.strippedText;
-    
-    // Clean up any trailing whitespace or commas
+
+    // Clean up any trailing whitespace
     fieldLine = fieldLine.replace(/\s+$/, '');
-    if (!fieldLine.endsWith(',') && !fieldLine.endsWith(';')) {
-        fieldLine += ',';
-    }
 
     return {
         fieldLine,
