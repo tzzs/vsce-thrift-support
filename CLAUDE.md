@@ -4,130 +4,145 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a VS Code extension that provides comprehensive language support for Apache Thrift IDL files. The extension offers syntax highlighting, code formatting, navigation, diagnostics, and refactoring capabilities for `.thrift` files.
+VS Code extension providing comprehensive language support for Apache Thrift IDL files — syntax highlighting, formatting, diagnostics, navigation, completion, rename, and refactoring. Uses VS Code's built-in language provider APIs (no separate language server).
 
 ## Development Environment
 
-**Critical Requirements:**
-- Node.js: 22.18.0 (must match CI version)
+- Node.js: 22.18.0 (must match CI)
 - VS Code Engine: ^1.75.0
-- TypeScript: ^4.9.4
-- @vscode/vsce: ^3.6.0 (note: package name changed from `vsce` to `@vscode/vsce`)
+- TypeScript: ^4.9.5
+- ESLint: ^9.15.0 (flat config, `eslint.config.mjs`)
+- Test framework: Mocha ^11.7.5
+- Package: `@vscode/vsce` ^3.6.2 (note: was renamed from `vsce`)
 
 ## Essential Commands
 
-### Build and Development
 ```bash
-npm install          # Install dependencies (use Node 22.18.0)
-npm run compile      # Compile TypeScript
-npm run watch        # Development mode with auto-compilation
-npm run build        # Clean and compile
-npm run lint         # Run ESLint on src/**/*.ts
+npm install            # Install dependencies
+npm run compile        # Compile TypeScript (tsc -p ./)
+npm run watch          # Dev mode with auto-compilation
+npm run build          # Clean + compile
+npm run lint           # ESLint (flat config, no --ext flag)
+npm run lint:fix       # Auto-fix lint issues
 ```
 
 ### Testing
+
 ```bash
-npm test             # Run main include-navigation test
-npm run test:all     # Run all individual tests (note: chained via &&, stops on first failure)
-npm run test:all:node # Run all tests via node script (runs all regardless of failures)
-npm run coverage     # Generate coverage report
+npm test               # Build + run full Mocha suite (tests/src/**/*.js)
+npm run test:single    # Build + run single test via .mocharc.single.json
+npm run coverage       # Coverage report via nyc + mocha
 
-# Individual test suites
-npm run test:complex     # Complex types formatting
-npm run test:enum        # Enum formatting
-npm run test:indent      # Indent width tests
-npm run test:comma       # Trailing comma tests
-npm run test:const       # Constant formatting tests
+# Run a single test file
+npx mocha --config .mocharc.single.json tests/src/formatter/test-struct-formatting.js
 
-# Run a single test file directly
-node tests/test-struct-annotations-combinations.js
+# Run a scenario test
+npx mocha tests/scenarios/formatting/test-full-file-format.js
 ```
 
-### Pre-push checklist (matches CI)
+Tests use a require hook (`tests/require-hook.js`) that mocks the `vscode` module via `tests/mock_vscode.js`. All tests import from `../out/src/...` (compiled output). Mocha config: timeout 30s, `.mocharc.json` for full suite, `.mocharc.single.json` for single files.
+
+### Pre-push Checklist (matches CI)
+
 ```bash
-npm run lint && npm run build && npm run test:all
+npm run lint && npm run build && npm test
 ```
 
-### Packaging and Publishing
+### Packaging
+
 ```bash
-npm run package      # Create .vsix extension package
-npm run publish      # Publish to VS Code Marketplace (requires VSCE_PAT)
+npm run package        # Create .vsix
+npm run publish        # Publish to Marketplace (requires VSCE_PAT)
 ```
 
-## Architecture Overview
+## Architecture
 
-### Core Modules
-- `src/extension.ts` - Extension entry point, registers all providers and commands (activated `onLanguage:thrift`)
-- `src/formattingProvider.ts` - Document and range formatting with alignment strategies; implements `DocumentFormattingEditProvider` and `DocumentRangeFormattingEditProvider`
-- `src/definitionProvider.ts` - Go-to-definition with include resolution and workspace-wide symbol search
-- `src/diagnostics.ts` - Syntax and semantic error detection (type checks, enum values, service constraints, etc.)
-- `src/renameProvider.ts` - Cross-file symbol renaming (F2) with conflict detection
-- `src/codeActionsProvider.ts` - Refactoring actions (extract typedef, move type to file) as Code Actions + Quick Fix
+### Dependency Injection Pattern
 
-### AST & Annotation System
-- `src/astTypes.ts` - TypeScript interfaces for Thrift AST nodes (AnnotationNode, AnnotationPair, FieldNode, etc.)
-- `src/annotationParser.ts` - Parses Thrift annotations into AST nodes, handling nested parentheses, quoted strings, and escape sequences. Imported by `formattingProvider` to preserve annotation information during formatting.
+The extension uses a central `createCoreDependencies()` factory (`src/utils/dependencies.ts`) producing a `CoreDependencies` object (cacheManager, errorHandler, fileWatcher, incrementalTracker, performanceMonitor, memoryMonitor) injected into all providers and commands.
 
-### Additional Language Providers
-- `src/completionProvider.ts` - Auto-completion for Thrift keywords and symbols
-- `src/hoverProvider.ts` - Symbol documentation on hover
-- `src/signatureHelpProvider.ts` - Function parameter hints (triggered on `(` and `,`)
-- `src/documentSymbolProvider.ts` - Outline / breadcrumb view
-- `src/workspaceSymbolProvider.ts` - Global workspace symbol search (Ctrl+T)
-- `src/referencesProvider.ts` - Find All References
-- `src/foldingRangeProvider.ts` - Code folding regions
-- `src/selectionRangeProvider.ts` - Smart selection expansion
+```
+extension.ts
+  createCoreDependencies()     → utils/dependencies.ts
+  registerProviders(deps)      → setup.ts
+  registerCommands(deps)       → commands/
+```
 
-### Key Design Patterns
-1. **Formatting Pipeline**: Parse → Analyze alignment widths → Transform → Output
-2. **Include Resolution**: Builds dependency graph for cross-file navigation
-3. **Configuration-Driven**: All formatting behavior controlled via VS Code settings
-4. **Error Recovery**: Parser is fault-tolerant to preserve existing layout
-5. **Providers registered via extension host API**: No separate language server — all VS Code built-in language provider APIs
+### Module Map
 
-### Syntax Highlighting
-- `syntaxes/thrift.tmLanguage.json` - TextMate grammar for syntax highlighting
-- `language-configuration.json` - Bracket matching, comments, indentation rules
+| Module | Path | Role |
+|--------|------|------|
+| **AST** | `src/ast/` | Tokenizer + parser with full/incremental modes and content-hash-based caching. `nodes.types.ts` defines all AST node interfaces. `parser.ts` is the main `ThriftParser` class. |
+| **Formatter** | `src/formatter/` | Core formatting engine: field parsing/alignment, struct/enum/service/const formatting, comment alignment, generics normalization, collection expansion. Entry: `formatter-core.ts`. |
+| **Formatting Bridge** | `src/formatting-bridge/` | Adapter between VS Code API and core formatter. Handles range expansion, incremental formatting (minimal edits), and config resolution. Entry: `index.ts` (`ThriftFormattingProvider`). |
+| **Diagnostics** | `src/diagnostics/` | Full diagnostic system with scheduling, throttling, per-document state, dependency tracking, incremental analysis, and LRU caching. Rule implementations in `rules/`. |
+| **Definition** | `src/definition/` + `src/definition-provider.ts` | Go-to-definition with include resolution, namespace-aware lookup, workspace-wide fallback. |
+| **References** | `src/references/` + `src/references-provider.ts` | Find All References with AST traversal, file list caching, rate limiting. |
+| **Completion** | `src/completion/` + `src/completion-provider.ts` | IntelliSense: keywords, types, include paths, namespace languages, enum values. |
+| **Config** | `src/config/` | Centralized defaults, VS Code settings integration, cache config management. |
+| **Utils** | `src/utils/` | Shared infrastructure: `cache-manager.ts` (LRU-K with memory pressure eviction), `error-handler.ts`, `file-watcher.ts`, `incremental-tracker.ts`, `memory-monitor.ts`, `line-range.ts`. |
+| **Commands** | `src/commands/` | VS Code commands: format, refactor (extract type, move type), performance/memory reports. |
+| **Interfaces** | `src/interfaces.types.ts` | Shared types: `ThriftFormattingOptions`, `StructField`, `EnumField`, `ConstField`. |
+
+Other single-file providers: `hover-provider.ts`, `document-symbol-provider.ts`, `workspace-symbol-provider.ts`, `folding-range-provider.ts`, `selection-range-provider.ts`, `rename-provider.ts`, `code-actions-provider.ts`. All registered in `setup.ts`.
+
+### Performance & Memory
+
+`PerformanceMonitor` (`src/performance-monitor.ts`) instruments operations with adaptive sampling, tracks avg/min/max/p95 durations, generates Markdown reports. `MemoryMonitor` (`src/utils/memory-monitor.ts`) records heap usage, detects memory pressure, dynamically adjusts cache sizes. `MemoryAwareCacheManager` (`src/utils/cache-manager.ts`) provides LRU-K caching with TTL and memory-pressure-based eviction across all feature areas.
+
+### Test Structure
+
+- `tests/src/` — Unit tests mirroring `src/` structure (organized by module)
+- `tests/scenarios/` — Integration tests: `cross-file/`, `formatting/`, `navigation/`, `regressions/`
+- `tests/require-hook.js` — Module resolution + vscode mock injection
+- `tests/mock_vscode.js` — VSCode API mock (used by all tests)
+- `test-files/` — Thrift fixtures for tests
 
 ## Configuration System
 
-All settings under `thrift.format.*` in `package.json`:
+Key settings under `thrift.format.*`:
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `alignTypes` | boolean | true | Align field types in structs/unions/exceptions |
-| `alignNames` | boolean | true | Align field names and enum member names (unified) |
-| `alignAssignments` | boolean | true | Master switch for `=` and value alignment (struct fields + enum members) |
-| `alignStructDefaults` | boolean | false | Align `=` for struct field default values; independent from `alignAssignments` |
-| `alignAnnotations` | boolean | true | Align inline annotations e.g. `(go.tag='json:...')` |
-| `alignComments` | boolean | true | Align inline comments |
 | `trailingComma` | string | "preserve" | `"add"` / `"remove"` / `"preserve"` |
+| `alignTypes` | boolean | true | Align field types in structs/unions/exceptions |
+| `alignNames` | boolean | true | Unified control for field names and enum member names |
+| `alignAssignments` | boolean | true | Master switch for `=` and value alignment |
+| `alignStructDefaults` | boolean | false | Align `=` for struct default values; independent from `alignAssignments` |
+| `alignAnnotations` | boolean | true | Align inline annotations |
+| `alignComments` | boolean | true | Align inline comments |
 | `indentSize` | number | 4 | Spaces per indent level |
 | `maxLineLength` | number | 100 | Target max line length |
 | `collectionStyle` | string | "preserve" | `"preserve"` / `"multiline"` / `"auto"` |
 
+Config resolution: `thrift.format.*` first, then legacy `thrift-support.formatting.*` as fallback. See `src/formatting-bridge/options.ts`.
+
 ## CI/CD
 
-- **ci.yml**: Runs on every push and PR — `lint → build → test:all` with Node 22.18.0
-- **release-please.yml**: Triggered on push to master; creates release PRs from conventional commits
-- **publish.yml**: Triggered on GitHub Release published; builds and publishes to VS Code Marketplace + Open VSX
+| Workflow | Trigger | Action |
+|----------|---------|--------|
+| `ci.yml` | Every push + PR | `npm ci` → `lint` → `build` → `test` (Node 22.18.0) |
+| `release-please.yml` | Push to master | Creates release PRs from conventional commits |
+| `publish.yml` | GitHub Release published | Build + publish to VS Marketplace + Open VSX |
 
 Default branch: `master`. Use conventional commits: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `perf:`.
 
 ## Important Implementation Notes
 
-1. **UUID Support**: Apache Thrift IDL 0.23+ treats `uuid` as a built-in primitive type. `diagnostics.ts`, `definitionProvider.ts`, and `thrift.tmLanguage.json` all include `uuid` in their primitive type sets — ensure consistency when adding new type handling.
+1. **UUID Support**: Thrift IDL 0.23+ treats `uuid` as a built-in primitive. All providers must include `uuid` in their primitive type sets.
 
-2. **Alignment Rules & Priorities**:
+2. **Alignment Rules**:
    - `alignAssignments` controls both struct field equals and enum equals/values
-   - `alignStructDefaults` is independent and only affects struct default values (does not follow `alignAssignments`)
-   - `alignAnnotations` takes precedence over the deprecated `alignStructAnnotations` alias; if `alignAnnotations` is not explicitly set, falls back to `alignStructAnnotations` (default true)
-   - Comment alignment only applies when `alignComments` is explicitly enabled; when disabled comments may still "appear aligned" if other columns happen to match widths — this is coincidental, not forced by the formatter
+   - `alignStructDefaults` is independent (does not follow `alignAssignments`)
+   - `alignAnnotations` falls back to deprecated `alignStructAnnotations` if not explicitly set
+   - When `alignComments` is disabled, comments may coincidentally appear aligned if other columns match widths — this is not forced alignment
 
-3. **Trailing Comma Logic**: Respects existing semicolons — won't replace `;` with `,`. In `remove` mode, commas are stripped but semicolons are preserved.
+3. **Trailing Comma**: Semicolons are always respected (never replaced with commas). `preserve` mode uses suffix-string inspection to detect original comma presence; `remove` strips commas; `add` appends them.
 
-4. **Annotation Parsing**: The `annotationParser` module strips `=` from annotations in field parsing to avoid misidentifying annotation content as default value start positions. This is critical for correct field parsing in `diagnostics.ts`.
+4. **Incremental Formatting**: `formatting-bridge/range-utils.ts` uses `expandRangeToStructuralBlocks()` and `buildMinimalEdits()` for minimal-patch editing when formatting a range. The `IncrementalTracker` (`src/utils/incremental-tracker.ts`) tracks dirty ranges per document.
 
-5. **Include Path Resolution**: Uses relative paths from current file location.
+5. **AST Caching**: The parser supports full and incremental parsing with content-hash-based cache validation. `src/ast/cache.ts` provides per-document and per-region caches that return stale results gracefully.
 
-6. **Refactoring Safety**: Built-in conflict detection for rename operations. The `moveType` command automatically inserts `include` lines in the source file.
+6. **Include Resolution**: Relative paths from current file. The definition provider builds a dependency graph and caches include-to-type mappings. Diagnostics tracks cross-file dependencies for invalidation.
+
+7. **Test Mocks**: The `vscode` mock (`tests/mock_vscode.js`) must be kept in sync with any new VS Code API usage. Module paths in tests use `../out/src/...` (compiled output). The require hook resolves these to the actual compiled files.
