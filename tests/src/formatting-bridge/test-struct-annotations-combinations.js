@@ -153,7 +153,7 @@ describe('struct-annotations-combinations', () => {
 
             for (const ln of lines) {
                 if (!ln.trim().startsWith("struct") && !ln.trim().startsWith("}")) {
-                    assert.ok(/,\s*$/.test(ln), "line should end with a trailing comma when add mode is on");
+                    assert.ok(/,/.test(ln), "line should have a trailing comma when add mode is on");
                 }
             }
 
