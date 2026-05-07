@@ -15,9 +15,9 @@ const expectedElements = {
   // 基本关键字
   keywords: [
     'include', 'cpp_include', 'namespace', 'typedef', 'struct', 'union', 
-    'exception', 'enum', 'service', 'const', 'required', 'optional', 
+    'exception', 'enum', 'service', 'interaction', 'performs', 'const', 'required', 'optional',
     'throws', 'extends', 'void', 'bool', 'byte', 'i8', 'i16', 'i32', 
-    'i64', 'double', 'string', 'binary', 'uuid', 'slist', 'senum', 
+    'i64', 'double', 'string', 'binary', 'uuid', 'senum',
     'map', 'list', 'set', 'oneway', 'async', 'reference', 'stream', 'sink'
   ],
   
@@ -31,7 +31,7 @@ const expectedElements = {
   // 数据类型
   types: [
     'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 
-    'double', 'string', 'binary', 'uuid', 'slist', 'senum'
+    'double', 'string', 'binary', 'uuid', 'senum'
   ],
   
   // 容器类型

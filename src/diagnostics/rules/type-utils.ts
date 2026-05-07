@@ -1,5 +1,5 @@
 const PRIMITIVES = new Set<string>([
-    'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid', 'slist'
+    'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid'
 ]);
 
 const integerTypes = new Set<string>(['byte', 'i8', 'i16', 'i32', 'i64']);

@@ -152,7 +152,7 @@
       "patterns": [
         {
           "name": "support.type.primitive.thrift",
-          "match": "\\b(void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid|slist|senum|stream|sink)\\b"
+          "match": "\\b(void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid|senum|stream|sink)\\b"
         },
         {
           "name": "support.type.primitive.thrift",
@@ -222,7 +222,7 @@
           ]
         },
         {
-          "begin": "\\b(senum|slist|stream|sink)\\s*<",
+          "begin": "\\b(senum|stream|sink)\\s*<",
           "beginCaptures": {
             "1": {
               "name": "support.type.primitive.thrift"

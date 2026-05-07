@@ -4,27 +4,23 @@ import {config} from '../config';
 import {ErrorHandler} from '../utils/error-handler';
 
 export const KEYWORDS = [
-    'namespace', 'include', 'cpp_include', 'php_include', 'py_module',
-    'perl_package', 'ruby_namespace', 'smalltalk_category', 'smalltalk_prefix',
-    'java_package', 'cocoa_prefix', 'csharp_namespace', 'delphi_namespace',
-    'cpp_namespace', 'd_namespace', 'c_glib', 'netstd', 'st',
+    'namespace', 'include', 'cpp_include',
     'xsd_all', 'xsd_optional', 'xsd_nillable', 'xsd_namespace', 'xsd_attrs',
     'const', 'typedef', 'enum', 'senum', 'struct', 'union', 'exception',
-    'extends', 'service', 'oneway', 'void', 'throws', 'optional', 'required', 'async'
+    'extends', 'service', 'interaction', 'performs',
+    'oneway', 'void', 'throws', 'optional', 'required',
+    'stream', 'sink'
 ];
 
 export const PRIMITIVES = [
-    'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary',
-    'uuid', 'slist', 'void'
+    'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid', 'void'
 ];
 
 export const CONTAINERS = ['list', 'set', 'map'];
 
 export const NAMESPACE_LANGUAGES = [
-    'c_glib', 'cpp', 'cpp_namespace', 'csharp_namespace', 'd_namespace',
-    'delphi_namespace', 'go', 'java_package', 'js', 'lua', 'netstd',
-    'perl', 'php', 'py', 'py.twisted', 'rb', 'rust', 'scala',
-    'smalltalk_category', 'smalltalk_prefix', 'st', 'swift', 'xsd'
+    '*', 'c_glib', 'cpp', 'delphi', 'go', 'haxe', 'java', 'js', 'lua', 'netstd',
+    'perl', 'php', 'py', 'py.twisted', 'rb', 'st', 'xsd'
 ];
 
 export const COMMON_METHODS = [
