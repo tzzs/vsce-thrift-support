@@ -121,10 +121,10 @@ export class Sampler {
                 return false;
 
             case 'interval':
-                return this.shouldSampleByInterval(operation, config.interval || 10);
+                return this.shouldSampleByInterval(operation, config.interval ?? 10);
 
             case 'percentage':
-                return this.shouldSampleByPercentage(config.percentage || 10);
+                return this.shouldSampleByPercentage(config.percentage ?? 10);
 
             case 'adaptive':
                 return this.shouldSampleAdaptive(operation, config);
@@ -254,10 +254,10 @@ export class Sampler {
             let rate = 0;
 
             if (config.strategy === 'interval') {
-                sampled = Math.floor(count / (config.interval || 10));
-                rate = 1 / (config.interval || 10);
+                sampled = Math.floor(count / (config.interval ?? 10));
+                rate = 1 / (config.interval ?? 10);
             } else if (config.strategy === 'percentage') {
-                rate = (config.percentage || 10) / 100;
+                rate = (config.percentage ?? 10) / 100;
                 sampled = Math.floor(count * rate);
             } else if (config.strategy === 'every') {
                 sampled = count;
