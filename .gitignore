@@ -42,6 +42,7 @@ typings/
 .parcel-cache
 .next
 out/
+dist/
 build
 .serverless/
 .fusebox/
