@@ -42,6 +42,11 @@ export function traverseAst(
         if (service.functions && Array.isArray(service.functions)) {
             service.functions.forEach(func => traverseAst(func, callback, contextCallback));
         }
+    } else if (node.type === nodes.ThriftNodeType.Interaction) {
+        const interaction = node ;
+        if (interaction.functions && Array.isArray(interaction.functions)) {
+            interaction.functions.forEach(func => traverseAst(func, callback, contextCallback));
+        }
     } else if (node.type === nodes.ThriftNodeType.Function) {
         const func = node ;
         if (func.arguments && Array.isArray(func.arguments)) {

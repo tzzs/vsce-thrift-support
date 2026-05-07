@@ -41,7 +41,8 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
                     node.type === nodes.ThriftNodeType.Union ||
                     node.type === nodes.ThriftNodeType.Exception ||
                     node.type === nodes.ThriftNodeType.Enum ||
-                    node.type === nodes.ThriftNodeType.Service) {
+                    node.type === nodes.ThriftNodeType.Service ||
+                    node.type === nodes.ThriftNodeType.Interaction) {
                     const range = this.getTypeBlockRange(node, lines);
                     if (range) {
                         ranges.push(range);
@@ -114,7 +115,7 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
                     if (!nextLine || nextLine.startsWith('//')) {
                         continue;
                     }
-                    if (/^(struct|union|exception|enum|senum|service)\b/.test(nextLine)) {
+                    if (/^(struct|union|exception|enum|senum|service|interaction)\b/.test(nextLine)) {
                         const structEnd = this.findMatchingBracket(lines, checkLine, '{', '}');
                         if (structEnd > checkLine) {
                             ranges.push(new vscode.FoldingRange(checkLine, structEnd));
@@ -185,12 +186,12 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
 
     private isTypeBlock(lines: string[], lineIndex: number): boolean {
         const line = lines[lineIndex].trim();
-        if (line.match(/^(struct|union|exception|enum|senum|service)\b/)) {
+        if (line.match(/^(struct|union|exception|enum|senum|service|interaction)\b/)) {
             return true;
         }
         for (let i = Math.max(0, lineIndex - 3); i < lineIndex; i++) {
             const prevLine = lines[i].trim();
-            if (prevLine.match(/^(struct|union|exception|enum|senum|service)\b/)) {
+            if (prevLine.match(/^(struct|union|exception|enum|senum|service|interaction)\b/)) {
                 return true;
             }
         }

@@ -24,3 +24,12 @@ export function isEnumStartLine(line: string): boolean {
 export function isServiceStartLine(line: string): boolean {
     return /^service\b/.test(line) && line.includes('{') && !line.includes('}');
 }
+
+/**
+ * Check if a line starts an interaction definition (fbthrift).
+ * @param line - Raw line content.
+ * @returns True when the line opens an interaction block.
+ */
+export function isInteractionStartLine(line: string): boolean {
+    return /^interaction\b/.test(line) && line.includes('{') && !line.includes('}');
+}

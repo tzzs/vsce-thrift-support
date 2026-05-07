@@ -94,6 +94,7 @@ export function findReferencesInDocument(
                 nodes.ThriftNodeType.Exception,
                 nodes.ThriftNodeType.Enum,
                 nodes.ThriftNodeType.Service,
+                nodes.ThriftNodeType.Interaction,
                 nodes.ThriftNodeType.Typedef,
                 nodes.ThriftNodeType.Const
             ];

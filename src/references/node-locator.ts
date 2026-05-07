@@ -73,6 +73,14 @@ export function findNodeAtPosition(
                             return childResult;
                         }
                     }
+                } else if (node.type === nodes.ThriftNodeType.Interaction) {
+                    const interactionNode = node ;
+                    if (interactionNode.functions) {
+                        const childResult = findDeepestNode(interactionNode.functions);
+                        if (childResult) {
+                            return childResult;
+                        }
+                    }
                 } else if (node.type === nodes.ThriftNodeType.Function) {
                     const funcNode = node ;
                     if (funcNode.arguments) {

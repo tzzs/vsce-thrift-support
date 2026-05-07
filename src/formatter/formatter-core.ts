@@ -33,7 +33,7 @@ import {
     formatTypedefLine,
     handleConstStartLine
 } from './line-handlers';
-import {isEnumStartLine, isServiceStartLine, isStructStartLine} from './line-detection';
+import {isEnumStartLine, isInteractionStartLine, isServiceStartLine, isStructStartLine} from './line-detection';
 import {formatServiceContentLine} from './service-content';
 import {isServiceMethodLine} from './service-method';
 import {formatStructContentLine} from './struct-content';
@@ -101,6 +101,7 @@ export function formatThriftContent(
         enumStarts,
         enumMemberIndex,
         serviceStarts,
+        interactionStarts,
         constStarts,
         constEnds
     } = astIndex;
@@ -110,6 +111,7 @@ export function formatThriftContent(
     let inStruct = !!(options.initialContext && options.initialContext.inStruct);
     let inEnum = !!(options.initialContext && options.initialContext.inEnum);
     let inService = !!(options.initialContext && options.initialContext.inService);
+    let inInteraction = false;
     let serviceIndentLevel = (options.initialContext && typeof options.initialContext.indentLevel === 'number')
         ? options.initialContext.indentLevel : 0;
     let structFields: StructField[] = [];
@@ -126,6 +128,7 @@ export function formatThriftContent(
         const isStructStart = structStarts.has(i) || isStructStartLine(line);
         const isEnumStart = enumStarts.has(i) || isEnumStartLine(line);
         const isServiceStart = serviceStarts.has(i) || isServiceStartLine(line);
+        const isInteractionStart = interactionStarts.has(i) || isInteractionStartLine(line);
 
         // Flush accumulated struct fields before non-field separators/comments inside struct
         const structFlush = flushStructFieldsIfNeeded(
@@ -314,6 +317,14 @@ export function formatThriftContent(
             serviceIndentLevel = indentLevel; // Track the service base level
             continue;
         }
+
+        // Handle interaction definitions (similar to service)
+        if (isInteractionStart) {
+            formattedLines.push(getIndent(indentLevel, options) + line);
+            inInteraction = true;
+            serviceIndentLevel = indentLevel;
+            continue;
+        }
         if (inStruct) {
             const structResult = formatStructContentLine(
                 line,
@@ -353,6 +364,20 @@ export function formatThriftContent(
             formattedLines.push(...serviceResult.formattedLines);
             if (serviceResult.closeService) {
                 inService = false;
+            }
+            continue;
+        }
+
+        // Handle interaction content (same formatting as service)
+        if (inInteraction) {
+            const interactionResult = formatServiceContentLine(line, serviceIndentLevel, options, {
+                getServiceIndent,
+                normalizeGenericsInSignature,
+                isServiceMethod: isServiceMethodLine
+            });
+            formattedLines.push(...interactionResult.formattedLines);
+            if (interactionResult.closeService) {
+                inInteraction = false;
             }
             continue;
         }

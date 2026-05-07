@@ -148,6 +148,11 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
                 detail = `service ${name}${node.extends ? ` extends ${node.extends}` : ''}`;
                 break;
             }
+            case nodes.ThriftNodeType.Interaction: {
+                kind = vscode.SymbolKind.Interface;
+                detail = `interaction ${name}`;
+                break;
+            }
             case nodes.ThriftNodeType.EnumMember: {
                 kind = vscode.SymbolKind.EnumMember;
                 detail = name;
@@ -200,6 +205,14 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
         } else if (node.type === nodes.ThriftNodeType.Service) {
             const serviceNode = node ;
             for (const func of serviceNode.functions) {
+                const childSym = this.createSymbol(func);
+                if (childSym) {
+                    docSymbol.children.push(childSym);
+                }
+            }
+        } else if (node.type === nodes.ThriftNodeType.Interaction) {
+            const interactionNode = node ;
+            for (const func of interactionNode.functions) {
                 const childSym = this.createSymbol(func);
                 if (childSym) {
                     docSymbol.children.push(childSym);

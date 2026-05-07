@@ -119,6 +119,13 @@ export class DefinitionLookup {
                     return false;
                 }
             }
+        } else if (node.type === nodes.ThriftNodeType.Interaction) {
+            const interaction = node ;
+            for (const func of interaction.functions) {
+                if (!this.traverseAST(func, callback)) {
+                    return false;
+                }
+            }
         } else if (node.type === nodes.ThriftNodeType.Function) {
             const func = node ;
             for (const arg of func.arguments) {

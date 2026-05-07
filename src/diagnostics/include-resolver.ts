@@ -49,6 +49,11 @@ export function collectTypesFromAst(ast: nodes.ThriftDocument): Map<string, stri
                     typeKind.set(node.name, 'service');
                 }
                 break;
+            case nodes.ThriftNodeType.Interaction:
+                if (node.name) {
+                    typeKind.set(node.name, 'interaction');
+                }
+                break;
             default:
                 break;
         }

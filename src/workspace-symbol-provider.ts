@@ -277,7 +277,8 @@ export class ThriftWorkspaceSymbolProvider {
                 node.type === nodes.ThriftNodeType.Union ||
                 node.type === nodes.ThriftNodeType.Exception ||
                 node.type === nodes.ThriftNodeType.Enum ||
-                node.type === nodes.ThriftNodeType.Service
+                node.type === nodes.ThriftNodeType.Service ||
+                node.type === nodes.ThriftNodeType.Interaction
             ) {
                 const kind = this.getSymbolKind(node.type);
                 symbols.push(
@@ -332,6 +333,19 @@ export class ThriftWorkspaceSymbolProvider {
                     );
                 }
             }
+
+            if (node.type === nodes.ThriftNodeType.Interaction) {
+                for (const fn of node.functions) {
+                    symbols.push(
+                        new vscode.SymbolInformation(
+                            fn.name || '',
+                            vscode.SymbolKind.Method,
+                            node.name || '',
+                            createLocation(uri, fn.range)
+                        )
+                    );
+                }
+            }
         }
 
         return symbols;
@@ -347,6 +361,7 @@ export class ThriftWorkspaceSymbolProvider {
             case nodes.ThriftNodeType.Enum:
                 return vscode.SymbolKind.Enum;
             case nodes.ThriftNodeType.Service:
+            case nodes.ThriftNodeType.Interaction:
                 return vscode.SymbolKind.Interface;
             case nodes.ThriftNodeType.Typedef:
                 return vscode.SymbolKind.TypeParameter;

@@ -63,6 +63,8 @@ export function getSymbolType(
                 return 'enum';
             case nodes.ThriftNodeType.Service:
                 return 'service';
+            case nodes.ThriftNodeType.Interaction:
+                return 'interaction';
             case nodes.ThriftNodeType.Typedef:
                 return 'typedef';
             case nodes.ThriftNodeType.Const:
@@ -128,6 +130,23 @@ export function getSymbolType(
                 const serviceNode = node ;
                 if (serviceNode.functions) {
                     for (const func of serviceNode.functions) {
+                        if (func.name === symbolName) {
+                            return 'method';
+                        }
+                        if (func.returnType === symbolName) {
+                            return 'type';
+                        }
+                        if (func.returnType.includes('.') && func.returnType.endsWith('.' + symbolName)) {
+                            return 'type';
+                        }
+                    }
+                }
+                break;
+            }
+            case nodes.ThriftNodeType.Interaction: {
+                const interactionNode = node ;
+                if (interactionNode.functions) {
+                    for (const func of interactionNode.functions) {
                         if (func.name === symbolName) {
                             return 'method';
                         }

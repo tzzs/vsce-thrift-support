@@ -31,6 +31,7 @@ export function collectTypesAndValues(doc: nodes.ThriftDocument) {
             if (
                 nodes.isStructNode(node) ||
                 nodes.isEnumNode(node) ||
+                nodes.isInteractionNode(node) ||
                 node.type === nodes.ThriftNodeType.Typedef
             ) {
                 types.push(node.name);

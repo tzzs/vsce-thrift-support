@@ -4,15 +4,15 @@ import {ThriftIssue} from '../types';
 import {isKnownType, resolveNamespacedBase} from './type-utils';
 
 export function checkService(
-    node: nodes.Service,
+    node: nodes.Service | nodes.Interaction,
     lines: string[],
     definedTypes: Set<string>,
     includeAliases: Set<string>,
     typeKind: Map<string, string>,
     issues: ThriftIssue[]
 ) {
-    // Check extends
-    if (node.extends) {
+    // Check extends (services only)
+    if (node.type === nodes.ThriftNodeType.Service && node.extends) {
         const parentName = node.extends;
         let base = parentName;
         let parentKind = typeKind.get(parentName);
