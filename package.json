@@ -157,12 +157,12 @@
     "lint": "eslint --cache src",
     "lint:fix": "eslint --cache src --ext ts --fix",
     "clean": "rimraf out dist",
-    "build": "npm run clean && npm run compile",
+    "build": "npm run clean && npm run compile && npm run bundle",
     "package": "npx @vscode/vsce package",
     "publish": "npx @vscode/vsce publish",
     "test": "npm run build && mocha",
     "test:single": "npm run build && mocha --config .mocharc.single.json",
-    "coverage": "nyc --reporter=text-summary mocha",
+    "coverage": "npm run build && nyc --reporter=text-summary mocha",
     "perf:benchmark": "node tests/perf/run-performance-benchmark.js"
   },
   "devDependencies": {
@@ -184,8 +184,8 @@
   },
   "nyc": {
     "include": [
-      "src/**/*.ts",
-      "out/**/*.js"
+      "out/**/*.js",
+      "src/**/*.ts"
     ],
     "exclude": [
       "tests/**",
