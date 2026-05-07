@@ -57,7 +57,7 @@ function initializeMemoryManagement(context: vscode.ExtensionContext, errorHandl
         // 定期记录内存使用情况
         const memoryCheckInterval = setInterval(() => {
             memoryMonitor.recordMemoryUsage();
-        }, 30000); // 每30秒检查一次
+        }, 120000); // 每2分钟检查一次
 
         // 注册内存相关的命令
         context.subscriptions.push(
