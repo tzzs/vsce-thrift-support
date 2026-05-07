@@ -12,6 +12,8 @@ export enum ThriftNodeType {
     Union = 'Union',
     Exception = 'Exception',
     Service = 'Service',
+    Interaction = 'Interaction',
+    Performs = 'Performs',
     Function = 'Function',
     Field = 'Field',
     Comment = 'Comment',
@@ -44,8 +46,19 @@ export type ThriftNode =
     | Struct
     | Field
     | Service
+    | Interaction
+    | Performs
     | ThriftFunction
     | InvalidNode;
+
+/**
+ * performs 声明节点（fbthrift）。
+ */
+export interface Performs extends ThriftNodeBase {
+    type: ThriftNodeType.Performs;
+    interactionName: string;
+    interactionNameRange?: vscode.Range;
+}
 
 /**
  * 文档根节点。
@@ -138,6 +151,15 @@ export interface Service extends ThriftNodeBase {
     type: ThriftNodeType.Service;
     extends?: string;
     functions: ThriftFunction[];
+    performs?: Performs[];
+}
+
+/**
+ * interaction 节点（fbthrift）。
+ */
+export interface Interaction extends ThriftNodeBase {
+    type: ThriftNodeType.Interaction;
+    functions: ThriftFunction[];
 }
 
 /**
@@ -148,6 +170,8 @@ export interface ThriftFunction extends ThriftNodeBase {
     returnType: string;
     returnTypeRange?: vscode.Range;
     oneway: boolean;
+    isStream?: boolean;
+    isSink?: boolean;
     arguments: Field[];
     throws: Field[];
 }
@@ -167,6 +191,13 @@ export interface InvalidNode extends ThriftNodeBase {
  */
 export function isServiceNode(node: ThriftNode): node is Service {
     return node.type === ThriftNodeType.Service;
+}
+
+/**
+ * 判断是否为 Interaction 节点。
+ */
+export function isInteractionNode(node: ThriftNode): node is Interaction {
+    return node.type === ThriftNodeType.Interaction;
 }
 
 /**

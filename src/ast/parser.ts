@@ -347,6 +347,16 @@ export class ThriftParser {
             return invalid;
         }
 
+        if (keywordToken.value === 'interaction') {
+            const nameToken = findFirstIdentifier(tokens, 1);
+            if (nameToken) {
+                return this.parseInteraction(parent, nameToken.value);
+            }
+            const invalid = this.createInvalidNode(parent, line, 'Invalid interaction declaration');
+            this.currentLine++;
+            return invalid;
+        }
+
         if (keywordToken.value === 'const') {
             const equalsIndex = findSymbolIndex(tokens, '=');
             if (equalsIndex !== -1) {
@@ -761,6 +771,72 @@ export class ThriftParser {
         return serviceNode;
     }
 
+    private parseInteraction(parent: nodes.ThriftNode, name: string): nodes.Interaction {
+        const startLine = this.currentLine;
+        const line = this.lines[startLine];
+        const keywordIndex = line.indexOf('interaction');
+        const searchStart = keywordIndex >= 0 ? keywordIndex + 'interaction'.length : 0;
+        const interactionNode: nodes.Interaction = {
+            type: nodes.ThriftNodeType.Interaction,
+            name: name,
+            range: new vscode.Range(startLine, 0, startLine, 0),
+            nameRange: findWordRangeInLine(line, startLine, name, searchStart),
+            parent: parent,
+            functions: []
+        };
+
+        this.currentLine = this.parseInteractionBody(interactionNode);
+        interactionNode.range = new vscode.Range(startLine, 0, this.currentLine,
+            this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
+        return interactionNode;
+    }
+
+    private parseInteractionBody(parent: nodes.Interaction): number {
+        let braceCount = 0;
+        while (this.currentLine < this.lines.length) {
+            const line = this.lines[this.currentLine];
+            const scan = this.scanLine(line);
+            const braceStats = this.countBraces(scan.tokens);
+            if (braceStats.open > 0) {
+                braceCount += braceStats.open - braceStats.close;
+                break;
+            }
+            this.currentLine++;
+        }
+
+        this.currentLine++;
+        if (braceCount <= 0) {
+            return this.currentLine;
+        }
+
+        while (this.currentLine < this.lines.length && braceCount > 0) {
+            const line = this.lines[this.currentLine];
+            const scan = this.scanLine(line);
+
+            const braceStats = this.countBraces(scan.tokens);
+            if (braceStats.open > 0 || braceStats.close > 0) {
+                braceCount += braceStats.open - braceStats.close;
+                if (braceCount <= 0) {
+                    this.currentLine++;
+                    break;
+                }
+            }
+
+            const funcParsed = this.parseServiceFunctionLine(line, scan.stripped, scan.tokens);
+            if (funcParsed) {
+                const funcNode = this.buildFunctionNode(parent, funcParsed, line);
+                if (funcNode) {
+                    parent.functions.push(funcNode);
+                    this.addChild(parent, funcNode);
+                }
+            }
+
+            this.currentLine++;
+        }
+
+        return this.currentLine;
+    }
+
     private parseServiceBody(parent: nodes.Service): number {
         let braceCount = 0;
         // Find opening brace
@@ -796,184 +872,21 @@ export class ThriftParser {
 
             const funcParsed = this.parseServiceFunctionLine(line, scan.stripped, scan.tokens);
             if (funcParsed) {
-                const {
-                    name,
-                    returnType,
-                    nameRange,
-                    returnTypeRange,
-                    oneway,
-                    funcStartLine,
-                    funcStartChar
-                } = funcParsed;
-                let funcEndLine = funcParsed.funcEndLine;
-                let funcEndChar = funcParsed.funcEndChar;
-
-                // Parse function arguments
-                const args: nodes.Field[] = [];
-                const throwsFields: nodes.Field[] = [];
-
-                const parenStartPos = line.indexOf('(');
-                let argResult: {text: string; endLine: number; endChar: number} | null = null;
-                if (parenStartPos !== -1) {
-                    argResult = readParenthesizedText(this.lines, this.currentLine, parenStartPos + 1);
-                    if (argResult) {
-                        args.push(...parseFieldList(argResult.text, this.currentLine, parenStartPos + 1));
+                const funcNode = this.buildFunctionNode(parent, funcParsed, line);
+                if (funcNode) {
+                    parent.functions.push(funcNode);
+                    this.addChild(parent, funcNode);
+                }
+            } else {
+                // Check for performs declaration
+                const perfNode = this.parsePerforms(parent, line, scan.stripped, scan.tokens);
+                if (perfNode) {
+                    if (!parent.performs) {
+                        parent.performs = [];
                     }
+                    parent.performs.push(perfNode);
+                    this.addChild(parent, perfNode);
                 }
-
-                // Find the end of the function declaration (either , or ; or {)
-                let parenCount = 0;
-                let foundEnd = false;
-                if (argResult) {
-                    funcEndLine = argResult.endLine;
-                    funcEndChar = this.lines[argResult.endLine] ? this.lines[argResult.endLine].length : 0;
-                }
-
-                // Look for the end of function declaration on the same line first
-                for (let i = funcStartChar; i < line.length; i++) {
-                    const char = line[i];
-                    if (char === '(') {
-                        parenCount++;
-                    } else if (char === ')') {
-                        parenCount--;
-                        if (parenCount === 0) {
-                            // Look for throws clause or end of declaration
-                            let j = i + 1;
-                            while (j < line.length && /\s/.test(line[j])) {
-                                j++;
-                            } // Skip whitespace
-
-                            // Check if there's a throws clause
-                            if (line.substring(j, j + 6) === 'throws') {
-                                // Find the end of throws clause
-                                let throwsParenCount = 0;
-                                for (let k = j + 6; k < line.length; k++) {
-                                    if (line[k] === '(') {
-                                        throwsParenCount++;
-                                    } else if (line[k] === ')') {
-                                        throwsParenCount--;
-                                        if (throwsParenCount === 0) {
-                                            j = k + 1;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Find the end of the declaration
-                            while (j < line.length && /\s/.test(line[j])) {
-                                j++;
-                            } // Skip whitespace
-                            if (j < line.length && (line[j] === ',' || line[j] === ';' || line[j] === '{')) {
-                                funcEndChar = j + 1;
-                                foundEnd = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                // If not found on the same line, look on subsequent lines
-                if (!foundEnd) {
-                    let searchLine = funcStartLine + 1;
-                    while (searchLine < this.lines.length && !foundEnd) {
-                        const searchLineText = this.lines[searchLine];
-                        for (let i = 0; i < searchLineText.length; i++) {
-                            const char = searchLineText[i];
-                            if (char === '(') {
-                                parenCount++;
-                            } else if (char === ')') {
-                                parenCount--;
-                                if (parenCount === 0) {
-                                    // Look for throws clause or end of declaration
-                                    let j = i + 1;
-                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) {
-                                        j++;
-                                    } // Skip whitespace
-
-                                    // Check if there's a throws clause
-                                    if (searchLineText.substring(j, j + 6) === 'throws') {
-                                        // Find the end of throws clause
-                                        let throwsParenCount = 0;
-                                        for (let k = j + 6; k < searchLineText.length; k++) {
-                                            if (searchLineText[k] === '(') {
-                                                throwsParenCount++;
-                                            } else if (searchLineText[k] === ')') {
-                                                throwsParenCount--;
-                                                if (throwsParenCount === 0) {
-                                                    j = k + 1;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    // Find the end of the declaration
-                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) {
-                                        j++;
-                                    } // Skip whitespace
-                                    if (j < searchLineText.length && (searchLineText[j] === ',' || searchLineText[j] === ';' || searchLineText[j] === '{')) {
-                                        funcEndLine = searchLine;
-                                        funcEndChar = j + 1;
-                                        foundEnd = true;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        if (!foundEnd) {
-                            searchLine++;
-                        }
-                    }
-                }
-
-                const throwsStart = findThrowsStartInRange(
-                    this.lines,
-                    argResult ? argResult.endLine : funcStartLine,
-                    argResult ? argResult.endChar + 1 : Math.max(parenStartPos + 1, funcStartChar),
-                    funcEndLine,
-                    funcEndChar
-                );
-                let throwsResult: {text: string; endLine: number; endChar: number} | null = null;
-                if (throwsStart) {
-                    throwsResult = readParenthesizedText(this.lines, throwsStart.line, throwsStart.char + 1);
-                    if (throwsResult) {
-                        throwsFields.push(...parseFieldList(throwsResult.text, throwsStart.line, throwsStart.char + 1));
-                    }
-                }
-                if (throwsResult) {
-                    funcEndLine = Math.max(funcEndLine, throwsResult.endLine);
-                    funcEndChar = throwsResult.endChar;
-                } else if (argResult) {
-                    funcEndLine = Math.max(funcEndLine, argResult.endLine);
-                    funcEndChar = argResult.endChar;
-                }
-
-                const funcNode: nodes.ThriftFunction = {
-                    type: nodes.ThriftNodeType.Function,
-                    range: new vscode.Range(funcStartLine, funcStartChar, funcEndLine, funcEndChar),
-                    nameRange,
-                    parent: parent,
-                    name,
-                    returnType,
-                    returnTypeRange,
-                    oneway,
-                    arguments: args,
-                    throws: throwsFields
-                };
-
-                // Set parent for all arguments
-                args.forEach(arg => {
-                    arg.parent = funcNode;
-                    this.addChild(funcNode, arg);
-                });
-                throwsFields.forEach(field => {
-                    field.parent = funcNode;
-                    this.addChild(funcNode, field);
-                });
-
-                parent.functions.push(funcNode);
-                this.addChild(parent, funcNode);
             }
 
             this.currentLine++;
@@ -982,12 +895,229 @@ export class ThriftParser {
         return this.currentLine;
     }
 
+    private buildFunctionNode(
+        parent: nodes.ThriftNode,
+        funcParsed: {
+            name: string;
+            returnType: string;
+            nameRange: vscode.Range | undefined;
+            returnTypeRange: vscode.Range | undefined;
+            oneway: boolean;
+            isStream: boolean;
+            isSink: boolean;
+            funcStartLine: number;
+            funcStartChar: number;
+            funcEndLine: number;
+            funcEndChar: number;
+        },
+        line: string
+    ): nodes.ThriftFunction | null {
+        const {
+            name,
+            returnType,
+            nameRange,
+            returnTypeRange,
+            oneway,
+            isStream,
+            isSink,
+            funcStartLine,
+            funcStartChar
+        } = funcParsed;
+        let funcEndLine = funcParsed.funcEndLine;
+        let funcEndChar = funcParsed.funcEndChar;
+
+        const args: nodes.Field[] = [];
+        const throwsFields: nodes.Field[] = [];
+
+        const parenStartPos = line.indexOf('(');
+        let argResult: {text: string; endLine: number; endChar: number} | null = null;
+        if (parenStartPos !== -1) {
+            argResult = readParenthesizedText(this.lines, this.currentLine, parenStartPos + 1);
+            if (argResult) {
+                args.push(...parseFieldList(argResult.text, this.currentLine, parenStartPos + 1));
+            }
+        }
+
+        let parenCount = 0;
+        let foundEnd = false;
+        if (argResult) {
+            funcEndLine = argResult.endLine;
+            funcEndChar = this.lines[argResult.endLine] ? this.lines[argResult.endLine].length : 0;
+        }
+
+        for (let i = funcStartChar; i < line.length; i++) {
+            const char = line[i];
+            if (char === '(') {
+                parenCount++;
+            } else if (char === ')') {
+                parenCount--;
+                if (parenCount === 0) {
+                    let j = i + 1;
+                    while (j < line.length && /\s/.test(line[j])) {
+                        j++;
+                    }
+                    if (line.substring(j, j + 6) === 'throws') {
+                        let throwsParenCount = 0;
+                        for (let k = j + 6; k < line.length; k++) {
+                            if (line[k] === '(') {
+                                throwsParenCount++;
+                            } else if (line[k] === ')') {
+                                throwsParenCount--;
+                                if (throwsParenCount === 0) {
+                                    j = k + 1;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    while (j < line.length && /\s/.test(line[j])) {
+                        j++;
+                    }
+                    if (j < line.length && (line[j] === ',' || line[j] === ';' || line[j] === '{')) {
+                        funcEndChar = j + 1;
+                        foundEnd = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!foundEnd) {
+            let searchLine = funcStartLine + 1;
+            while (searchLine < this.lines.length && !foundEnd) {
+                const searchLineText = this.lines[searchLine];
+                for (let i = 0; i < searchLineText.length; i++) {
+                    const char = searchLineText[i];
+                    if (char === '(') {
+                        parenCount++;
+                    } else if (char === ')') {
+                        parenCount--;
+                        if (parenCount === 0) {
+                            let j = i + 1;
+                            while (j < searchLineText.length && /\s/.test(searchLineText[j])) {
+                                j++;
+                            }
+                            if (searchLineText.substring(j, j + 6) === 'throws') {
+                                let throwsParenCount = 0;
+                                for (let k = j + 6; k < searchLineText.length; k++) {
+                                    if (searchLineText[k] === '(') {
+                                        throwsParenCount++;
+                                    } else if (searchLineText[k] === ')') {
+                                        throwsParenCount--;
+                                        if (throwsParenCount === 0) {
+                                            j = k + 1;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            while (j < searchLineText.length && /\s/.test(searchLineText[j])) {
+                                j++;
+                            }
+                            if (j < searchLineText.length && (searchLineText[j] === ',' || searchLineText[j] === ';' || searchLineText[j] === '{')) {
+                                funcEndLine = searchLine;
+                                funcEndChar = j + 1;
+                                foundEnd = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (!foundEnd) {
+                    searchLine++;
+                }
+            }
+        }
+
+        const throwsStart = findThrowsStartInRange(
+            this.lines,
+            argResult ? argResult.endLine : funcStartLine,
+            argResult ? argResult.endChar + 1 : Math.max(parenStartPos + 1, funcStartChar),
+            funcEndLine,
+            funcEndChar
+        );
+        let throwsResult: {text: string; endLine: number; endChar: number} | null = null;
+        if (throwsStart) {
+            throwsResult = readParenthesizedText(this.lines, throwsStart.line, throwsStart.char + 1);
+            if (throwsResult) {
+                throwsFields.push(...parseFieldList(throwsResult.text, throwsStart.line, throwsStart.char + 1));
+            }
+        }
+        if (throwsResult) {
+            funcEndLine = Math.max(funcEndLine, throwsResult.endLine);
+            funcEndChar = throwsResult.endChar;
+        } else if (argResult) {
+            funcEndLine = Math.max(funcEndLine, argResult.endLine);
+            funcEndChar = argResult.endChar;
+        }
+
+        const funcNode: nodes.ThriftFunction = {
+            type: nodes.ThriftNodeType.Function,
+            range: new vscode.Range(funcStartLine, funcStartChar, funcEndLine, funcEndChar),
+            nameRange,
+            parent: parent,
+            name,
+            returnType,
+            returnTypeRange,
+            oneway,
+            isStream: isStream || undefined,
+            isSink: isSink || undefined,
+            arguments: args,
+            throws: throwsFields
+        };
+
+        args.forEach(arg => {
+            arg.parent = funcNode;
+            this.addChild(funcNode, arg);
+        });
+        throwsFields.forEach(field => {
+            field.parent = funcNode;
+            this.addChild(funcNode, field);
+        });
+
+        return funcNode;
+    }
+
+    /**
+     * 解析 service 或 interaction 中的 performs 声明。
+     */
+    private parsePerforms(parent: nodes.ThriftNode, line: string, cleanLine: string, tokens: Token[]): nodes.Performs | null {
+        const trimmed = cleanLine.trim();
+        if (!trimmed || tokens.length === 0) {
+            return null;
+        }
+        if (tokens[0].type !== 'identifier' || tokens[0].value !== 'performs') {
+            return null;
+        }
+        const nameToken = tokens[1];
+        if (!nameToken || nameToken.type !== 'identifier') {
+            return null;
+        }
+        const nameRange = new vscode.Range(
+            this.currentLine,
+            nameToken.start,
+            this.currentLine,
+            nameToken.end
+        );
+        return {
+            type: nodes.ThriftNodeType.Performs,
+            range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+            nameRange,
+            parent: parent,
+            name: nameToken.value,
+            interactionName: nameToken.value,
+            interactionNameRange: nameRange
+        };
+    }
+
     private parseServiceFunctionLine(line: string, cleanLine: string, tokens: Token[]): {
         name: string;
         returnType: string;
         nameRange: vscode.Range | undefined;
         returnTypeRange: vscode.Range | undefined;
         oneway: boolean;
+        isStream: boolean;
+        isSink: boolean;
         funcStartLine: number;
         funcStartChar: number;
         funcEndLine: number;
@@ -1015,18 +1145,32 @@ export class ThriftParser {
             return null;
         }
         const oneway = tokens[0].type === 'identifier' && tokens[0].value === 'oneway';
-        const returnTypeStartIndex = oneway ? 1 : 0;
+        let returnTypeStartIndex = oneway ? 1 : 0;
+        let isStream = false;
+        let isSink = false;
+        // Check for stream/sink prefix after oneway
+        if (returnTypeStartIndex < tokens.length && tokens[returnTypeStartIndex].type === 'identifier') {
+            if (tokens[returnTypeStartIndex].value === 'stream') {
+                isStream = true;
+                returnTypeStartIndex += 1;
+            } else if (tokens[returnTypeStartIndex].value === 'sink') {
+                isSink = true;
+                returnTypeStartIndex += 1;
+            }
+        }
         const returnTypeStartToken = tokens[returnTypeStartIndex];
         if (!returnTypeStartToken || returnTypeStartIndex >= nameTokenIndex) {
             return null;
         }
         const nameToken = tokens[nameTokenIndex];
-        const returnType = cleanLine.slice(returnTypeStartToken.start, nameToken.start).trim();
+        // Include stream/sink keyword in return type string
+        const typeStart = isStream ? returnTypeStartIndex - 1 : (isSink ? returnTypeStartIndex - 1 : returnTypeStartIndex);
+        const returnType = cleanLine.slice(tokens[typeStart].start, nameToken.start).trim();
         if (!returnType) {
             return this.parseServiceFunctionLineFallback(line, cleanLine);
         }
         const funcStartLine = this.currentLine;
-        const funcStartChar = returnTypeStartToken.start;
+        const funcStartChar = tokens[typeStart].start;
         const nameRange = new vscode.Range(
             funcStartLine,
             nameToken.start,
@@ -1035,7 +1179,7 @@ export class ThriftParser {
         );
         const returnTypeRange = new vscode.Range(
             funcStartLine,
-            returnTypeStartToken.start,
+            tokens[typeStart].start,
             funcStartLine,
             nameToken.start
         );
@@ -1045,6 +1189,8 @@ export class ThriftParser {
             nameRange,
             returnTypeRange,
             oneway,
+            isStream,
+            isSink,
             funcStartLine,
             funcStartChar,
             funcEndLine: funcStartLine,
@@ -1058,26 +1204,34 @@ export class ThriftParser {
         nameRange: vscode.Range | undefined;
         returnTypeRange: vscode.Range | undefined;
         oneway: boolean;
+        isStream: boolean;
+        isSink: boolean;
         funcStartLine: number;
         funcStartChar: number;
         funcEndLine: number;
         funcEndChar: number;
     } | null {
         const trimmed = cleanLine.trim();
-        const funcMatch = trimmed.match(/^(?:(oneway)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
+        const funcMatch = trimmed.match(/^(?:(oneway)\s+)?(?:(stream|sink)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
         if (!funcMatch) {
             return null;
         }
         const funcStartLine = this.currentLine;
         const funcStartChar = cleanLine.indexOf(funcMatch[0]);
-        const nameRange = findWordRangeInLine(cleanLine, funcStartLine, funcMatch[3], funcStartChar);
-        const returnTypeRange = findTypeRangeInLine(cleanLine, funcStartLine, funcMatch[2].trim(), funcStartChar);
+        const returnTypeRaw = funcMatch[3].trim();
+        const isStream = funcMatch[2] === 'stream';
+        const isSink = funcMatch[2] === 'sink';
+        const returnType = isStream ? `stream ${returnTypeRaw}` : (isSink ? `sink ${returnTypeRaw}` : returnTypeRaw);
+        const nameRange = findWordRangeInLine(cleanLine, funcStartLine, funcMatch[4], funcStartChar);
+        const returnTypeRange = findTypeRangeInLine(cleanLine, funcStartLine, returnType, funcStartChar);
         return {
-            name: funcMatch[3],
-            returnType: funcMatch[2].trim(),
+            name: funcMatch[4],
+            returnType,
             nameRange,
             returnTypeRange,
             oneway: !!funcMatch[1],
+            isStream,
+            isSink,
             funcStartLine,
             funcStartChar,
             funcEndLine: funcStartLine,
@@ -1244,7 +1398,7 @@ export class ThriftParser {
         // For example, if we modify the middle of a struct, we need to capture the whole struct
         for (let line = startLine; line >= 0 && line > startLine - 50; line--) { // Limit expansion for performance
             const text = this.lines[line];
-            if (text && (text.trim().match(/\b(struct|service|enum|union|exception)\s+\w+/) ||
+            if (text && (text.trim().match(/\b(struct|service|interaction|enum|union|exception)\s+\w+/) ||
                 text.trim().includes('{'))) {
                 // Found a top-level construct definition
                 affectedStart = line;
@@ -1543,6 +1697,9 @@ export class ThriftParser {
         ) {
             (node.fields ?? []).forEach(child => result.add(child));
         } else if (node.type === nodes.ThriftNodeType.Service) {
+            (node.functions ?? []).forEach(child => result.add(child));
+            (node.performs ?? []).forEach(child => result.add(child));
+        } else if (node.type === nodes.ThriftNodeType.Interaction) {
             (node.functions ?? []).forEach(child => result.add(child));
         } else if (node.type === nodes.ThriftNodeType.Function) {
             (node.arguments ?? []).forEach(child => result.add(child));
