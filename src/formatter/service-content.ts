@@ -29,6 +29,13 @@ export function formatServiceContentLine(
     options: ThriftFormattingOptions,
     deps: ServiceContentDeps
 ): ServiceContentResult {
+    if (line === '{') {
+        return {
+            formattedLines: [deps.getServiceIndent(serviceIndentLevel, options) + line],
+            closeService: false
+        };
+    }
+
     if (line.startsWith('}')) {
         return {
             formattedLines: [deps.getServiceIndent(serviceIndentLevel, options) + line],

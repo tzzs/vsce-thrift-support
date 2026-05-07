@@ -151,10 +151,10 @@ describe('trailing-comma', () => {
         const l1 = lines[1] || '';
         const l2 = lines[2] || '';
 
-        assert.ok(/\/\/.*,\s*$/.test(l1), 'Comma should be at end after comment');
-        assert.ok(/\/\/.*,\s*$/.test(l2), 'Comma should be at end after comment');
-        assert.ok(!/,\s*\/\//.test(l1), 'Comma should not be before comment');
-        assert.ok(!/,\s*\/\//.test(l2), 'Comma should not be before comment');
+        assert.ok(/,\s*\/\//.test(l1), 'Comma should be before comment');
+        assert.ok(/,\s*\/\//.test(l2), 'Comma should be before comment');
+        assert.ok(!/\/\/.*,\s*$/.test(l1), 'Comma should not be after comment');
+        assert.ok(!/\/\/.*,\s*$/.test(l2), 'Comma should not be after comment');
     });
 
     it('should place semicolon after line comments in enum add mode', () => {
@@ -167,10 +167,10 @@ describe('trailing-comma', () => {
         const l1 = lines[1] || '';
         const l2 = lines[2] || '';
 
-        assert.ok(/\/\/.*;\s*$/.test(l1), 'Semicolon should be at end after comment');
-        assert.ok(/\/\/.*,\s*$/.test(l2), 'Comma should be at end after comment');
-        assert.ok(!/;\s*\/\//.test(l1), 'Semicolon should not be before comment');
-        assert.ok(!/,\s*\/\//.test(l2), 'Comma should not be before comment');
+        assert.ok(/;\s*\/\//.test(l1), 'Semicolon should be before comment');
+        assert.ok(/,\s*\/\//.test(l2), 'Comma should be before comment');
+        assert.ok(!/\/\/.*;\s*$/.test(l1), 'Semicolon should not be after comment');
+        assert.ok(!/\/\/.*,\s*$/.test(l2), 'Comma should not be after comment');
     });
 
     it('should remove comma before comment in enum remove mode', () => {

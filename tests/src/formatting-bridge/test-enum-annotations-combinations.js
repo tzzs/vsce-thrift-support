@@ -148,17 +148,17 @@ describe('enum-annotations-combinations', () => {
         withConfig({trailingComma: "add"}, () => {
             const out = runRangeFormat(input, 1, 4);
             const lines = out.split("\n");
-            assert.ok(/;\s*$/.test(lines[0]));
-            assert.ok(/,\s*$/.test(lines[1]));
-            assert.ok(/,\s*$/.test(lines[2]));
+            assert.ok(/;\s*\/\//.test(lines[0]), 'Semicolon should be before comment');
+            assert.ok(/,\s*\/\//.test(lines[1]), 'Comma should be before comment');
+            assert.ok(/,\s*\/\//.test(lines[2]), 'Comma should be before comment');
         });
 
         withConfig({trailingComma: "remove"}, () => {
             const out = runRangeFormat(input, 1, 4);
             const lines = out.split("\n");
-            assert.ok(/;\s*$/.test(lines[0]));
-            assert.ok(!/,\s*$/.test(lines[1]));
-            assert.ok(!/,\s*$/.test(lines[2]));
+            assert.ok(/;/.test(lines[0]), 'Semicolon should be preserved');
+            assert.ok(!/,/.test(lines[1]), 'Comma should be removed from line 1');
+            assert.ok(!/,/.test(lines[2]), 'Comma should be removed from line 2');
         });
     });
 });

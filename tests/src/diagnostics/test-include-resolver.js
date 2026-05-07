@@ -13,8 +13,8 @@ const simulatedFiles = new Map();
 const includeContent = 'struct Included { 1: i32 id }';
 const mainContent = 'include "inc.thrift"\n\nstruct Main { 1: Included item }';
 
-const includePath = '/tmp/inc.thrift';
-const mainPath = '/tmp/main.thrift';
+const includePath = path.resolve('/tmp/inc.thrift');
+const mainPath = path.resolve('/tmp/main.thrift');
 
 simulatedFiles.set(vscode.Uri.file(includePath).toString(), includeContent);
 simulatedFiles.set(vscode.Uri.file(mainPath).toString(), mainContent);
