@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import {IncrementalParseResult, OptimizedThriftParser as ThriftParser} from '../ast/optimized-parser';
+import {IncrementalParseResult, ThriftParser} from '../ast/parser';
 import {LineRange} from './line-range';
 import {performanceMonitor} from '../performance-monitor';
 import {ChangeType, IncrementalTracker} from './incremental-tracker';
