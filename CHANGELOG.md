@@ -1,5 +1,14 @@
 # Changelog | 更新日志
 
+## [2.1.1](https://github.com/tzzs/vsce-thrift-support/compare/v2.1.0...v2.1.1) (2026-05-07)
+
+
+### Bug Fixes
+
+* **formatter:** correct comma/semicolon placement, service brace indent, and enum empty equals ([b7162c1](https://github.com/tzzs/vsce-thrift-support/commit/b7162c16e1b14917621189444155261a959f7e1d))
+* **formatter:** Fix struct field parsing, comma handling, const alignment, and collection expansion ([93d27d3](https://github.com/tzzs/vsce-thrift-support/commit/93d27d3ed9dcc9417f5ec02ce9908294940afb3b))
+* **syntax:** Simplify container type highlighting and enhance method definition patterns ([d4396f1](https://github.com/tzzs/vsce-thrift-support/commit/d4396f19157ef131b52b89414cc5df03a4772f49))
+
 ## [2.1.0](https://github.com/tzzs/vsce-thrift-support/compare/v2.0.1...v2.1.0) (2026-02-11)
 
 ### 🎉 Happy Chinese New Year 2026!
