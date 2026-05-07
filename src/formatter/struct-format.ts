@@ -33,7 +33,7 @@ function calculateAnnotationStartPosition(
     }
     w += (options.alignTypes ? maxTypeWidth : field.type.length);
     w += 1;
-    if (options.alignFieldNames && (field.suffix || field.annotation || field.comment)) {
+    if (options.alignFieldNames && (field.suffix || field.annotation)) {
         w += maxNameWidth;
         if (field.suffix) {
             let s = field.suffix;
@@ -151,7 +151,7 @@ export function formatStructFields(
             cleanSuffixForWidth = cleanSuffixForWidth.replace(/\s*=\s*/, ' = ');
         }
 
-        if (options.alignFieldNames && (cleanSuffixForWidth || field.annotation || field.comment)) {
+        if (options.alignFieldNames && (cleanSuffixForWidth || field.annotation)) {
             contentWidth += maxNameWidth;
             if (cleanSuffixForWidth) {
                 contentWidth += cleanSuffixForWidth.length;
@@ -261,7 +261,8 @@ export function formatStructFields(
             hasComma = false;
         }
 
-        if (options.alignFieldNames && (field.suffix || field.annotation || field.comment)) {
+        const hasContentAfterName = (cleanSuffix && cleanSuffix.length > 0) || field.annotation;
+        if (options.alignFieldNames && hasContentAfterName) {
             formattedLine += field.name.padEnd(maxNameWidth);
             if (cleanSuffix) {
                 formattedLine += cleanSuffix;
@@ -283,6 +284,13 @@ export function formatStructFields(
             }
         }
 
+        // Add comma or semicolon before comment (not after)
+        if (hasSemicolon) {
+            formattedLine += ';';
+        } else if (hasComma) {
+            formattedLine += ',';
+        }
+
         if (field.comment) {
             if (options.alignComments) {
                 const currentWidth = formattedLine.length - deps.getIndent(indentLevel, options).length;
@@ -293,13 +301,6 @@ export function formatStructFields(
             } else {
                 formattedLine += ' ' + field.comment;
             }
-        }
-
-        // Add comma or semicolon at the end of the line (after comment if present)
-        if (hasSemicolon) {
-            formattedLine += ';';
-        } else if (hasComma) {
-            formattedLine += ',';
         }
 
         return formattedLine;
