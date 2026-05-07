@@ -122,21 +122,27 @@ export class ThriftParser {
      * 解析 Thrift 文本为 AST。
      */
     public parse(): nodes.ThriftDocument {
+        const estimatedSize = Math.min(this.lines.length, 1000);
         const root: nodes.ThriftDocument = {
             type: nodes.ThriftNodeType.Document,
-            range: new vscode.Range(0, 0, this.lines.length > 0 ? this.lines.length - 1 : 0,
+            range: this.createRange(0, 0, this.lines.length > 0 ? this.lines.length - 1 : 0,
                 this.lines.length > 0 ? this.lines[this.lines.length - 1].length : 0),
-            body: []
+            body: new Array<nodes.ThriftNode>(estimatedSize)
         };
 
         this.currentLine = 0;
+        let bodyIndex = 0;
         while (this.currentLine < this.lines.length) {
             const node = this.parseNextNode(root);
             if (node) {
-                root.body.push(node);
+                if (bodyIndex >= root.body.length) {
+                    root.body.length = Math.min(root.body.length * 2, 100000);
+                }
+                root.body[bodyIndex++] = node;
                 this.addChild(root, node);
             }
         }
+        root.body.length = bodyIndex;
 
         return root;
     }
@@ -148,7 +154,7 @@ export class ThriftParser {
         // If no existing AST is provided, create a new one
         const ast: nodes.ThriftDocument = existingAst || {
             type: nodes.ThriftNodeType.Document,
-            range: new vscode.Range(0, 0, this.lines.length > 0 ? this.lines.length - 1 : 0,
+            range: this.createRange(0, 0, this.lines.length > 0 ? this.lines.length - 1 : 0,
                 this.lines.length > 0 ? this.lines[this.lines.length - 1].length : 0),
             body: []
         };
@@ -276,8 +282,8 @@ export class ThriftParser {
             if (scope && namespace) {
                 const node: nodes.Namespace = {
                     type: nodes.ThriftNodeType.Namespace,
-                    range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
-                    nameRange: new vscode.Range(this.currentLine, namespace.startOffset, this.currentLine, namespace.endOffset),
+                    range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
+                    nameRange: this.createRange(this.currentLine, namespace.startOffset, this.currentLine, namespace.endOffset),
                     parent: parent,
                     scope: scope.value,
                     namespace: namespace.value,
@@ -296,7 +302,7 @@ export class ThriftParser {
             if (pathToken && pathToken.type === 'string') {
                 const node: nodes.Include = {
                     type: nodes.ThriftNodeType.Include,
-                    range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+                    range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
                     parent: parent,
                     path: pathToken.value,
                     name: pathToken.value
@@ -380,8 +386,8 @@ export class ThriftParser {
                 const aliasType = line.slice(keywordIndex, nameToken.start).trim();
                 const node: nodes.Typedef = {
                     type: nodes.ThriftNodeType.Typedef,
-                    range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
-                    nameRange: new vscode.Range(this.currentLine, nameToken.start, this.currentLine, nameToken.end),
+                    range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
+                    nameRange: this.createRange(this.currentLine, nameToken.start, this.currentLine, nameToken.end),
                     parent: parent,
                     aliasType: aliasType,
                     aliasTypeRange: findTypeRangeInLine(line, this.currentLine, aliasType, keywordIndex),
@@ -403,7 +409,7 @@ export class ThriftParser {
     private createInvalidNode(parent: nodes.ThriftNode, line: string, message: string): nodes.InvalidNode {
         return {
             type: nodes.ThriftNodeType.Invalid,
-            range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
             parent: parent,
             raw: line,
             message
@@ -422,7 +428,7 @@ export class ThriftParser {
         const structNode: nodes.Struct = {
             type: type,
             name: name,
-            range: new vscode.Range(startLine, 0, startLine, 0), // Will be updated
+            range: this.createRange(startLine, 0, startLine, 0), // Will be updated
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
             parent: parent,
             fields: []
@@ -430,7 +436,7 @@ export class ThriftParser {
 
         // Parse body
         this.currentLine = this.parseStructBody(structNode);
-        structNode.range = new vscode.Range(startLine, 0, this.currentLine,
+        structNode.range = this.createRange(startLine, 0, this.currentLine,
             this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
         return structNode;
     }
@@ -535,13 +541,13 @@ export class ThriftParser {
             return this.parseStructFieldLineFallback(parent, line, cleanLine);
         }
         const valueTarget = stripTrailingAnnotation(cleanLine.replace(/[,;]\s*$/, ''));
-        const nameRange = new vscode.Range(
+        const nameRange = this.createRange(
             this.currentLine,
             nameToken.start,
             this.currentLine,
             nameToken.end
         );
-        const typeRange = new vscode.Range(
+        const typeRange = this.createRange(
             this.currentLine,
             typeStartToken.start,
             this.currentLine,
@@ -552,7 +558,7 @@ export class ThriftParser {
         const defaultEnd = defaultInfo ? defaultInfo.end : null;
         return {
             type: nodes.ThriftNodeType.Field,
-            range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
             nameRange,
             typeRange,
             parent: parent,
@@ -562,7 +568,7 @@ export class ThriftParser {
             name: nameToken.value,
             defaultValue: defaultInfo?.value,
             defaultValueRange: defaultStart !== null && defaultEnd !== null
-                ? new vscode.Range(this.currentLine, defaultStart, this.currentLine, defaultEnd)
+                ? this.createRange(this.currentLine, defaultStart, this.currentLine, defaultEnd)
                 : undefined
         };
     }
@@ -582,7 +588,7 @@ export class ThriftParser {
         const defaultEnd = defaultInfo ? defaultInfo.end : null;
         return {
             type: nodes.ThriftNodeType.Field,
-            range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
             nameRange,
             typeRange,
             parent: parent,
@@ -592,7 +598,7 @@ export class ThriftParser {
             name: fieldMatch[4],
             defaultValue: defaultInfo?.value,
             defaultValueRange: defaultStart !== null && defaultEnd !== null
-                ? new vscode.Range(this.currentLine, defaultStart, this.currentLine, defaultEnd)
+                ? this.createRange(this.currentLine, defaultStart, this.currentLine, defaultEnd)
                 : undefined
         };
     }
@@ -605,7 +611,7 @@ export class ThriftParser {
         const enumNode: nodes.Enum = {
             type: nodes.ThriftNodeType.Enum,
             name: name,
-            range: new vscode.Range(startLine, 0, startLine, 0), // Will be updated
+            range: this.createRange(startLine, 0, startLine, 0), // Will be updated
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
             parent: parent,
             members: [],
@@ -614,7 +620,7 @@ export class ThriftParser {
 
         // Parse body
         this.currentLine = this.parseEnumBody(enumNode);
-        enumNode.range = new vscode.Range(startLine, 0, this.currentLine,
+        enumNode.range = this.createRange(startLine, 0, this.currentLine,
             this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
         return enumNode;
     }
@@ -720,7 +726,7 @@ export class ThriftParser {
                 const trimmed = stripTrailingAnnotation(rawInitializer.replace(/[,;]\s*$/, '')).trim();
                 initializer = trimmed || undefined;
                 if (initializer) {
-                    initializerRange = new vscode.Range(
+                    initializerRange = this.createRange(
                         this.currentLine,
                         startOffset,
                         this.currentLine,
@@ -732,7 +738,7 @@ export class ThriftParser {
         if (!initializerRange) {
             initializerRange = findInitializerRange(cleanLine, cleanLine, initializer, this.currentLine);
         }
-        const nameRange = new vscode.Range(
+        const nameRange = this.createRange(
             this.currentLine,
             nameToken.start,
             this.currentLine,
@@ -740,7 +746,7 @@ export class ThriftParser {
         );
         return {
             type: nodes.ThriftNodeType.EnumMember,
-            range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
             nameRange,
             parent: parent,
             name: nameToken.value,
@@ -758,7 +764,7 @@ export class ThriftParser {
             type: nodes.ThriftNodeType.Service,
             name: name,
             extends: extendsClass,
-            range: new vscode.Range(startLine, 0, startLine, 0), // Will be updated
+            range: this.createRange(startLine, 0, startLine, 0), // Will be updated
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
             parent: parent,
             functions: []
@@ -766,7 +772,7 @@ export class ThriftParser {
 
         // Parse body
         this.currentLine = this.parseServiceBody(serviceNode);
-        serviceNode.range = new vscode.Range(startLine, 0, this.currentLine,
+        serviceNode.range = this.createRange(startLine, 0, this.currentLine,
             this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
         return serviceNode;
     }
@@ -779,14 +785,14 @@ export class ThriftParser {
         const interactionNode: nodes.Interaction = {
             type: nodes.ThriftNodeType.Interaction,
             name: name,
-            range: new vscode.Range(startLine, 0, startLine, 0),
+            range: this.createRange(startLine, 0, startLine, 0),
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
             parent: parent,
             functions: []
         };
 
         this.currentLine = this.parseInteractionBody(interactionNode);
-        interactionNode.range = new vscode.Range(startLine, 0, this.currentLine,
+        interactionNode.range = this.createRange(startLine, 0, this.currentLine,
             this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
         return interactionNode;
     }
@@ -1053,7 +1059,7 @@ export class ThriftParser {
 
         const funcNode: nodes.ThriftFunction = {
             type: nodes.ThriftNodeType.Function,
-            range: new vscode.Range(funcStartLine, funcStartChar, funcEndLine, funcEndChar),
+            range: this.createRange(funcStartLine, funcStartChar, funcEndLine, funcEndChar),
             nameRange,
             parent: parent,
             name,
@@ -1093,7 +1099,7 @@ export class ThriftParser {
         if (!nameToken || nameToken.type !== 'identifier') {
             return null;
         }
-        const nameRange = new vscode.Range(
+        const nameRange = this.createRange(
             this.currentLine,
             nameToken.start,
             this.currentLine,
@@ -1101,7 +1107,7 @@ export class ThriftParser {
         );
         return {
             type: nodes.ThriftNodeType.Performs,
-            range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
             nameRange,
             parent: parent,
             name: nameToken.value,
@@ -1171,13 +1177,13 @@ export class ThriftParser {
         }
         const funcStartLine = this.currentLine;
         const funcStartChar = tokens[typeStart].start;
-        const nameRange = new vscode.Range(
+        const nameRange = this.createRange(
             funcStartLine,
             nameToken.start,
             funcStartLine,
             nameToken.end
         );
-        const returnTypeRange = new vscode.Range(
+        const returnTypeRange = this.createRange(
             funcStartLine,
             tokens[typeStart].start,
             funcStartLine,
@@ -1330,7 +1336,7 @@ export class ThriftParser {
         const valueRangeInfo = buildConstValueRange(this.lines, startLine, endLine, eqLine, eqChar);
         const constNode: nodes.Const = {
             type: nodes.ThriftNodeType.Const,
-            range: new vscode.Range(startLine, 0, endLine, this.lines[endLine] ? this.lines[endLine].length : 0),
+            range: this.createRange(startLine, 0, endLine, this.lines[endLine] ? this.lines[endLine].length : 0),
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
             parent: parent,
             valueType: valueType,
@@ -1365,7 +1371,7 @@ export class ThriftParser {
                 // Create a temporary parent for range parsing
                 const tempParent: nodes.ThriftNode = {
                     type: nodes.ThriftNodeType.Document,
-                    range: new vscode.Range(actualStartLine, 0, actualEndLine,
+                    range: this.createRange(actualStartLine, 0, actualEndLine,
                         this.lines[actualEndLine] ? this.lines[actualEndLine].length : 0),
                     body: [],
                     parent: undefined
@@ -1707,5 +1713,9 @@ export class ThriftParser {
         }
 
         return Array.from(result);
+    }
+
+    private createRange(startLine: number, startChar: number, endLine: number, endChar: number): vscode.Range {
+        return new vscode.Range(startLine, startChar, endLine, endChar);
     }
 }
