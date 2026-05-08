@@ -15,6 +15,14 @@ interface ServiceContentResult {
     closeService: boolean;
 }
 
+// Module-level state for tracking annotation block depth inside service/interaction bodies.
+// Reset at the start of each formatting run via resetServiceAnnotationDepth().
+let serviceAnnotationDepth = 0;
+
+export function resetServiceAnnotationDepth(): void {
+    serviceAnnotationDepth = 0;
+}
+
 /**
  * Format a line inside a service block.
  * @param line - Current line (trimmed).
@@ -32,6 +40,30 @@ export function formatServiceContentLine(
     if (line === '{') {
         return {
             formattedLines: [deps.getServiceIndent(serviceIndentLevel, options) + line],
+            closeService: false
+        };
+    }
+
+    // Multi-line annotation block start (e.g. @MethodMetadata{)
+    if (/^\s*@[A-Za-z_][A-Za-z0-9_]*\s*\{/.test(line) && !line.includes('}')) {
+        serviceAnnotationDepth++;
+        return {
+            formattedLines: [deps.getServiceIndent(serviceIndentLevel + 1, options) + line],
+            closeService: false
+        };
+    }
+
+    // Lines inside an annotation block should be indented one extra level
+    if (serviceAnnotationDepth > 0) {
+        if (line.startsWith('}')) {
+            serviceAnnotationDepth--;
+            return {
+                formattedLines: [deps.getServiceIndent(serviceIndentLevel + 1, options) + line],
+                closeService: false
+            };
+        }
+        return {
+            formattedLines: [deps.getServiceIndent(serviceIndentLevel + 2, options) + line],
             closeService: false
         };
     }

@@ -48,7 +48,8 @@ export function checkService(
     // Check functions
     for (const fn of node.functions) {
         const fnName = fn.name ?? 'unknown';
-        if (fn.oneway) {
+        // stream/sink functions are inherently not oneway
+        if (fn.oneway && !fn.isStream && !fn.isSink) {
             if (fn.returnType.trim() !== 'void') {
                 issues.push({
                     message: `oneway method '${fnName}' must return void`,

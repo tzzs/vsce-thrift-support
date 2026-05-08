@@ -33,13 +33,13 @@ import {
     formatTypedefLine,
     handleConstStartLine
 } from './line-handlers';
-import {isEnumStartLine, isInteractionStartLine, isServiceStartLine, isStructStartLine} from './line-detection';
-import {formatServiceContentLine} from './service-content';
+import {isAnnotationStartLine, isEnumStartLine, isInteractionStartLine, isServiceStartLine, isStructStartLine} from './line-detection';
+import {formatServiceContentLine, resetServiceAnnotationDepth} from './service-content';
 import {isServiceMethodLine} from './service-method';
 import {formatStructContentLine} from './struct-content';
 import {formatSingleLineEnum, formatSingleLineService, formatSingleLineStruct} from './single-line-format';
 import {normalizeGenericsInSignature, splitTopLevelParts} from './text-utils';
-import {LineRange} from '../utils/line-range';
+import {createLineRange, LineRange} from '../utils/line-range';
 import {hashContent} from '../utils/cache-expiry';
 
 const DEFAULT_FORMAT_OPTIONS: ThriftFormattingOptions = {
@@ -77,7 +77,7 @@ export function formatThriftContent(
     if (dirtyRange) {
         const startLine = Math.max(0, Math.min(dirtyRange.startLine, lastLineIndex));
         const endLine = Math.max(0, Math.min(dirtyRange.endLine, lastLineIndex));
-        dirtyRange = {startLine, endLine};
+        dirtyRange = createLineRange(startLine, endLine);
     }
 
     let ast;
@@ -120,6 +120,10 @@ export function formatThriftContent(
     let inConstBlock = false;
     // Track the indent level where the current const block started, so flushing uses the correct base indent
     let constBlockIndentLevel: number | null = null;
+    // Track annotation block depth for top-level @Annotation{...} blocks
+    let topAnnotationDepth = 0;
+
+    resetServiceAnnotationDepth();
 
     for (let i = 0; i < lines.length; i++) {
         const originalLine = lines[i];
@@ -379,6 +383,24 @@ export function formatThriftContent(
             if (interactionResult.closeService) {
                 inInteraction = false;
             }
+            continue;
+        }
+
+        // Handle top-level annotation blocks (e.g. @ServiceMetadata{...})
+        if (isAnnotationStartLine(line)) {
+            formattedLines.push(getIndent(indentLevel, options) + line);
+            indentLevel++;
+            topAnnotationDepth++;
+            continue;
+        }
+        if (topAnnotationDepth > 0) {
+            if (line === '}') {
+                topAnnotationDepth--;
+                if (topAnnotationDepth === 0) {
+                    indentLevel--;
+                }
+            }
+            formattedLines.push(getIndent(indentLevel, options) + line);
             continue;
         }
 

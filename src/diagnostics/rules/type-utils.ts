@@ -33,6 +33,22 @@ function parseContainerType(typeText: string): boolean {
         const parts = splitTopLevelAngles(inner);
         return parts.length === 2;
     }
+    if (/^stream<.*>$/.test(noSpace)) {
+        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
+        return inner.trim().length > 0;
+    }
+    if (/^sink<.*>$/.test(noSpace)) {
+        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
+        return inner.trim().length > 0;
+    }
+    if (/^interaction<.*>$/.test(noSpace)) {
+        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
+        return inner.trim().length > 0;
+    }
+    if (/^reference<.*>$/.test(noSpace)) {
+        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
+        return inner.trim().length > 0;
+    }
     return false;
 }
 
