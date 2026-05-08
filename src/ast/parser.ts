@@ -9,7 +9,8 @@ import {
     setCachedAst,
     setCachedAstRange
 } from './cache';
-import {LineRange} from '../utils/line-range';
+import {createLineRange, LineRange} from '../utils/line-range';
+import {createField, createDocument, createStructBlock, createEnumBlock, createServiceBlock, createInteractionBlock} from './factory';
 import {isExpired, isFresh} from '../utils/cache-expiry';
 import {
     buildConstValueRange,
@@ -123,12 +124,11 @@ export class ThriftParser {
      */
     public parse(): nodes.ThriftDocument {
         const estimatedSize = Math.min(this.lines.length, 1000);
-        const root: nodes.ThriftDocument = {
-            type: nodes.ThriftNodeType.Document,
+        const root = createDocument({
             range: this.createRange(0, 0, this.lines.length > 0 ? this.lines.length - 1 : 0,
                 this.lines.length > 0 ? this.lines[this.lines.length - 1].length : 0),
             body: new Array<nodes.ThriftNode>(estimatedSize)
-        };
+        });
 
         this.currentLine = 0;
         let bodyIndex = 0;
@@ -152,12 +152,11 @@ export class ThriftParser {
      */
     public parseSection(startLine: number, endLine: number, existingAst?: nodes.ThriftDocument): nodes.ThriftDocument {
         // If no existing AST is provided, create a new one
-        const ast: nodes.ThriftDocument = existingAst || {
-            type: nodes.ThriftNodeType.Document,
+        const ast = existingAst || createDocument({
             range: this.createRange(0, 0, this.lines.length > 0 ? this.lines.length - 1 : 0,
                 this.lines.length > 0 ? this.lines[this.lines.length - 1].length : 0),
             body: []
-        };
+        });
 
         // Save current state
         const originalCurrentLine = this.currentLine;
@@ -425,19 +424,17 @@ export class ThriftParser {
         const keywordIndex = line.indexOf(structType);
         const searchStart = keywordIndex >= 0 ? keywordIndex + structType.length : 0;
 
-        const structNode: nodes.Struct = {
-            type: type,
-            name: name,
-            range: this.createRange(startLine, 0, startLine, 0), // Will be updated
+        const structNode = createStructBlock({
+            type,
+            name,
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
-            parent: parent,
-            fields: []
-        };
+            parent
+        });
 
         // Parse body
         this.currentLine = this.parseStructBody(structNode);
         structNode.range = this.createRange(startLine, 0, this.currentLine,
-            this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
+            (this.lines[this.currentLine] ?? '').length);
         return structNode;
     }
 
@@ -556,12 +553,11 @@ export class ThriftParser {
         const defaultInfo = findDefaultValueRange(valueTarget);
         const defaultStart = defaultInfo ? defaultInfo.start : null;
         const defaultEnd = defaultInfo ? defaultInfo.end : null;
-        return {
-            type: nodes.ThriftNodeType.Field,
+        return createField({
             range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
             nameRange,
             typeRange,
-            parent: parent,
+            parent,
             id: parseInt(tokens[idIndex].value, 10),
             requiredness,
             fieldType,
@@ -570,7 +566,7 @@ export class ThriftParser {
             defaultValueRange: defaultStart !== null && defaultEnd !== null
                 ? this.createRange(this.currentLine, defaultStart, this.currentLine, defaultEnd)
                 : undefined
-        };
+        });
     }
 
     private parseStructFieldLineFallback(parent: nodes.Struct, line: string, cleanLine: string): nodes.Field | null {
@@ -586,12 +582,11 @@ export class ThriftParser {
         const defaultInfo = findDefaultValueRange(valueTarget);
         const defaultStart = defaultInfo ? defaultInfo.start : null;
         const defaultEnd = defaultInfo ? defaultInfo.end : null;
-        return {
-            type: nodes.ThriftNodeType.Field,
+        return createField({
             range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
             nameRange,
             typeRange,
-            parent: parent,
+            parent,
             id: parseInt(fieldMatch[1], 10),
             requiredness: fieldMatch[2] as 'required' | 'optional',
             fieldType: fieldMatch[3].trim(),
@@ -600,7 +595,7 @@ export class ThriftParser {
             defaultValueRange: defaultStart !== null && defaultEnd !== null
                 ? this.createRange(this.currentLine, defaultStart, this.currentLine, defaultEnd)
                 : undefined
-        };
+        });
     }
 
     private parseEnum(parent: nodes.ThriftNode, name: string, isSenum: boolean): nodes.Enum {
@@ -608,20 +603,17 @@ export class ThriftParser {
         const line = this.lines[startLine];
         const keywordIndex = line.indexOf(isSenum ? 'senum' : 'enum');
         const searchStart = keywordIndex >= 0 ? keywordIndex + (isSenum ? 'senum'.length : 'enum'.length) : 0;
-        const enumNode: nodes.Enum = {
-            type: nodes.ThriftNodeType.Enum,
-            name: name,
-            range: this.createRange(startLine, 0, startLine, 0), // Will be updated
+        const enumNode = createEnumBlock({
+            name,
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
-            parent: parent,
-            members: [],
-            isSenum: isSenum
-        };
+            parent,
+            isSenum
+        });
 
         // Parse body
         this.currentLine = this.parseEnumBody(enumNode);
         enumNode.range = this.createRange(startLine, 0, this.currentLine,
-            this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
+            (this.lines[this.currentLine] ?? '').length);
         return enumNode;
     }
 
@@ -760,20 +752,17 @@ export class ThriftParser {
         const line = this.lines[startLine];
         const keywordIndex = line.indexOf('service');
         const searchStart = keywordIndex >= 0 ? keywordIndex + 'service'.length : 0;
-        const serviceNode: nodes.Service = {
-            type: nodes.ThriftNodeType.Service,
-            name: name,
-            extends: extendsClass,
-            range: this.createRange(startLine, 0, startLine, 0), // Will be updated
+        const serviceNode = createServiceBlock({
+            name,
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
-            parent: parent,
-            functions: []
-        };
+            parent,
+            extends: extendsClass
+        });
 
         // Parse body
         this.currentLine = this.parseServiceBody(serviceNode);
         serviceNode.range = this.createRange(startLine, 0, this.currentLine,
-            this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
+            (this.lines[this.currentLine] ?? '').length);
         return serviceNode;
     }
 
@@ -782,18 +771,15 @@ export class ThriftParser {
         const line = this.lines[startLine];
         const keywordIndex = line.indexOf('interaction');
         const searchStart = keywordIndex >= 0 ? keywordIndex + 'interaction'.length : 0;
-        const interactionNode: nodes.Interaction = {
-            type: nodes.ThriftNodeType.Interaction,
-            name: name,
-            range: this.createRange(startLine, 0, startLine, 0),
+        const interactionNode = createInteractionBlock({
+            name,
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
-            parent: parent,
-            functions: []
-        };
+            parent
+        });
 
         this.currentLine = this.parseInteractionBody(interactionNode);
         interactionNode.range = this.createRange(startLine, 0, this.currentLine,
-            this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
+            (this.lines[this.currentLine] ?? '').length);
         return interactionNode;
     }
 
@@ -1336,7 +1322,7 @@ export class ThriftParser {
         const valueRangeInfo = buildConstValueRange(this.lines, startLine, endLine, eqLine, eqChar);
         const constNode: nodes.Const = {
             type: nodes.ThriftNodeType.Const,
-            range: this.createRange(startLine, 0, endLine, this.lines[endLine] ? this.lines[endLine].length : 0),
+            range: this.createRange(startLine, 0, endLine, (this.lines[endLine] ?? '').length),
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
             parent: parent,
             valueType: valueType,
@@ -1369,13 +1355,11 @@ export class ThriftParser {
             const line = this.lines[this.currentLine];
             if (line.trim()) {  // Only parse non-empty lines
                 // Create a temporary parent for range parsing
-                const tempParent: nodes.ThriftNode = {
-                    type: nodes.ThriftNodeType.Document,
+                const tempParent = createDocument({
                     range: this.createRange(actualStartLine, 0, actualEndLine,
-                        this.lines[actualEndLine] ? this.lines[actualEndLine].length : 0),
-                    body: [],
-                    parent: undefined
-                };
+                        (this.lines[actualEndLine] ?? '').length),
+                    body: []
+                }) as nodes.ThriftNode;
 
                 const node = this.parseNextNode(tempParent);
                 if (node) {
@@ -1551,7 +1535,7 @@ export class ThriftParser {
         // Try to get cached AST for the affected range
         const rangeContent = parser.extractRangeContent(affectedRange.start, affectedRange.end);
         let newNodes = getCachedAstRange(uri,
-            {startLine: affectedRange.start, endLine: affectedRange.end},
+            createLineRange(affectedRange.start, affectedRange.end),
             rangeContent
         );
 
@@ -1577,7 +1561,7 @@ export class ThriftParser {
 
         const mergedAst = parser.mergeIncrementalResults(fullAst, incrementalResult);
         setCachedAstRange(uri,
-            {startLine: affectedRange.start, endLine: affectedRange.end},
+            createLineRange(affectedRange.start, affectedRange.end),
             rangeContent,
             newNodes
         );

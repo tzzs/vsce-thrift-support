@@ -206,7 +206,7 @@ export function parseStructFieldText(text: string): StructField | null {
         return null;
     }
     const prefix = prefixMatch[1];
-    remainder = prefixMatch[2];
+    remainder = prefixMatch[2]!;
 
     const idQualMatch = prefix.match(/^\s*(\d+):\s*((?:required|optional)?)\s*/);
     const id = idQualMatch ? idQualMatch[1] : '';

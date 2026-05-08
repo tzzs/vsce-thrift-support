@@ -1,16 +1,8 @@
 const assert = require('assert');
 
-const {diagnosticsTestUtils} = require('../../../out/diagnostics');
+const {includesKeyword, hasStructuralTokens, sanitizeStructuralText} = require('../../../out/diagnostics/utils');
 
 describe('structural-change-detection', () => {
-    let includesKeyword, hasStructuralTokens, sanitizeStructuralText;
-
-    before(() => {
-        const utils = diagnosticsTestUtils;
-        includesKeyword = utils.includesKeyword;
-        hasStructuralTokens = utils.hasStructuralTokens;
-        sanitizeStructuralText = utils.sanitizeStructuralText;
-    });
 
     it('should detect include keyword', () => {
         assert.strictEqual(includesKeyword('include "foo.thrift"'), true);

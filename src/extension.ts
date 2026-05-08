@@ -80,16 +80,6 @@ function initializeMemoryManagement(context: vscode.ExtensionContext, errorHandl
             })
         );
 
-        // 监听内存警告事件
-        context.subscriptions.push(
-            vscode.workspace.onDidChangeConfiguration(e => {
-                if (e.affectsConfiguration('thrift.performance')) {
-                    // 当性能配置改变时，可能需要调整内存策略
-                    // 根据配置可能调整动态调整因子
-                }
-            })
-        );
-
         // 在扩展激活时立即记录一次内存使用情况
         memoryMonitor.recordMemoryUsage();
 

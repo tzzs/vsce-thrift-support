@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as nodes from '../ast/nodes.types';
 import {
+    createLineRange,
     LineRange,
     mergeLineRanges,
     normalizeLineRange,
@@ -152,7 +153,7 @@ export function findBestContainingRange(ast: nodes.ThriftDocument, dirtyRange: L
         const span = node.range.end.line - node.range.start.line;
         if (span < bestSpan) {
             bestSpan = span;
-            best = {startLine: node.range.start.line, endLine: node.range.end.line};
+            best = createLineRange(node.range.start.line, node.range.end.line);
         }
     }
     return best;
@@ -173,7 +174,7 @@ export function findBestContainingRangeForChanges(ast: nodes.ThriftDocument, dir
         const span = node.range.end.line - node.range.start.line;
         if (span < bestSpan) {
             bestSpan = span;
-            best = {startLine: node.range.start.line, endLine: node.range.end.line};
+            best = createLineRange(node.range.start.line, node.range.end.line);
         }
     }
     return best;
@@ -207,7 +208,7 @@ export function findBestContainingMemberRange(ast: nodes.ThriftDocument, dirtyRa
             const span = member.range.end.line - member.range.start.line;
             if (span < bestSpan) {
                 bestSpan = span;
-                best = {startLine: member.range.start.line, endLine: member.range.end.line};
+                best = createLineRange(member.range.start.line, member.range.end.line);
             }
         }
     }
@@ -244,7 +245,7 @@ export function findBestContainingMemberRangeForChanges(ast: nodes.ThriftDocumen
             const span = member.range.end.line - member.range.start.line;
             if (span < bestSpan) {
                 bestSpan = span;
-                best = {startLine: member.range.start.line, endLine: member.range.end.line};
+                best = createLineRange(member.range.start.line, member.range.end.line);
             }
         }
     }

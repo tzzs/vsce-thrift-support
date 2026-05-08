@@ -6,7 +6,7 @@ import * as nodes from '../ast/nodes.types';
 import {IncrementalTracker} from '../utils/incremental-tracker';
 import {ErrorHandler} from '../utils/error-handler';
 import {CoreDependencies} from '../utils/dependencies';
-import {collapseLineRanges, LineRange, lineRangeToVscodeRange} from '../utils/line-range';
+import {collapseLineRanges, createLineRange, LineRange, lineRangeToVscodeRange} from '../utils/line-range';
 import {computeInitialContext} from './context';
 import {buildMinimalEdits, normalizeFormattingRange} from './range-utils';
 import {resolveFormattingOptions} from './options';
@@ -177,7 +177,7 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
             const lineCount = text.split(/\r?\n/).length;
             const startLine = 0;
             const endLine = Math.max(0, lineCount - 1);
-            dirtyRange = {startLine, endLine};
+            dirtyRange = createLineRange(startLine, endLine);
         }
 
         const formattedText = formatter.formatThriftCode(text, fmtOptions, dirtyRange);

@@ -9,13 +9,6 @@ export function collectIncludes(doc: nodes.ThriftDocument): nodes.Include[] {
 }
 
 /**
- * 收集 namespace 节点。
- */
-export function collectNamespaces(doc: nodes.ThriftDocument): nodes.Namespace[] {
-    return doc.body.filter((node): node is nodes.Namespace => node.type === nodes.ThriftNodeType.Namespace);
-}
-
-/**
  * 收集顶层类型节点。
  */
 export function collectTopLevelTypes(doc: nodes.ThriftDocument): nodes.ThriftNode[] {
