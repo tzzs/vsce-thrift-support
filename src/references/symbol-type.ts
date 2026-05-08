@@ -65,6 +65,8 @@ export function getSymbolType(
                 return 'service';
             case nodes.ThriftNodeType.Interaction:
                 return 'interaction';
+            case nodes.ThriftNodeType.Performs:
+                return 'interaction';
             case nodes.ThriftNodeType.Typedef:
                 return 'typedef';
             case nodes.ThriftNodeType.Const:
