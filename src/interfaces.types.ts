@@ -16,7 +16,7 @@ export interface ThriftFormattingOptions {
     collectionStyle: 'preserve' | 'multiline' | 'auto';
     insertSpaces: boolean;
     tabSize: number;
-    initialContext?: {indentLevel: number; inStruct: boolean; inEnum: boolean; inService?: boolean};
+    initialContext?: {indentLevel: number; inStruct: boolean; inEnum: boolean; inService?: boolean; inInteraction?: boolean};
     incrementalFormattingEnabled?: boolean;
 }
 

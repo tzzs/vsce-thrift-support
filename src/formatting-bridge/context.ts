@@ -7,6 +7,7 @@ export interface FormattingContext {
     inStruct: boolean;
     inEnum: boolean;
     inService: boolean;
+    inInteraction: boolean;
 }
 
 /**
@@ -34,7 +35,7 @@ export function computeInitialContext(
         } else {
             const before = document.getText(new vscode.Range(new vscode.Position(0, 0), start));
             if (!before) {
-                return {indentLevel: 0, inStruct: false, inEnum: false, inService: false};
+                return {indentLevel: 0, inStruct: false, inEnum: false, inService: false, inInteraction: false};
             }
             const baseKey = document.uri && typeof document.uri.toString === 'function'
                 ? document.uri.toString()
@@ -55,19 +56,21 @@ export function computeInitialContext(
                 const before = document.getText(new vscode.Range(new vscode.Position(0, 0), start));
                 beforeLines = before.split('\n');
             }
-            const stack: Array<'struct' | 'enum' | 'service'> = [];
+            const stack: Array<'struct' | 'enum' | 'service' | 'interaction'> = [];
             for (const rawLine of beforeLines) {
                 const line = rawLine.replace(/\/\/.*$/, '').replace(/#.*$/, '').trim();
                 if (!line) {
                     continue;
                 }
-                const startMatch = line.match(/^(struct|union|exception|enum|senum|service)\b/);
+                const startMatch = line.match(/^(struct|union|exception|enum|senum|service|interaction)\b/);
                 if (startMatch && line.includes('{')) {
                     const type = startMatch[1];
                     if (type === 'enum' || type === 'senum') {
                         stack.push('enum');
                     } else if (type === 'service') {
                         stack.push('service');
+                    } else if (type === 'interaction') {
+                        stack.push('interaction');
                     } else {
                         stack.push('struct');
                     }
@@ -80,14 +83,16 @@ export function computeInitialContext(
                 indentLevel: stack.length,
                 inStruct: stack.includes('struct'),
                 inEnum: stack.includes('enum'),
-                inService: stack.includes('service')
+                inService: stack.includes('service'),
+                inInteraction: stack.includes('interaction')
             };
         }
 
         let inStruct = false;
         let inEnum = false;
         let inService = false;
-        const stack: Array<'struct' | 'enum' | 'service'> = [];
+        let inInteraction = false;
+        const stack: Array<'struct' | 'enum' | 'service' | 'interaction'> = [];
 
         const traverse = (node: nodes.ThriftNode) => {
             if (node.range && node.range.start.line <= boundaryLine && node.range.end.line >= boundaryLine) {
@@ -102,6 +107,9 @@ export function computeInitialContext(
                 } else if (node.type === nodes.ThriftNodeType.Service) {
                     stack.push('service');
                     inService = true;
+                } else if (node.type === nodes.ThriftNodeType.Interaction) {
+                    stack.push('interaction');
+                    inInteraction = true;
                 }
             }
 
@@ -113,6 +121,8 @@ export function computeInitialContext(
                 (node as nodes.Enum).members.forEach(traverse);
             } else if ((node as nodes.Service).functions) {
                 (node as nodes.Service).functions.forEach(traverse);
+            } else if ((node as nodes.Interaction).functions) {
+                (node as nodes.Interaction).functions.forEach(traverse);
             }
         };
 
@@ -122,9 +132,10 @@ export function computeInitialContext(
             indentLevel: stack.length,
             inStruct,
             inEnum,
-            inService
+            inService,
+            inInteraction
         };
     } catch {
-        return {indentLevel: 0, inStruct: false, inEnum: false, inService: false};
+        return {indentLevel: 0, inStruct: false, inEnum: false, inService: false, inInteraction: false};
     }
 }

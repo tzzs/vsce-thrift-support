@@ -111,7 +111,7 @@ export function formatThriftContent(
     let inStruct = !!(options.initialContext && options.initialContext.inStruct);
     let inEnum = !!(options.initialContext && options.initialContext.inEnum);
     let inService = !!(options.initialContext && options.initialContext.inService);
-    let inInteraction = false;
+    let inInteraction = !!(options.initialContext && options.initialContext.inInteraction);
     let serviceIndentLevel = (options.initialContext && typeof options.initialContext.indentLevel === 'number')
         ? options.initialContext.indentLevel : 0;
     let structFields: StructField[] = [];
