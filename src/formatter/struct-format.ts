@@ -33,7 +33,7 @@ function calculateAnnotationStartPosition(
     }
     w += (options.alignTypes ? maxTypeWidth : field.type.length);
     w += 1;
-    if (options.alignFieldNames && (field.suffix || field.annotation !== undefined)) {
+    if (options.alignFieldNames && (field.suffix || (field.annotation !== undefined && field.annotation !== ''))) {
         w += maxNameWidth;
         if (field.suffix) {
             let s = field.suffix;
@@ -95,7 +95,7 @@ export function formatStructFields(
         maxQualifierWidth = Math.max(maxQualifierWidth, field.qualifier.length);
         maxTypeWidth = Math.max(maxTypeWidth, field.type.length);
         maxNameWidth = Math.max(maxNameWidth, field.name.length);
-        if (options.alignAnnotations && field.annotation !== undefined) {
+        if (options.alignAnnotations && field.annotation !== undefined && field.annotation !== '') {
             maxAnnotationWidth = Math.max(maxAnnotationWidth, field.annotation.length);
         }
         return field;
@@ -134,7 +134,7 @@ export function formatStructFields(
         // Idempotency fix: when preserving commas, if we have a comment/annotation
         // and the field is likely not the last one, assume comma should be present
         // This handles cases where comma was moved to end in previous format pass
-        if (options.trailingComma === 'preserve' && !hasCommaForWidth && (field.comment || field.annotation !== undefined)) {
+        if (options.trailingComma === 'preserve' && !hasCommaForWidth && (field.comment || (field.annotation !== undefined && field.annotation !== ''))) {
             // Heuristic: fields with comments/annotations in a struct are usually not the last field
             // This is imperfect but ensures idempotency for common cases
             hasCommaForWidth = true;
@@ -151,7 +151,7 @@ export function formatStructFields(
             cleanSuffixForWidth = cleanSuffixForWidth.replace(/\s*=\s*/, ' = ');
         }
 
-        if (options.alignFieldNames && (cleanSuffixForWidth || field.annotation !== undefined)) {
+        if (options.alignFieldNames && (cleanSuffixForWidth || (field.annotation !== undefined && field.annotation !== ''))) {
             contentWidth += maxNameWidth;
             if (cleanSuffixForWidth) {
                 contentWidth += cleanSuffixForWidth.length;
@@ -163,10 +163,10 @@ export function formatStructFields(
             }
         }
 
-        if (options.alignAnnotations && field.annotation !== undefined) {
+        if (options.alignAnnotations && field.annotation !== undefined && field.annotation !== '') {
             contentWidth += 1;
             contentWidth += maxAnnotationWidth;
-        } else if (field.annotation !== undefined) {
+        } else if (field.annotation !== undefined && field.annotation !== '') {
             contentWidth += 1 + field.annotation.length;
         }
 
@@ -187,7 +187,7 @@ export function formatStructFields(
         }
         let max = 0;
         parsedFields.forEach(f => {
-            if (f === undefined || f.annotation === undefined) {
+            if (f === undefined || f.annotation === undefined || f.annotation === '') {
                 return;
             }
             const w = calculateAnnotationStartPosition(
@@ -261,7 +261,7 @@ export function formatStructFields(
             hasComma = false;
         }
 
-        const hasContentAfterName = (cleanSuffix && cleanSuffix.length > 0) || field.annotation !== undefined;
+        const hasContentAfterName = (cleanSuffix && cleanSuffix.length > 0) || (field.annotation !== undefined && field.annotation !== '');
         if (options.alignFieldNames && hasContentAfterName) {
             formattedLine += field.name.padEnd(maxNameWidth);
             if (cleanSuffix) {
@@ -274,7 +274,7 @@ export function formatStructFields(
             }
         }
 
-        if (field.annotation !== undefined) {
+        if (field.annotation !== undefined && field.annotation !== '') {
             if (options.alignAnnotations) {
                 const currentWidth = formattedLine.length - deps.getIndent(indentLevel, options).length;
                 const spaces = targetAnnoStart - currentWidth + 1;
