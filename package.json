@@ -168,6 +168,7 @@
     "perf:benchmark": "node tests/perf/run-performance-benchmark.js"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/mocha": "^10.0.10",
     "@types/node": "16.x",
     "@types/vscode": "1.75.0",
