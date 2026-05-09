@@ -1,5 +1,53 @@
 # Changelog | 更新日志
 
+## [2.2.0](https://github.com/tzzs/vsce-thrift-support/compare/v2.1.1...v2.2.0) (2026-05-09)
+
+
+### Features
+
+* add parser and AST support for interaction, stream, sink, performs ([82a3ab5](https://github.com/tzzs/vsce-thrift-support/commit/82a3ab5668f15c2c255a62cfd52cb19c8be5e7f6))
+* add provider support for interaction across all language features ([e65f792](https://github.com/tzzs/vsce-thrift-support/commit/e65f7928271c0cb4cbb7b6677d7b958f52a85ce6))
+
+
+### Bug Fixes
+
+* align CI build scripts, npm ci, and tsconfig for review findings ([b53cddf](https://github.com/tzzs/vsce-thrift-support/commit/b53cddf2685bc8bdb08352d9b3063df93a5fa909))
+* align TextMate grammar scopes to official conventions and fix tokenization edge cases ([5da6f52](https://github.com/tzzs/vsce-thrift-support/commit/5da6f52afef1dca3a1b229ddf4b7e4dee6e1c173))
+* align TextMate scopes to official naming conventions ([b44f833](https://github.com/tzzs/vsce-thrift-support/commit/b44f8330d422b9d8cc6746d541909d7375bf1922))
+* **ci:** add @eslint/js as explicit devDependency for pnpm strict isolation ([a4429fc](https://github.com/tzzs/vsce-thrift-support/commit/a4429fce92fe5411ecfbe168439a626a24f327b3))
+* code review fixes — eliminate formatter state, security deps, and code cleanup ([c87d504](https://github.com/tzzs/vsce-thrift-support/commit/c87d504d780177b58f725adf2c8eeb24c344b7f6))
+* correct // comment indent in interaction blocks and recognize reference&lt;interaction&gt; type ([ce52a31](https://github.com/tzzs/vsce-thrift-support/commit/ce52a3191b09934e4c72ca0cc6739bce941510a5))
+* **deps:** remove deprecated vscode package and add pnpm overrides to fix all known vulnerabilities ([b0bc590](https://github.com/tzzs/vsce-thrift-support/commit/b0bc590af2f03da34cbc5de7e992024a0cd05e00))
+* **formatter:** eliminate module-level state and fix annotation depth tracking ([f915a6e](https://github.com/tzzs/vsce-thrift-support/commit/f915a6e9985789a4e6b568d02ab18790ed38aa2f))
+* **formatter:** ignore braces in string literals and line comments when tracking annotation depth ([e8934e0](https://github.com/tzzs/vsce-thrift-support/commit/e8934e09a34a22b7c195deb8249507a9fe800fbe))
+* **formatter:** preserve interaction context for range formatting ([7ad7dee](https://github.com/tzzs/vsce-thrift-support/commit/7ad7deea1c64c448d578d1ec2dd974da583fe38f))
+* **formatter:** remove spurious extra space before comment on no-comma fields ([187167f](https://github.com/tzzs/vsce-thrift-support/commit/187167fc5486741e1d43b309d2b8f3d7a55fc432))
+* **formatter:** remove spurious extra space before comment on no-comma fields ([7c2a6b8](https://github.com/tzzs/vsce-thrift-support/commit/7c2a6b85fb0dd614e8efad41c33b88f32cf4005f))
+* **formatter:** restore annotation empty-string semantics broken by ESLint auto-fix ([b9e94e4](https://github.com/tzzs/vsce-thrift-support/commit/b9e94e4bdc18dae2999b54799b986c557297ebf1))
+* **grammar:** add word boundary to required/optional modifier match in method parameters ([1b2a9ea](https://github.com/tzzs/vsce-thrift-support/commit/1b2a9ea0280f137365c1340eb84a7a56799763d0))
+* **grammar:** fix service method parameter scopes and enum member name tokenization ([76e055f](https://github.com/tzzs/vsce-thrift-support/commit/76e055fb2f3b2fa3b88d4a007fbcf0b8057cbe4d))
+* **grammar:** fix service method parameter scopes and enum member name tokenization ([0ba9c6e](https://github.com/tzzs/vsce-thrift-support/commit/0ba9c6ec2382b8b4fed380faa9b5f52eb48200ce))
+* **lint:** change hasCommaForWidth to const ([ab575ea](https://github.com/tzzs/vsce-thrift-support/commit/ab575ea903faf0c7d8fdfd4d354e793e2aafa32e))
+* **lint:** remove unnecessary type assertions in setup.ts and workspace-symbol-provider.ts ([1f0ad7f](https://github.com/tzzs/vsce-thrift-support/commit/1f0ad7f75705b882d3a685d89fac005073e5af71))
+* **lint:** resolve eqeqeq and strict-boolean-expressions ESLint errors ([3bca29f](https://github.com/tzzs/vsce-thrift-support/commit/3bca29f68741e26bd906b7e5c06755f24e0d1862))
+* **references:** map Performs node to interaction symbol type ([4b1bccf](https://github.com/tzzs/vsce-thrift-support/commit/4b1bccfce7e1e83ad242587a4a5dbb8a5657b8ab))
+* resolve 13 test failures across three modules ([f8707ed](https://github.com/tzzs/vsce-thrift-support/commit/f8707ed44da253a350c794fc0af79c83e9433d67))
+* resolve all-purple highlighting in One Dark Pro theme ([6def0c6](https://github.com/tzzs/vsce-thrift-support/commit/6def0c6f49cf6f27b0004a1e9413e71a6b55154f))
+* resolve all-purple highlighting in One Dark Pro theme ([f1805de](https://github.com/tzzs/vsce-thrift-support/commit/f1805dec92281b2145e7aba6fd90bd15fc7cb4ac))
+* **sampler:** use nullish coalescing for zero-value config parameters ([7b7bb4a](https://github.com/tzzs/vsce-thrift-support/commit/7b7bb4a1728284e9a27995321180c577781b07ec))
+* support negative integer values in enum field highlighting ([5a3eef2](https://github.com/tzzs/vsce-thrift-support/commit/5a3eef211bf4ecca0adeed8dad13a806e2fe514e))
+* support stream/sink/interaction/reference types in diagnostics and formatter ([0baead7](https://github.com/tzzs/vsce-thrift-support/commit/0baead7ff228a5738a47a18792ee929014038704))
+* **syntax:** restore correct type scope for deeply nested container types ([7840f34](https://github.com/tzzs/vsce-thrift-support/commit/7840f347e05d66d679ac10aa31bb71501d245a61))
+* **syntax:** restore correct type scope for deeply nested container types ([8c3faee](https://github.com/tzzs/vsce-thrift-support/commit/8c3faee15134ebacb4c2f97b3518e7097fa3bfb1))
+* **test:** add .thrift suffix to comment scope assertion in namespace test ([a19c43c](https://github.com/tzzs/vsce-thrift-support/commit/a19c43cc3feb825f83e538e24f1ad302078c2a5e))
+* use support.type.primitive scope for better One Dark Pro compatibility ([7774b34](https://github.com/tzzs/vsce-thrift-support/commit/7774b34554aa3a9c51b1810241c688b498ef268f))
+
+
+### Performance Improvements
+
+* **parser:** pre-allocate body array and extract createRange helper ([5407f4e](https://github.com/tzzs/vsce-thrift-support/commit/5407f4e8f3c861cd4e234247ba5cac7fbeae9f31))
+* reduce memory monitoring poll interval from 30s to 120s ([f57abf6](https://github.com/tzzs/vsce-thrift-support/commit/f57abf64bb068e7ff14548d37a3b32a93207ea60))
+
 ## [2.1.1](https://github.com/tzzs/vsce-thrift-support/compare/v2.1.0...v2.1.1) (2026-05-07)
 
 
