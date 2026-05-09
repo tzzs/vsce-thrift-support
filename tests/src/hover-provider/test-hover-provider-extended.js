@@ -91,9 +91,8 @@ struct Foo {
         const doc = createMockDocument(typedefText);
         const pos = new Position(4, 9);
         const hover = await provider.provideHover(doc, pos, createCancellationToken());
-        if (hover) {
-            assert.ok(hover.contents, 'Should have hover contents');
-        }
+        assert.ok(hover, 'Expected hover result for typedef reference');
+        assert.ok(hover.contents, 'Should have hover contents');
     });
 
     it('should provide hover for const', async () => {
@@ -107,12 +106,11 @@ struct Config {
         const doc = createMockDocument(constText);
         const pos = new Position(4, 21);
         const hover = await provider.provideHover(doc, pos, createCancellationToken());
-        if (hover) {
-            assert.ok(hover.contents, 'Should have hover contents');
-        }
+        assert.ok(hover, 'Expected hover result for const reference');
+        assert.ok(hover.contents, 'Should have hover contents');
     });
 
-    it('should provide hover for service method', async () => {
+    it('should provide hover for service method return type', async () => {
         const provider = new ThriftHoverProvider();
         const svcText = `service UserService {
     /// Get user by ID
@@ -123,11 +121,11 @@ struct User {
     1: string name
 }`;
         const doc = createMockDocument(svcText);
-        const pos = new Position(1, 8);
+        // Position (2, 4) points to "User" return type on line 2, not the doc comment on line 1
+        const pos = new Position(2, 4);
         const hover = await provider.provideHover(doc, pos, createCancellationToken());
-        if (hover) {
-            assert.ok(hover.contents, 'Should have hover contents');
-        }
+        assert.ok(hover, 'Expected hover result for service method return type');
+        assert.ok(hover.contents, 'Should have hover contents');
     });
 
     it('should return undefined at whitespace-only position', async () => {
@@ -150,8 +148,7 @@ service API {
         const doc = createMockDocument(exceptionText);
         const pos = new Position(5, 30);
         const hover = await provider.provideHover(doc, pos, createCancellationToken());
-        if (hover) {
-            assert.ok(hover.contents, 'Should have hover contents');
-        }
+        assert.ok(hover, 'Expected hover result for exception type reference');
+        assert.ok(hover.contents, 'Should have hover contents');
     });
 });
