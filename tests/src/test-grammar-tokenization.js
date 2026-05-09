@@ -436,7 +436,7 @@ describe('TextMate Grammar Tokenization', () => {
             assert.ok(hasScopes(tokens, 'test', ['entity.name.namespace.thrift']),
                 'namespace name should be entity.name.namespace');
             // The URL in annotation should NOT trigger comment scope
-            const urlCommentTokens = tokens.filter(t => t.scopes.includes('comment.line.double-slash'));
+            const urlCommentTokens = tokens.filter(t => t.scopes.includes('comment.line.double-slash.thrift'));
             assert.strictEqual(urlCommentTokens.length, 0,
                 'URL // in annotation should not trigger comment scope');
             // Annotation should be recognized
