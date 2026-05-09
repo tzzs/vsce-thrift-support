@@ -52,7 +52,7 @@ export function findReferencesInDocument(
     const contextCallback = (node: nodes.ThriftNode, entering: boolean) => {
         if (node.type === nodes.ThriftNodeType.Function) {
             if (entering) {
-                currentFunction = node ;
+                currentFunction = node;
                 inFunctionArguments = false;
                 inFunctionThrows = false;
             } else {
@@ -64,7 +64,7 @@ export function findReferencesInDocument(
 
         if (node.type === nodes.ThriftNodeType.Field) {
             if (entering) {
-                const field = node ;
+                const field = node;
                 if (currentFunction !== null && currentFunction.arguments.includes(field)) {
                     inFunctionArguments = true;
                     inFunctionThrows = false;
@@ -111,7 +111,7 @@ export function findReferencesInDocument(
         }
 
         if (node.type === nodes.ThriftNodeType.Function) {
-            const func = node ;
+            const func = node;
             if (func.returnType === symbolName) {
                 references.push(createLocation(uri, func.returnTypeRange ?? func.range));
             }
@@ -122,7 +122,7 @@ export function findReferencesInDocument(
         }
 
         if (node.type === nodes.ThriftNodeType.Field) {
-            const field = node ;
+            const field = node;
             if (!inFunctionArguments) {
                 if (field.fieldType === symbolName) {
                     references.push(createLocation(uri, field.typeRange ?? field.range));

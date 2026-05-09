@@ -2,7 +2,6 @@
 const assert = require('assert');
 const vscode = require('vscode');
 const {formatThriftContent} = require('../../../out/formatter/formatter-core.js');
-const {resetServiceAnnotationDepth} = require('../../../out/formatter/service-content.js');
 
 function run() {
     const options = {insertSpaces: true, indentSize: 4, tabSize: 4};
@@ -144,7 +143,6 @@ key = "value"
     );
 
     // === Test 7: Regression - stream sink types in formatting ===
-    resetServiceAnnotationDepth();
     const streamService = `
 service StreamService {
     stream<i32> uploadData(1: string sessionId)

@@ -248,7 +248,7 @@ export class SmartMemoryMonitor {
     private peakUsage = 0;
     private errorHandler: ErrorHandler;
     private readonly MAX_HISTORY_SIZE = 100; // 保留最近100条记录
-    private readonly MEMORY_CHECK_INTERVAL = 30000; // 30秒检查一次
+    private readonly MEMORY_CHECK_INTERVAL = 120000; // 120秒检查一次
 
     // 新增的智能组件
     private trendAnalyzer: TrendAnalyzer;

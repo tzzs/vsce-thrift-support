@@ -150,7 +150,7 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "pnpm run bundle",
+    "vscode:prepublish": "pnpm run compile && pnpm run bundle",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "bundle": "node build.js",
