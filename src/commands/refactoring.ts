@@ -16,8 +16,8 @@ export function registerRefactoringCommands(context: vscode.ExtensionContext) {
 
             // Try to infer type from current line if no selection
             let typeText =
-                selectedText && selectedText.trim().length > 0 ? selectedText.trim() : undefined;
-            if (!typeText) {
+                selectedText !== undefined && selectedText.trim().length > 0 ? selectedText.trim() : undefined;
+            if (typeText === undefined) {
                 // match field: 1: required list<string> items,
                 const m = fullLine.match(
                     /^(\s*)\d+\s*:\s*(?:required|optional)?\s*([^\s,;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/
@@ -26,7 +26,7 @@ export function registerRefactoringCommands(context: vscode.ExtensionContext) {
                     typeText = m[2];
                 }
             }
-            if (!typeText) {
+            if (typeText === undefined) {
                 return;
             }
 
@@ -34,7 +34,7 @@ export function registerRefactoringCommands(context: vscode.ExtensionContext) {
                 prompt: 'New type name',
                 value: 'ExtractedType'
             });
-            if (!newTypeName) {
+            if (newTypeName === undefined) {
                 return;
             }
 
@@ -148,7 +148,7 @@ export function registerRefactoringCommands(context: vscode.ExtensionContext) {
                 prompt: 'Target .thrift file name',
                 value: defaultFileName
             });
-            if (!targetName) {
+            if (targetName === undefined) {
                 return;
             }
 

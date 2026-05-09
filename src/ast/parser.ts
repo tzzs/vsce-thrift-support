@@ -152,7 +152,7 @@ export class ThriftParser {
      */
     public parseSection(startLine: number, endLine: number, existingAst?: nodes.ThriftDocument): nodes.ThriftDocument {
         // If no existing AST is provided, create a new one
-        const ast = existingAst || createDocument({
+        const ast = existingAst ?? createDocument({
             range: this.createRange(0, 0, this.lines.length > 0 ? this.lines.length - 1 : 0,
                 this.lines.length > 0 ? this.lines[this.lines.length - 1].length : 0),
             body: []
@@ -211,10 +211,7 @@ export class ThriftParser {
     }
 
     private ensureChildren(node: nodes.ThriftNode): nodes.ThriftNode[] {
-        if (!node.children) {
-            node.children = [];
-        }
-        return node.children;
+        return node.children ??= [];
     }
 
     private addChild(parent: nodes.ThriftNode, child: nodes.ThriftNode): void {
@@ -298,7 +295,7 @@ export class ThriftParser {
 
         if (keywordToken.value === 'include') {
             const pathToken = tokens[1];
-            if (pathToken && pathToken.type === 'string') {
+            if (pathToken !== undefined && pathToken.type === 'string') {
                 const node: nodes.Include = {
                     type: nodes.ThriftNodeType.Include,
                     range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
@@ -507,7 +504,7 @@ export class ThriftParser {
             cursor += 1;
         }
         const typeStartToken = tokens[cursor];
-        if (!typeStartToken) {
+        if (typeStartToken === undefined) {
             return this.parseStructFieldLineFallback(parent, line, cleanLine);
         }
         let nameTokenIndex = -1;
@@ -708,16 +705,14 @@ export class ThriftParser {
                         break;
                     }
                 }
-                if (startOffset === null) {
-                    startOffset = token.start;
-                }
+                startOffset ??= token.start;
                 endOffset = token.end;
             }
             if (startOffset !== null && endOffset !== null) {
                 const rawInitializer = cleanLine.slice(startOffset, endOffset).trim();
                 const trimmed = stripTrailingAnnotation(rawInitializer.replace(/[,;]\s*$/, '')).trim();
                 initializer = trimmed || undefined;
-                if (initializer) {
+                if (initializer !== undefined && initializer !== '') {
                     initializerRange = this.createRange(
                         this.currentLine,
                         startOffset,
@@ -727,9 +722,7 @@ export class ThriftParser {
                 }
             }
         }
-        if (!initializerRange) {
-            initializerRange = findInitializerRange(cleanLine, cleanLine, initializer, this.currentLine);
-        }
+        initializerRange ??= findInitializerRange(cleanLine, cleanLine, initializer, this.currentLine);
         const nameRange = this.createRange(
             this.currentLine,
             nameToken.start,
@@ -873,10 +866,7 @@ export class ThriftParser {
                 // Check for performs declaration
                 const perfNode = this.parsePerforms(parent, line, scan.stripped, scan.tokens);
                 if (perfNode) {
-                    if (!parent.performs) {
-                        parent.performs = [];
-                    }
-                    parent.performs.push(perfNode);
+                    (parent.performs ??= []).push(perfNode);
                     this.addChild(parent, perfNode);
                 }
             }
@@ -1082,7 +1072,7 @@ export class ThriftParser {
             return null;
         }
         const nameToken = tokens[1];
-        if (!nameToken || nameToken.type !== 'identifier') {
+        if (nameToken === undefined || nameToken.type !== 'identifier') {
             return null;
         }
         const nameRange = this.createRange(
@@ -1151,7 +1141,7 @@ export class ThriftParser {
             }
         }
         const returnTypeStartToken = tokens[returnTypeStartIndex];
-        if (!returnTypeStartToken || returnTypeStartIndex >= nameTokenIndex) {
+        if (returnTypeStartToken === undefined || returnTypeStartIndex >= nameTokenIndex) {
             return null;
         }
         const nameToken = tokens[nameTokenIndex];
@@ -1397,8 +1387,8 @@ export class ThriftParser {
                 let braceDepth = 0;
                 for (let searchLine = line; searchLine < this.lines.length && searchLine < line + 100; searchLine++) {
                     const searchText = this.lines[searchLine];
-                    const openBraces = (searchText.match(/{/g) || []).length;
-                    const closeBraces = (searchText.match(/}/g) || []).length;
+                    const openBraces = (searchText.match(/{/g) ?? []).length;
+                    const closeBraces = (searchText.match(/}/g) ?? []).length;
                     braceDepth += openBraces - closeBraces;
 
                     if (braceDepth <= 0) {
@@ -1467,12 +1457,12 @@ export class ThriftParser {
     }
 
     private addTypeDependency(ast: nodes.ThriftDocument, typeStr: string | undefined, deps: nodes.ThriftNode[]): void {
-        if (!typeStr) {
+        if (typeStr === undefined || typeStr === '') {
             return;
         }
 
         // Extract potential type names from typeStr (handles complex types like list<string>, map<i32, string>, etc.)
-        const typeMatches = typeStr.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) || [];
+        const typeMatches = typeStr.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) ?? [];
         for (const typeName of typeMatches) {
             // Look for nodes with matching names
             for (const potentialDep of ast.body) {
@@ -1541,10 +1531,7 @@ export class ThriftParser {
 
         const affectedNodes: nodes.ThriftNode[] = [];
 
-        if (!newNodes) {
-            // Parse the affected range if not in cache
-            newNodes = parser.parseRange(affectedRange.start, affectedRange.end);
-        }
+        newNodes ??= parser.parseRange(affectedRange.start, affectedRange.end);
 
         // Identify which existing nodes in the full AST overlap with the affected range
         for (const node of fullAst.body) {
@@ -1589,7 +1576,7 @@ export class ThriftParser {
         incrementalResult: IncrementalParseResult
     ): nodes.ThriftDocument {
         // If there are no new nodes, return the original AST
-        if (!incrementalResult.newNodes || incrementalResult.newNodes.length === 0) {
+        if (incrementalResult.newNodes.length === 0) {
             return fullAst;
         }
 
@@ -1600,7 +1587,7 @@ export class ThriftParser {
         };
 
         // Remove affected nodes that will be replaced
-        if (incrementalResult.affectedNodes && incrementalResult.affectedNodes.length > 0) {
+        if (incrementalResult.affectedNodes.length > 0) {
             updatedAst.body = updatedAst.body.filter(node =>
                 !incrementalResult.affectedNodes.some(affectedNode =>
                     this.rangesOverlap(affectedNode.range, node.range)

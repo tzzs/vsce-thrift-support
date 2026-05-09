@@ -22,37 +22,37 @@ export function traverseAst(
 
     if (node.type === nodes.ThriftNodeType.Document) {
         const doc = node ;
-        if (doc.body && Array.isArray(doc.body)) {
+        if (Array.isArray(doc.body)) {
             doc.body.forEach(child => traverseAst(child, callback, contextCallback));
         }
     } else if (node.type === nodes.ThriftNodeType.Struct ||
         node.type === nodes.ThriftNodeType.Union ||
         node.type === nodes.ThriftNodeType.Exception) {
         const struct = node ;
-        if (struct.fields && Array.isArray(struct.fields)) {
+        if (Array.isArray(struct.fields)) {
             struct.fields.forEach(field => traverseAst(field, callback, contextCallback));
         }
     } else if (node.type === nodes.ThriftNodeType.Enum) {
         const enumNode = node ;
-        if (enumNode.members && Array.isArray(enumNode.members)) {
+        if (Array.isArray(enumNode.members)) {
             enumNode.members.forEach(member => traverseAst(member, callback, contextCallback));
         }
     } else if (node.type === nodes.ThriftNodeType.Service) {
         const service = node ;
-        if (service.functions && Array.isArray(service.functions)) {
+        if (Array.isArray(service.functions)) {
             service.functions.forEach(func => traverseAst(func, callback, contextCallback));
         }
     } else if (node.type === nodes.ThriftNodeType.Interaction) {
         const interaction = node ;
-        if (interaction.functions && Array.isArray(interaction.functions)) {
+        if (Array.isArray(interaction.functions)) {
             interaction.functions.forEach(func => traverseAst(func, callback, contextCallback));
         }
     } else if (node.type === nodes.ThriftNodeType.Function) {
         const func = node ;
-        if (func.arguments && Array.isArray(func.arguments)) {
+        if (Array.isArray(func.arguments)) {
             func.arguments.forEach(arg => traverseAst(arg, callback, contextCallback));
         }
-        if (func.throws && Array.isArray(func.throws)) {
+        if (Array.isArray(func.throws)) {
             func.throws.forEach(throwNode => traverseAst(throwNode, callback, contextCallback));
         }
     } else if (node.children && Array.isArray(node.children)) {

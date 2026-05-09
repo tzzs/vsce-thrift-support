@@ -87,7 +87,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
     }
 
     private createSymbol(node: nodes.ThriftNode): vscode.DocumentSymbol | null {
-        let name = node.name || 'Script';
+        let name = node.name ?? 'Script';
         let detail = '';
         let kind = vscode.SymbolKind.File;
         // The parser provides ranges for the whole node (including body).
@@ -145,7 +145,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
             }
             case nodes.ThriftNodeType.Service: {
                 kind = vscode.SymbolKind.Interface;
-                detail = `service ${name}${node.extends ? ` extends ${node.extends}` : ''}`;
+                detail = `service ${name}${node.extends !== undefined ? ` extends ${node.extends}` : ''}`;
                 break;
             }
             case nodes.ThriftNodeType.Interaction: {
@@ -156,7 +156,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
             case nodes.ThriftNodeType.EnumMember: {
                 kind = vscode.SymbolKind.EnumMember;
                 detail = name;
-                if (node.initializer) {
+                if (node.initializer !== undefined) {
                     detail += ` = ${node.initializer}`;
                 }
                 break;

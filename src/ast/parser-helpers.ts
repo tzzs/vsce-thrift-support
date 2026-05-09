@@ -52,7 +52,7 @@ export function parseFieldList(text: string, baseLine: number, baseChar: number)
             cursor += 1;
         }
         const typeStartToken = tokens[cursor];
-        if (!typeStartToken) {
+        if (typeStartToken === undefined) {
             continue;
         }
         let nameTokenIndex = -1;

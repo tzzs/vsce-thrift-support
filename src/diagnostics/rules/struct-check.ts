@@ -24,16 +24,16 @@ export function checkStruct(
         if (!isKnownType(field.fieldType, definedTypes, includeAliases)) {
             issues.push({
                 message: `Unknown type '${field.fieldType}'`,
-                range: field.typeRange || field.range,
+                range: field.typeRange ?? field.range,
                 severity: vscode.DiagnosticSeverity.Error,
                 code: 'type.unknown'
             });
         }
 
-        if (field.defaultValue && !isValidDefaultValue(field.fieldType, field.defaultValue)) {
+        if (typeof field.defaultValue === 'string' && field.defaultValue.length > 0 && !isValidDefaultValue(field.fieldType, field.defaultValue)) {
             issues.push({
                 message: `Invalid default value '${field.defaultValue}' for type '${field.fieldType}'`,
-                range: field.defaultValueRange || field.range,
+                range: field.defaultValueRange ?? field.range,
                 severity: vscode.DiagnosticSeverity.Warning,
                 code: 'value.typeMismatch'
             });

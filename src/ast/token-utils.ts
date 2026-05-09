@@ -18,14 +18,14 @@ export function readQualifiedIdentifier(tokens: Token[], startIndex: number): {
     endOffset: number
 } | null {
     const first = tokens[startIndex];
-    if (!first || first.type !== 'identifier') {
+    if (first === undefined || first.type !== 'identifier') {
         return null;
     }
     let value = first.value;
     let endIndex = startIndex + 1;
     let endOffset = first.end;
-    while (tokens[endIndex] && tokens[endIndex].type === 'symbol' && tokens[endIndex].value === '.' &&
-    tokens[endIndex + 1] && tokens[endIndex + 1].type === 'identifier') {
+    while (tokens[endIndex] !== undefined && tokens[endIndex].type === 'symbol' && tokens[endIndex].value === '.' &&
+    tokens[endIndex + 1] !== undefined && tokens[endIndex + 1].type === 'identifier') {
         value += '.' + tokens[endIndex + 1].value;
         endOffset = tokens[endIndex + 1].end;
         endIndex += 2;

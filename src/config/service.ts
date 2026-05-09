@@ -32,7 +32,7 @@ export class ConfigService {
     get<T>(key: string, fallback?: T): T {
         const value = this.workspaceConfig.get<T>(key);
         if (value === undefined) {
-            return fallback !== undefined ? fallback : (this.getFromDefaults(key) as T);
+            return fallback ?? (this.getFromDefaults(key) as T);
         }
         return value;
     }
@@ -47,7 +47,7 @@ export class ConfigService {
         let current: unknown = this.defaults;
 
         for (const part of parts) {
-            if (current && typeof current === 'object' && !Array.isArray(current)) {
+            if (typeof current === 'object' && current !== null && !Array.isArray(current)) {
                 const record = current as Record<string, unknown>;
                 if (part in record) {
                     current = record[part];
@@ -150,7 +150,7 @@ export class ConfigService {
 
         // 检查所有可能的配置键
         const checkKey = (prefix: string, obj: unknown) => {
-            if (!obj || typeof obj !== 'object') {
+            if (typeof obj !== 'object' || obj === null) {
                 return;
             }
             const record = obj as Record<string, unknown>;
@@ -159,7 +159,7 @@ export class ConfigService {
                 if (event.affectsConfiguration(`thrift.${fullKey}`)) {
                     keys.push(fullKey);
                 }
-                if (value && typeof value === 'object' && !Array.isArray(value)) {
+                if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
                     checkKey(fullKey, value);
                 }
             }
@@ -249,7 +249,7 @@ export class ConfigService {
      * @param key 配置键（可选，如果未提供则重置所有配置）
      */
     async reset(key?: string): Promise<void> {
-        if (key) {
+        if (key !== undefined) {
             await this.workspaceConfig.update(key, undefined, vscode.ConfigurationTarget.Global);
         } else {
             // 重置所有 thrift 配置

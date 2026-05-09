@@ -81,7 +81,7 @@ export function formatThriftContent(
     }
 
     let ast;
-    if (dirtyRange && options.incrementalFormattingEnabled) {
+    if (dirtyRange && options.incrementalFormattingEnabled === true) {
         const mockDocument = {
             getText: () => content,
             uri: {toString: () => `mock:formatter:${hashContent(content)}`},
@@ -89,7 +89,7 @@ export function formatThriftContent(
         } as unknown as TextDocument;
 
         const incrementalResult = ThriftParser.incrementalParseWithCache(mockDocument, dirtyRange);
-        ast = incrementalResult?.ast || new ThriftParser(content).parse();
+        ast = incrementalResult?.ast ?? new ThriftParser(content).parse();
     } else {
         ast = new ThriftParser(content).parse();
     }
@@ -110,8 +110,8 @@ export function formatThriftContent(
         ? options.initialContext.indentLevel : 0;
     let inStruct = !!(options.initialContext && options.initialContext.inStruct);
     let inEnum = !!(options.initialContext && options.initialContext.inEnum);
-    let inService = !!(options.initialContext && options.initialContext.inService);
-    let inInteraction = !!(options.initialContext && options.initialContext.inInteraction);
+    let inService = options.initialContext?.inService === true;
+    let inInteraction = options.initialContext?.inInteraction === true;
     let serviceIndentLevel = (options.initialContext && typeof options.initialContext.indentLevel === 'number')
         ? options.initialContext.indentLevel : 0;
     let structFields: StructField[] = [];

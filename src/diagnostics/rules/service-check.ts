@@ -12,13 +12,13 @@ export function checkService(
     issues: ThriftIssue[]
 ) {
     // Check extends (services only)
-    if (node.type === nodes.ThriftNodeType.Service && node.extends) {
+    if (node.type === nodes.ThriftNodeType.Service && node.extends !== undefined) {
         const parentName = node.extends;
         let base = parentName;
         let parentKind = typeKind.get(parentName);
-        if (!parentKind && parentName.includes('.')) {
-            base = resolveNamespacedBase(parentName, includeAliases) || '';
-            parentKind = base ? typeKind.get(base) : undefined;
+        if (parentKind === undefined && parentName.includes('.')) {
+            base = resolveNamespacedBase(parentName, includeAliases) ?? '';
+            parentKind = typeof base === 'string' && base.length > 0 ? typeKind.get(base) : undefined;
         }
 
         const lineNo = node.range.start.line;
@@ -28,7 +28,7 @@ export function checkService(
             ? new vscode.Range(lineNo, col, lineNo, col + 'extends'.length)
             : node.range;
 
-        if (!base || !parentKind) {
+        if (base.length === 0 || parentKind === undefined) {
             issues.push({
                 message: `Unknown parent service '${parentName}' in extends`,
                 range,
@@ -49,7 +49,7 @@ export function checkService(
     for (const fn of node.functions) {
         const fnName = fn.name ?? 'unknown';
         // stream/sink functions are inherently not oneway
-        if (fn.oneway && !fn.isStream && !fn.isSink) {
+        if (fn.oneway && fn.isStream !== true && fn.isSink !== true) {
             if (fn.returnType.trim() !== 'void') {
                 issues.push({
                     message: `oneway method '${fnName}' must return void`,
@@ -58,7 +58,7 @@ export function checkService(
                     code: 'service.oneway.returnNotVoid'
                 });
             }
-            if (fn.throws && fn.throws.length > 0) {
+            if (fn.throws !== undefined && fn.throws.length > 0) {
                 issues.push({
                     message: `oneway method '${fnName}' must not declare throws`,
                     range: fn.range,
@@ -81,7 +81,7 @@ export function checkService(
             if (!isKnownType(arg.fieldType, definedTypes, includeAliases)) {
                 issues.push({
                     message: `Unknown type '${arg.fieldType}'`,
-                    range: arg.typeRange || arg.range,
+                    range: arg.typeRange ?? arg.range,
                     severity: vscode.DiagnosticSeverity.Error,
                     code: 'type.unknown'
                 });
@@ -90,8 +90,8 @@ export function checkService(
 
         for (const thr of fn.throws) {
             const base = resolveNamespacedBase(thr.fieldType, includeAliases);
-            const kind = base ? typeKind.get(base) : undefined;
-            if (!base || !kind) {
+            const kind = typeof base === 'string' && base.length > 0 ? typeKind.get(base) : undefined;
+            if (typeof base !== 'string' || base.length === 0 || kind === undefined) {
                 issues.push({
                     message: `Unknown exception type '${thr.fieldType}' in throws`,
                     range: thr.range,

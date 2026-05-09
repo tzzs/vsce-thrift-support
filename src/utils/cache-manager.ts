@@ -60,9 +60,7 @@ export class MemoryAwareCacheManager {
      * @returns {MemoryAwareCacheManager} CacheManager 单例
      */
     static getInstance(): MemoryAwareCacheManager {
-        if (!this.instance) {
-            this.instance = new MemoryAwareCacheManager();
-        }
+        this.instance ??= new MemoryAwareCacheManager();
         return this.instance;
     }
 
@@ -113,7 +111,7 @@ export class MemoryAwareCacheManager {
 
         const sizeAfter = cache.size();
         if (sizeAfter < expectedSize) {
-            const count = this.cleanupCount.get(cacheName) || 0;
+            const count = this.cleanupCount.get(cacheName) ?? 0;
             this.cleanupCount.set(cacheName, count + 1);
             this.lastCleanup.set(cacheName, Date.now());
         }
@@ -316,13 +314,13 @@ export class MemoryAwareCacheManager {
     }
 
     private recordHit(cacheName: string): void {
-        const stats = this.hitCount.get(cacheName) || {hits: 0, misses: 0};
+        const stats = this.hitCount.get(cacheName) ?? {hits: 0, misses: 0};
         stats.hits++;
         this.hitCount.set(cacheName, stats);
     }
 
     private recordMiss(cacheName: string): void {
-        const stats = this.hitCount.get(cacheName) || {hits: 0, misses: 0};
+        const stats = this.hitCount.get(cacheName) ?? {hits: 0, misses: 0};
         stats.misses++;
         this.hitCount.set(cacheName, stats);
     }
@@ -333,15 +331,15 @@ export class MemoryAwareCacheManager {
     public getCacheStats(cacheName: string): {size: number; maxSize: number; hitRate: number; cleanupCount: number} {
         const cache = this.caches.get(cacheName);
         const config = this.configs.get(cacheName);
-        const cleanup = this.cleanupCount.get(cacheName) || 0;
-        const stats = this.hitCount.get(cacheName) || {hits: 0, misses: 0};
+        const cleanup = this.cleanupCount.get(cacheName) ?? 0;
+        const stats = this.hitCount.get(cacheName) ?? {hits: 0, misses: 0};
 
         const totalAccesses = stats.hits + stats.misses;
         const hitRate = totalAccesses > 0 ? stats.hits / totalAccesses : 0;
 
         return {
-            size: cache?.size() || 0,
-            maxSize: config?.maxSize || 0,
+            size: cache?.size() ?? 0,
+            maxSize: config?.maxSize ?? 0,
             hitRate,
             cleanupCount: cleanup
         };
@@ -375,7 +373,7 @@ export class MemoryAwareCacheManager {
 
         for (const [cacheName] of this.caches.entries()) {
             const stats = this.getCacheStats(cacheName);
-            const lastCleanup = this.lastCleanup.get(cacheName) || 0;
+            const lastCleanup = this.lastCleanup.get(cacheName) ?? 0;
 
             // 更新缓存统计信息
             memoryMonitor.updateCacheStats(cacheName, {

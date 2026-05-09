@@ -62,7 +62,7 @@ function expandRangeToStructuralBlocks(
         const ast = ThriftParser.parseWithCache(document);
         const ranges: LineRange[] = [range];
         const visit = (node: nodes.ThriftNode) => {
-            if (node.range) {
+            if (node.range !== undefined) {
                 const nodeRange: LineRange = {
                     startLine: node.range.start.line,
                     endLine: node.range.end.line

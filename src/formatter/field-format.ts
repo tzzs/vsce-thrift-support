@@ -67,7 +67,7 @@ export function formatEnumFields(
         }
 
         const baseWidth = base.length - indent.length;
-        if (options.alignAnnotations && f.annotation) {
+        if (options.alignAnnotations && f.annotation !== undefined) {
             maxAnnoStart = Math.max(maxAnnoStart, baseWidth);
         }
 
@@ -76,7 +76,7 @@ export function formatEnumFields(
             comment: f.comment,
             hasComma,
             hasSemicolon,
-            annotation: f.annotation || ''
+            annotation: f.annotation ?? ''
         });
     }
 

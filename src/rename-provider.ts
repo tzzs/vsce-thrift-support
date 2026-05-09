@@ -60,7 +60,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
                 safeToken
             );
 
-            if (!references || references.length === 0) {
+            if (references === undefined || references.length === 0) {
                 return undefined;
             }
 
@@ -114,7 +114,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
      */
     private getUriKey(uri: vscode.Uri): string {
         const uriAny = uri as unknown as {fsPath?: string; path?: string; toString?: () => string};
-        return uriAny.fsPath || uriAny.path || (uriAny.toString ? uriAny.toString() : '');
+        return uriAny.fsPath ?? uriAny.path ?? (uriAny.toString ? uriAny.toString() : '');
     }
 
     /**
@@ -133,7 +133,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         if (cache.has(key)) {
             return cache.get(key);
         }
-        if (!vscode.workspace?.openTextDocument) {
+        if (vscode.workspace?.openTextDocument === undefined) {
             return undefined;
         }
         try {
@@ -154,7 +154,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
      * 计算精确的替换范围，避免误替换整段。
      */
     private getReplacementRanges(document: vscode.TextDocument, referenceRange: vscode.Range, oldName: string): vscode.Range[] {
-        if (!referenceRange) {
+        if (referenceRange === undefined) {
             return [];
         }
         const sameLine = referenceRange.start.line === referenceRange.end.line;

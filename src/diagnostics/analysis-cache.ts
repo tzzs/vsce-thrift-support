@@ -16,14 +16,14 @@ cacheManager.registerCache('diagnostics-blocks', {
     maxSize: config.cache.diagnosticsBlocks.maxSize,
     ttl: config.cache.diagnosticsBlocks.ttlMs,
     lruK: config.cache.diagnosticsBlocks.lruK,
-    evictionThreshold: config.cache.diagnosticsBlocks.evictionThreshold || 0.8
+    evictionThreshold: config.cache.diagnosticsBlocks.evictionThreshold ?? 0.8
 });
 
 cacheManager.registerCache('diagnostics-members', {
     maxSize: config.cache.diagnosticsMembers.maxSize,
     ttl: config.cache.diagnosticsMembers.ttlMs,
     lruK: config.cache.diagnosticsMembers.lruK,
-    evictionThreshold: config.cache.diagnosticsMembers.evictionThreshold || 0.8
+    evictionThreshold: config.cache.diagnosticsMembers.evictionThreshold ?? 0.8
 });
 
 /**

@@ -45,7 +45,7 @@ export function checkSyntax(codeLines: string[], issues: ThriftIssue[]) {
             } else if (ch === '}' || ch === ')' || ch === '>') {
                 if (ch === '>') {
                     const top = stack[stack.length - 1];
-                    if (top && top.ch === '<') {
+                    if (top !== undefined && top.ch === '<') {
                         stack.pop();
                     }
                     continue;

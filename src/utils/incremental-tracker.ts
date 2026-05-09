@@ -36,9 +36,7 @@ export class IncrementalTracker {
     }
 
     static getInstance(): IncrementalTracker {
-        if (!this.instance) {
-            this.instance = new IncrementalTracker();
-        }
+        this.instance ??= new IncrementalTracker();
         return this.instance;
     }
 

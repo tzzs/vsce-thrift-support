@@ -38,7 +38,7 @@ export interface DocumentDiagnosticState {
 }
 
 export function mergeBlockIntoAst(ast: nodes.ThriftDocument, blockNode: nodes.ThriftNode, blockRange: LineRange) {
-    if (!blockNode) {
+    if (blockNode === null || blockNode === undefined) {
         return;
     }
     const normalized = normalizeLineRange(blockRange);

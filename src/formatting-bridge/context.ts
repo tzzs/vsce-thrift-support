@@ -37,7 +37,7 @@ export function computeInitialContext(
             if (!before) {
                 return {indentLevel: 0, inStruct: false, inEnum: false, inService: false, inInteraction: false};
             }
-            const baseKey = document.uri && typeof document.uri.toString === 'function'
+            const baseKey = document.uri !== undefined && typeof document.uri.toString === 'function'
                 ? document.uri.toString()
                 : 'inmemory://range';
             ast = ThriftParser.parseContentWithCache(`${baseKey}#range`, before);
@@ -46,7 +46,7 @@ export function computeInitialContext(
         }
 
         const hasValidRanges = ast.body.some((node) => {
-            return node.range &&
+            return node.range !== undefined &&
                 typeof node.range.start?.line === 'number' &&
                 typeof node.range.end?.line === 'number';
         });
@@ -95,7 +95,7 @@ export function computeInitialContext(
         const stack: Array<'struct' | 'enum' | 'service' | 'interaction'> = [];
 
         const traverse = (node: nodes.ThriftNode) => {
-            if (node.range && node.range.start.line <= boundaryLine && node.range.end.line >= boundaryLine) {
+            if (node.range !== undefined && node.range.start.line <= boundaryLine && node.range.end.line >= boundaryLine) {
                 if (node.type === nodes.ThriftNodeType.Struct ||
                     node.type === nodes.ThriftNodeType.Union ||
                     node.type === nodes.ThriftNodeType.Exception) {
@@ -113,15 +113,15 @@ export function computeInitialContext(
                 }
             }
 
-            if ((node as nodes.ThriftDocument).body) {
+            if ((node as nodes.ThriftDocument).body !== undefined) {
                 (node as nodes.ThriftDocument).body.forEach(traverse);
-            } else if ((node as nodes.Struct).fields) {
+            } else if ((node as nodes.Struct).fields !== undefined) {
                 (node as nodes.Struct).fields.forEach(traverse);
-            } else if ((node as nodes.Enum).members) {
+            } else if ((node as nodes.Enum).members !== undefined) {
                 (node as nodes.Enum).members.forEach(traverse);
-            } else if ((node as nodes.Service).functions) {
+            } else if ((node as nodes.Service).functions !== undefined) {
                 (node as nodes.Service).functions.forEach(traverse);
-            } else if ((node as nodes.Interaction).functions) {
+            } else if ((node as nodes.Interaction).functions !== undefined) {
                 (node as nodes.Interaction).functions.forEach(traverse);
             }
         };

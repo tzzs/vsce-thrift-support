@@ -13,7 +13,7 @@ const referencesAstConfig = CACHE_CONFIGS['references-ast'] ?? {
     maxSize: config.cache.references.maxSize,
     ttl: config.cache.references.ttlMs,
     lruK: config.cache.references.lruK,
-    evictionThreshold: config.cache.references.evictionThreshold || 0.8
+    evictionThreshold: config.cache.references.evictionThreshold ?? 0.8
 };
 cacheManager.registerCache('references-ast', referencesAstConfig);
 
@@ -32,7 +32,7 @@ export class AstCache {
                 maxSize: config.cache.references.maxSize,
                 ttl: ttlMs,
                 lruK: config.cache.references.lruK,
-                evictionThreshold: config.cache.references.evictionThreshold || 0.8,
+                evictionThreshold: config.cache.references.evictionThreshold ?? 0.8,
                 priorityFn: () => {
                     const stats = cacheManager.getCacheStats('references-ast');
                     return stats.hitRate > 0.7 ? 1 : 0;

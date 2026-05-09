@@ -64,7 +64,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             getCachedAst: (doc) => this.astCache.get(doc)
         });
 
-        if (!symbolType) {
+        if (symbolType === null) {
             return references;
         }
 

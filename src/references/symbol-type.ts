@@ -86,7 +86,7 @@ export function getSymbolType(
             case nodes.ThriftNodeType.Union:
             case nodes.ThriftNodeType.Exception: {
                 const structNode = node ;
-                if (structNode.fields) {
+                if (structNode.fields.length > 0) {
                     for (const field of structNode.fields) {
                         if (field.name === symbolName) {
                             return 'field';
@@ -119,7 +119,7 @@ export function getSymbolType(
             }
             case nodes.ThriftNodeType.Enum: {
                 const enumNode = node ;
-                if (enumNode.members) {
+                if (enumNode.members.length > 0) {
                     for (const member of enumNode.members) {
                         if (member.name === symbolName) {
                             return 'enumValue';
@@ -130,7 +130,7 @@ export function getSymbolType(
             }
             case nodes.ThriftNodeType.Service: {
                 const serviceNode = node ;
-                if (serviceNode.functions) {
+                if (serviceNode.functions.length > 0) {
                     for (const func of serviceNode.functions) {
                         if (func.name === symbolName) {
                             return 'method';
@@ -147,7 +147,7 @@ export function getSymbolType(
             }
             case nodes.ThriftNodeType.Interaction: {
                 const interactionNode = node ;
-                if (interactionNode.functions) {
+                if (interactionNode.functions.length > 0) {
                     for (const func of interactionNode.functions) {
                         if (func.name === symbolName) {
                             return 'method';

@@ -48,7 +48,7 @@ export function getCachedAst(uri: string, content: string, version?: number): no
     const cacheKey = makeUriContentKey(uri, content, version);
 
     // 先检查 astCache Map
-    const cached = astCache.get(cacheKey) || astCache.get(uri); // 向后兼容
+    const cached = astCache.get(cacheKey) ?? astCache.get(uri); // 向后兼容
 
     if (cached && isFresh(cached.timestamp, CACHE_MAX_AGE, now)) {
         // 验证内容哈希以确保缓存数据一致性

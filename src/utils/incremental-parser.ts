@@ -13,9 +13,7 @@ export class IncrementalParserManager {
     private errorHandler = ErrorHandler.getInstance();
 
     static getInstance(): IncrementalParserManager {
-        if (!this.instance) {
-            this.instance = new IncrementalParserManager();
-        }
+        this.instance ??= new IncrementalParserManager();
         return this.instance;
     }
 
@@ -34,7 +32,7 @@ export class IncrementalParserManager {
                 dirtyRange = tracker.consumeDirtyRange(document);
 
                 // If the tracker doesn't have a dirty range, do a full parse
-                if (!dirtyRange) {
+                if (dirtyRange === undefined) {
                     return await this.parseFull(document);
                 }
             }
@@ -47,9 +45,6 @@ export class IncrementalParserManager {
                 return await this.parseFull(document);
             }
 
-            if (!dirtyRange) {
-                return await this.parseFull(document);
-            }
             const range = dirtyRange;
 
             const result = this.errorHandler.wrapSync(
