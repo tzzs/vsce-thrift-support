@@ -212,14 +212,20 @@
           "end": ">",
           "patterns": [
             {
-              "include": "#types"
+              "include": "#nested-types"
             },
             {
-              "include": "#nested-types"
+              "include": "#types"
             },
             {
               "name": "entity.name.type.thrift",
               "match": "[a-zA-Z0-9_]+\\.[A-Z][a-zA-Z0-9_]*"
+            },
+            {
+              "include": "#annotations"
+            },
+            {
+              "include": "#strings"
             },
             {
               "include": "#punctuation-comma"
@@ -239,14 +245,20 @@
           "end": ">",
           "patterns": [
             {
-              "include": "#types"
+              "include": "#nested-types"
             },
             {
-              "include": "#nested-types"
+              "include": "#types"
             },
             {
               "name": "entity.name.type.thrift",
               "match": "[a-zA-Z0-9_]+\\.[A-Z][a-zA-Z0-9_]*"
+            },
+            {
+              "include": "#annotations"
+            },
+            {
+              "include": "#strings"
             },
             {
               "include": "#comments"
@@ -263,14 +275,20 @@
           "end": ">",
           "patterns": [
             {
-              "include": "#types"
+              "include": "#nested-types"
             },
             {
-              "include": "#nested-types"
+              "include": "#types"
             },
             {
               "name": "entity.name.type.thrift",
               "match": "[a-zA-Z0-9_]+\\.[A-Z][a-zA-Z0-9_]*"
+            },
+            {
+              "include": "#annotations"
+            },
+            {
+              "include": "#strings"
             },
             {
               "include": "#comments"
@@ -727,10 +745,10 @@
             "2": {
               "patterns": [
                 {
-                  "include": "#types"
+                  "include": "#nested-types"
                 },
                 {
-                  "include": "#nested-types"
+                  "include": "#types"
                 }
               ]
             },
@@ -778,20 +796,14 @@
           },
           "patterns": [
             {
-              "include": "#types"
+              "include": "#nested-types"
             },
             {
-              "include": "#nested-types"
+              "include": "#types"
             },
             {
               "name": "punctuation.separator.thrift",
               "match": ","
-            },
-            {
-              "include": "#types"
-            },
-            {
-              "include": "#nested-types"
             },
             {
               "include": "#comments"
@@ -851,20 +863,20 @@
             "3": {
               "patterns": [
                 {
-                  "include": "#types"
+                  "include": "#nested-types"
                 },
                 {
-                  "include": "#nested-types"
+                  "include": "#types"
                 }
               ]
             },
             "4": {
               "patterns": [
                 {
-                  "include": "#types"
+                  "include": "#nested-types"
                 },
                 {
-                  "include": "#nested-types"
+                  "include": "#types"
                 }
               ]
             },
@@ -953,10 +965,10 @@
           },
           "patterns": [
             {
-              "include": "#types"
+              "include": "#nested-types"
             },
             {
-              "include": "#nested-types"
+              "include": "#types"
             },
             {
               "include": "#punctuation-comma"

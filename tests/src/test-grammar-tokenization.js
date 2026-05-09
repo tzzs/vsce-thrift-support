@@ -386,6 +386,87 @@ describe('TextMate Grammar Tokenization', () => {
         });
     });
 
+    describe('Nested container type tokenization', () => {
+        it('i32 inside set<i32> in a struct field should have storage.type.thrift', () => {
+            const lines = ['struct S {', '  1: set<i32> field,', '}'];
+            const tokens = tokenizeLines(lines);
+            assert.ok(hasScopes(tokens, 'i32', ['storage.type.thrift']),
+                'i32 inside set<> should have storage.type.thrift');
+        });
+
+        it('inner container keyword in 2-level nesting should have storage.type.thrift', () => {
+            const lines = ['struct S {', '  1: list<map<string, i32>> field,', '}'];
+            const tokens = tokenizeLines(lines);
+            assert.ok(hasScopes(tokens, 'map', ['storage.type.thrift']),
+                'map keyword inside list<> should have storage.type.thrift');
+            assert.ok(hasScopes(tokens, 'i32', ['storage.type.thrift']),
+                'i32 inside map<> inside list<> should have storage.type.thrift');
+        });
+
+        it('all type keywords in 3-level nesting should have storage.type.thrift', () => {
+            const lines = ['struct S {', '  1: list<map<string, set<i32>>> field,', '}'];
+            const tokens = tokenizeLines(lines);
+            assert.ok(hasScopes(tokens, 'map', ['storage.type.thrift']),
+                'map inside list<> should have storage.type.thrift');
+            assert.ok(hasScopes(tokens, 'set', ['storage.type.thrift']),
+                'set inside map<> inside list<> should have storage.type.thrift');
+            assert.ok(hasScopes(tokens, 'i32', ['storage.type.thrift']),
+                'i32 inside set<> (3 levels) should have storage.type.thrift');
+        });
+
+        it('annotation after inner type in nested context should have meta.annotation.thrift', () => {
+            const lines = [
+                'struct S {',
+                '  1: map<set<i32> (python.immutable = ""), string> field,',
+                '}'
+            ];
+            const tokens = tokenizeLines(lines);
+            assert.ok(hasScopes(tokens, 'i32', ['storage.type.thrift']),
+                'i32 inside set<> in annotated nested map should have storage.type.thrift');
+            assert.ok(tokens.some(t => t.scopes.includes('meta.annotation.thrift')),
+                'annotation (python.immutable = "") inside nested type should have meta.annotation.thrift');
+        });
+
+        it('user-reported: deeply nested type with multiple annotations should tokenize inner types correctly', () => {
+            const lines = [
+                'struct Insanity {',
+                '  3: required list<map<set<i32> (python.immutable = ""), map<i32,set<list<map<Insanity,string>(python.immutable = "")> (python.immutable = "")>>>> list_field,',
+                '}'
+            ];
+            const tokens = tokenizeLines(lines);
+
+            const i32Tokens = tokens.filter(t => t.text === 'i32');
+            assert.ok(i32Tokens.length > 0, 'should find i32 tokens');
+            assert.ok(i32Tokens.every(t => t.scopes.includes('storage.type.thrift')),
+                'all i32 tokens in deeply nested type should have storage.type.thrift');
+
+            const setTokens = tokens.filter(t => t.text === 'set');
+            assert.ok(setTokens.every(t => t.scopes.includes('storage.type.thrift')),
+                'all set tokens in nested type should have storage.type.thrift');
+
+            assert.ok(tokens.some(t => t.scopes.includes('meta.annotation.thrift')),
+                'annotations inside nested types should have meta.annotation.thrift');
+        });
+
+        it('user-defined type inside deeply nested map should have entity.name.type.thrift', () => {
+            const lines = ['struct S {', '  1: map<string, list<MyType>> field,', '}'];
+            const tokens = tokenizeLines(lines);
+            assert.ok(hasScopes(tokens, 'MyType', ['entity.name.type.thrift']),
+                'user-defined type inside nested containers should have entity.name.type.thrift');
+        });
+
+        it('typedef with nested containers should tokenize inner types correctly', () => {
+            const lines = ['typedef set<map<string, list<i64>>> ComplexType'];
+            const tokens = tokenizeLines(lines);
+            assert.ok(hasScopes(tokens, 'map', ['storage.type.thrift']),
+                'map inside typedef nested set<> should have storage.type.thrift');
+            assert.ok(hasScopes(tokens, 'list', ['storage.type.thrift']),
+                'list inside typedef nested map<> should have storage.type.thrift');
+            assert.ok(hasScopes(tokens, 'i64', ['storage.type.thrift']),
+                'i64 inside typedef 3-level nesting should have storage.type.thrift');
+        });
+    });
+
     describe('Namespace definition tokenization', () => {
         it('should recognize namespace with scoped language identifier', () => {
             const lines = ['namespace cpp.noexist ThriftTest'];
