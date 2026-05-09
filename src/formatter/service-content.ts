@@ -49,12 +49,11 @@ export function formatServiceContentLine(
         };
     }
 
-    // Lines inside an annotation block: use net brace count to track nesting depth.
-    // This correctly handles nested {} (e.g. map literals) without premature depth reduction.
+    // Lines inside an annotation block: count net braces while skipping string
+    // literals and line comments so that `key = "value with {brace}"` or
+    // `// {` do not affect the tracked depth.
     if (annotationDepth > 0) {
-        const opens = (line.match(/\{/g) ?? []).length;
-        const closes = (line.match(/\}/g) ?? []).length;
-        const newDepth = annotationDepth + opens - closes;
+        const newDepth = annotationDepth + countNetBraces(line);
 
         if (newDepth <= 0) {
             return {
@@ -110,4 +109,35 @@ export function formatServiceContentLine(
         closeService: false,
         annotationDepth
     };
+}
+
+/**
+ * Count the net number of structural braces on a single (trimmed) line,
+ * ignoring braces that appear inside string literals or after a `//` comment.
+ */
+function countNetBraces(line: string): number {
+    let net = 0;
+    let inDouble = false;
+    let inSingle = false;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (inDouble) {
+            if (ch === '\\') { i++; continue; }
+            if (ch === '"') { inDouble = false; }
+        } else if (inSingle) {
+            if (ch === '\\') { i++; continue; }
+            if (ch === "'") { inSingle = false; }
+        } else if (ch === '"') {
+            inDouble = true;
+        } else if (ch === "'") {
+            inSingle = true;
+        } else if (ch === '/' && line[i + 1] === '/') {
+            break; // rest of line is a comment
+        } else if (ch === '{') {
+            net++;
+        } else if (ch === '}') {
+            net--;
+        }
+    }
+    return net;
 }
