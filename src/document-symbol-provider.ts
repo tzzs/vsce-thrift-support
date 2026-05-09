@@ -195,7 +195,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
                 }
             }
         } else if (node.type === nodes.ThriftNodeType.Enum) {
-            const enumNode = node ;
+            const enumNode = node;
             for (const member of enumNode.members) {
                 const childSym = this.createSymbol(member);
                 if (childSym) {
@@ -203,7 +203,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
                 }
             }
         } else if (node.type === nodes.ThriftNodeType.Service) {
-            const serviceNode = node ;
+            const serviceNode = node;
             for (const func of serviceNode.functions) {
                 const childSym = this.createSymbol(func);
                 if (childSym) {
@@ -211,7 +211,7 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
                 }
             }
         } else if (node.type === nodes.ThriftNodeType.Interaction) {
-            const interactionNode = node ;
+            const interactionNode = node;
             for (const func of interactionNode.functions) {
                 const childSym = this.createSymbol(func);
                 if (childSym) {

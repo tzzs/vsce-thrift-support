@@ -85,7 +85,7 @@ export function getSymbolType(
             case nodes.ThriftNodeType.Struct:
             case nodes.ThriftNodeType.Union:
             case nodes.ThriftNodeType.Exception: {
-                const structNode = node ;
+                const structNode = node;
                 if (structNode.fields.length > 0) {
                     for (const field of structNode.fields) {
                         if (field.name === symbolName) {
@@ -102,7 +102,7 @@ export function getSymbolType(
                 break;
             }
             case nodes.ThriftNodeType.Field: {
-                const fieldNode = node ;
+                const fieldNode = node;
                 if (fieldNode.fieldType === symbolName) {
                     return 'type';
                 }
@@ -118,7 +118,7 @@ export function getSymbolType(
                 break;
             }
             case nodes.ThriftNodeType.Enum: {
-                const enumNode = node ;
+                const enumNode = node;
                 if (enumNode.members.length > 0) {
                     for (const member of enumNode.members) {
                         if (member.name === symbolName) {
@@ -129,7 +129,7 @@ export function getSymbolType(
                 break;
             }
             case nodes.ThriftNodeType.Service: {
-                const serviceNode = node ;
+                const serviceNode = node;
                 if (serviceNode.functions.length > 0) {
                     for (const func of serviceNode.functions) {
                         if (func.name === symbolName) {
@@ -146,7 +146,7 @@ export function getSymbolType(
                 break;
             }
             case nodes.ThriftNodeType.Interaction: {
-                const interactionNode = node ;
+                const interactionNode = node;
                 if (interactionNode.functions.length > 0) {
                     for (const func of interactionNode.functions) {
                         if (func.name === symbolName) {
@@ -163,7 +163,7 @@ export function getSymbolType(
                 break;
             }
             case nodes.ThriftNodeType.Function: {
-                const funcNode = node ;
+                const funcNode = node;
                 if (funcNode.returnType === symbolName) {
                     return 'type';
                 }

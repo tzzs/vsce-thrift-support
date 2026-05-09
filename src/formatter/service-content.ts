@@ -13,14 +13,7 @@ interface ServiceContentDeps {
 interface ServiceContentResult {
     formattedLines: string[];
     closeService: boolean;
-}
-
-// Module-level state for tracking annotation block depth inside service/interaction bodies.
-// Reset at the start of each formatting run via resetServiceAnnotationDepth().
-let serviceAnnotationDepth = 0;
-
-export function resetServiceAnnotationDepth(): void {
-    serviceAnnotationDepth = 0;
+    annotationDepth: number;
 }
 
 /**
@@ -29,49 +22,58 @@ export function resetServiceAnnotationDepth(): void {
  * @param serviceIndentLevel - Base indentation level for the service.
  * @param options - Formatting options.
  * @param deps - Formatting dependencies.
- * @returns Formatting result with closeService flag.
+ * @param annotationDepth - Current annotation block nesting depth (caller-maintained).
+ * @returns Formatting result with closeService flag and updated annotationDepth.
  */
 export function formatServiceContentLine(
     line: string,
     serviceIndentLevel: number,
     options: ThriftFormattingOptions,
-    deps: ServiceContentDeps
+    deps: ServiceContentDeps,
+    annotationDepth = 0
 ): ServiceContentResult {
     if (line === '{') {
         return {
             formattedLines: [deps.getServiceIndent(serviceIndentLevel, options) + line],
-            closeService: false
+            closeService: false,
+            annotationDepth
         };
     }
 
     // Multi-line annotation block start (e.g. @MethodMetadata{)
     if (/^\s*@[A-Za-z_][A-Za-z0-9_]*\s*\{/.test(line) && !line.includes('}')) {
-        serviceAnnotationDepth++;
         return {
             formattedLines: [deps.getServiceIndent(serviceIndentLevel + 1, options) + line],
-            closeService: false
+            closeService: false,
+            annotationDepth: annotationDepth + 1
         };
     }
 
-    // Lines inside an annotation block should be indented one extra level
-    if (serviceAnnotationDepth > 0) {
-        if (line.startsWith('}')) {
-            serviceAnnotationDepth--;
+    // Lines inside an annotation block: count net braces while skipping string
+    // literals and line comments so that `key = "value with {brace}"` or
+    // `// {` do not affect the tracked depth.
+    if (annotationDepth > 0) {
+        const newDepth = annotationDepth + countNetBraces(line);
+
+        if (newDepth <= 0) {
             return {
                 formattedLines: [deps.getServiceIndent(serviceIndentLevel + 1, options) + line],
-                closeService: false
+                closeService: false,
+                annotationDepth: 0
             };
         }
         return {
             formattedLines: [deps.getServiceIndent(serviceIndentLevel + 2, options) + line],
-            closeService: false
+            closeService: false,
+            annotationDepth: newDepth
         };
     }
 
     if (line.startsWith('}')) {
         return {
             formattedLines: [deps.getServiceIndent(serviceIndentLevel, options) + line],
-            closeService: true
+            closeService: true,
+            annotationDepth: 0
         };
     }
 
@@ -79,7 +81,8 @@ export function formatServiceContentLine(
         const paramIndent = deps.getServiceIndent(serviceIndentLevel + 2, options);
         return {
             formattedLines: [paramIndent + line.trim()],
-            closeService: false
+            closeService: false,
+            annotationDepth
         };
     }
 
@@ -88,19 +91,53 @@ export function formatServiceContentLine(
         const methodIndent = deps.getServiceIndent(serviceIndentLevel + 1, options);
         return {
             formattedLines: [methodIndent + normalized],
-            closeService: false
+            closeService: false,
+            annotationDepth
         };
     }
 
     if (line.trim().startsWith('/**') || line.trim().startsWith('*') || line.trim().startsWith('*/')) {
         return {
             formattedLines: [deps.getServiceIndent(serviceIndentLevel + 1, options) + line.trim()],
-            closeService: false
+            closeService: false,
+            annotationDepth
         };
     }
 
     return {
         formattedLines: [deps.getServiceIndent(serviceIndentLevel + 1, options) + line],
-        closeService: false
+        closeService: false,
+        annotationDepth
     };
+}
+
+/**
+ * Count the net number of structural braces on a single (trimmed) line,
+ * ignoring braces that appear inside string literals or after a `//` comment.
+ */
+function countNetBraces(line: string): number {
+    let net = 0;
+    let inDouble = false;
+    let inSingle = false;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (inDouble) {
+            if (ch === '\\') { i++; continue; }
+            if (ch === '"') { inDouble = false; }
+        } else if (inSingle) {
+            if (ch === '\\') { i++; continue; }
+            if (ch === "'") { inSingle = false; }
+        } else if (ch === '"') {
+            inDouble = true;
+        } else if (ch === "'") {
+            inSingle = true;
+        } else if (ch === '/' && line[i + 1] === '/') {
+            break; // rest of line is a comment
+        } else if (ch === '{') {
+            net++;
+        } else if (ch === '}') {
+            net--;
+        }
+    }
+    return net;
 }

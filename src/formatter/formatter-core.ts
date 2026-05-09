@@ -34,7 +34,7 @@ import {
     handleConstStartLine
 } from './line-handlers';
 import {isAnnotationStartLine, isEnumStartLine, isInteractionStartLine, isServiceStartLine, isStructStartLine} from './line-detection';
-import {formatServiceContentLine, resetServiceAnnotationDepth} from './service-content';
+import {formatServiceContentLine} from './service-content';
 import {isServiceMethodLine} from './service-method';
 import {formatStructContentLine} from './struct-content';
 import {formatSingleLineEnum, formatSingleLineService, formatSingleLineStruct} from './single-line-format';
@@ -122,8 +122,9 @@ export function formatThriftContent(
     let constBlockIndentLevel: number | null = null;
     // Track annotation block depth for top-level @Annotation{...} blocks
     let topAnnotationDepth = 0;
-
-    resetServiceAnnotationDepth();
+    // Caller-maintained annotation depths for service/interaction bodies (avoids module-level state)
+    let serviceAnnotationDepth = 0;
+    let interactionAnnotationDepth = 0;
 
     for (let i = 0; i < lines.length; i++) {
         const originalLine = lines[i];
@@ -365,10 +366,12 @@ export function formatThriftContent(
                 getServiceIndent,
                 normalizeGenericsInSignature,
                 isServiceMethod: isServiceMethodLine
-            });
+            }, serviceAnnotationDepth);
             formattedLines.push(...serviceResult.formattedLines);
+            serviceAnnotationDepth = serviceResult.annotationDepth;
             if (serviceResult.closeService) {
                 inService = false;
+                serviceAnnotationDepth = 0;
             }
             continue;
         }
@@ -379,10 +382,12 @@ export function formatThriftContent(
                 getServiceIndent,
                 normalizeGenericsInSignature,
                 isServiceMethod: isServiceMethodLine
-            });
+            }, interactionAnnotationDepth);
             formattedLines.push(...interactionResult.formattedLines);
+            interactionAnnotationDepth = interactionResult.annotationDepth;
             if (interactionResult.closeService) {
                 inInteraction = false;
+                interactionAnnotationDepth = 0;
             }
             continue;
         }

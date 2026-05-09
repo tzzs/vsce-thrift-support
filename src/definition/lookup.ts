@@ -88,7 +88,7 @@ export class DefinitionLookup {
         }
 
         if (node.type === nodes.ThriftNodeType.Document) {
-            const doc = node ;
+            const doc = node;
             if (doc.body.length > 0) {
                 for (const item of doc.body) {
                     if (!this.traverseAST(item, callback)) {
@@ -99,35 +99,35 @@ export class DefinitionLookup {
         } else if (node.type === nodes.ThriftNodeType.Struct ||
             node.type === nodes.ThriftNodeType.Union ||
             node.type === nodes.ThriftNodeType.Exception) {
-            const struct = node ;
+            const struct = node;
             for (const field of struct.fields) {
                 if (!this.traverseAST(field, callback)) {
                     return false;
                 }
             }
         } else if (node.type === nodes.ThriftNodeType.Enum) {
-            const enumNode = node ;
+            const enumNode = node;
             for (const member of enumNode.members) {
                 if (!this.traverseAST(member, callback)) {
                     return false;
                 }
             }
         } else if (node.type === nodes.ThriftNodeType.Service) {
-            const service = node ;
+            const service = node;
             for (const func of service.functions) {
                 if (!this.traverseAST(func, callback)) {
                     return false;
                 }
             }
         } else if (node.type === nodes.ThriftNodeType.Interaction) {
-            const interaction = node ;
+            const interaction = node;
             for (const func of interaction.functions) {
                 if (!this.traverseAST(func, callback)) {
                     return false;
                 }
             }
         } else if (node.type === nodes.ThriftNodeType.Function) {
-            const func = node ;
+            const func = node;
             for (const arg of func.arguments) {
                 if (!this.traverseAST(arg, callback)) {
                     return false;

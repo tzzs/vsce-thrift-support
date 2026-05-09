@@ -1425,7 +1425,7 @@ export class ThriftParser {
 
             // Look for type references in the node content
             if (node.type === nodes.ThriftNodeType.Service) {
-                const service = node ;
+                const service = node;
                 for (const func of service.functions) {
                     // Find dependencies in function return types and argument types
                     this.addTypeDependency(ast, func.returnType, nodeDeps);
@@ -1439,12 +1439,12 @@ export class ThriftParser {
             } else if (node.type === nodes.ThriftNodeType.Struct ||
                 node.type === nodes.ThriftNodeType.Exception ||
                 node.type === nodes.ThriftNodeType.Union) {
-                const structLike = node ;
+                const structLike = node;
                 for (const field of structLike.fields) {
                     this.addTypeDependency(ast, field.fieldType, nodeDeps);
                 }
             } else if (node.type === nodes.ThriftNodeType.Const) {
-                const constNode = node ;
+                const constNode = node;
                 this.addTypeDependency(ast, constNode.valueType, nodeDeps);
             }
 

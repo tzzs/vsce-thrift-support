@@ -98,7 +98,7 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
         const line = document.lineAt(node.range.start.line).text;
 
         if (node.type === nodes.ThriftNodeType.Field) {
-            const required = node.requiredness ?? undefined;
+            const required = node.requiredness;
             const requiredIndex = required ? line.indexOf(required) : -1;
             const requiredRange = requiredIndex >= 0 && required
                 ? new vscode.Range(node.range.start.line, requiredIndex, node.range.start.line, requiredIndex + required.length)

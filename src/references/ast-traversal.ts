@@ -21,34 +21,34 @@ export function traverseAst(
     callback(node);
 
     if (node.type === nodes.ThriftNodeType.Document) {
-        const doc = node ;
+        const doc = node;
         if (Array.isArray(doc.body)) {
             doc.body.forEach(child => traverseAst(child, callback, contextCallback));
         }
     } else if (node.type === nodes.ThriftNodeType.Struct ||
         node.type === nodes.ThriftNodeType.Union ||
         node.type === nodes.ThriftNodeType.Exception) {
-        const struct = node ;
+        const struct = node;
         if (Array.isArray(struct.fields)) {
             struct.fields.forEach(field => traverseAst(field, callback, contextCallback));
         }
     } else if (node.type === nodes.ThriftNodeType.Enum) {
-        const enumNode = node ;
+        const enumNode = node;
         if (Array.isArray(enumNode.members)) {
             enumNode.members.forEach(member => traverseAst(member, callback, contextCallback));
         }
     } else if (node.type === nodes.ThriftNodeType.Service) {
-        const service = node ;
+        const service = node;
         if (Array.isArray(service.functions)) {
             service.functions.forEach(func => traverseAst(func, callback, contextCallback));
         }
     } else if (node.type === nodes.ThriftNodeType.Interaction) {
-        const interaction = node ;
+        const interaction = node;
         if (Array.isArray(interaction.functions)) {
             interaction.functions.forEach(func => traverseAst(func, callback, contextCallback));
         }
     } else if (node.type === nodes.ThriftNodeType.Function) {
-        const func = node ;
+        const func = node;
         if (Array.isArray(func.arguments)) {
             func.arguments.forEach(arg => traverseAst(arg, callback, contextCallback));
         }
