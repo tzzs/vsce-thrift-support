@@ -948,7 +948,7 @@
       "patterns": [
         {
           "name": "meta.parameter.thrift",
-          "begin": "\\s*([0-9]+)\\s*:\\s*(required|optional)?\\s*",
+          "begin": "\\s*([0-9]+)\\s*:\\s*(?:(required|optional)\\b\\s+)?",
           "beginCaptures": {
             "1": {
               "name": "constant.numeric.thrift"
