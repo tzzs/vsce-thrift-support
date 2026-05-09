@@ -30,10 +30,10 @@
       "include": "#annotations"
     },
     {
-      "include": "#keywords"
+      "include": "#types"
     },
     {
-      "include": "#types"
+      "include": "#keywords"
     },
     {
       "include": "#constants"
@@ -124,7 +124,7 @@
       "patterns": [
         {
           "name": "keyword.control.thrift",
-          "match": "\\b(include|cpp_include|namespace|typedef|struct|union|exception|enum|service|const|required|optional|throws|extends|void|bool|byte|i8|i16|i32|i64|double|string|binary|uuid|slist|senum|map|list|set|oneway|async|reference|stream|sink)\\b"
+          "match": "\\b(include|cpp_include|namespace|typedef|struct|union|exception|enum|service|const|required|optional|throws|extends|oneway|async|reference)\\b"
         },
         {
           "name": "keyword.control.thrift",
@@ -636,7 +636,10 @@
               "name": "keyword.control.thrift"
             },
             "2": {
-              "name": "storage.type.thrift"
+              "patterns": [
+                { "include": "#types" },
+                { "include": "#nested-types" }
+              ]
             },
             "3": {
               "name": "variable.other.constant.thrift"
@@ -725,10 +728,10 @@
           },
           "patterns": [
             {
-              "include": "#types"
+              "include": "#nested-types"
             },
             {
-              "include": "#nested-types"
+              "include": "#types"
             },
             {
               "include": "#annotations"
@@ -739,9 +742,8 @@
           ]
         }
       ]
-    }
-  },
-  "method-definitions": {
+    },
+    "method-definitions": {
     "patterns": [
       {
         "name": "meta.method.definition.thrift",
@@ -869,6 +871,7 @@
         "include": "#comments"
       }
     ]
+  }
   },
   "scopeName": "source.thrift"
 }
