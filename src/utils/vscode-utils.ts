@@ -4,7 +4,7 @@ import {ErrorHandler} from './error-handler';
 type LocationCtor = new (uri: vscode.Uri, range: vscode.Range) => vscode.Location;
 
 const locationCtor: LocationCtor | undefined =
-    typeof vscode.Location === 'function' ? (vscode.Location as LocationCtor) : undefined;
+    typeof vscode.Location === 'function' ? vscode.Location : undefined;
 
 /**
  * Creates a VS Code Location object in a test-compatible way.
@@ -24,5 +24,5 @@ export function createLocation(uri: vscode.Uri, range: vscode.Range): vscode.Loc
             return location;
         }
     }
-    return {uri, range} as vscode.Location;
+    return {uri, range};
 }

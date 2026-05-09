@@ -12,6 +12,7 @@
   "engines": {
     "vscode": "^1.75.0"
   },
+  "packageManager": "pnpm@10.25.0",
   "categories": [
     "Programming Languages",
     "Linters",
@@ -149,7 +150,7 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run bundle",
+    "vscode:prepublish": "pnpm run bundle",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "bundle": "node build.js",
@@ -157,13 +158,13 @@
     "lint": "eslint --cache src",
     "lint:fix": "eslint --cache src --ext ts --fix",
     "clean": "rimraf out dist",
-    "build": "npm run clean && npm run compile && npm run bundle",
-    "bump": "npm version patch --no-git-tag-version && npm run package",
-    "package": "npx @vscode/vsce package",
-    "publish": "npx @vscode/vsce publish",
-    "test": "npm run build && mocha",
-    "test:single": "npm run build && mocha --config .mocharc.single.json",
-    "coverage": "npm run build && nyc --reporter=text-summary mocha",
+    "build": "pnpm run clean && pnpm run compile && pnpm run bundle",
+    "bump": "pnpm version patch --no-git-tag-version && pnpm run package",
+    "package": "pnpm exec @vscode/vsce package",
+    "publish": "pnpm exec @vscode/vsce publish",
+    "test": "pnpm run build && mocha",
+    "test:single": "pnpm run build && mocha --config .mocharc.single.json",
+    "coverage": "pnpm run build && nyc --reporter=text-summary mocha",
     "perf:benchmark": "node tests/perf/run-performance-benchmark.js"
   },
   "devDependencies": {
