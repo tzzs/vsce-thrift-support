@@ -103,9 +103,7 @@ export class ThriftFileWatcher {
     private watchers: Map<string, TestableFileSystemWatcher> = new Map();
 
     static getInstance(): ThriftFileWatcher {
-        if (!this.instance) {
-            this.instance = new ThriftFileWatcher();
-        }
+        this.instance ??= new ThriftFileWatcher();
         return this.instance;
     }
 

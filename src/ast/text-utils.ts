@@ -344,22 +344,6 @@ export function findLastNonWhitespaceUpTo(
 }
 
 /**
- * 计算单词偏移。
- * @param text 原始文本
- * @param word 目标单词
- * @returns 偏移或 null
- */
-export function findWordOffset(text: string, word: string): number | null {
-    if (!word) {
-        return null;
-    }
-    const escaped = escapeRegExp(word);
-    const regex = new RegExp(`\\b${escaped}\\b`, 'g');
-    const match = regex.exec(text);
-    return match ? match.index : null;
-}
-
-/**
  * 按范围截取文本。
  * @param lines 文档行内容
  * @param range 截取范围

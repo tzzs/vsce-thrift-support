@@ -9,7 +9,8 @@ import {
     setCachedAst,
     setCachedAstRange
 } from './cache';
-import {LineRange} from '../utils/line-range';
+import {createLineRange, LineRange} from '../utils/line-range';
+import {createField, createDocument, createStructBlock, createEnumBlock, createServiceBlock, createInteractionBlock} from './factory';
 import {isExpired, isFresh} from '../utils/cache-expiry';
 import {
     buildConstValueRange,
@@ -122,21 +123,26 @@ export class ThriftParser {
      * 解析 Thrift 文本为 AST。
      */
     public parse(): nodes.ThriftDocument {
-        const root: nodes.ThriftDocument = {
-            type: nodes.ThriftNodeType.Document,
-            range: new vscode.Range(0, 0, this.lines.length > 0 ? this.lines.length - 1 : 0,
+        const estimatedSize = Math.min(this.lines.length, 1000);
+        const root = createDocument({
+            range: this.createRange(0, 0, this.lines.length > 0 ? this.lines.length - 1 : 0,
                 this.lines.length > 0 ? this.lines[this.lines.length - 1].length : 0),
-            body: []
-        };
+            body: new Array<nodes.ThriftNode>(estimatedSize)
+        });
 
         this.currentLine = 0;
+        let bodyIndex = 0;
         while (this.currentLine < this.lines.length) {
             const node = this.parseNextNode(root);
             if (node) {
-                root.body.push(node);
+                if (bodyIndex >= root.body.length) {
+                    root.body.length = Math.min(root.body.length * 2, 100000);
+                }
+                root.body[bodyIndex++] = node;
                 this.addChild(root, node);
             }
         }
+        root.body.length = bodyIndex;
 
         return root;
     }
@@ -146,12 +152,11 @@ export class ThriftParser {
      */
     public parseSection(startLine: number, endLine: number, existingAst?: nodes.ThriftDocument): nodes.ThriftDocument {
         // If no existing AST is provided, create a new one
-        const ast: nodes.ThriftDocument = existingAst || {
-            type: nodes.ThriftNodeType.Document,
-            range: new vscode.Range(0, 0, this.lines.length > 0 ? this.lines.length - 1 : 0,
+        const ast = existingAst ?? createDocument({
+            range: this.createRange(0, 0, this.lines.length > 0 ? this.lines.length - 1 : 0,
                 this.lines.length > 0 ? this.lines[this.lines.length - 1].length : 0),
             body: []
-        };
+        });
 
         // Save current state
         const originalCurrentLine = this.currentLine;
@@ -206,10 +211,7 @@ export class ThriftParser {
     }
 
     private ensureChildren(node: nodes.ThriftNode): nodes.ThriftNode[] {
-        if (!node.children) {
-            node.children = [];
-        }
-        return node.children;
+        return node.children ??= [];
     }
 
     private addChild(parent: nodes.ThriftNode, child: nodes.ThriftNode): void {
@@ -276,8 +278,8 @@ export class ThriftParser {
             if (scope && namespace) {
                 const node: nodes.Namespace = {
                     type: nodes.ThriftNodeType.Namespace,
-                    range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
-                    nameRange: new vscode.Range(this.currentLine, namespace.startOffset, this.currentLine, namespace.endOffset),
+                    range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
+                    nameRange: this.createRange(this.currentLine, namespace.startOffset, this.currentLine, namespace.endOffset),
                     parent: parent,
                     scope: scope.value,
                     namespace: namespace.value,
@@ -293,10 +295,10 @@ export class ThriftParser {
 
         if (keywordToken.value === 'include') {
             const pathToken = tokens[1];
-            if (pathToken && pathToken.type === 'string') {
+            if (pathToken !== undefined && pathToken.type === 'string') {
                 const node: nodes.Include = {
                     type: nodes.ThriftNodeType.Include,
-                    range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+                    range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
                     parent: parent,
                     path: pathToken.value,
                     name: pathToken.value
@@ -347,6 +349,16 @@ export class ThriftParser {
             return invalid;
         }
 
+        if (keywordToken.value === 'interaction') {
+            const nameToken = findFirstIdentifier(tokens, 1);
+            if (nameToken) {
+                return this.parseInteraction(parent, nameToken.value);
+            }
+            const invalid = this.createInvalidNode(parent, line, 'Invalid interaction declaration');
+            this.currentLine++;
+            return invalid;
+        }
+
         if (keywordToken.value === 'const') {
             const equalsIndex = findSymbolIndex(tokens, '=');
             if (equalsIndex !== -1) {
@@ -370,8 +382,8 @@ export class ThriftParser {
                 const aliasType = line.slice(keywordIndex, nameToken.start).trim();
                 const node: nodes.Typedef = {
                     type: nodes.ThriftNodeType.Typedef,
-                    range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
-                    nameRange: new vscode.Range(this.currentLine, nameToken.start, this.currentLine, nameToken.end),
+                    range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
+                    nameRange: this.createRange(this.currentLine, nameToken.start, this.currentLine, nameToken.end),
                     parent: parent,
                     aliasType: aliasType,
                     aliasTypeRange: findTypeRangeInLine(line, this.currentLine, aliasType, keywordIndex),
@@ -393,7 +405,7 @@ export class ThriftParser {
     private createInvalidNode(parent: nodes.ThriftNode, line: string, message: string): nodes.InvalidNode {
         return {
             type: nodes.ThriftNodeType.Invalid,
-            range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
             parent: parent,
             raw: line,
             message
@@ -409,19 +421,17 @@ export class ThriftParser {
         const keywordIndex = line.indexOf(structType);
         const searchStart = keywordIndex >= 0 ? keywordIndex + structType.length : 0;
 
-        const structNode: nodes.Struct = {
-            type: type,
-            name: name,
-            range: new vscode.Range(startLine, 0, startLine, 0), // Will be updated
+        const structNode = createStructBlock({
+            type,
+            name,
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
-            parent: parent,
-            fields: []
-        };
+            parent
+        });
 
         // Parse body
         this.currentLine = this.parseStructBody(structNode);
-        structNode.range = new vscode.Range(startLine, 0, this.currentLine,
-            this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
+        structNode.range = this.createRange(startLine, 0, this.currentLine,
+            (this.lines[this.currentLine] ?? '').length);
         return structNode;
     }
 
@@ -494,7 +504,7 @@ export class ThriftParser {
             cursor += 1;
         }
         const typeStartToken = tokens[cursor];
-        if (!typeStartToken) {
+        if (typeStartToken === undefined) {
             return this.parseStructFieldLineFallback(parent, line, cleanLine);
         }
         let nameTokenIndex = -1;
@@ -525,13 +535,13 @@ export class ThriftParser {
             return this.parseStructFieldLineFallback(parent, line, cleanLine);
         }
         const valueTarget = stripTrailingAnnotation(cleanLine.replace(/[,;]\s*$/, ''));
-        const nameRange = new vscode.Range(
+        const nameRange = this.createRange(
             this.currentLine,
             nameToken.start,
             this.currentLine,
             nameToken.end
         );
-        const typeRange = new vscode.Range(
+        const typeRange = this.createRange(
             this.currentLine,
             typeStartToken.start,
             this.currentLine,
@@ -540,21 +550,20 @@ export class ThriftParser {
         const defaultInfo = findDefaultValueRange(valueTarget);
         const defaultStart = defaultInfo ? defaultInfo.start : null;
         const defaultEnd = defaultInfo ? defaultInfo.end : null;
-        return {
-            type: nodes.ThriftNodeType.Field,
-            range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+        return createField({
+            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
             nameRange,
             typeRange,
-            parent: parent,
+            parent,
             id: parseInt(tokens[idIndex].value, 10),
             requiredness,
             fieldType,
             name: nameToken.value,
             defaultValue: defaultInfo?.value,
             defaultValueRange: defaultStart !== null && defaultEnd !== null
-                ? new vscode.Range(this.currentLine, defaultStart, this.currentLine, defaultEnd)
+                ? this.createRange(this.currentLine, defaultStart, this.currentLine, defaultEnd)
                 : undefined
-        };
+        });
     }
 
     private parseStructFieldLineFallback(parent: nodes.Struct, line: string, cleanLine: string): nodes.Field | null {
@@ -570,21 +579,20 @@ export class ThriftParser {
         const defaultInfo = findDefaultValueRange(valueTarget);
         const defaultStart = defaultInfo ? defaultInfo.start : null;
         const defaultEnd = defaultInfo ? defaultInfo.end : null;
-        return {
-            type: nodes.ThriftNodeType.Field,
-            range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+        return createField({
+            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
             nameRange,
             typeRange,
-            parent: parent,
+            parent,
             id: parseInt(fieldMatch[1], 10),
             requiredness: fieldMatch[2] as 'required' | 'optional',
             fieldType: fieldMatch[3].trim(),
             name: fieldMatch[4],
             defaultValue: defaultInfo?.value,
             defaultValueRange: defaultStart !== null && defaultEnd !== null
-                ? new vscode.Range(this.currentLine, defaultStart, this.currentLine, defaultEnd)
+                ? this.createRange(this.currentLine, defaultStart, this.currentLine, defaultEnd)
                 : undefined
-        };
+        });
     }
 
     private parseEnum(parent: nodes.ThriftNode, name: string, isSenum: boolean): nodes.Enum {
@@ -592,20 +600,17 @@ export class ThriftParser {
         const line = this.lines[startLine];
         const keywordIndex = line.indexOf(isSenum ? 'senum' : 'enum');
         const searchStart = keywordIndex >= 0 ? keywordIndex + (isSenum ? 'senum'.length : 'enum'.length) : 0;
-        const enumNode: nodes.Enum = {
-            type: nodes.ThriftNodeType.Enum,
-            name: name,
-            range: new vscode.Range(startLine, 0, startLine, 0), // Will be updated
+        const enumNode = createEnumBlock({
+            name,
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
-            parent: parent,
-            members: [],
-            isSenum: isSenum
-        };
+            parent,
+            isSenum
+        });
 
         // Parse body
         this.currentLine = this.parseEnumBody(enumNode);
-        enumNode.range = new vscode.Range(startLine, 0, this.currentLine,
-            this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
+        enumNode.range = this.createRange(startLine, 0, this.currentLine,
+            (this.lines[this.currentLine] ?? '').length);
         return enumNode;
     }
 
@@ -700,17 +705,15 @@ export class ThriftParser {
                         break;
                     }
                 }
-                if (startOffset === null) {
-                    startOffset = token.start;
-                }
+                startOffset ??= token.start;
                 endOffset = token.end;
             }
             if (startOffset !== null && endOffset !== null) {
                 const rawInitializer = cleanLine.slice(startOffset, endOffset).trim();
                 const trimmed = stripTrailingAnnotation(rawInitializer.replace(/[,;]\s*$/, '')).trim();
                 initializer = trimmed || undefined;
-                if (initializer) {
-                    initializerRange = new vscode.Range(
+                if (initializer !== undefined && initializer !== '') {
+                    initializerRange = this.createRange(
                         this.currentLine,
                         startOffset,
                         this.currentLine,
@@ -719,10 +722,8 @@ export class ThriftParser {
                 }
             }
         }
-        if (!initializerRange) {
-            initializerRange = findInitializerRange(cleanLine, cleanLine, initializer, this.currentLine);
-        }
-        const nameRange = new vscode.Range(
+        initializerRange ??= findInitializerRange(cleanLine, cleanLine, initializer, this.currentLine);
+        const nameRange = this.createRange(
             this.currentLine,
             nameToken.start,
             this.currentLine,
@@ -730,7 +731,7 @@ export class ThriftParser {
         );
         return {
             type: nodes.ThriftNodeType.EnumMember,
-            range: new vscode.Range(this.currentLine, 0, this.currentLine, line.length),
+            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
             nameRange,
             parent: parent,
             name: nameToken.value,
@@ -744,21 +745,81 @@ export class ThriftParser {
         const line = this.lines[startLine];
         const keywordIndex = line.indexOf('service');
         const searchStart = keywordIndex >= 0 ? keywordIndex + 'service'.length : 0;
-        const serviceNode: nodes.Service = {
-            type: nodes.ThriftNodeType.Service,
-            name: name,
-            extends: extendsClass,
-            range: new vscode.Range(startLine, 0, startLine, 0), // Will be updated
+        const serviceNode = createServiceBlock({
+            name,
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
-            parent: parent,
-            functions: []
-        };
+            parent,
+            extends: extendsClass
+        });
 
         // Parse body
         this.currentLine = this.parseServiceBody(serviceNode);
-        serviceNode.range = new vscode.Range(startLine, 0, this.currentLine,
-            this.lines[this.currentLine] ? this.lines[this.currentLine].length : 0);
+        serviceNode.range = this.createRange(startLine, 0, this.currentLine,
+            (this.lines[this.currentLine] ?? '').length);
         return serviceNode;
+    }
+
+    private parseInteraction(parent: nodes.ThriftNode, name: string): nodes.Interaction {
+        const startLine = this.currentLine;
+        const line = this.lines[startLine];
+        const keywordIndex = line.indexOf('interaction');
+        const searchStart = keywordIndex >= 0 ? keywordIndex + 'interaction'.length : 0;
+        const interactionNode = createInteractionBlock({
+            name,
+            nameRange: findWordRangeInLine(line, startLine, name, searchStart),
+            parent
+        });
+
+        this.currentLine = this.parseInteractionBody(interactionNode);
+        interactionNode.range = this.createRange(startLine, 0, this.currentLine,
+            (this.lines[this.currentLine] ?? '').length);
+        return interactionNode;
+    }
+
+    private parseInteractionBody(parent: nodes.Interaction): number {
+        let braceCount = 0;
+        while (this.currentLine < this.lines.length) {
+            const line = this.lines[this.currentLine];
+            const scan = this.scanLine(line);
+            const braceStats = this.countBraces(scan.tokens);
+            if (braceStats.open > 0) {
+                braceCount += braceStats.open - braceStats.close;
+                break;
+            }
+            this.currentLine++;
+        }
+
+        this.currentLine++;
+        if (braceCount <= 0) {
+            return this.currentLine;
+        }
+
+        while (this.currentLine < this.lines.length && braceCount > 0) {
+            const line = this.lines[this.currentLine];
+            const scan = this.scanLine(line);
+
+            const braceStats = this.countBraces(scan.tokens);
+            if (braceStats.open > 0 || braceStats.close > 0) {
+                braceCount += braceStats.open - braceStats.close;
+                if (braceCount <= 0) {
+                    this.currentLine++;
+                    break;
+                }
+            }
+
+            const funcParsed = this.parseServiceFunctionLine(line, scan.stripped, scan.tokens);
+            if (funcParsed) {
+                const funcNode = this.buildFunctionNode(parent, funcParsed, line);
+                if (funcNode) {
+                    parent.functions.push(funcNode);
+                    this.addChild(parent, funcNode);
+                }
+            }
+
+            this.currentLine++;
+        }
+
+        return this.currentLine;
     }
 
     private parseServiceBody(parent: nodes.Service): number {
@@ -796,184 +857,18 @@ export class ThriftParser {
 
             const funcParsed = this.parseServiceFunctionLine(line, scan.stripped, scan.tokens);
             if (funcParsed) {
-                const {
-                    name,
-                    returnType,
-                    nameRange,
-                    returnTypeRange,
-                    oneway,
-                    funcStartLine,
-                    funcStartChar
-                } = funcParsed;
-                let funcEndLine = funcParsed.funcEndLine;
-                let funcEndChar = funcParsed.funcEndChar;
-
-                // Parse function arguments
-                const args: nodes.Field[] = [];
-                const throwsFields: nodes.Field[] = [];
-
-                const parenStartPos = line.indexOf('(');
-                let argResult: {text: string; endLine: number; endChar: number} | null = null;
-                if (parenStartPos !== -1) {
-                    argResult = readParenthesizedText(this.lines, this.currentLine, parenStartPos + 1);
-                    if (argResult) {
-                        args.push(...parseFieldList(argResult.text, this.currentLine, parenStartPos + 1));
-                    }
+                const funcNode = this.buildFunctionNode(parent, funcParsed, line);
+                if (funcNode) {
+                    parent.functions.push(funcNode);
+                    this.addChild(parent, funcNode);
                 }
-
-                // Find the end of the function declaration (either , or ; or {)
-                let parenCount = 0;
-                let foundEnd = false;
-                if (argResult) {
-                    funcEndLine = argResult.endLine;
-                    funcEndChar = this.lines[argResult.endLine] ? this.lines[argResult.endLine].length : 0;
+            } else {
+                // Check for performs declaration
+                const perfNode = this.parsePerforms(parent, line, scan.stripped, scan.tokens);
+                if (perfNode) {
+                    (parent.performs ??= []).push(perfNode);
+                    this.addChild(parent, perfNode);
                 }
-
-                // Look for the end of function declaration on the same line first
-                for (let i = funcStartChar; i < line.length; i++) {
-                    const char = line[i];
-                    if (char === '(') {
-                        parenCount++;
-                    } else if (char === ')') {
-                        parenCount--;
-                        if (parenCount === 0) {
-                            // Look for throws clause or end of declaration
-                            let j = i + 1;
-                            while (j < line.length && /\s/.test(line[j])) {
-                                j++;
-                            } // Skip whitespace
-
-                            // Check if there's a throws clause
-                            if (line.substring(j, j + 6) === 'throws') {
-                                // Find the end of throws clause
-                                let throwsParenCount = 0;
-                                for (let k = j + 6; k < line.length; k++) {
-                                    if (line[k] === '(') {
-                                        throwsParenCount++;
-                                    } else if (line[k] === ')') {
-                                        throwsParenCount--;
-                                        if (throwsParenCount === 0) {
-                                            j = k + 1;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Find the end of the declaration
-                            while (j < line.length && /\s/.test(line[j])) {
-                                j++;
-                            } // Skip whitespace
-                            if (j < line.length && (line[j] === ',' || line[j] === ';' || line[j] === '{')) {
-                                funcEndChar = j + 1;
-                                foundEnd = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                // If not found on the same line, look on subsequent lines
-                if (!foundEnd) {
-                    let searchLine = funcStartLine + 1;
-                    while (searchLine < this.lines.length && !foundEnd) {
-                        const searchLineText = this.lines[searchLine];
-                        for (let i = 0; i < searchLineText.length; i++) {
-                            const char = searchLineText[i];
-                            if (char === '(') {
-                                parenCount++;
-                            } else if (char === ')') {
-                                parenCount--;
-                                if (parenCount === 0) {
-                                    // Look for throws clause or end of declaration
-                                    let j = i + 1;
-                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) {
-                                        j++;
-                                    } // Skip whitespace
-
-                                    // Check if there's a throws clause
-                                    if (searchLineText.substring(j, j + 6) === 'throws') {
-                                        // Find the end of throws clause
-                                        let throwsParenCount = 0;
-                                        for (let k = j + 6; k < searchLineText.length; k++) {
-                                            if (searchLineText[k] === '(') {
-                                                throwsParenCount++;
-                                            } else if (searchLineText[k] === ')') {
-                                                throwsParenCount--;
-                                                if (throwsParenCount === 0) {
-                                                    j = k + 1;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    // Find the end of the declaration
-                                    while (j < searchLineText.length && /\s/.test(searchLineText[j])) {
-                                        j++;
-                                    } // Skip whitespace
-                                    if (j < searchLineText.length && (searchLineText[j] === ',' || searchLineText[j] === ';' || searchLineText[j] === '{')) {
-                                        funcEndLine = searchLine;
-                                        funcEndChar = j + 1;
-                                        foundEnd = true;
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                        if (!foundEnd) {
-                            searchLine++;
-                        }
-                    }
-                }
-
-                const throwsStart = findThrowsStartInRange(
-                    this.lines,
-                    argResult ? argResult.endLine : funcStartLine,
-                    argResult ? argResult.endChar + 1 : Math.max(parenStartPos + 1, funcStartChar),
-                    funcEndLine,
-                    funcEndChar
-                );
-                let throwsResult: {text: string; endLine: number; endChar: number} | null = null;
-                if (throwsStart) {
-                    throwsResult = readParenthesizedText(this.lines, throwsStart.line, throwsStart.char + 1);
-                    if (throwsResult) {
-                        throwsFields.push(...parseFieldList(throwsResult.text, throwsStart.line, throwsStart.char + 1));
-                    }
-                }
-                if (throwsResult) {
-                    funcEndLine = Math.max(funcEndLine, throwsResult.endLine);
-                    funcEndChar = throwsResult.endChar;
-                } else if (argResult) {
-                    funcEndLine = Math.max(funcEndLine, argResult.endLine);
-                    funcEndChar = argResult.endChar;
-                }
-
-                const funcNode: nodes.ThriftFunction = {
-                    type: nodes.ThriftNodeType.Function,
-                    range: new vscode.Range(funcStartLine, funcStartChar, funcEndLine, funcEndChar),
-                    nameRange,
-                    parent: parent,
-                    name,
-                    returnType,
-                    returnTypeRange,
-                    oneway,
-                    arguments: args,
-                    throws: throwsFields
-                };
-
-                // Set parent for all arguments
-                args.forEach(arg => {
-                    arg.parent = funcNode;
-                    this.addChild(funcNode, arg);
-                });
-                throwsFields.forEach(field => {
-                    field.parent = funcNode;
-                    this.addChild(funcNode, field);
-                });
-
-                parent.functions.push(funcNode);
-                this.addChild(parent, funcNode);
             }
 
             this.currentLine++;
@@ -982,12 +877,229 @@ export class ThriftParser {
         return this.currentLine;
     }
 
+    private buildFunctionNode(
+        parent: nodes.ThriftNode,
+        funcParsed: {
+            name: string;
+            returnType: string;
+            nameRange: vscode.Range | undefined;
+            returnTypeRange: vscode.Range | undefined;
+            oneway: boolean;
+            isStream: boolean;
+            isSink: boolean;
+            funcStartLine: number;
+            funcStartChar: number;
+            funcEndLine: number;
+            funcEndChar: number;
+        },
+        line: string
+    ): nodes.ThriftFunction | null {
+        const {
+            name,
+            returnType,
+            nameRange,
+            returnTypeRange,
+            oneway,
+            isStream,
+            isSink,
+            funcStartLine,
+            funcStartChar
+        } = funcParsed;
+        let funcEndLine = funcParsed.funcEndLine;
+        let funcEndChar = funcParsed.funcEndChar;
+
+        const args: nodes.Field[] = [];
+        const throwsFields: nodes.Field[] = [];
+
+        const parenStartPos = line.indexOf('(');
+        let argResult: {text: string; endLine: number; endChar: number} | null = null;
+        if (parenStartPos !== -1) {
+            argResult = readParenthesizedText(this.lines, this.currentLine, parenStartPos + 1);
+            if (argResult) {
+                args.push(...parseFieldList(argResult.text, this.currentLine, parenStartPos + 1));
+            }
+        }
+
+        let parenCount = 0;
+        let foundEnd = false;
+        if (argResult) {
+            funcEndLine = argResult.endLine;
+            funcEndChar = this.lines[argResult.endLine] ? this.lines[argResult.endLine].length : 0;
+        }
+
+        for (let i = funcStartChar; i < line.length; i++) {
+            const char = line[i];
+            if (char === '(') {
+                parenCount++;
+            } else if (char === ')') {
+                parenCount--;
+                if (parenCount === 0) {
+                    let j = i + 1;
+                    while (j < line.length && /\s/.test(line[j])) {
+                        j++;
+                    }
+                    if (line.substring(j, j + 6) === 'throws') {
+                        let throwsParenCount = 0;
+                        for (let k = j + 6; k < line.length; k++) {
+                            if (line[k] === '(') {
+                                throwsParenCount++;
+                            } else if (line[k] === ')') {
+                                throwsParenCount--;
+                                if (throwsParenCount === 0) {
+                                    j = k + 1;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    while (j < line.length && /\s/.test(line[j])) {
+                        j++;
+                    }
+                    if (j < line.length && (line[j] === ',' || line[j] === ';' || line[j] === '{')) {
+                        funcEndChar = j + 1;
+                        foundEnd = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!foundEnd) {
+            let searchLine = funcStartLine + 1;
+            while (searchLine < this.lines.length && !foundEnd) {
+                const searchLineText = this.lines[searchLine];
+                for (let i = 0; i < searchLineText.length; i++) {
+                    const char = searchLineText[i];
+                    if (char === '(') {
+                        parenCount++;
+                    } else if (char === ')') {
+                        parenCount--;
+                        if (parenCount === 0) {
+                            let j = i + 1;
+                            while (j < searchLineText.length && /\s/.test(searchLineText[j])) {
+                                j++;
+                            }
+                            if (searchLineText.substring(j, j + 6) === 'throws') {
+                                let throwsParenCount = 0;
+                                for (let k = j + 6; k < searchLineText.length; k++) {
+                                    if (searchLineText[k] === '(') {
+                                        throwsParenCount++;
+                                    } else if (searchLineText[k] === ')') {
+                                        throwsParenCount--;
+                                        if (throwsParenCount === 0) {
+                                            j = k + 1;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            while (j < searchLineText.length && /\s/.test(searchLineText[j])) {
+                                j++;
+                            }
+                            if (j < searchLineText.length && (searchLineText[j] === ',' || searchLineText[j] === ';' || searchLineText[j] === '{')) {
+                                funcEndLine = searchLine;
+                                funcEndChar = j + 1;
+                                foundEnd = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (!foundEnd) {
+                    searchLine++;
+                }
+            }
+        }
+
+        const throwsStart = findThrowsStartInRange(
+            this.lines,
+            argResult ? argResult.endLine : funcStartLine,
+            argResult ? argResult.endChar + 1 : Math.max(parenStartPos + 1, funcStartChar),
+            funcEndLine,
+            funcEndChar
+        );
+        let throwsResult: {text: string; endLine: number; endChar: number} | null = null;
+        if (throwsStart) {
+            throwsResult = readParenthesizedText(this.lines, throwsStart.line, throwsStart.char + 1);
+            if (throwsResult) {
+                throwsFields.push(...parseFieldList(throwsResult.text, throwsStart.line, throwsStart.char + 1));
+            }
+        }
+        if (throwsResult) {
+            funcEndLine = Math.max(funcEndLine, throwsResult.endLine);
+            funcEndChar = throwsResult.endChar;
+        } else if (argResult) {
+            funcEndLine = Math.max(funcEndLine, argResult.endLine);
+            funcEndChar = argResult.endChar;
+        }
+
+        const funcNode: nodes.ThriftFunction = {
+            type: nodes.ThriftNodeType.Function,
+            range: this.createRange(funcStartLine, funcStartChar, funcEndLine, funcEndChar),
+            nameRange,
+            parent: parent,
+            name,
+            returnType,
+            returnTypeRange,
+            oneway,
+            isStream: isStream || undefined,
+            isSink: isSink || undefined,
+            arguments: args,
+            throws: throwsFields
+        };
+
+        args.forEach(arg => {
+            arg.parent = funcNode;
+            this.addChild(funcNode, arg);
+        });
+        throwsFields.forEach(field => {
+            field.parent = funcNode;
+            this.addChild(funcNode, field);
+        });
+
+        return funcNode;
+    }
+
+    /**
+     * 解析 service 或 interaction 中的 performs 声明。
+     */
+    private parsePerforms(parent: nodes.ThriftNode, line: string, cleanLine: string, tokens: Token[]): nodes.Performs | null {
+        const trimmed = cleanLine.trim();
+        if (!trimmed || tokens.length === 0) {
+            return null;
+        }
+        if (tokens[0].type !== 'identifier' || tokens[0].value !== 'performs') {
+            return null;
+        }
+        const nameToken = tokens[1];
+        if (nameToken === undefined || nameToken.type !== 'identifier') {
+            return null;
+        }
+        const nameRange = this.createRange(
+            this.currentLine,
+            nameToken.start,
+            this.currentLine,
+            nameToken.end
+        );
+        return {
+            type: nodes.ThriftNodeType.Performs,
+            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
+            nameRange,
+            parent: parent,
+            name: nameToken.value,
+            interactionName: nameToken.value,
+            interactionNameRange: nameRange
+        };
+    }
+
     private parseServiceFunctionLine(line: string, cleanLine: string, tokens: Token[]): {
         name: string;
         returnType: string;
         nameRange: vscode.Range | undefined;
         returnTypeRange: vscode.Range | undefined;
         oneway: boolean;
+        isStream: boolean;
+        isSink: boolean;
         funcStartLine: number;
         funcStartChar: number;
         funcEndLine: number;
@@ -1015,27 +1127,41 @@ export class ThriftParser {
             return null;
         }
         const oneway = tokens[0].type === 'identifier' && tokens[0].value === 'oneway';
-        const returnTypeStartIndex = oneway ? 1 : 0;
+        let returnTypeStartIndex = oneway ? 1 : 0;
+        let isStream = false;
+        let isSink = false;
+        // Check for stream/sink prefix after oneway
+        if (returnTypeStartIndex < tokens.length && tokens[returnTypeStartIndex].type === 'identifier') {
+            if (tokens[returnTypeStartIndex].value === 'stream') {
+                isStream = true;
+                returnTypeStartIndex += 1;
+            } else if (tokens[returnTypeStartIndex].value === 'sink') {
+                isSink = true;
+                returnTypeStartIndex += 1;
+            }
+        }
         const returnTypeStartToken = tokens[returnTypeStartIndex];
-        if (!returnTypeStartToken || returnTypeStartIndex >= nameTokenIndex) {
+        if (returnTypeStartToken === undefined || returnTypeStartIndex >= nameTokenIndex) {
             return null;
         }
         const nameToken = tokens[nameTokenIndex];
-        const returnType = cleanLine.slice(returnTypeStartToken.start, nameToken.start).trim();
+        // Include stream/sink keyword in return type string
+        const typeStart = isStream ? returnTypeStartIndex - 1 : (isSink ? returnTypeStartIndex - 1 : returnTypeStartIndex);
+        const returnType = cleanLine.slice(tokens[typeStart].start, nameToken.start).trim();
         if (!returnType) {
             return this.parseServiceFunctionLineFallback(line, cleanLine);
         }
         const funcStartLine = this.currentLine;
-        const funcStartChar = returnTypeStartToken.start;
-        const nameRange = new vscode.Range(
+        const funcStartChar = tokens[typeStart].start;
+        const nameRange = this.createRange(
             funcStartLine,
             nameToken.start,
             funcStartLine,
             nameToken.end
         );
-        const returnTypeRange = new vscode.Range(
+        const returnTypeRange = this.createRange(
             funcStartLine,
-            returnTypeStartToken.start,
+            tokens[typeStart].start,
             funcStartLine,
             nameToken.start
         );
@@ -1045,6 +1171,8 @@ export class ThriftParser {
             nameRange,
             returnTypeRange,
             oneway,
+            isStream,
+            isSink,
             funcStartLine,
             funcStartChar,
             funcEndLine: funcStartLine,
@@ -1058,26 +1186,34 @@ export class ThriftParser {
         nameRange: vscode.Range | undefined;
         returnTypeRange: vscode.Range | undefined;
         oneway: boolean;
+        isStream: boolean;
+        isSink: boolean;
         funcStartLine: number;
         funcStartChar: number;
         funcEndLine: number;
         funcEndChar: number;
     } | null {
         const trimmed = cleanLine.trim();
-        const funcMatch = trimmed.match(/^(?:(oneway)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
+        const funcMatch = trimmed.match(/^(?:(oneway)\s+)?(?:(stream|sink)\s+)?([a-zA-Z0-9_<>.,\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
         if (!funcMatch) {
             return null;
         }
         const funcStartLine = this.currentLine;
         const funcStartChar = cleanLine.indexOf(funcMatch[0]);
-        const nameRange = findWordRangeInLine(cleanLine, funcStartLine, funcMatch[3], funcStartChar);
-        const returnTypeRange = findTypeRangeInLine(cleanLine, funcStartLine, funcMatch[2].trim(), funcStartChar);
+        const returnTypeRaw = funcMatch[3].trim();
+        const isStream = funcMatch[2] === 'stream';
+        const isSink = funcMatch[2] === 'sink';
+        const returnType = isStream ? `stream ${returnTypeRaw}` : (isSink ? `sink ${returnTypeRaw}` : returnTypeRaw);
+        const nameRange = findWordRangeInLine(cleanLine, funcStartLine, funcMatch[4], funcStartChar);
+        const returnTypeRange = findTypeRangeInLine(cleanLine, funcStartLine, returnType, funcStartChar);
         return {
-            name: funcMatch[3],
-            returnType: funcMatch[2].trim(),
+            name: funcMatch[4],
+            returnType,
             nameRange,
             returnTypeRange,
             oneway: !!funcMatch[1],
+            isStream,
+            isSink,
             funcStartLine,
             funcStartChar,
             funcEndLine: funcStartLine,
@@ -1176,7 +1312,7 @@ export class ThriftParser {
         const valueRangeInfo = buildConstValueRange(this.lines, startLine, endLine, eqLine, eqChar);
         const constNode: nodes.Const = {
             type: nodes.ThriftNodeType.Const,
-            range: new vscode.Range(startLine, 0, endLine, this.lines[endLine] ? this.lines[endLine].length : 0),
+            range: this.createRange(startLine, 0, endLine, (this.lines[endLine] ?? '').length),
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
             parent: parent,
             valueType: valueType,
@@ -1209,13 +1345,11 @@ export class ThriftParser {
             const line = this.lines[this.currentLine];
             if (line.trim()) {  // Only parse non-empty lines
                 // Create a temporary parent for range parsing
-                const tempParent: nodes.ThriftNode = {
-                    type: nodes.ThriftNodeType.Document,
-                    range: new vscode.Range(actualStartLine, 0, actualEndLine,
-                        this.lines[actualEndLine] ? this.lines[actualEndLine].length : 0),
-                    body: [],
-                    parent: undefined
-                };
+                const tempParent = createDocument({
+                    range: this.createRange(actualStartLine, 0, actualEndLine,
+                        (this.lines[actualEndLine] ?? '').length),
+                    body: []
+                }) as nodes.ThriftNode;
 
                 const node = this.parseNextNode(tempParent);
                 if (node) {
@@ -1244,7 +1378,7 @@ export class ThriftParser {
         // For example, if we modify the middle of a struct, we need to capture the whole struct
         for (let line = startLine; line >= 0 && line > startLine - 50; line--) { // Limit expansion for performance
             const text = this.lines[line];
-            if (text && (text.trim().match(/\b(struct|service|enum|union|exception)\s+\w+/) ||
+            if (text && (text.trim().match(/\b(struct|service|interaction|enum|union|exception)\s+\w+/) ||
                 text.trim().includes('{'))) {
                 // Found a top-level construct definition
                 affectedStart = line;
@@ -1253,8 +1387,8 @@ export class ThriftParser {
                 let braceDepth = 0;
                 for (let searchLine = line; searchLine < this.lines.length && searchLine < line + 100; searchLine++) {
                     const searchText = this.lines[searchLine];
-                    const openBraces = (searchText.match(/{/g) || []).length;
-                    const closeBraces = (searchText.match(/}/g) || []).length;
+                    const openBraces = (searchText.match(/{/g) ?? []).length;
+                    const closeBraces = (searchText.match(/}/g) ?? []).length;
                     braceDepth += openBraces - closeBraces;
 
                     if (braceDepth <= 0) {
@@ -1323,12 +1457,12 @@ export class ThriftParser {
     }
 
     private addTypeDependency(ast: nodes.ThriftDocument, typeStr: string | undefined, deps: nodes.ThriftNode[]): void {
-        if (!typeStr) {
+        if (typeStr === undefined || typeStr === '') {
             return;
         }
 
         // Extract potential type names from typeStr (handles complex types like list<string>, map<i32, string>, etc.)
-        const typeMatches = typeStr.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) || [];
+        const typeMatches = typeStr.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) ?? [];
         for (const typeName of typeMatches) {
             // Look for nodes with matching names
             for (const potentialDep of ast.body) {
@@ -1391,16 +1525,13 @@ export class ThriftParser {
         // Try to get cached AST for the affected range
         const rangeContent = parser.extractRangeContent(affectedRange.start, affectedRange.end);
         let newNodes = getCachedAstRange(uri,
-            {startLine: affectedRange.start, endLine: affectedRange.end},
+            createLineRange(affectedRange.start, affectedRange.end),
             rangeContent
         );
 
         const affectedNodes: nodes.ThriftNode[] = [];
 
-        if (!newNodes) {
-            // Parse the affected range if not in cache
-            newNodes = parser.parseRange(affectedRange.start, affectedRange.end);
-        }
+        newNodes ??= parser.parseRange(affectedRange.start, affectedRange.end);
 
         // Identify which existing nodes in the full AST overlap with the affected range
         for (const node of fullAst.body) {
@@ -1417,7 +1548,7 @@ export class ThriftParser {
 
         const mergedAst = parser.mergeIncrementalResults(fullAst, incrementalResult);
         setCachedAstRange(uri,
-            {startLine: affectedRange.start, endLine: affectedRange.end},
+            createLineRange(affectedRange.start, affectedRange.end),
             rangeContent,
             newNodes
         );
@@ -1445,7 +1576,7 @@ export class ThriftParser {
         incrementalResult: IncrementalParseResult
     ): nodes.ThriftDocument {
         // If there are no new nodes, return the original AST
-        if (!incrementalResult.newNodes || incrementalResult.newNodes.length === 0) {
+        if (incrementalResult.newNodes.length === 0) {
             return fullAst;
         }
 
@@ -1456,7 +1587,7 @@ export class ThriftParser {
         };
 
         // Remove affected nodes that will be replaced
-        if (incrementalResult.affectedNodes && incrementalResult.affectedNodes.length > 0) {
+        if (incrementalResult.affectedNodes.length > 0) {
             updatedAst.body = updatedAst.body.filter(node =>
                 !incrementalResult.affectedNodes.some(affectedNode =>
                     this.rangesOverlap(affectedNode.range, node.range)
@@ -1544,11 +1675,18 @@ export class ThriftParser {
             (node.fields ?? []).forEach(child => result.add(child));
         } else if (node.type === nodes.ThriftNodeType.Service) {
             (node.functions ?? []).forEach(child => result.add(child));
+            (node.performs ?? []).forEach(child => result.add(child));
+        } else if (node.type === nodes.ThriftNodeType.Interaction) {
+            (node.functions ?? []).forEach(child => result.add(child));
         } else if (node.type === nodes.ThriftNodeType.Function) {
             (node.arguments ?? []).forEach(child => result.add(child));
             (node.throws ?? []).forEach(child => result.add(child));
         }
 
         return Array.from(result);
+    }
+
+    private createRange(startLine: number, startChar: number, endLine: number, endChar: number): vscode.Range {
+        return new vscode.Range(startLine, startChar, endLine, endChar);
     }
 }

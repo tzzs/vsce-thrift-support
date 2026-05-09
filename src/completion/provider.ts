@@ -85,8 +85,8 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         if (blockNode) {
             if (blockNode.type === nodes.ThriftNodeType.Enum) {
                 // Inside Enum
-            } else if (nodes.isServiceNode(blockNode)) {
-                // Inside Service: expecting methods
+            } else if (nodes.isServiceNode(blockNode) || nodes.isInteractionNode(blockNode)) {
+                // Inside Service or Interaction: expecting methods or performs
                 if (isInMethodContext(line, position.character)) {
                     COMMON_METHODS.forEach((method) => {
                         const item = new vscode.CompletionItem(
@@ -98,6 +98,10 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
 
                     // Also types for return type
                     addTypeCompletions(completions, types);
+                }
+                // In Service, also suggest 'performs' keyword
+                if (nodes.isServiceNode(blockNode) && /^\s*\w*$/.test(beforeCursor)) {
+                    completions.push(new vscode.CompletionItem('performs', vscode.CompletionItemKind.Keyword));
                 }
             } else {
                 // Struct/Union/Exception contexts

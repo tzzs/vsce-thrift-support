@@ -2,7 +2,7 @@
   "name": "thrift-support",
   "displayName": "Thrift Support",
   "description": "Apache Thrift language support: syntax highlighting, formatting, diagnostics, navigation, completion, and rename",
-  "version": "2.1.1",
+  "version": "2.1.4",
   "publisher": "tanzz",
   "icon": "icon.png",
   "repository": {
@@ -12,6 +12,7 @@
   "engines": {
     "vscode": "^1.75.0"
   },
+  "packageManager": "pnpm@10.25.0",
   "categories": [
     "Programming Languages",
     "Linters",
@@ -32,9 +33,9 @@
     "rename",
     "vscode extension"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "files": [
-    "out/**",
+    "dist/**",
     "syntaxes/**",
     "language-configuration.json",
     "icon.png",
@@ -149,40 +150,45 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "pnpm run bundle",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "bundle": "node build.js",
+    "watch:bundle": "node build.js --watch",
     "lint": "eslint --cache src",
     "lint:fix": "eslint --cache src --ext ts --fix",
-    "clean": "rimraf out",
-    "build": "npm run clean && npm run compile",
-    "package": "npx @vscode/vsce package",
-    "publish": "npx @vscode/vsce publish",
-    "test": "npm run build && mocha",
-    "test:single": "npm run build && mocha --config .mocharc.single.json",
-    "coverage": "nyc --reporter=text-summary mocha",
+    "clean": "rimraf out dist",
+    "build": "pnpm run clean && pnpm run compile && pnpm run bundle",
+    "bump": "pnpm version patch --no-git-tag-version && pnpm run package",
+    "package": "pnpm exec vsce package",
+    "publish": "pnpm exec vsce publish",
+    "test": "pnpm run build && mocha",
+    "test:single": "pnpm run build && mocha --config .mocharc.single.json",
+    "coverage": "pnpm run build && nyc --reporter=text-summary mocha",
     "perf:benchmark": "node tests/perf/run-performance-benchmark.js"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/mocha": "^10.0.10",
     "@types/node": "16.x",
     "@types/vscode": "1.75.0",
     "@typescript-eslint/eslint-plugin": "^8.14.0",
     "@typescript-eslint/parser": "^8.14.0",
-    "@vscode/vsce": "^3.6.2",
+    "@vscode/vsce": "^3.9.1",
+    "esbuild": "^0.28.0",
     "eslint": "^9.15.0",
-    "typescript-eslint": "^8.14.0",
     "mocha": "^11.7.5",
     "nyc": "^15.1.0",
     "rimraf": "^3.0.2",
     "ts-node": "^10.9.2",
     "typescript": "^4.9.5",
+    "typescript-eslint": "^8.14.0",
     "vscode": "^1.1.37"
   },
   "nyc": {
     "include": [
-      "src/**/*.ts",
-      "out/**/*.js"
+      "out/**/*.js",
+      "src/**/*.ts"
     ],
     "exclude": [
       "tests/**",

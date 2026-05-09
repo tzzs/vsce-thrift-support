@@ -45,9 +45,7 @@ export class ErrorHandler {
      * @returns {ErrorHandler} ErrorHandler 单例
      */
     static getInstance(): ErrorHandler {
-        if (!this.instance) {
-            this.instance = new ErrorHandler();
-        }
+        this.instance ??= new ErrorHandler();
         return this.instance;
     }
 
@@ -174,7 +172,7 @@ export class ErrorHandler {
     private formatLogMessage(message: string, context: ErrorContext, level: 'error' | 'warning' | 'info' = 'error'): string {
         const verb = level === 'info' ? ':' : ' failed:';
         const baseMessage = `[${context.component}] ${context.operation}${verb} ${message}`;
-        const fileInfo = context.filePath ? ` (file: ${context.filePath})` : '';
+        const fileInfo = context.filePath !== undefined ? ` (file: ${context.filePath})` : '';
         const additionalInfo = context.additionalInfo
             ? ` | Additional: ${JSON.stringify(context.additionalInfo)}`
             : '';
@@ -207,7 +205,7 @@ export class ErrorHandler {
             // 尝试获取输出通道（如果已创建）
             const channel = vscode.window.createOutputChannel('Thrift Support');
             const timestamp = new Date().toISOString();
-            const errorMessage = error instanceof Error ? error.stack || error.message : String(error);
+            const errorMessage = error instanceof Error ? error.stack ?? error.message : String(error);
             const logEntry = `[${timestamp}] ${level.toUpperCase()} ${context.component}.${context.operation}\n${errorMessage}\n`;
 
             channel.appendLine(logEntry);
@@ -292,7 +290,7 @@ export class ErrorHandler {
      * 辅助方法：递增计数器
      */
     private incrementCounter(map: Map<string, number>, key: string): void {
-        const current = map.get(key) || 0;
+        const current = map.get(key) ?? 0;
         map.set(key, current + 1);
     }
 }

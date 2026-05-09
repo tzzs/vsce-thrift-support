@@ -24,6 +24,27 @@
     },
     {
       "type": "npm",
+      "script": "bundle",
+      "group": "build",
+      "presentation": {
+        "panel": "shared",
+        "reveal": "silent"
+      },
+      "problemMatcher": []
+    },
+    {
+      "type": "npm",
+      "script": "watch:bundle",
+      "group": "build",
+      "presentation": {
+        "panel": "shared",
+        "reveal": "never"
+      },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "type": "npm",
       "script": "lint",
       "group": "build",
       "presentation": {

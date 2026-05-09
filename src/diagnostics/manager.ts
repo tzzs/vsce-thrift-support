@@ -79,14 +79,14 @@ export class DiagnosticManager {
         }
 
         const key = this.getDocumentKey(doc);
-        const triggerInfo = triggerSource ? ` (triggered by ${triggerSource})` : '';
+        const triggerInfo = typeof triggerSource === 'string' && triggerSource.length > 0 ? ` (triggered by ${triggerSource})` : '';
         const dirtyInfo = dirtyLineCount !== undefined ? `, dirtyLines=${dirtyLineCount}` : '';
 
         const useIncremental = config.incremental.analysisEnabled &&
             dirtyLineCount !== undefined &&
             dirtyLineCount <= config.incremental.maxDirtyLines &&
-            !includesMayChange &&
-            !structuralChange;
+            includesMayChange !== true &&
+            structuralChange !== true;
 
         if (useIncremental) {
             skipDependents = true;
@@ -111,7 +111,7 @@ export class DiagnosticManager {
             }
         );
 
-        if (!scheduled && !prevState?.isAnalyzing) {
+        if (!scheduled && prevState?.isAnalyzing !== true) {
             void 0;
         }
 
@@ -195,7 +195,7 @@ export class DiagnosticManager {
         const key = this.getDocumentKey(doc);
         logDiagnostics(`[Diagnostics] Starting analysis for ${path.basename(doc.uri.fsPath)}`);
 
-        const state = this.documentStates.get(key) || {version: doc.version, isAnalyzing: false};
+        const state = this.documentStates.get(key) ?? {version: doc.version, isAnalyzing: false};
         state.isAnalyzing = true;
         state.version = doc.version;
         this.documentStates.set(key, state);
@@ -206,12 +206,11 @@ export class DiagnosticManager {
                 async () => {
                     try {
                         const includedFiles = getIncludedFiles(doc);
-                        const cachedIncludedTypes = state.useCachedIncludes
+                        const cachedIncludedTypes = state.useCachedIncludes === true
                             ? collectIncludedTypesFromCache(includedFiles)
                             : null;
                         const includedTypes = cachedIncludedTypes
-                            ? cachedIncludedTypes
-                            : await collectIncludedTypes(doc, this.errorHandler, logDiagnostics);
+                            ?? await collectIncludedTypes(doc, this.errorHandler, logDiagnostics);
 
                         if (!cachedIncludedTypes) {
                             this.dependencyManager.trackFileDependencies(doc, includedFiles);
@@ -224,8 +223,8 @@ export class DiagnosticManager {
                         let blockRange: LineRange | null = null;
                         let memberRange: LineRange | null = null;
 
-                        if (state.useIncrementalDiagnostics && state.dirtyRange && state.lastAst && state.lastAnalysisContext) {
-                            const changeRanges = state.dirtyRanges?.length
+                        if (state.useIncrementalDiagnostics === true && state.dirtyRange && state.lastAst && state.lastAnalysisContext) {
+                            const changeRanges = Array.isArray(state.dirtyRanges) && state.dirtyRanges.length > 0
                                 ? state.dirtyRanges
                                 : [state.dirtyRange];
                             blockRange = findBestContainingRangeForChanges(state.lastAst, changeRanges);
@@ -249,7 +248,7 @@ export class DiagnosticManager {
                                     const memberHash = memberRange
                                         ? hashText(partialLines.slice(memberRange.startLine, memberRange.endLine + 1).join('\n'))
                                         : null;
-                                    const cachedMember = memberKey
+                                    const cachedMember = memberKey !== null
                                         ? state.lastMemberCache?.get(blockKey)?.get(memberKey)
                                         : null;
 
@@ -266,31 +265,25 @@ export class DiagnosticManager {
                                         );
                                     }
                                     if (!memberCacheHit) {
-                                        if (!state.lastBlockCache) {
-                                            state.lastBlockCache = createBlockCache();
-                                        }
+                                        state.lastBlockCache ??= createBlockCache();
                                         let blockIssues = issues;
-                                        if (blockRange) {
+                                        if (blockRange !== null) {
                                             const blockRangeValue = blockRange;
                                             blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, blockRangeValue));
                                         }
                                         state.lastBlockCache.set(blockKey, {hash: blockHash, issues: blockIssues});
-                                        if (!state.lastMemberCache) {
-                                            state.lastMemberCache = createMemberCacheByBlock();
-                                        }
-                                        if (blockNode) {
+                                        state.lastMemberCache ??= createMemberCacheByBlock();
+                                        if (blockNode !== null) {
                                             state.lastMemberCache.set(blockKey, buildMemberCacheForNode(blockNode, partialLines, issues));
                                         }
-                                    } else if (memberKey && memberRange && memberHash !== null) {
-                                        if (!state.lastMemberCache) {
-                                            state.lastMemberCache = createMemberCacheByBlock();
-                                        }
+                                    } else if (memberKey !== null && memberRange && memberHash !== null) {
+                                        state.lastMemberCache ??= createMemberCacheByBlock();
                                         const blockMembers = state.lastMemberCache.get(blockKey) ?? createMemberCache();
                                         blockMembers.set(memberKey, {range: memberRange, hash: memberHash, issues});
                                         state.lastMemberCache.set(blockKey, blockMembers);
                                     }
 
-                                    if (blockNode && state.lastAst) {
+                                    if (blockNode !== null && state.lastAst !== undefined) {
                                         mergeBlockIntoAst(state.lastAst, blockNode, blockRange);
                                         state.blockAstCache = state.blockAstCache ?? new Map();
                                         state.blockAstCache.set(blockKey, {hash: blockHash, node: blockNode});
@@ -327,8 +320,7 @@ export class DiagnosticManager {
                             doc
                         );
                         const diagnostics = incrementalDiagnostics
-                            ? incrementalDiagnostics
-                            : issues.map(i => new vscode.Diagnostic(i.range, i.message, i.severity));
+                            ?? issues.map(i => new vscode.Diagnostic(i.range, i.message, i.severity));
 
                         this.collection.set(doc.uri, diagnostics);
                         state.lastDiagnostics = diagnostics;
@@ -365,7 +357,7 @@ export class DiagnosticManager {
         },
         doc: vscode.TextDocument
     ): vscode.Diagnostic[] | null {
-        if (!state.useIncrementalDiagnostics || !state.dirtyRange || !state.lastDiagnostics) {
+        if (state.useIncrementalDiagnostics !== true || !state.dirtyRange || !state.lastDiagnostics) {
             return null;
         }
 

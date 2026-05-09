@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import {config} from '../config';
-import {LineRange, lineRangeFromChange} from './line-range';
+import {createLineRange, LineRange, lineRangeFromChange} from './line-range';
 
 /**
  * Parse change types to distinguish between formatting and parsing changes
@@ -36,9 +36,7 @@ export class IncrementalTracker {
     }
 
     static getInstance(): IncrementalTracker {
-        if (!this.instance) {
-            this.instance = new IncrementalTracker();
-        }
+        this.instance ??= new IncrementalTracker();
         return this.instance;
     }
 
@@ -138,7 +136,7 @@ export class IncrementalTracker {
         if (!Number.isFinite(startLine) || !Number.isFinite(endLine)) {
             return null;
         }
-        return {startLine, endLine};
+        return createLineRange(startLine, endLine);
     }
 
     /**

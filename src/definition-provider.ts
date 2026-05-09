@@ -191,7 +191,7 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
 
         // Search in all thrift files in workspace, return multiple candidates if any
         const workspaceDefinitions = await this.definitionLookup.findDefinitionInWorkspace(searchTypeName);
-        if (workspaceDefinitions && workspaceDefinitions.length > 0) {
+        if (workspaceDefinitions !== undefined && workspaceDefinitions.length > 0) {
             return workspaceDefinitions; // VS Code will present multiple results to the user
         }
 

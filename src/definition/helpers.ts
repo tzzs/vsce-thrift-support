@@ -89,7 +89,7 @@ export async function checkIncludeStatement(
 
     if (position.character >= quoteStart && position.character <= quoteEnd) {
         const resolvedPath = await resolveModulePath(includePath, documentDir);
-        if (resolvedPath) {
+        if (resolvedPath !== undefined) {
             try {
                 const uri = vscode.Uri.file(resolvedPath);
                 await vscode.workspace.fs.stat(uri);
@@ -128,7 +128,7 @@ export async function findIncludeForNamespace(
             return createLocation(document.uri, new vscode.Range(i, 0, i, 0));
         }
         const resolvedPath = await resolveModulePath(includePath, documentDir);
-        if (!resolvedPath) {
+        if (resolvedPath === undefined) {
             continue;
         }
         try {

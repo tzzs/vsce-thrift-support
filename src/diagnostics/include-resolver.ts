@@ -20,33 +20,38 @@ export function collectTypesFromAst(ast: nodes.ThriftDocument): Map<string, stri
     for (const node of ast.body) {
         switch (node.type) {
             case nodes.ThriftNodeType.Typedef:
-                if (node.name) {
+                if (typeof node.name === 'string' && node.name.length > 0) {
                     typeKind.set(node.name, 'typedef');
                 }
                 break;
             case nodes.ThriftNodeType.Enum:
-                if (node.name) {
-                    typeKind.set(node.name, (node ).isSenum ? 'senum' : 'enum');
+                if (typeof node.name === 'string' && node.name.length > 0) {
+                    typeKind.set(node.name, (node ).isSenum === true ? 'senum' : 'enum');
                 }
                 break;
             case nodes.ThriftNodeType.Struct:
-                if (node.name) {
+                if (typeof node.name === 'string' && node.name.length > 0) {
                     typeKind.set(node.name, 'struct');
                 }
                 break;
             case nodes.ThriftNodeType.Union:
-                if (node.name) {
+                if (typeof node.name === 'string' && node.name.length > 0) {
                     typeKind.set(node.name, 'union');
                 }
                 break;
             case nodes.ThriftNodeType.Exception:
-                if (node.name) {
+                if (typeof node.name === 'string' && node.name.length > 0) {
                     typeKind.set(node.name, 'exception');
                 }
                 break;
             case nodes.ThriftNodeType.Service:
-                if (node.name) {
+                if (typeof node.name === 'string' && node.name.length > 0) {
                     typeKind.set(node.name, 'service');
+                }
+                break;
+            case nodes.ThriftNodeType.Interaction:
+                if (typeof node.name === 'string' && node.name.length > 0) {
+                    typeKind.set(node.name, 'interaction');
                 }
                 break;
             default:
@@ -131,7 +136,7 @@ export async function collectIncludedTypes(
             const cachedTypes = includeTypesCache.get(includedFileKey);
             const cachedTime = includeFileTimestamps.get(includedFileKey);
 
-            const cacheValid = cachedTypes && cachedTime &&
+            const cacheValid = cachedTypes !== undefined && cachedTime !== undefined &&
                 (now - cachedTime) < INCLUDE_CACHE_MAX_AGE &&
                 (!fileStats || !cachedStats || (
                     fileStats.mtime === cachedStats.mtime &&
@@ -201,7 +206,7 @@ export function collectIncludedTypesFromCache(includedFiles: vscode.Uri[]): Map<
         const includedFileKey = includedFile.toString();
         const cachedTypes = includeTypesCache.get(includedFileKey);
         const cachedTime = includeFileTimestamps.get(includedFileKey);
-        if (!cachedTypes || !cachedTime || (now - cachedTime) >= INCLUDE_CACHE_MAX_AGE) {
+        if (!cachedTypes || cachedTime === undefined || (now - cachedTime) >= INCLUDE_CACHE_MAX_AGE) {
             return null;
         }
         for (const [name, kind] of cachedTypes) {

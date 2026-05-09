@@ -63,6 +63,10 @@ export function getSymbolType(
                 return 'enum';
             case nodes.ThriftNodeType.Service:
                 return 'service';
+            case nodes.ThriftNodeType.Interaction:
+                return 'interaction';
+            case nodes.ThriftNodeType.Performs:
+                return 'interaction';
             case nodes.ThriftNodeType.Typedef:
                 return 'typedef';
             case nodes.ThriftNodeType.Const:
@@ -82,7 +86,7 @@ export function getSymbolType(
             case nodes.ThriftNodeType.Union:
             case nodes.ThriftNodeType.Exception: {
                 const structNode = node ;
-                if (structNode.fields) {
+                if (structNode.fields.length > 0) {
                     for (const field of structNode.fields) {
                         if (field.name === symbolName) {
                             return 'field';
@@ -115,7 +119,7 @@ export function getSymbolType(
             }
             case nodes.ThriftNodeType.Enum: {
                 const enumNode = node ;
-                if (enumNode.members) {
+                if (enumNode.members.length > 0) {
                     for (const member of enumNode.members) {
                         if (member.name === symbolName) {
                             return 'enumValue';
@@ -126,8 +130,25 @@ export function getSymbolType(
             }
             case nodes.ThriftNodeType.Service: {
                 const serviceNode = node ;
-                if (serviceNode.functions) {
+                if (serviceNode.functions.length > 0) {
                     for (const func of serviceNode.functions) {
+                        if (func.name === symbolName) {
+                            return 'method';
+                        }
+                        if (func.returnType === symbolName) {
+                            return 'type';
+                        }
+                        if (func.returnType.includes('.') && func.returnType.endsWith('.' + symbolName)) {
+                            return 'type';
+                        }
+                    }
+                }
+                break;
+            }
+            case nodes.ThriftNodeType.Interaction: {
+                const interactionNode = node ;
+                if (interactionNode.functions.length > 0) {
+                    for (const func of interactionNode.functions) {
                         if (func.name === symbolName) {
                             return 'method';
                         }

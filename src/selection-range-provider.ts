@@ -98,7 +98,7 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
         const line = document.lineAt(node.range.start.line).text;
 
         if (node.type === nodes.ThriftNodeType.Field) {
-            const required = node.requiredness ? node.requiredness : undefined;
+            const required = node.requiredness ?? undefined;
             const requiredIndex = required ? line.indexOf(required) : -1;
             const requiredRange = requiredIndex >= 0 && required
                 ? new vscode.Range(node.range.start.line, requiredIndex, node.range.start.line, requiredIndex + required.length)
@@ -109,8 +109,8 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
                 ? new vscode.Range(node.range.start.line, typeIndex, node.range.start.line, typeIndex + node.fieldType.length)
                 : undefined;
 
-            const nameIndex = node.name ? line.indexOf(node.name, typeIndex >= 0 ? typeIndex + node.fieldType.length : 0) : -1;
-            const nameRange = (node.name && nameIndex >= 0)
+            const nameIndex = node.name !== undefined ? line.indexOf(node.name, typeIndex >= 0 ? typeIndex + node.fieldType.length : 0) : -1;
+            const nameRange = (node.name !== undefined && nameIndex >= 0)
                 ? new vscode.Range(node.range.start.line, nameIndex, node.range.start.line, nameIndex + node.name.length)
                 : undefined;
 
@@ -142,8 +142,8 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
             const returnRange = returnIndex >= 0
                 ? new vscode.Range(node.range.start.line, returnIndex, node.range.start.line, returnIndex + node.returnType.length)
                 : undefined;
-            const nameIndex = node.name ? line.indexOf(node.name, returnIndex >= 0 ? returnIndex + node.returnType.length : 0) : -1;
-            const nameRange = (node.name && nameIndex >= 0)
+            const nameIndex = node.name !== undefined ? line.indexOf(node.name, returnIndex >= 0 ? returnIndex + node.returnType.length : 0) : -1;
+            const nameRange = (node.name !== undefined && nameIndex >= 0)
                 ? new vscode.Range(node.range.start.line, nameIndex, node.range.start.line, nameIndex + node.name.length)
                 : undefined;
 
@@ -232,9 +232,7 @@ export class ThriftSelectionRangeProvider implements vscode.SelectionRangeProvid
         let current: vscode.SelectionRange | undefined;
         for (const range of ordered) {
             const selection = new vscode.SelectionRange(range);
-            if (!head) {
-                head = selection;
-            }
+            head ??= selection;
             if (current) {
                 current.parent = selection;
             }

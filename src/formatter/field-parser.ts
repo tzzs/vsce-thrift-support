@@ -162,11 +162,11 @@ export function buildStructFieldFromAst(line: string, field: nodes.Field): Struc
         annotation = annSplit.annotation;
     }
 
-    const qualifier = field.requiredness || '';
+    const qualifier = field.requiredness ?? '';
     const type = normalizeType(field.fieldType || '');
-    const name = field.name || '';
+    const name = field.name ?? '';
     let suffix = '';
-    if (field.defaultValue) {
+    if (field.defaultValue !== undefined) {
         suffix = ` = ${field.defaultValue}`;
     }
     if (trailing) {
@@ -206,7 +206,7 @@ export function parseStructFieldText(text: string): StructField | null {
         return null;
     }
     const prefix = prefixMatch[1];
-    remainder = prefixMatch[2];
+    remainder = prefixMatch[2]!;
 
     const idQualMatch = prefix.match(/^\s*(\d+):\s*((?:required|optional)?)\s*/);
     const id = idQualMatch ? idQualMatch[1] : '';
@@ -293,20 +293,20 @@ export function buildEnumFieldFromAst(line: string, member: nodes.EnumMember): E
     }
 
     let value = member.initializer;
-    if (!value) {
+    if (value === undefined || value === '') {
         const match = remainder.match(/=\s*([^,;]+)\s*$/);
         if (match) {
             value = match[1].trim();
         }
     }
-    if (!member.name) {
+    if (member.name === undefined || member.name === '') {
         return null;
     }
 
     return {
         line: line.trim(),
         name: member.name,
-        value: value || '',
+        value: value ?? '',
         suffix: trailing,
         comment,
         annotation

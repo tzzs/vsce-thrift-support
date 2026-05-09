@@ -203,7 +203,7 @@ export class ThriftWorkspaceSymbolProvider {
     }
 
     private handleFileCreated(uri: vscode.Uri): void {
-        if (!uri) {
+        if (uri === undefined) {
             return;
         }
         this.workspaceFileList.add(uri.toString());
@@ -212,7 +212,7 @@ export class ThriftWorkspaceSymbolProvider {
     }
 
     private handleFileDeleted(uri: vscode.Uri): void {
-        if (!uri) {
+        if (uri === undefined) {
             return;
         }
         const cacheKey = uri.toString();
@@ -253,7 +253,7 @@ export class ThriftWorkspaceSymbolProvider {
             if (node.type === nodes.ThriftNodeType.Const) {
                 symbols.push(
                     new vscode.SymbolInformation(
-                        node.name || '',
+                        node.name ?? '',
                         vscode.SymbolKind.Constant,
                         '',
                         createLocation(uri, node.range)
@@ -264,7 +264,7 @@ export class ThriftWorkspaceSymbolProvider {
             if (node.type === nodes.ThriftNodeType.Typedef) {
                 symbols.push(
                     new vscode.SymbolInformation(
-                        node.name || '',
+                        node.name ?? '',
                         vscode.SymbolKind.TypeParameter,
                         '',
                         createLocation(uri, node.range)
@@ -277,12 +277,13 @@ export class ThriftWorkspaceSymbolProvider {
                 node.type === nodes.ThriftNodeType.Union ||
                 node.type === nodes.ThriftNodeType.Exception ||
                 node.type === nodes.ThriftNodeType.Enum ||
-                node.type === nodes.ThriftNodeType.Service
+                node.type === nodes.ThriftNodeType.Service ||
+                node.type === nodes.ThriftNodeType.Interaction
             ) {
                 const kind = this.getSymbolKind(node.type);
                 symbols.push(
                     new vscode.SymbolInformation(
-                        node.name || '',
+                        node.name ?? '',
                         kind,
                         '',
                         createLocation(uri, node.range)
@@ -298,9 +299,9 @@ export class ThriftWorkspaceSymbolProvider {
                 for (const field of node.fields) {
                     symbols.push(
                         new vscode.SymbolInformation(
-                            field.name || '',
+                            field.name ?? '',
                             vscode.SymbolKind.Field,
-                            node.name || '',
+                            node.name ?? '',
                             createLocation(uri, field.range)
                         )
                     );
@@ -311,9 +312,9 @@ export class ThriftWorkspaceSymbolProvider {
                 for (const member of node.members) {
                     symbols.push(
                         new vscode.SymbolInformation(
-                            member.name || '',
+                            member.name ?? '',
                             vscode.SymbolKind.EnumMember,
-                            node.name || '',
+                            node.name ?? '',
                             createLocation(uri, member.range)
                         )
                     );
@@ -324,9 +325,22 @@ export class ThriftWorkspaceSymbolProvider {
                 for (const fn of node.functions) {
                     symbols.push(
                         new vscode.SymbolInformation(
-                            fn.name || '',
+                            fn.name ?? '',
                             vscode.SymbolKind.Method,
-                            node.name || '',
+                            node.name ?? '',
+                            createLocation(uri, fn.range)
+                        )
+                    );
+                }
+            }
+
+            if (node.type === nodes.ThriftNodeType.Interaction) {
+                for (const fn of node.functions) {
+                    symbols.push(
+                        new vscode.SymbolInformation(
+                            fn.name ?? '',
+                            vscode.SymbolKind.Method,
+                            node.name ?? '',
                             createLocation(uri, fn.range)
                         )
                     );
@@ -347,6 +361,7 @@ export class ThriftWorkspaceSymbolProvider {
             case nodes.ThriftNodeType.Enum:
                 return vscode.SymbolKind.Enum;
             case nodes.ThriftNodeType.Service:
+            case nodes.ThriftNodeType.Interaction:
                 return vscode.SymbolKind.Interface;
             case nodes.ThriftNodeType.Typedef:
                 return vscode.SymbolKind.TypeParameter;

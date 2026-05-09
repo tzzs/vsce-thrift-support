@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as nodes from './nodes.types';
+import {createField} from './factory';
 import {tokenizeText} from './tokenizer';
 import {offsetToPosition, splitTopLevelCommasWithOffsets, stripLineComments} from './text-utils';
 import {findDefaultValueRange} from './ranges';
@@ -51,7 +52,7 @@ export function parseFieldList(text: string, baseLine: number, baseChar: number)
             cursor += 1;
         }
         const typeStartToken = tokens[cursor];
-        if (!typeStartToken) {
+        if (typeStartToken === undefined) {
             continue;
         }
         let nameTokenIndex = -1;
@@ -90,8 +91,7 @@ export function parseFieldList(text: string, baseLine: number, baseChar: number)
         const typeEnd = offsetToPosition(text, baseLine, baseChar, segmentStart + nameToken.start);
         const defaultStart = defaultInfo ? offsetToPosition(text, baseLine, baseChar, segmentStart + defaultInfo.start) : null;
         const defaultEnd = defaultInfo ? offsetToPosition(text, baseLine, baseChar, segmentStart + defaultInfo.end) : null;
-        const field: nodes.Field = {
-            type: nodes.ThriftNodeType.Field,
+        const field = createField({
             range: new vscode.Range(startPos.line, startPos.char, endPos.line, endPos.char),
             nameRange: new vscode.Range(nameStart.line, nameStart.char, nameEnd.line, nameEnd.char),
             typeRange: new vscode.Range(typeStart.line, typeStart.char, typeEnd.line, typeEnd.char),
@@ -101,7 +101,7 @@ export function parseFieldList(text: string, baseLine: number, baseChar: number)
             name: nameToken.value,
             defaultValue: defaultInfo?.value,
             defaultValueRange: defaultStart && defaultEnd ? new vscode.Range(defaultStart.line, defaultStart.char, defaultEnd.line, defaultEnd.char) : undefined
-        };
+        });
         fields.push(field);
     }
     return fields;

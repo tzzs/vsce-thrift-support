@@ -44,9 +44,9 @@ export function checkConst(
 }
 
 export function checkEnum(node: nodes.Enum, issues: ThriftIssue[]) {
-    if (!node.isSenum) {
+    if (node.isSenum !== true) {
         for (const member of node.members) {
-            if (member.initializer && !isIntegerLiteral(member.initializer)) {
+            if (typeof member.initializer === 'string' && member.initializer.length > 0 && !isIntegerLiteral(member.initializer)) {
                 issues.push({
                     message: `Enum value must be an integer literal`,
                     range: member.range,

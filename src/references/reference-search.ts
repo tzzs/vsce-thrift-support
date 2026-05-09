@@ -65,10 +65,10 @@ export function findReferencesInDocument(
         if (node.type === nodes.ThriftNodeType.Field) {
             if (entering) {
                 const field = node ;
-                if (currentFunction && currentFunction.arguments && currentFunction.arguments.includes(field)) {
+                if (currentFunction !== null && currentFunction.arguments.includes(field)) {
                     inFunctionArguments = true;
                     inFunctionThrows = false;
-                } else if (currentFunction && currentFunction.throws && currentFunction.throws.includes(field)) {
+                } else if (currentFunction !== null && currentFunction.throws.includes(field)) {
                     inFunctionArguments = false;
                     inFunctionThrows = true;
                 } else {
@@ -94,6 +94,7 @@ export function findReferencesInDocument(
                 nodes.ThriftNodeType.Exception,
                 nodes.ThriftNodeType.Enum,
                 nodes.ThriftNodeType.Service,
+                nodes.ThriftNodeType.Interaction,
                 nodes.ThriftNodeType.Typedef,
                 nodes.ThriftNodeType.Const
             ];

@@ -7,6 +7,8 @@ export interface AstIndex {
     enumMemberIndex: Map<number, nodes.EnumMember>;
     serviceStarts: Map<number, nodes.Service>;
     serviceFunctionIndex: Map<number, nodes.ThriftFunction>;
+    interactionStarts: Map<number, nodes.Interaction>;
+    interactionFunctionIndex: Map<number, nodes.ThriftFunction>;
     constStarts: Map<number, nodes.Const>;
     constEnds: Map<number, number>;
 }
@@ -23,6 +25,8 @@ export function buildAstIndex(ast: nodes.ThriftDocument): AstIndex {
     const enumMemberIndex = new Map<number, nodes.EnumMember>();
     const serviceStarts = new Map<number, nodes.Service>();
     const serviceFunctionIndex = new Map<number, nodes.ThriftFunction>();
+    const interactionStarts = new Map<number, nodes.Interaction>();
+    const interactionFunctionIndex = new Map<number, nodes.ThriftFunction>();
     const constStarts = new Map<number, nodes.Const>();
     const constEnds = new Map<number, number>();
 
@@ -54,6 +58,14 @@ export function buildAstIndex(ast: nodes.ThriftDocument): AstIndex {
                 });
                 break;
             }
+            case nodes.ThriftNodeType.Interaction: {
+                const interactionNode = node ;
+                interactionStarts.set(interactionNode.range.start.line, interactionNode);
+                interactionNode.functions.forEach(fn => {
+                    interactionFunctionIndex.set(fn.range.start.line, fn);
+                });
+                break;
+            }
             case nodes.ThriftNodeType.Const: {
                 const constNode = node ;
                 constStarts.set(constNode.range.start.line, constNode);
@@ -74,6 +86,8 @@ export function buildAstIndex(ast: nodes.ThriftDocument): AstIndex {
         enumMemberIndex,
         serviceStarts,
         serviceFunctionIndex,
+        interactionStarts,
+        interactionFunctionIndex,
         constStarts,
         constEnds
     };

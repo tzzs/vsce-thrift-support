@@ -30,7 +30,7 @@ export function resolveFormattingOptions(
     const legacyConfig = vscode.workspace.getConfiguration('thrift-support.formatting');
     const getOpt = <T>(key: string, def: T): T => {
         const v = config.get<T>(key);
-        return (v !== undefined && v !== null) ? v : legacyConfig.get<T>(key, def);
+        return v ?? legacyConfig.get<T>(key, def);
     };
     let initialContext: FormattingContext | undefined;
     if (!(range.start.line === 0 && range.start.character === 0)) {

@@ -33,13 +33,13 @@ import {
     formatTypedefLine,
     handleConstStartLine
 } from './line-handlers';
-import {isEnumStartLine, isServiceStartLine, isStructStartLine} from './line-detection';
-import {formatServiceContentLine} from './service-content';
+import {isAnnotationStartLine, isEnumStartLine, isInteractionStartLine, isServiceStartLine, isStructStartLine} from './line-detection';
+import {formatServiceContentLine, resetServiceAnnotationDepth} from './service-content';
 import {isServiceMethodLine} from './service-method';
 import {formatStructContentLine} from './struct-content';
 import {formatSingleLineEnum, formatSingleLineService, formatSingleLineStruct} from './single-line-format';
 import {normalizeGenericsInSignature, splitTopLevelParts} from './text-utils';
-import {LineRange} from '../utils/line-range';
+import {createLineRange, LineRange} from '../utils/line-range';
 import {hashContent} from '../utils/cache-expiry';
 
 const DEFAULT_FORMAT_OPTIONS: ThriftFormattingOptions = {
@@ -77,11 +77,11 @@ export function formatThriftContent(
     if (dirtyRange) {
         const startLine = Math.max(0, Math.min(dirtyRange.startLine, lastLineIndex));
         const endLine = Math.max(0, Math.min(dirtyRange.endLine, lastLineIndex));
-        dirtyRange = {startLine, endLine};
+        dirtyRange = createLineRange(startLine, endLine);
     }
 
     let ast;
-    if (dirtyRange && options.incrementalFormattingEnabled) {
+    if (dirtyRange && options.incrementalFormattingEnabled === true) {
         const mockDocument = {
             getText: () => content,
             uri: {toString: () => `mock:formatter:${hashContent(content)}`},
@@ -89,7 +89,7 @@ export function formatThriftContent(
         } as unknown as TextDocument;
 
         const incrementalResult = ThriftParser.incrementalParseWithCache(mockDocument, dirtyRange);
-        ast = incrementalResult?.ast || new ThriftParser(content).parse();
+        ast = incrementalResult?.ast ?? new ThriftParser(content).parse();
     } else {
         ast = new ThriftParser(content).parse();
     }
@@ -101,6 +101,7 @@ export function formatThriftContent(
         enumStarts,
         enumMemberIndex,
         serviceStarts,
+        interactionStarts,
         constStarts,
         constEnds
     } = astIndex;
@@ -109,7 +110,8 @@ export function formatThriftContent(
         ? options.initialContext.indentLevel : 0;
     let inStruct = !!(options.initialContext && options.initialContext.inStruct);
     let inEnum = !!(options.initialContext && options.initialContext.inEnum);
-    let inService = !!(options.initialContext && options.initialContext.inService);
+    let inService = options.initialContext?.inService === true;
+    let inInteraction = options.initialContext?.inInteraction === true;
     let serviceIndentLevel = (options.initialContext && typeof options.initialContext.indentLevel === 'number')
         ? options.initialContext.indentLevel : 0;
     let structFields: StructField[] = [];
@@ -118,6 +120,10 @@ export function formatThriftContent(
     let inConstBlock = false;
     // Track the indent level where the current const block started, so flushing uses the correct base indent
     let constBlockIndentLevel: number | null = null;
+    // Track annotation block depth for top-level @Annotation{...} blocks
+    let topAnnotationDepth = 0;
+
+    resetServiceAnnotationDepth();
 
     for (let i = 0; i < lines.length; i++) {
         const originalLine = lines[i];
@@ -126,6 +132,7 @@ export function formatThriftContent(
         const isStructStart = structStarts.has(i) || isStructStartLine(line);
         const isEnumStart = enumStarts.has(i) || isEnumStartLine(line);
         const isServiceStart = serviceStarts.has(i) || isServiceStartLine(line);
+        const isInteractionStart = interactionStarts.has(i) || isInteractionStartLine(line);
 
         // Flush accumulated struct fields before non-field separators/comments inside struct
         const structFlush = flushStructFieldsIfNeeded(
@@ -190,7 +197,8 @@ export function formatThriftContent(
             serviceIndentLevel,
             indentLevel,
             options,
-            {getIndent, getServiceIndent}
+            {getIndent, getServiceIndent},
+            inInteraction
         );
         if (skippedLine) {
             formattedLines.push(...skippedLine);
@@ -314,6 +322,14 @@ export function formatThriftContent(
             serviceIndentLevel = indentLevel; // Track the service base level
             continue;
         }
+
+        // Handle interaction definitions (similar to service)
+        if (isInteractionStart) {
+            formattedLines.push(getIndent(indentLevel, options) + line);
+            inInteraction = true;
+            serviceIndentLevel = indentLevel;
+            continue;
+        }
         if (inStruct) {
             const structResult = formatStructContentLine(
                 line,
@@ -354,6 +370,38 @@ export function formatThriftContent(
             if (serviceResult.closeService) {
                 inService = false;
             }
+            continue;
+        }
+
+        // Handle interaction content (same formatting as service)
+        if (inInteraction) {
+            const interactionResult = formatServiceContentLine(line, serviceIndentLevel, options, {
+                getServiceIndent,
+                normalizeGenericsInSignature,
+                isServiceMethod: isServiceMethodLine
+            });
+            formattedLines.push(...interactionResult.formattedLines);
+            if (interactionResult.closeService) {
+                inInteraction = false;
+            }
+            continue;
+        }
+
+        // Handle top-level annotation blocks (e.g. @ServiceMetadata{...})
+        if (isAnnotationStartLine(line)) {
+            formattedLines.push(getIndent(indentLevel, options) + line);
+            indentLevel++;
+            topAnnotationDepth++;
+            continue;
+        }
+        if (topAnnotationDepth > 0) {
+            if (line === '}') {
+                topAnnotationDepth--;
+                if (topAnnotationDepth === 0) {
+                    indentLevel--;
+                }
+            }
+            formattedLines.push(getIndent(indentLevel, options) + line);
             continue;
         }
 

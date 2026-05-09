@@ -58,6 +58,14 @@ export default [
           caughtErrorsIgnorePattern: '^_',
         },
       ],
+      // Strict rules enabled for code quality (P0)
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-floating-promises': ['error', {ignoreVoid: true}],
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/prefer-nullish-coalescing': 'warn',
+      '@typescript-eslint/ban-ts-comment': 'error',
+      '@typescript-eslint/strict-boolean-expressions': 'warn',
+      'no-console': 'error',
     },
   },
 ];

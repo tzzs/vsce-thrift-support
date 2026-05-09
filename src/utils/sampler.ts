@@ -96,7 +96,7 @@ export class Sampler {
     private readonly config: Record<string, SamplingConfig>;
 
     constructor(config?: Record<string, SamplingConfig>) {
-        this.config = config || DEFAULT_SAMPLING_CONFIG;
+        this.config = config ?? DEFAULT_SAMPLING_CONFIG;
     }
 
     /**
@@ -121,10 +121,10 @@ export class Sampler {
                 return false;
 
             case 'interval':
-                return this.shouldSampleByInterval(operation, config.interval || 10);
+                return this.shouldSampleByInterval(operation, config.interval ?? 10);
 
             case 'percentage':
-                return this.shouldSampleByPercentage(config.percentage || 10);
+                return this.shouldSampleByPercentage(config.percentage ?? 10);
 
             case 'adaptive':
                 return this.shouldSampleAdaptive(operation, config);
@@ -141,7 +141,7 @@ export class Sampler {
      * 重置采样计数器
      */
     reset(operation?: string): void {
-        if (operation) {
+        if (operation !== undefined) {
             this.operationCounts.delete(operation);
             this.lastSampleTime.delete(operation);
         } else {
@@ -155,7 +155,7 @@ export class Sampler {
      */
     private getOperationConfig(operation: string): SamplingConfig {
         // 精确匹配
-        if (this.config[operation]) {
+        if (this.config[operation] !== undefined) {
             return this.config[operation];
         }
 
@@ -167,14 +167,14 @@ export class Sampler {
         }
 
         // 返回默认配置
-        return this.config['default'] || {strategy: 'interval', interval: 10};
+        return this.config['default'] ?? {strategy: 'interval', interval: 10};
     }
 
     /**
      * 基于间隔的采样
      */
     private shouldSampleByInterval(operation: string, interval: number): boolean {
-        const count = (this.operationCounts.get(operation) || 0) + 1;
+        const count = (this.operationCounts.get(operation) ?? 0) + 1;
         this.operationCounts.set(operation, count);
 
         return count % interval === 0;
@@ -192,12 +192,12 @@ export class Sampler {
      */
     private shouldSampleAdaptive(operation: string, config: SamplingConfig): boolean {
         const now = Date.now();
-        const lastTime = this.lastSampleTime.get(operation) || 0;
+        const lastTime = this.lastSampleTime.get(operation) ?? 0;
         const timeDiff = now - lastTime;
 
         // 获取配置的最小/最大间隔
-        const minInterval = config.minInterval || 1000; // 1秒
-        const maxInterval = config.maxInterval || 60000; // 1分钟
+        const minInterval = config.minInterval ?? 1000; // 1秒
+        const maxInterval = config.maxInterval ?? 60000; // 1分钟
 
         // 如果距离上次采样时间太短，跳过
         if (timeDiff < minInterval) {
@@ -205,7 +205,7 @@ export class Sampler {
         }
 
         // 自适应调整：如果操作频繁，增加间隔
-        const count = (this.operationCounts.get(operation) || 0) + 1;
+        const count = (this.operationCounts.get(operation) ?? 0) + 1;
         this.operationCounts.set(operation, count);
 
         // 动态计算间隔（基于操作频率）
@@ -226,7 +226,7 @@ export class Sampler {
      * 指数退避采样
      */
     private shouldSampleExponential(operation: string): boolean {
-        const count = (this.operationCounts.get(operation) || 0) + 1;
+        const count = (this.operationCounts.get(operation) ?? 0) + 1;
         this.operationCounts.set(operation, count);
 
         // 指数退避：1, 2, 4, 8, 16, 32...
@@ -254,10 +254,10 @@ export class Sampler {
             let rate = 0;
 
             if (config.strategy === 'interval') {
-                sampled = Math.floor(count / (config.interval || 10));
-                rate = 1 / (config.interval || 10);
+                sampled = Math.floor(count / (config.interval ?? 10));
+                rate = 1 / (config.interval ?? 10);
             } else if (config.strategy === 'percentage') {
-                rate = (config.percentage || 10) / 100;
+                rate = (config.percentage ?? 10) / 100;
                 sampled = Math.floor(count * rate);
             } else if (config.strategy === 'every') {
                 sampled = count;

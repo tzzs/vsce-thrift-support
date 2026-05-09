@@ -20,7 +20,7 @@ export const CACHE_CONFIGS: Record<string, CacheConfig> = {
         evictionThreshold: 0.8, // 使用率达到 80% 时开始驱逐
         priorityFn: (key, value) => {
             // 优先保留大文件的 AST（假设访问频率更高）
-            const astSize = (value as {content?: string}).content?.length || 0;
+            const astSize = (value as {content?: string}).content?.length ?? 0;
             return astSize;
         }
     },
@@ -112,10 +112,10 @@ export const CACHE_CONFIGS: Record<string, CacheConfig> = {
 
     // 引用 AST 缓存
     'references-ast': {
-        maxSize: config.cache.references?.maxSize || 100,
-        ttl: config.cache.references?.ttlMs || config.cache.astMaxAgeMs,
-        lruK: config.cache.references?.lruK || 2,
-        evictionThreshold: config.cache.references?.evictionThreshold || 0.8,
+        maxSize: config.cache.references?.maxSize ?? 100,
+        ttl: config.cache.references?.ttlMs ?? config.cache.astMaxAgeMs,
+        lruK: config.cache.references?.lruK ?? 2,
+        evictionThreshold: config.cache.references?.evictionThreshold ?? 0.8,
         priorityFn: () => {
             // 基于命中率优先
             return 1;
@@ -202,7 +202,7 @@ export function validateCacheConfig(name: string, config: CacheConfig): boolean 
         return false;
     }
 
-    if (config.lruK && config.lruK < 1) {
+    if (config.lruK !== undefined && config.lruK < 1) {
         errorHandler.handleWarning(`Cache config "${name}": lruK must be >= 1`, {
             component: 'CacheConfig',
             operation: 'validateCacheConfig',
@@ -248,7 +248,7 @@ export function updateCacheConfig(
     updates: Partial<CacheConfig>
 ): CacheConfig | null {
     const existing = CACHE_CONFIGS[name];
-    if (!existing) {
+    if (existing === undefined) {
         return null;
     }
 

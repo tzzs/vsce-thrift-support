@@ -5,9 +5,6 @@ import {CacheManager} from '../utils/cache-manager'; // Import the enhanced cach
 import {makeUriContentKey, makeUriRangeKey} from '../utils/cache-keys';
 import {isExpired, isFresh, hashContent} from '../utils/cache-expiry';
 import {CACHE_CONFIGS} from '../config/cache-config';
-import {OptimizedThriftParser} from './optimized-parser';
-// Only export optimized parser if it hasn't been exported already
-
 // Initialize the cache manager
 const cacheManager = CacheManager.getInstance();
 
@@ -51,7 +48,7 @@ export function getCachedAst(uri: string, content: string, version?: number): no
     const cacheKey = makeUriContentKey(uri, content, version);
 
     // 先检查 astCache Map
-    const cached = astCache.get(cacheKey) || astCache.get(uri); // 向后兼容
+    const cached = astCache.get(cacheKey) ?? astCache.get(uri); // 向后兼容
 
     if (cached && isFresh(cached.timestamp, CACHE_MAX_AGE, now)) {
         // 验证内容哈希以确保缓存数据一致性
@@ -256,8 +253,3 @@ export function parseWithAstCache(
     setCachedAst(uri, content, ast, version);
     return ast;
 }
-
-// Don't re-export if already defined in original module
-
-// Export optimized parser
-export {OptimizedThriftParser as ThriftParser};

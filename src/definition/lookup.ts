@@ -48,7 +48,7 @@ export class DefinitionLookup {
         }
 
         const locations: vscode.Location[] = [];
-        if (!vscode.workspace) {
+        if (vscode.workspace === undefined) {
             ErrorHandler.getInstance().handleWarning('vscode.workspace is missing, falling back to empty file list', {
                 component: 'DefinitionLookup',
                 operation: 'findDefinitionInWorkspace'
@@ -89,7 +89,7 @@ export class DefinitionLookup {
 
         if (node.type === nodes.ThriftNodeType.Document) {
             const doc = node ;
-            if (doc.body) {
+            if (doc.body.length > 0) {
                 for (const item of doc.body) {
                     if (!this.traverseAST(item, callback)) {
                         return false;
@@ -115,6 +115,13 @@ export class DefinitionLookup {
         } else if (node.type === nodes.ThriftNodeType.Service) {
             const service = node ;
             for (const func of service.functions) {
+                if (!this.traverseAST(func, callback)) {
+                    return false;
+                }
+            }
+        } else if (node.type === nodes.ThriftNodeType.Interaction) {
+            const interaction = node ;
+            for (const func of interaction.functions) {
                 if (!this.traverseAST(func, callback)) {
                     return false;
                 }

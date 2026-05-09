@@ -57,7 +57,7 @@ function initializeMemoryManagement(context: vscode.ExtensionContext, errorHandl
         // 定期记录内存使用情况
         const memoryCheckInterval = setInterval(() => {
             memoryMonitor.recordMemoryUsage();
-        }, 30000); // 每30秒检查一次
+        }, 120000); // 每2分钟检查一次
 
         // 注册内存相关的命令
         context.subscriptions.push(
@@ -76,16 +76,6 @@ function initializeMemoryManagement(context: vscode.ExtensionContext, errorHandl
                         component: 'Extension',
                         operation: 'showMemoryReport'
                     });
-                }
-            })
-        );
-
-        // 监听内存警告事件
-        context.subscriptions.push(
-            vscode.workspace.onDidChangeConfiguration(e => {
-                if (e.affectsConfiguration('thrift.performance')) {
-                    // 当性能配置改变时，可能需要调整内存策略
-                    // 根据配置可能调整动态调整因子
                 }
             })
         );

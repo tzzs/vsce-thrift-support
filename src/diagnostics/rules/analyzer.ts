@@ -55,6 +55,7 @@ export function analyzeThriftAst(
     for (const node of ast.body) {
         switch (node.type) {
             case nodes.ThriftNodeType.Service:
+            case nodes.ThriftNodeType.Interaction:
                 checkService(node , lines, definedTypes, includeAliases, typeKind, issues);
                 break;
             case nodes.ThriftNodeType.Struct:

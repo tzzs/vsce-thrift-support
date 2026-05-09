@@ -220,7 +220,7 @@ export class PerformanceMonitor {
         if (slowOperations.length > 0) {
             report.add('### 慢操作详情');
             slowOperations.forEach(metric => {
-                const fileInfo = metric.documentUri ? vscode.workspace.asRelativePath(metric.documentUri) : '未知文件';
+                const fileInfo = metric.documentUri !== undefined ? vscode.workspace.asRelativePath(metric.documentUri) : '未知文件';
                 report.add(`- **${metric.operation}**: ${metric.duration.toFixed(2)}ms (${fileInfo})`);
             });
         }
@@ -306,7 +306,7 @@ export class PerformanceMonitor {
         const stats = new Map<string, {count: number; totalDuration: number}>();
 
         slowOps.forEach(metric => {
-            const existing = stats.get(metric.operation) || {count: 0, totalDuration: 0};
+            const existing = stats.get(metric.operation) ?? {count: 0, totalDuration: 0};
             existing.count++;
             existing.totalDuration += metric.duration;
             stats.set(metric.operation, existing);
@@ -396,8 +396,8 @@ export class PerformanceMonitor {
 
         // 如果操作特别慢，只在控制台记录，不显示弹窗
         if (metric.duration > 500) {
-            const fileInfo = metric.documentUri ? ` in ${vscode.workspace.asRelativePath(metric.documentUri)}` : '';
-            const sizeInfo = metric.fileSize ? ` (${(metric.fileSize / 1024).toFixed(1)}KB)` : '';
+            const fileInfo = metric.documentUri !== undefined ? ` in ${vscode.workspace.asRelativePath(metric.documentUri)}` : '';
+            const sizeInfo = metric.fileSize !== undefined ? ` (${(metric.fileSize / 1024).toFixed(1)}KB)` : '';
 
             this.errorHandler.handleWarning(
                 `Slow operation: ${metric.operation} took ${metric.duration.toFixed(0)}ms${fileInfo}${sizeInfo}`,

@@ -62,12 +62,12 @@ export class AnalysisScheduler {
         }
 
         const now = Date.now();
-        const lastGap = throttleState?.lastAnalysis ? now - throttleState.lastAnalysis : Number.POSITIVE_INFINITY;
+        const lastGap = throttleState?.lastAnalysis !== undefined ? now - throttleState.lastAnalysis : Number.POSITIVE_INFINITY;
         const throttleDelay = lastGap < this.MIN_ANALYSIS_INTERVAL ? this.MIN_ANALYSIS_INTERVAL - lastGap : 0;
 
         const shouldSkipSameVersion = !!(throttleState && throttleState.version === doc.version && throttleDelay === 0);
 
-        if (throttleState?.isAnalyzing || this.processingDocuments.has(key)) {
+        if (throttleState?.isAnalyzing === true || this.processingDocuments.has(key)) {
             if (shouldSkipSameVersion) {
                 return false;
             }
@@ -79,7 +79,7 @@ export class AnalysisScheduler {
             return false;
         }
 
-        const baseDelay = immediate ? 0 : this.ANALYSIS_DELAY;
+        const baseDelay = immediate === true ? 0 : this.ANALYSIS_DELAY;
         const delay = Math.max(baseDelay, throttleDelay);
 
         const timeout = setTimeout(() => {

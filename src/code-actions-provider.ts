@@ -36,7 +36,7 @@ export class ThriftRefactorCodeActionProvider {
         token: vscode.CancellationToken
     ): vscode.ProviderResult<vscode.CodeAction[]> {
         try {
-            if (document.languageId !== 'thrift' || (token && token.isCancellationRequested)) {
+            if (document.languageId !== 'thrift' || (typeof token !== 'undefined' && token.isCancellationRequested)) {
                 return undefined;
             }
 
@@ -81,7 +81,7 @@ export class ThriftRefactorCodeActionProvider {
             for (const m of nsMatches) {
                 const ns = m[1];
                 const fileName = `${ns}.thrift`;
-                if (!includeSet.has(fileName) && !createdNs.has(ns) && (!token || token.isCancellationRequested)) {
+                if (!includeSet.has(fileName) && !createdNs.has(ns) && (typeof token === 'undefined' || token.isCancellationRequested)) {
                     break;
                 }
 
@@ -99,7 +99,7 @@ export class ThriftRefactorCodeActionProvider {
 
             // 2) QuickFix: for unqualified identifier provide include choices when multiple workspace definitions exist
             const wordRange = document.getWordRangeAtPosition(position, /[A-Za-z_][A-Za-z0-9_]*/);
-            if (wordRange && (!token || !token.isCancellationRequested)) {
+            if (wordRange !== null && wordRange !== undefined && (typeof token === 'undefined' || !token.isCancellationRequested)) {
                 const word = document.getText(wordRange);
                 if (word && !lineText.includes(`${word}.`)) {
                     // We'll add the basic include suggestion without workspace lookup for sync method
@@ -145,7 +145,7 @@ export class ThriftRefactorCodeActionProvider {
 
     private getDocumentAst(document: vscode.TextDocument): nodes.ThriftDocument {
         const uri = (document ).uri;
-        if (uri && typeof uri.toString === 'function') {
+        if (typeof uri !== 'undefined' && typeof uri.toString === 'function') {
             return ThriftParser.parseWithCache(document);
         }
         const parser = new ThriftParser(document.getText());

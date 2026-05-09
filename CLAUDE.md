@@ -9,35 +9,36 @@ VS Code extension providing comprehensive language support for Apache Thrift IDL
 ## Development Environment
 
 - Node.js: 22.18.0 (must match CI)
+- pnpm: 10.25.0 (package manager — do not use npm)
 - VS Code Engine: ^1.75.0
 - TypeScript: ^4.9.5
 - ESLint: ^9.15.0 (flat config, `eslint.config.mjs`)
 - Test framework: Mocha ^11.7.5
-- Package: `@vscode/vsce` ^3.6.2 (note: was renamed from `vsce`)
+- Package: `@vscode/vsce` ^3.9.1 (note: was renamed from `vsce`)
 
 ## Essential Commands
 
 ```bash
-npm install            # Install dependencies
-npm run compile        # Compile TypeScript (tsc -p ./)
-npm run watch          # Dev mode with auto-compilation
-npm run build          # Clean + compile
-npm run lint           # ESLint (flat config, no --ext flag)
-npm run lint:fix       # Auto-fix lint issues
+pnpm install           # Install dependencies
+pnpm run compile       # Compile TypeScript (tsc -p ./)
+pnpm run watch         # Dev mode with auto-compilation
+pnpm run build         # Clean + compile
+pnpm run lint          # ESLint (flat config, no --ext flag)
+pnpm run lint:fix      # Auto-fix lint issues
 ```
 
 ### Testing
 
 ```bash
-npm test               # Build + run full Mocha suite (tests/src/**/*.js)
-npm run test:single    # Build + run single test via .mocharc.single.json
-npm run coverage       # Coverage report via nyc + mocha
+pnpm test              # Build + run full Mocha suite (tests/src/**/*.js)
+pnpm run test:single   # Build + run single test via .mocharc.single.json
+pnpm run coverage      # Coverage report via nyc + mocha
 
 # Run a single test file
-npx mocha --config .mocharc.single.json tests/src/formatter/test-struct-formatting.js
+pnpm exec mocha --config .mocharc.single.json tests/src/formatter/test-struct-formatting.js
 
 # Run a scenario test
-npx mocha tests/scenarios/formatting/test-full-file-format.js
+pnpm exec mocha tests/scenarios/formatting/test-full-file-format.js
 ```
 
 Tests use a require hook (`tests/require-hook.js`) that mocks the `vscode` module via `tests/mock_vscode.js`. All tests import from `../out/src/...` (compiled output). Mocha config: timeout 30s, `.mocharc.json` for full suite, `.mocharc.single.json` for single files.
@@ -45,14 +46,14 @@ Tests use a require hook (`tests/require-hook.js`) that mocks the `vscode` modul
 ### Pre-push Checklist (matches CI)
 
 ```bash
-npm run lint && npm run build && npm test
+pnpm run lint && pnpm run build && pnpm test
 ```
 
 ### Packaging
 
 ```bash
-npm run package        # Create .vsix
-npm run publish        # Publish to Marketplace (requires VSCE_PAT)
+pnpm run package       # Create .vsix
+pnpm run publish       # Publish to Marketplace (requires VSCE_PAT)
 ```
 
 ## Architecture

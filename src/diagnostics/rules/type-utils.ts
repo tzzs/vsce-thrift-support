@@ -1,6 +1,9 @@
 const PRIMITIVES = new Set<string>([
-    'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid', 'slist'
+    'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid'
 ]);
+
+// Thrift extended-syntax keyword types valid as reference<> arguments
+const KEYWORD_TYPES = new Set<string>(['interaction', 'service']);
 
 const integerTypes = new Set<string>(['byte', 'i8', 'i16', 'i32', 'i64']);
 const uuidRegex = /^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$/;
@@ -32,6 +35,22 @@ function parseContainerType(typeText: string): boolean {
         const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
         const parts = splitTopLevelAngles(inner);
         return parts.length === 2;
+    }
+    if (/^stream<.*>$/.test(noSpace)) {
+        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
+        return inner.trim().length > 0;
+    }
+    if (/^sink<.*>$/.test(noSpace)) {
+        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
+        return inner.trim().length > 0;
+    }
+    if (/^interaction<.*>$/.test(noSpace)) {
+        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
+        return inner.trim().length > 0;
+    }
+    if (/^reference<.*>$/.test(noSpace)) {
+        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
+        return inner.trim().length > 0;
     }
     return false;
 }
@@ -150,6 +169,9 @@ export function isKnownType(typeName: string, definedTypes: Set<string>, include
     }
     const t = stripTypeAnnotations(typeName).trim();
     if (PRIMITIVES.has(t)) {
+        return true;
+    }
+    if (KEYWORD_TYPES.has(t)) {
         return true;
     }
     if (definedTypes.has(t)) {

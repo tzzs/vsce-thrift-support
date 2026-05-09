@@ -119,12 +119,10 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
     }
 
     private getDefinitionProvider(): ThriftDefinitionProvider {
-        if (!ThriftHoverProvider.definitionProvider) {
-            ThriftHoverProvider.definitionProvider = new ThriftDefinitionProvider({
-                cacheManager: this.cacheManager,
-                errorHandler: this.errorHandler
-            });
-        }
+        ThriftHoverProvider.definitionProvider ??= new ThriftDefinitionProvider({
+            cacheManager: this.cacheManager,
+            errorHandler: this.errorHandler
+        });
         return ThriftHoverProvider.definitionProvider;
     }
 

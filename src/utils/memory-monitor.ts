@@ -263,9 +263,7 @@ export class SmartMemoryMonitor {
     }
 
     static getInstance(): SmartMemoryMonitor {
-        if (!SmartMemoryMonitor.instance) {
-            SmartMemoryMonitor.instance = new SmartMemoryMonitor();
-        }
+        SmartMemoryMonitor.instance ??= new SmartMemoryMonitor();
         return SmartMemoryMonitor.instance;
     }
 
@@ -305,7 +303,7 @@ export class SmartMemoryMonitor {
         let cacheUsed = 0;
 
         // 获取V8堆内存信息
-        if (typeof process !== 'undefined' && process.memoryUsage) {
+        if (typeof process !== 'undefined' && process.memoryUsage !== undefined) {
             const mem = process.memoryUsage();
             currentUsage = mem.heapUsed || 0;
 
@@ -350,7 +348,7 @@ export class SmartMemoryMonitor {
      * 更新缓存统计信息
      */
     public updateCacheStats(cacheName: string, stats: Partial<CacheStatistics>): void {
-        const existing = this.cacheStats.get(cacheName) || {
+        const existing = this.cacheStats.get(cacheName) ?? {
             name: cacheName,
             size: 0,
             maxSize: 0,

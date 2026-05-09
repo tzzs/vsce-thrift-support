@@ -27,10 +27,11 @@ export function collectTypesAndValues(doc: nodes.ThriftDocument) {
     const values: string[] = [];
 
     for (const node of doc.body) {
-        if (node.name) {
+        if (node.name !== undefined) {
             if (
                 nodes.isStructNode(node) ||
                 nodes.isEnumNode(node) ||
+                nodes.isInteractionNode(node) ||
                 node.type === nodes.ThriftNodeType.Typedef
             ) {
                 types.push(node.name);
@@ -45,7 +46,7 @@ export function collectTypesAndValues(doc: nodes.ThriftDocument) {
         // For enums, members are children
         if (nodes.isEnumNode(node)) {
             node.members.forEach((m) => {
-                if (m.name) {
+                if (m.name !== undefined) {
                     values.push(m.name);
                 }
             });

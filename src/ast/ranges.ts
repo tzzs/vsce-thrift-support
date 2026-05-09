@@ -177,7 +177,7 @@ export function findInitializerRange(
     initializer: string | undefined,
     lineNumber: number
 ): vscode.Range | undefined {
-    if (!initializer) {
+    if (initializer === undefined || initializer === '') {
         return undefined;
     }
     const codeIndex = line.indexOf(codeOnly);

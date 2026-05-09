@@ -167,31 +167,42 @@ export const config = {
         /** 文件列表刷新间隔（毫秒） */
         fileListUpdateIntervalMs: 30000
     },
-    /** Diagnostics 相关配置 */
+    /**
+     * Diagnostics 相关配置。
+     * analysisDelayMs 控制用户停止输入后等待多久触发分析（防抖）；
+     * minAnalysisIntervalMs 限制同一文档两次分析的最小间隔（节流）；
+     * maxConcurrentAnalyses 从 1 提升至 3 以提升多文件并发处理能力。
+     */
     diagnostics: {
-        /** 基础分析延迟（毫秒） */
+        /** 基础分析延迟（毫秒），用户停止输入后等待此时间再触发分析 */
         analysisDelayMs: 300,
-        /** 最小分析间隔（毫秒） */
+        /** 最小分析间隔（毫秒），同一文档两次分析的最小间隔 */
         minAnalysisIntervalMs: 1000,
-        /** 并发诊断分析上限 - 从 1 提升至 3 以提升多文件处理能力 */
+        /** 并发诊断分析上限（1→3），提升多文件处理吞吐 */
         maxConcurrentAnalyses: 3,
-        /** 依赖文件分析延迟倍数 */
+        /** 依赖文件分析延迟倍数，依赖文件的分析延迟 = analysisDelayMs * 此因子 */
         dependentAnalysisDelayFactor: 2
     },
-    /** 性能监控相关配置 */
+    /**
+     * 性能监控相关配置。
+     * 操作耗时超过 slowOperationThresholdMs 会在日志中标记为慢操作；
+     * maxMetrics 限制内存中保留的性能记录数量，超出后旧记录被截断。
+     */
     performance: {
-        /** 慢操作阈值（毫秒） */
+        /** 慢操作阈值（毫秒），超过此值的操作会触发警告日志 */
         slowOperationThresholdMs: 100,
-        /** 最大性能记录条数 */
+        /** 最大性能记录条数，用于生成性能报告 */
         maxMetrics: 100
     },
-    /** 增量能力配置（默认启用，不暴露给用户配置） */
+    /**
+     * 增量能力配置（默认启用，不暴露给用户配置）。
+     * 增量模式下仅对编辑影响的区域重新分析/格式化，大幅降低大文件编辑延迟。
+     * 当脏区超过 maxDirtyLines 时自动退回全量处理以避免增量合并开销超过全量成本。
+     */
     incremental: {
-        /** 是否启用增量诊断（仅重新分析脏区） */
         analysisEnabled: true,
-        /** 是否启用增量格式化（按脏区生成最小化编辑） */
         formattingEnabled: true,
-        /** 单次允许的最大脏区行数，超限则退回全量 */
+        /** 单次允许的最大脏区行数（约 200 行），超限则退回全量处理 */
         maxDirtyLines: 200
     },
     /** 内存管理配置 */

@@ -16,7 +16,8 @@ export interface ThriftFormattingOptions {
     collectionStyle: 'preserve' | 'multiline' | 'auto';
     insertSpaces: boolean;
     tabSize: number;
-    initialContext?: {indentLevel: number; inStruct: boolean; inEnum: boolean; inService?: boolean};
+    initialContext?: {indentLevel: number; inStruct: boolean; inEnum: boolean; inService?: boolean; inInteraction?: boolean};
+    /** 启用增量格式化（仅重新格式化脏区），配合 IncrementalTracker 使用。默认 false 为全量格式化 */
     incrementalFormattingEnabled?: boolean;
 }
 
