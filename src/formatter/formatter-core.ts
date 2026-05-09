@@ -197,7 +197,8 @@ export function formatThriftContent(
             serviceIndentLevel,
             indentLevel,
             options,
-            {getIndent, getServiceIndent}
+            {getIndent, getServiceIndent},
+            inInteraction
         );
         if (skippedLine) {
             formattedLines.push(...skippedLine);

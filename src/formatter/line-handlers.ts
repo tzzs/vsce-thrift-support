@@ -147,10 +147,11 @@ export function formatSkippedLine(
     serviceIndentLevel: number,
     indentLevel: number,
     options: ThriftFormattingOptions,
-    deps: SkipLineDeps
+    deps: SkipLineDeps,
+    inInteraction?: boolean
 ): string[] | null {
     if (!line || line.startsWith('//') || line.startsWith('#')) {
-        const indent = inService
+        const indent = (inService || inInteraction)
             ? deps.getServiceIndent(serviceIndentLevel + 1, options)
             : deps.getIndent(indentLevel, options);
         return [indent + line];

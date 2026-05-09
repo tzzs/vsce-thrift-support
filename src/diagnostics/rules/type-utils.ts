@@ -2,6 +2,9 @@ const PRIMITIVES = new Set<string>([
     'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid'
 ]);
 
+// Thrift extended-syntax keyword types valid as reference<> arguments
+const KEYWORD_TYPES = new Set<string>(['interaction', 'service']);
+
 const integerTypes = new Set<string>(['byte', 'i8', 'i16', 'i32', 'i64']);
 const uuidRegex = /^[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}$/;
 
@@ -166,6 +169,9 @@ export function isKnownType(typeName: string, definedTypes: Set<string>, include
     }
     const t = stripTypeAnnotations(typeName).trim();
     if (PRIMITIVES.has(t)) {
+        return true;
+    }
+    if (KEYWORD_TYPES.has(t)) {
         return true;
     }
     if (definedTypes.has(t)) {
