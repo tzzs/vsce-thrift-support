@@ -1,3 +1,4 @@
+const assert = require('assert');
 const {ThriftFormatter} = require('../../../out/formatter/index.js');
 
 function testStructFormatting() {
@@ -50,7 +51,6 @@ describe('struct-formatting', () => {
     });
 
     it('no-trailing-comma field with comment gets 1 space before comment when it is the widest field', () => {
-        const assert = require('assert');
         const formatter = new ThriftFormatter();
         const input = [
             'exception UserNotFoundException {',
