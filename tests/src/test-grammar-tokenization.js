@@ -386,6 +386,94 @@ describe('TextMate Grammar Tokenization', () => {
         });
     });
 
+    describe('Method parameter required/optional modifier scoping', () => {
+        it('required modifier should have storage.modifier scope', () => {
+            const lines = ['service S {', '  void foo(1: required string name),', '}'];
+            const tokens = tokenizeLines(lines);
+
+            assert.ok(hasScopes(tokens, 'required', ['storage.modifier.thrift']),
+                'required keyword in method parameter should have storage.modifier.thrift scope');
+        });
+
+        it('optional modifier should have storage.modifier scope', () => {
+            const lines = ['service S {', '  void foo(1: optional string name),', '}'];
+            const tokens = tokenizeLines(lines);
+
+            assert.ok(hasScopes(tokens, 'optional', ['storage.modifier.thrift']),
+                'optional keyword in method parameter should have storage.modifier.thrift scope');
+        });
+
+        it('primitive type after required modifier should have storage.type scope, not variable.parameter', () => {
+            const lines = ['service S {', '  void foo(1: required string name),', '}'];
+            const tokens = tokenizeLines(lines);
+
+            assert.ok(hasScopes(tokens, 'string', ['storage.type.thrift']),
+                'string type after required should have storage.type.thrift scope');
+            assert.ok(!getScopes(tokens, 'string').includes('variable.parameter.thrift'),
+                'string type should not be misidentified as variable.parameter.thrift');
+        });
+
+        it('parameter name after required + type should have variable.parameter scope', () => {
+            const lines = ['service S {', '  void foo(1: required string traceInfo),', '}'];
+            const tokens = tokenizeLines(lines);
+
+            assert.ok(hasScopes(tokens, 'traceInfo', ['variable.parameter.thrift']),
+                'parameter name after required modifier should have variable.parameter.thrift scope');
+        });
+
+        it('trailing comma after parameter name should have punctuation.separator.comma scope', () => {
+            const lines = ['service S {', '  void foo(1: required string name,', '  2: required i32 id),', '}'];
+            const tokens = tokenizeLines(lines);
+
+            assert.ok(tokens.some(t => t.text === ',' && t.scopes.includes('punctuation.separator.comma.thrift')),
+                'trailing comma after parameter name should have punctuation.separator.comma.thrift scope');
+        });
+
+        it('multi-parameter method with required should have correct scopes throughout', () => {
+            const lines = [
+                'service S {',
+                '  void foo(',
+                '    1: required string traceInfo,',
+                '    2: required PingRequest request',
+                '  ),',
+                '}'
+            ];
+            const tokens = tokenizeLines(lines);
+
+            const requiredTokens = tokens.filter(t => t.text === 'required');
+            assert.ok(requiredTokens.length >= 2, 'should find at least two required tokens');
+            assert.ok(requiredTokens.every(t => t.scopes.includes('storage.modifier.thrift')),
+                'all required keywords should have storage.modifier.thrift scope');
+            assert.ok(hasScopes(tokens, 'traceInfo', ['variable.parameter.thrift']),
+                'first parameter name should have variable.parameter.thrift scope');
+            assert.ok(hasScopes(tokens, 'request', ['variable.parameter.thrift']),
+                'second parameter name should have variable.parameter.thrift scope');
+        });
+
+        it('type name starting with "optional" should not have its prefix consumed as a modifier', () => {
+            // Word boundary regression: old regex (required|optional)?\s* greedily matched
+            // "optional" in "optionalData", splitting the type name and misassigning scopes.
+            const lines = ['service S {', '  void foo(1: optionalData name),', '}'];
+            const tokens = tokenizeLines(lines);
+
+            assert.ok(!tokens.some(t => t.text === 'optional' && t.scopes.includes('storage.modifier.thrift')),
+                '"optional" prefix in type name optionalData should not tokenize as storage.modifier.thrift');
+            assert.ok(hasScopes(tokens, 'name', ['variable.parameter.thrift']),
+                'parameter name after optionalData type should still have variable.parameter.thrift scope');
+        });
+
+        it('type name starting with "required" should not have its prefix consumed as a modifier', () => {
+            // Word boundary regression: old regex greedily matched "required" in "requiredField".
+            const lines = ['service S {', '  void foo(1: requiredField name),', '}'];
+            const tokens = tokenizeLines(lines);
+
+            assert.ok(!tokens.some(t => t.text === 'required' && t.scopes.includes('storage.modifier.thrift')),
+                '"required" prefix in type name requiredField should not tokenize as storage.modifier.thrift');
+            assert.ok(hasScopes(tokens, 'name', ['variable.parameter.thrift']),
+                'parameter name after requiredField type should still have variable.parameter.thrift scope');
+        });
+    });
+
     describe('Nested container type tokenization', () => {
         it('i32 inside set<i32> in a struct field should have storage.type.thrift', () => {
             const lines = ['struct S {', '  1: set<i32> field,', '}'];
