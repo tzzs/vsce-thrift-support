@@ -129,7 +129,7 @@ export function formatStructFields(
         // Trailing spaces in suffix are alignment padding and should be ignored
         let cleanSuffixForWidth = field.suffix || '';
         // Detect comma from suffix (original location)
-        let hasCommaForWidth = field.suffix ? /,\s*$/.test(field.suffix) : false;
+        const hasCommaForWidth = field.suffix ? /,\s*$/.test(field.suffix) : false;
 
         // Remove trailing spaces that are just for alignment
         // These spaces are not meaningful content and should not affect width calculation
