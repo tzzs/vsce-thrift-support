@@ -55,7 +55,12 @@ function makeSimpleNode(type, name, line) {
     return {
         type: type,
         name: name,
-        range: makeRange(line, 0, line, 30)
+        range: makeRange(line, 0, line, 30),
+        fields: [],
+        members: [],
+        functions: [],
+        arguments: [],
+        throws: []
     };
 }
 
