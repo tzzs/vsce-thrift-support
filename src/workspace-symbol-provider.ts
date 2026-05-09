@@ -381,7 +381,7 @@ export function registerWorkspaceSymbolProvider(
     deps?: Partial<CoreDependencies>
 ) {
     const provider = new ThriftWorkspaceSymbolProvider(deps);
-    const disposable = vscode.languages.registerWorkspaceSymbolProvider(provider as vscode.WorkspaceSymbolProvider);
+    const disposable = vscode.languages.registerWorkspaceSymbolProvider(provider);
     context.subscriptions.push(disposable);
     context.subscriptions.push(provider); // for dispose()
 }

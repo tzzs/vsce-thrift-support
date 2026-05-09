@@ -93,7 +93,7 @@ export function registerProviders(context: vscode.ExtensionContext, deps: CoreDe
     context.subscriptions.push(
         vscode.languages.registerCodeActionsProvider(
             'thrift',
-            new ThriftRefactorCodeActionProvider(deps) as vscode.CodeActionProvider,
+            new ThriftRefactorCodeActionProvider(deps),
             {
                 providedCodeActionKinds: [
                     vscode.CodeActionKind.Refactor,
