@@ -88,9 +88,8 @@ describe('node-locator advanced', () => {
         const ast = parseThrift('interaction MyInteraction {\n  void start()\n}');
         const pos = new vscode.Position(0, 5);
         const node = findNodeAtPosition(ast, pos);
-        if (node) {
-            assert.strictEqual(node.type, nodes.ThriftNodeType.Interaction);
-        }
+        assert.ok(node, 'Expected interaction node at position');
+        assert.strictEqual(node.type, nodes.ThriftNodeType.Interaction);
     });
 
     it('should find nested struct field deeply', () => {
@@ -106,8 +105,7 @@ describe('node-locator advanced', () => {
         const ast = parseThrift('const i32 MAX = 100');
         const pos = new vscode.Position(0, 6);
         const node = findNodeAtPosition(ast, pos);
-        if (node) {
-            assert.strictEqual(node.type, nodes.ThriftNodeType.Const);
-        }
+        assert.ok(node, 'Expected const node at position');
+        assert.strictEqual(node.type, nodes.ThriftNodeType.Const);
     });
 });
