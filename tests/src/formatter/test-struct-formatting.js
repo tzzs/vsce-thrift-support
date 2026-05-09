@@ -1,3 +1,4 @@
+const assert = require('assert');
 const {ThriftFormatter} = require('../../../out/formatter/index.js');
 
 function testStructFormatting() {
@@ -47,5 +48,27 @@ function testStructFormatting() {
 describe('struct-formatting', () => {
     it('should pass all test assertions', () => {
         testStructFormatting();
+    });
+
+    it('no-trailing-comma field with comment gets 1 space before comment when it is the widest field', () => {
+        const formatter = new ThriftFormatter();
+        const input = [
+            'exception UserNotFoundException {',
+            '    1: required string message,',
+            '    2: optional i32    errorCode = 404  // error code',
+            '}'
+        ].join('\n');
+        const result = formatter.format(input, {
+            alignTypes: true,
+            alignFieldNames: true,
+            alignComments: true,
+            trailingComma: 'preserve',
+            indentSize: 4,
+            insertSpaces: true,
+            tabSize: 4
+        });
+        const lines = result.split('\n');
+        assert.ok(lines[2].includes('errorCode = 404 //'), `expected 1 space before comment, got: ${lines[2]}`);
+        assert.ok(!lines[2].includes('errorCode = 404  //'), `should NOT have 2 spaces before comment, got: ${lines[2]}`);
     });
 });
