@@ -131,15 +131,6 @@ export function formatStructFields(
         // Detect comma from suffix (original location)
         let hasCommaForWidth = field.suffix ? /,\s*$/.test(field.suffix) : false;
 
-        // Idempotency fix: when preserving commas, if we have a comment/annotation
-        // and the field is likely not the last one, assume comma should be present
-        // This handles cases where comma was moved to end in previous format pass
-        if (options.trailingComma === 'preserve' && !hasCommaForWidth && (field.comment || (field.annotation !== undefined && field.annotation !== ''))) {
-            // Heuristic: fields with comments/annotations in a struct are usually not the last field
-            // This is imperfect but ensures idempotency for common cases
-            hasCommaForWidth = true;
-        }
-
         // Remove trailing spaces that are just for alignment
         // These spaces are not meaningful content and should not affect width calculation
         cleanSuffixForWidth = cleanSuffixForWidth.replace(/\s+$/, '');
