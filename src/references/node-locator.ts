@@ -51,7 +51,7 @@ export function findNodeAtPosition(
                     node.type === nodes.ThriftNodeType.Union ||
                     node.type === nodes.ThriftNodeType.Exception) {
                     const structNode = node ;
-                    if (structNode.fields.length > 0) {
+                    if (structNode.fields && structNode.fields.length > 0) {
                         const childResult = findDeepestNode(structNode.fields);
                         if (childResult) {
                             return childResult;
@@ -59,7 +59,7 @@ export function findNodeAtPosition(
                     }
                 } else if (node.type === nodes.ThriftNodeType.Enum) {
                     const enumNode = node ;
-                    if (enumNode.members.length > 0) {
+                    if (enumNode.members && enumNode.members.length > 0) {
                         const childResult = findDeepestNode(enumNode.members);
                         if (childResult) {
                             return childResult;
@@ -67,7 +67,7 @@ export function findNodeAtPosition(
                     }
                 } else if (node.type === nodes.ThriftNodeType.Service) {
                     const serviceNode = node ;
-                    if (serviceNode.functions.length > 0) {
+                    if (serviceNode.functions && serviceNode.functions.length > 0) {
                         const childResult = findDeepestNode(serviceNode.functions);
                         if (childResult) {
                             return childResult;
@@ -75,7 +75,7 @@ export function findNodeAtPosition(
                     }
                 } else if (node.type === nodes.ThriftNodeType.Interaction) {
                     const interactionNode = node ;
-                    if (interactionNode.functions.length > 0) {
+                    if (interactionNode.functions && interactionNode.functions.length > 0) {
                         const childResult = findDeepestNode(interactionNode.functions);
                         if (childResult) {
                             return childResult;
@@ -83,13 +83,13 @@ export function findNodeAtPosition(
                     }
                 } else if (node.type === nodes.ThriftNodeType.Function) {
                     const funcNode = node ;
-                    if (funcNode.arguments.length > 0) {
+                    if (funcNode.arguments && funcNode.arguments.length > 0) {
                         const childResult = findDeepestNode(funcNode.arguments);
                         if (childResult) {
                             return childResult;
                         }
                     }
-                    if (funcNode.throws.length > 0) {
+                    if (funcNode.throws && funcNode.throws.length > 0) {
                         const childResult = findDeepestNode(funcNode.throws);
                         if (childResult) {
                             return childResult;

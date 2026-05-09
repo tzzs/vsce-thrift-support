@@ -99,7 +99,7 @@ export class ThriftRefactorCodeActionProvider {
 
             // 2) QuickFix: for unqualified identifier provide include choices when multiple workspace definitions exist
             const wordRange = document.getWordRangeAtPosition(position, /[A-Za-z_][A-Za-z0-9_]*/);
-            if (wordRange !== undefined && (typeof token === 'undefined' || !token.isCancellationRequested)) {
+            if (wordRange != null && (typeof token === 'undefined' || !token.isCancellationRequested)) {
                 const word = document.getText(wordRange);
                 if (word && !lineText.includes(`${word}.`)) {
                     // We'll add the basic include suggestion without workspace lookup for sync method

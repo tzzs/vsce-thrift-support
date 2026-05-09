@@ -46,7 +46,7 @@ export function computeInitialContext(
         }
 
         const hasValidRanges = ast.body.some((node) => {
-            return node.range !== undefined &&
+            return node.range != null &&
                 typeof node.range.start?.line === 'number' &&
                 typeof node.range.end?.line === 'number';
         });
