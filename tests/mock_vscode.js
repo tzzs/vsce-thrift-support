@@ -67,6 +67,7 @@ function mergeDeep(target, source) {
     }
     const output = {...target};
     Object.keys(source).forEach((key) => {
+        if (key === '__proto__' || key === 'constructor') return;
         const value = source[key];
         if (value && typeof value === 'object' && !Array.isArray(value)) {
             output[key] = mergeDeep(target[key] || {}, value);
@@ -176,6 +177,7 @@ const commonDefaults = {
 function mergeInPlace(target, source) {
     if (!source || typeof source !== 'object') return target;
     Object.keys(source).forEach((key) => {
+        if (key === '__proto__' || key === 'constructor') return;
         const value = source[key];
         if (
             value &&
