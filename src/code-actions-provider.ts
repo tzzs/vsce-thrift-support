@@ -2,6 +2,7 @@
  * Code Action Provider for Thrift refactorings and quick fixes
  */
 
+import * as path from 'path';
 import * as vscode from 'vscode';
 import {readThriftFile} from './utils/file-reader';
 import {ThriftParser} from './ast/parser';
@@ -29,12 +30,12 @@ export class ThriftRefactorCodeActionProvider {
     /**
      * 返回当前上下文下的 CodeAction 列表。
      */
-    provideCodeActions(
+    async provideCodeActions(
         document: vscode.TextDocument,
         range: vscode.Range | vscode.Selection,
         context: vscode.CodeActionContext,
         token: vscode.CancellationToken
-    ): vscode.ProviderResult<vscode.CodeAction[]> {
+    ): Promise<vscode.CodeAction[] | undefined> {
         try {
             if (document.languageId !== 'thrift' || (typeof token !== 'undefined' && token.isCancellationRequested)) {
                 return undefined;
@@ -54,60 +55,39 @@ export class ThriftRefactorCodeActionProvider {
             move.command = {command: 'thrift.refactor.moveType', title: 'Move type to file...'};
             actions.push(move);
 
-            const position = (range as vscode.Selection).active ?? range.start;
-            let lineText = '';
-            try {
-                lineText = document.lineAt(position.line).text;
-            } catch (error) {
-                this.errorHandler.handleWarning('Failed to get line text in code actions', {
-                    component: 'ThriftRefactorCodeActionProvider',
-                    operation: 'provideCodeActions',
-                    filePath: document.uri?.toString(),
-                    additionalInfo: {
-                        position: position,
-                        error: error instanceof Error ? error.message : 'Unknown error'
-                    }
-                });
-                return [];
+            // QuickFix is gated on diagnostics: only offer "insert include" for types that
+            // the diagnostics layer flagged as unknown (code 'type.unknown') and whose range
+            // overlaps the requested range. This keeps the lightbulb in sync with the squiggly.
+            const unknownTypes = this.collectUnknownTypeTargets(document, range, context);
+            if (unknownTypes.size === 0 || (typeof token !== 'undefined' && token.isCancellationRequested)) {
+                return actions;
             }
 
-            // 1) QuickFix: insert include for namespaced reference Foo.Bar when missing
-            const nsRegex = /\b([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\b/g;
             const includeSet = this.collectExistingIncludes(document);
-            const createdNs = new Set<string>();
-            const nsMatches = Array.from(lineText.matchAll(nsRegex));
-
-            // Process namespace matches synchronously
-            for (const m of nsMatches) {
-                const ns = m[1];
-                const fileName = `${ns}.thrift`;
-                if (!includeSet.has(fileName) && !createdNs.has(ns) && (typeof token === 'undefined' || token.isCancellationRequested)) {
+            const insertLine = this.computeIncludeInsertLine(document);
+            for (const [typeName, diagnostic] of unknownTypes) {
+                if (typeof token !== 'undefined' && token.isCancellationRequested) {
                     break;
                 }
-
-                // For now, we'll add a placeholder if the namespace is referenced
-                if (!includeSet.has(fileName) && !createdNs.has(ns)) {
-                    const fix = new vscode.CodeAction(`Insert include "${fileName}"`, vscode.CodeActionKind.QuickFix);
+                const definitions = await this.findWorkspaceDefinitions(typeName);
+                for (const def of definitions) {
+                    if (typeof token !== 'undefined' && token.isCancellationRequested) {
+                        break;
+                    }
+                    if (def.uri.toString() === document.uri.toString()) {
+                        continue;
+                    }
+                    const includePath = this.computeRelativeIncludePath(document.uri, def.uri);
+                    if (includePath === undefined || includePath === '' || includeSet.has(includePath)) {
+                        continue;
+                    }
+                    const fix = new vscode.CodeAction(`Insert include "${includePath}"`, vscode.CodeActionKind.QuickFix);
                     fix.edit = new vscode.WorkspaceEdit();
-                    const insertLine = this.computeIncludeInsertLine(document);
-                    fix.edit.insert(document.uri, new vscode.Position(insertLine, 0), `include "${fileName}"\n`);
-                    fix.isPreferred = true;
+                    fix.edit.insert(document.uri, new vscode.Position(insertLine, 0), `include "${includePath}"\n`);
+                    fix.diagnostics = [diagnostic];
+                    fix.isPreferred = unknownTypes.size === 1 && definitions.length === 1;
                     actions.push(fix);
-                    createdNs.add(ns);
-                }
-            }
-
-            // 2) QuickFix: for unqualified identifier provide include choices when multiple workspace definitions exist
-            const wordRange = document.getWordRangeAtPosition(position, /[A-Za-z_][A-Za-z0-9_]*/);
-            if (wordRange !== null && wordRange !== undefined && (typeof token === 'undefined' || !token.isCancellationRequested)) {
-                const word = document.getText(wordRange);
-                if (word && !lineText.includes(`${word}.`)) {
-                    // We'll add the basic include suggestion without workspace lookup for sync method
-                    const fix = new vscode.CodeAction(`Insert include "${word.toLowerCase()}.thrift"`, vscode.CodeActionKind.QuickFix);
-                    fix.edit = new vscode.WorkspaceEdit();
-                    const insertLine = this.computeIncludeInsertLine(document);
-                    fix.edit.insert(document.uri, new vscode.Position(insertLine, 0), `include "${word.toLowerCase()}.thrift"\n`);
-                    actions.push(fix);
+                    includeSet.add(includePath);
                 }
             }
 
@@ -121,6 +101,96 @@ export class ThriftRefactorCodeActionProvider {
             });
             return [];
         }
+    }
+
+    private static readonly NON_TYPE_TOKENS = new Set([
+        'list', 'set', 'map', 'string', 'binary', 'bool', 'byte',
+        'i8', 'i16', 'i32', 'i64', 'double', 'void', 'uuid', 'slist',
+        'optional', 'required'
+    ]);
+
+    /**
+     * 从 context.diagnostics 中提取与请求范围重叠的「未知类型」名称，
+     * 返回 类型名 → 触发诊断 的映射（用于把 Quick Fix 关联回问题）。
+     */
+    private collectUnknownTypeTargets(
+        document: vscode.TextDocument,
+        range: vscode.Range | vscode.Selection,
+        context: vscode.CodeActionContext
+    ): Map<string, vscode.Diagnostic> {
+        const targets = new Map<string, vscode.Diagnostic>();
+        const diagnostics = context?.diagnostics ?? [];
+        for (const diagnostic of diagnostics) {
+            const code = typeof diagnostic.code === 'object' && diagnostic.code !== null
+                ? String((diagnostic.code as {value: string | number}).value)
+                : String(diagnostic.code ?? '');
+            if (code !== 'type.unknown') {
+                continue;
+            }
+            if (!this.rangesOverlap(diagnostic.range, range)) {
+                continue;
+            }
+            let text = '';
+            try {
+                text = document.getText(diagnostic.range);
+            } catch {
+                continue;
+            }
+            for (const name of this.extractTypeNames(text)) {
+                if (!targets.has(name)) {
+                    targets.set(name, diagnostic);
+                }
+            }
+        }
+        return targets;
+    }
+
+    /**
+     * 从类型表达式文本（如 `Bar` / `ns.Bar` / `list<Bar>`）中抽取候选类型名，
+     * 过滤掉容器关键字与基本类型，并跳过命名空间别名（紧跟 `.` 的标识符）。
+     */
+    private extractTypeNames(text: string): string[] {
+        const names: string[] = [];
+        const seen = new Set<string>();
+        for (const match of text.matchAll(/[A-Za-z_][A-Za-z0-9_]*/g)) {
+            const token = match[0];
+            const matchIndex = match.index ?? 0;
+            const after = text.slice(matchIndex + token.length);
+            if (/^\s*\./.test(after)) {
+                continue; // namespace alias, e.g. the `ns` in `ns.Bar`
+            }
+            if (ThriftRefactorCodeActionProvider.NON_TYPE_TOKENS.has(token) || seen.has(token)) {
+                continue;
+            }
+            seen.add(token);
+            names.push(token);
+        }
+        return names;
+    }
+
+    /**
+     * 判断诊断范围与请求范围是否重叠（mock 与真实 vscode.Range 均无需 intersection）。
+     */
+    private rangesOverlap(a: vscode.Range, b: vscode.Range | vscode.Selection): boolean {
+        const before = (p: vscode.Position, q: vscode.Position): boolean =>
+            p.line < q.line || (p.line === q.line && p.character <= q.character);
+        return before(a.start, b.end) && before(b.start, a.end);
+    }
+
+    /**
+     * 计算 targetUri 相对当前文档目录的 include 路径，统一为正斜杠。
+     */
+    private computeRelativeIncludePath(documentUri: vscode.Uri, targetUri: vscode.Uri): string | undefined {
+        const fromPath = documentUri?.fsPath;
+        const toPath = targetUri?.fsPath;
+        if (!fromPath || !toPath) {
+            return undefined;
+        }
+        const relative = path.relative(path.dirname(fromPath), toPath);
+        if (!relative) {
+            return undefined;
+        }
+        return relative.split(path.sep).join('/');
     }
 
     private collectExistingIncludes(document: vscode.TextDocument): Set<string> {

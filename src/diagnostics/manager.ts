@@ -320,7 +320,7 @@ export class DiagnosticManager {
                             doc
                         );
                         const diagnostics = incrementalDiagnostics
-                            ?? issues.map(i => new vscode.Diagnostic(i.range, i.message, i.severity));
+                            ?? issues.map(i => this.toDiagnostic(i));
 
                         this.collection.set(doc.uri, diagnostics);
                         state.lastDiagnostics = diagnostics;
@@ -346,6 +346,19 @@ export class DiagnosticManager {
     }
 
     /**
+     * 将内部 ThriftIssue 转为 vscode.Diagnostic，并附带 code/source 元数据，
+     * 供 Code Action 等消费者按 code 精确识别。
+     */
+    private toDiagnostic(issue: ThriftIssue): vscode.Diagnostic {
+        const diagnostic = new vscode.Diagnostic(issue.range, issue.message, issue.severity);
+        if (issue.code !== undefined && issue.code !== '') {
+            diagnostic.code = issue.code;
+        }
+        diagnostic.source = 'thrift';
+        return diagnostic;
+    }
+
+    /**
      * 合并增量诊断结果到上一次诊断集中。
      */
     private mergeIncrementalDiagnostics(
@@ -368,7 +381,7 @@ export class DiagnosticManager {
 
         const nextDiagnostics = issues
             .filter(issue => rangeIntersectsLineRange(issue.range, lineRange))
-            .map(issue => new vscode.Diagnostic(issue.range, issue.message, issue.severity));
+            .map(issue => this.toDiagnostic(issue));
 
         const preserved = state.lastDiagnostics.filter(diagnostic => !rangeIntersectsLineRange(diagnostic.range, lineRange));
         const merged = [...preserved, ...nextDiagnostics];

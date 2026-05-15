@@ -107,6 +107,14 @@
 - [x] 性能优化：预分配 body 数组、提取 createRange 辅助函数
 - [x] 内存监控轮询间隔从 30s 优化至 120s
 
+### 3.7 Quick Fix 与 Code Action 修复（P0 / 2.3.0）
+
+- [x] 修复 code-actions-provider 取消令牌逻辑反转（无 token 时提前 break）
+- [x] 接入 findWorkspaceDefinitions，include 建议改为工作区解析的真实相对路径
+- [x] Quick Fix 按 context.diagnostics（type.unknown）门控，消除无错误时的噪音
+- [x] manager.ts 为 vscode.Diagnostic 补 code / source 元数据
+- [x] 新增/调整 5 个 P0 专项测试用例，全量 676 passing
+
 ---
 
 ## 4. 未来优化方向（待实施）
@@ -218,6 +226,7 @@
 
 | 版本 | 日期 | 主要更新 |
 |------|------|----------|
+| 2.3.0 | 2026-05-15 | **Quick Fix / Code Action P0 修复**<br>- ✅ 取消令牌逻辑反转修复（无 token 时命名空间循环提前 break）<br>- ✅ include 建议接入 `findWorkspaceDefinitions`（真实相对路径替代文件名猜测）<br>- ✅ 灯泡与诊断按 `type.unknown` 联动（`context.diagnostics` 门控 Quick Fix）<br>- ✅ `vscode.Diagnostic` 补 `.code` / `.source='thrift'` 元数据<br>- ✅ 新增/调整 5 个 P0 专项测试，全量 676 passing |
 | 2.1.1 | 2026-05-07 | **语言规范增强与构建优化**<br>- ✅ 完整支持 `interaction`、`stream`、`sink`、`performs` 关键字（AST + 所有 provider）<br>- ✅ esbuild 打包减小扩展体积<br>- ✅ CI 支持 Node.js 22 + 24 双运行时矩阵<br>- ✅ AST 解析器统一（optimized-parser → 标准 parser）<br>- ✅ 清理废弃 `slist` 类型，关键字与 Thrift 规范对齐<br>- ✅ 删除遗留文件和死代码<br>- ✅ 内存监控轮询间隔优化（30s → 120s）<br>- ✅ 新增 84 个低覆盖率模块测试 + 其他测试，从 309 → 424 通过<br>- ✅ 格式化修复：逗号/分号位置、service 大括号缩进、enum 空等号 |
 | 2.1.0 | 2026-02-08 | **性能与内存优化发布**<br>- ✅ 统一缓存管理系统（删除 3 个冗余实现）<br>- ✅ 增量解析器优化（URI + 版本 + 内容哈希缓存键）<br>- ✅ 并发控制增强（`maxConcurrentAnalyses: 1 → 3`）<br>- ✅ 智能内存管理（精确内存估算）<br>- ✅ 配置服务统一化（`ConfigService`）<br>- ✅ 错误处理增强（错误聚合 + 性能统计）<br>- ✅ 性能监控统一化（删除冗余监控器实现）<br>- ✅ 类型安全增强（显式泛型类型、空引用修复）<br>- ✅ 代码审查问题修复（竞态条件、内存泄漏、范围验证）<br>- ✅ 新增 3 个增量格式化测试，总计 309 个测试通过 |
 | 2.0.4 | 2026-02-08 | 代码审查问题修复与稳定性改进 |
