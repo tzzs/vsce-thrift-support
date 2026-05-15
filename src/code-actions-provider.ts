@@ -69,7 +69,7 @@ export class ThriftRefactorCodeActionProvider {
                 if (typeof token !== 'undefined' && token.isCancellationRequested) {
                     break;
                 }
-                const definitions = await this.findWorkspaceDefinitions(typeName);
+                const definitions = await this.findWorkspaceDefinitions(typeName, token);
                 for (const def of definitions) {
                     if (typeof token !== 'undefined' && token.isCancellationRequested) {
                         break;
@@ -109,6 +109,14 @@ export class ThriftRefactorCodeActionProvider {
         'optional', 'required'
     ]);
 
+    private static readonly UNKNOWN_TYPE_CODES = new Set([
+        'type.unknown',
+        'service.returnType.unknown',
+        'service.extends.unknown',
+        'service.throws.unknown',
+        'typedef.unknownBase'
+    ]);
+
     /**
      * 从 context.diagnostics 中提取与请求范围重叠的「未知类型」名称，
      * 返回 类型名 → 触发诊断 的映射（用于把 Quick Fix 关联回问题）。
@@ -124,7 +132,7 @@ export class ThriftRefactorCodeActionProvider {
             const code = typeof diagnostic.code === 'object' && diagnostic.code !== null
                 ? String((diagnostic.code as {value: string | number}).value)
                 : String(diagnostic.code ?? '');
-            if (code !== 'type.unknown') {
+            if (!ThriftRefactorCodeActionProvider.UNKNOWN_TYPE_CODES.has(code)) {
                 continue;
             }
             if (!this.rangesOverlap(diagnostic.range, range)) {
@@ -222,10 +230,16 @@ export class ThriftRefactorCodeActionProvider {
         return parser.parse();
     }
 
-    private async findWorkspaceDefinitions(typeName: string): Promise<Array<{uri: vscode.Uri}>> {
+    private async findWorkspaceDefinitions(
+        typeName: string,
+        token?: vscode.CancellationToken
+    ): Promise<Array<{uri: vscode.Uri}>> {
         const results: Array<{uri: vscode.Uri}> = [];
         const files = await vscode.workspace.findFiles(config.filePatterns.thrift);
         for (const file of files) {
+            if (typeof token !== 'undefined' && token.isCancellationRequested) {
+                break;
+            }
             try {
                 const text = await readThriftFile(file);
                 const ast = ThriftParser.parseContentWithCache(file.toString(), text);
