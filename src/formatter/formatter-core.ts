@@ -41,6 +41,10 @@ import {formatSingleLineEnum, formatSingleLineService, formatSingleLineStruct} f
 import {normalizeGenericsInSignature, splitTopLevelParts} from './text-utils';
 import {createLineRange, LineRange} from '../utils/line-range';
 import {hashContent} from '../utils/cache-expiry';
+import {ErrorHandler} from '../utils/error-handler';
+import {buildCommentMap, CommentMap} from './comment-map';
+
+const formatErrorHandler = new ErrorHandler();
 
 const DEFAULT_FORMAT_OPTIONS: ThriftFormattingOptions = {
     trailingComma: 'preserve',
@@ -95,6 +99,8 @@ export function formatThriftContent(
     }
 
     const astIndex = buildAstIndex(ast);
+    const commentMap: CommentMap = buildCommentMap(content, astIndex);
+    void commentMap;
     const {
         structStarts,
         structFieldIndex,
@@ -127,6 +133,7 @@ export function formatThriftContent(
     let interactionAnnotationDepth = 0;
 
     for (let i = 0; i < lines.length; i++) {
+      try {
         const originalLine = lines[i];
         const line = originalLine.trim();
         const isConstStart = constStarts.has(i);
@@ -485,6 +492,14 @@ export function formatThriftContent(
         }
 
         formattedLines.push(getIndent(indentLevel, options) + line);
+      } catch (lineError) {
+        formatErrorHandler.handleWarning('Line formatting failed, preserving original', {
+            component: 'formatThriftContent',
+            operation: 'formatLine',
+            additionalInfo: {line: i, error: lineError instanceof Error ? lineError.message : 'Unknown'}
+        });
+        formattedLines.push(getIndent(indentLevel, options) + lines[i].trim());
+      }
     }
 
     if (constFields.length > 0) {
