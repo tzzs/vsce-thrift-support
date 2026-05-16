@@ -43,3 +43,6 @@ jobs:
 
       - name: Run tests
         run: pnpm test
+
+      - name: Performance benchmark
+        run: node -e "require('./tests/require-hook.js'); require('./tests/perf/run-performance-benchmark.js')" -- --structs 120 --fields 30 --iterations 5 --threshold-full-ms 400 --threshold-incremental-ms 100
