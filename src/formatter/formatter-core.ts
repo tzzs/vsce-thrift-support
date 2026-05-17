@@ -99,8 +99,15 @@ export function formatThriftContent(
     }
 
     const astIndex = buildAstIndex(ast);
-    const commentMap: CommentMap = buildCommentMap(content, astIndex);
-    void commentMap;
+    // Lazy CommentMap: only built when a consumer first accesses it.
+    // Currently no formatter path reads from it, so this avoids ~5ms of
+    // per-line tokenization overhead on large files.
+    let cachedCommentMap: CommentMap | null = null;
+    const getCommentMap = (): CommentMap => {
+        cachedCommentMap ??= buildCommentMap(content, astIndex);
+        return cachedCommentMap;
+    };
+    void getCommentMap;
     const {
         structStarts,
         structFieldIndex,

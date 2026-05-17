@@ -195,7 +195,7 @@ export function buildStructFieldFromAst(line: string, field: nodes.Field): Struc
  * @returns 字段信息
  */
 export function parseStructFieldText(text: string): StructField | null {
-    if (!text) {
+    if (!text || text.length > 4000) {
         return null;
     }
     const {code, comment} = splitLineComment(text);
