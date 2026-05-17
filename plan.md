@@ -1,8 +1,8 @@
 # Thrift Language Support - 计划与进度（2.1.1 优化发布线）
 
-**当前版本**: 2.1.1
-**最新状态**: ✅ `npm run test` 全量通过（424 passing，新增 115 个测试）
-**最后更新**: 2026-05-09（基于 feature/ci-and-build-optimization 分支最新代码）
+**当前版本**: 2.3.0
+**最新状态**: ✅ `pnpm test` 全量通过（999 passing，测试数量 676 → 999，+48%）
+**最后更新**: 2026-05-17（基于 claude/blissful-goodall-979518 分支，PR #52）
 
 本文档用于统一当前阶段的目标、风险、里程碑与验收方式，便于在多次迭代中保持方向一致与可回溯。
 
@@ -115,16 +115,53 @@
 - [x] manager.ts 为 vscode.Diagnostic 补 code / source 元数据
 - [x] 新增/调整 5 个 P0 专项测试用例，全量 676 passing
 
+### 3.8 Formatter 工程化演进（Phase 0–4）✅ 已完成
+
+#### Phase 0: 测试基础 ✅
+
+属性级测试套件，所有后续 Phase 的安全网。
+
+- [x] **幂等性穷举** (`test-idempotency-exhaustive.js`): 168 输入 × 9 配置矩阵，覆盖所有 Thrift 类型 + 脏代码 + 配置变体
+- [x] **AST 语义往返** (`test-ast-roundtrip.js`): 40 场景，parse(format(x)) 与 parse(x) 递归比对节点类型/名称/字段/类型
+- [x] **注释永不丢失** (`test-comment-preservation.js`): 36 场景，tokenizer 提取注释集合比对（`//`/`#`/`/* */`/`/** */`/CJK）
+- [x] **Fixture 回归** (`test-fixture-regression.js`): 6 个黄金文件回归测试 + `regenerate.js` 重生成脚本
+- [x] **性能基准入 CI** (`run-performance-benchmark.js`): 添加 `--threshold-full-ms` / `--threshold-incremental-ms` 参数，超阈值 exit 1
+
+#### Phase 1: 正确性加固 ✅
+
+- [x] **主循环防崩溃** (`formatter-core.ts`): `safeLine()` 包装器，单行格式化失败时原样输出并继续
+- [x] **恶意输入韧性** (`test-malformed-input.js`): 178 行测试覆盖未闭合大括号、缺字段 ID、超深嵌套、10K 字符单行、空输入、纯注释文件
+- [x] **`parseStructFieldText` 长度守卫** (`field-parser.ts`): >4000 字符行直接 bail-out 防止 regex 回溯
+
+#### Phase 2: 注释稳定性 ✅
+
+- [x] **CommentMap 并行结构** (`comment-map.ts`): `buildCommentMap(source, astIndex)` 基于 tokenizer 提取所有注释 token，按 `leading`/`trailing`/`dangling`/`inline` 分类
+- [x] **接入格式化主流程** (`formatter-core.ts`): 延迟构建，`getCommentMap()` lazy getter 避免未使用时的 ~5ms 开销
+- [x] **注释 edge case 测试** (`test-comment-edge-cases.js`): 181 行测试覆盖 flush 间注释、文件末尾、空 struct 内 dangling 注释等
+
+#### Phase 3: Printer 抽象 ✅
+
+- [x] **PrintBuffer** (`printer.ts`): `PrintItem` 中间表示（`text`/`indent`/`newline`/`softline`/`comment`/`group`），`render(maxWidth)` 输出
+- [x] **ConstPrinter** (`const-printer.ts`): 首个迁移目标，const 集合展开使用 `PrintBuffer`
+- [x] **单元测试** (`test-printer.js` + `test-const-printer.js`): 覆盖 group 折行、softline 语义、const 集合展开
+
+#### Phase 4: 大文件性能 ✅
+
+- [x] **性能回归检测** (`perf-assertions.js`): 12 个硬断言测试（small/medium/large 三档 × parser/astIndex/commentMap/formatter），JSON Lines 输出
+- [x] **热路径优化**: CommentMap lazy 构建（避免 ~5ms tokenizer 开销）、`parseStructFieldText` 长度守卫
+- [x] **分块格式化** (`chunked-format.ts`): >10000 行时按 AST 顶层块边界切分独立格式化再拼接
+- [x] **CI 性能断言** (`.github/workflows/ci.yml`): 新增 `Performance assertions (multi-size)` 步骤
+
 ---
 
 ## 4. 未来优化方向（待实施）
 
 ### 4.1 性能基准与监控体系
 
-- [ ] 建立自动化性能测试流程
-- [ ] 集成性能回归检测（性能退化超过 10% 时失败）
+- [x] 建立自动化性能测试流程（Phase 4.1 已完成）
+- [x] 集成性能回归检测（Phase 4.1 perf-assertions.js，超阈值 CI 失败）
 - [ ] 将错误统计集成到性能监控报告中
-- [ ] 大文件（>1000 行）性能测试
+- [x] 大文件（>1000 行）性能测试（Phase 4.3 分块格式化，CHUNK_THRESHOLD=10000）
 - [ ] 边界情况和并发场景测试补充
 
 ### 4.2 代码质量与维护性
@@ -190,14 +227,17 @@
 - ✅ 内存使用估算更精确、监控轮询间隔优化至 120s
 - ✅ 性能监控统一化（单一 `performance-monitor.ts`）
 - ✅ esbuild 打包减小扩展体积
+- ✅ **CI 性能回归检测**：small <20ms / medium <100ms / large <500ms 硬断言
+- ✅ **分块格式化**：>10000 行文件按顶层块边界切分，避免 O(n²) 对齐扫描
 
 ### 6.2 可靠性指标 ✅ 已验证
 
 - ✅ 错误日志零崩溃
-- ✅ 424 个测试全部通过（新增 115 个测试）
+- ✅ 999 个测试全部通过（从 676 → 999，+48%）
 - ✅ 关键操作错误率 <1%
 - ✅ 编译无错误、lint 无警告
 - ✅ 代码审查问题已全部修复
+- ✅ **属性级测试覆盖**：幂等性穷举、AST 语义往返、注释永不丢失、fixture 回归
 
 ### 6.3 可维护性指标 ✅ 已验证
 
@@ -214,11 +254,11 @@
 
 ## 7. 验证与发布门槛 ✅ 已实施
 
-- ✅ 变更提交前必须运行 `npm run lint` 与 `npm run test`
+- ✅ 变更提交前必须运行 `pnpm run lint` 与 `pnpm test`
 - ✅ 关键修复需包含最小回归测试
-- ✅ 所有优化通过 424 个测试验证
+- ✅ 所有优化通过 999 个测试验证（含属性级测试 + 性能断言）
 - ✅ 编译无错误、lint 无警告
-- ✅ CI 工作流支持 Node.js 22 + 24 双运行时矩阵
+- ✅ CI 工作流：lint → build → test → benchmark → perf-assertions
 
 ---
 
@@ -226,6 +266,7 @@
 
 | 版本 | 日期 | 主要更新 |
 |------|------|----------|
+| 2.4.0 | 2026-05-17 | **Formatter 工程化演进（Phase 0–4）+ Quick Fix P0 修复**<br>- ✅ Quick Fix P0：取消令牌逻辑反转、include 路径工作区解析、诊断门控、元数据补全<br>- ✅ Phase 0 测试基础：幂等性穷举(168×9)、AST 往返(40)、注释不丢失(36)、fixture 回归(6)、性能基准入 CI<br>- ✅ Phase 1 正确性加固：safeLine 防崩溃、恶意输入韧性、parseStructFieldText 长度守卫<br>- ✅ Phase 2 注释稳定性：CommentMap 并行结构、lazy 构建集成、edge case 测试<br>- ✅ Phase 3 Printer 抽象：PrintBuffer IR + ConstPrinter 迁移<br>- ✅ Phase 4 大文件性能：CI 性能回归断言(12 tests)、分块格式化(>10000 行)、热路径优化<br>- ✅ 测试从 676 → 999 passing (+48%)，31 文件 +4386 行 |
 | 2.3.0 | 2026-05-15 | **Quick Fix / Code Action P0 修复**<br>- ✅ 取消令牌逻辑反转修复（无 token 时命名空间循环提前 break）<br>- ✅ include 建议接入 `findWorkspaceDefinitions`（真实相对路径替代文件名猜测）<br>- ✅ 灯泡与诊断按 `type.unknown` 联动（`context.diagnostics` 门控 Quick Fix）<br>- ✅ `vscode.Diagnostic` 补 `.code` / `.source='thrift'` 元数据<br>- ✅ 新增/调整 5 个 P0 专项测试，全量 676 passing |
 | 2.1.1 | 2026-05-07 | **语言规范增强与构建优化**<br>- ✅ 完整支持 `interaction`、`stream`、`sink`、`performs` 关键字（AST + 所有 provider）<br>- ✅ esbuild 打包减小扩展体积<br>- ✅ CI 支持 Node.js 22 + 24 双运行时矩阵<br>- ✅ AST 解析器统一（optimized-parser → 标准 parser）<br>- ✅ 清理废弃 `slist` 类型，关键字与 Thrift 规范对齐<br>- ✅ 删除遗留文件和死代码<br>- ✅ 内存监控轮询间隔优化（30s → 120s）<br>- ✅ 新增 84 个低覆盖率模块测试 + 其他测试，从 309 → 424 通过<br>- ✅ 格式化修复：逗号/分号位置、service 大括号缩进、enum 空等号 |
 | 2.1.0 | 2026-02-08 | **性能与内存优化发布**<br>- ✅ 统一缓存管理系统（删除 3 个冗余实现）<br>- ✅ 增量解析器优化（URI + 版本 + 内容哈希缓存键）<br>- ✅ 并发控制增强（`maxConcurrentAnalyses: 1 → 3`）<br>- ✅ 智能内存管理（精确内存估算）<br>- ✅ 配置服务统一化（`ConfigService`）<br>- ✅ 错误处理增强（错误聚合 + 性能统计）<br>- ✅ 性能监控统一化（删除冗余监控器实现）<br>- ✅ 类型安全增强（显式泛型类型、空引用修复）<br>- ✅ 代码审查问题修复（竞态条件、内存泄漏、范围验证）<br>- ✅ 新增 3 个增量格式化测试，总计 309 个测试通过 |
