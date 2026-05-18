@@ -528,6 +528,6 @@ export function formatThriftContent(
         formattedLines.push(...formattedFields);
     }
 
-    const cleaned = formattedLines.map(l => l.replace(/\s+$/g, ''));
+    const cleaned = formattedLines.map(l => l.trimEnd());
     return cleaned.join('\n');
 }

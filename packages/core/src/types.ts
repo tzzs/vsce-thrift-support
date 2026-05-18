@@ -95,13 +95,15 @@ export class Uri {
         if (!value || typeof value !== 'string') {
             return new Uri('file', '', '', '', '');
         }
-        const match = value.match(/^([a-zA-Z0-9+.-]+):\/\/([^/]*)(.*)$/);
-        if (!match) {
+        const protoIdx = value.indexOf('://');
+        if (protoIdx < 1) {
             return new Uri('file', '', value, '', '');
         }
-        const scheme = match[1];
-        const authority = match[2];
-        let rest = match[3] || '';
+        const scheme = value.slice(0, protoIdx);
+        const afterProto = value.slice(protoIdx + 3);
+        const slashIdx = afterProto.indexOf('/');
+        const authority = slashIdx === -1 ? afterProto : afterProto.slice(0, slashIdx);
+        let rest = slashIdx === -1 ? '' : afterProto.slice(slashIdx);
         let fragment = '';
         let query = '';
         const hashIndex = rest.indexOf('#');
