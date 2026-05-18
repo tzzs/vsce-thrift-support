@@ -162,6 +162,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: npm
     permissions:
+      contents: read
       id-token: write
     steps:
       - name: Checkout
@@ -179,6 +180,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Sync sub-package versions
+        run: node scripts/sync-versions.js
 
       - name: Build core
         run: cd packages/core && npx tsc -p .

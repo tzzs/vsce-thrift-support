@@ -49,13 +49,11 @@ export function runParse(files: string[], args: ParsedArgs): number {
 
 function parseStdin(): number {
     const chunks: Buffer[] = [];
-    const fd = fs.openSync('/dev/stdin', 'r');
     const buf = Buffer.alloc(65536);
     let bytesRead: number;
-    while ((bytesRead = fs.readSync(fd, buf, 0, buf.length, null)) > 0) {
+    while ((bytesRead = fs.readSync(process.stdin.fd, buf, 0, buf.length, null)) > 0) {
         chunks.push(buf.subarray(0, bytesRead));
     }
-    fs.closeSync(fd);
 
     const content = Buffer.concat(chunks).toString('utf-8');
     try {

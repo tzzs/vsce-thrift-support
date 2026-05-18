@@ -81,12 +81,13 @@ function main(): void {
         process.exit(0);
     }
 
-    // Load config
-    const configPath = args.configPath ?? findConfigFile(
-        args.files.length > 0
-            ? path.dirname(path.resolve(args.files[0]))
-            : process.cwd()
-    );
+    // Load config — use --stdin-filepath for lookup when in stdin mode
+    const configLookupDir = args.files.length > 0
+        ? path.dirname(path.resolve(args.files[0]))
+        : args.stdinFilepath
+            ? path.dirname(path.resolve(args.stdinFilepath))
+            : process.cwd();
+    const configPath = args.configPath ?? findConfigFile(configLookupDir);
     const config = configPath ? loadConfig(configPath) : {};
 
     // Expand file patterns
