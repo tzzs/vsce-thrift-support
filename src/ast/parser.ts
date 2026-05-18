@@ -569,7 +569,7 @@ export class ThriftParser {
     private parseStructFieldLineFallback(parent: nodes.Struct, line: string, cleanLine: string): nodes.Field | null {
         const trimmed = cleanLine.trim();
         const codeStart = cleanLine.indexOf(trimmed);
-        const fieldMatch = trimmed.match(/^(\d+):\s*(?:(required|optional)\s+)?([a-zA-Z0-9_<>., ]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+        const fieldMatch = trimmed.match(/^(\d+):\s*(?:(required|optional)\s+)?([a-zA-Z0-9_<>.,]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
         if (!fieldMatch) {
             return null;
         }
@@ -1194,7 +1194,7 @@ export class ThriftParser {
         funcEndChar: number;
     } | null {
         const trimmed = cleanLine.trim();
-        const funcMatch = trimmed.match(/^(?:(oneway)\s+)?(?:(stream|sink)\s+)?([a-zA-Z0-9_<>., ]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
+        const funcMatch = trimmed.match(/^(?:(oneway)\s+)?(?:(stream|sink)\s+)?([a-zA-Z0-9_<>.,]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
         if (!funcMatch) {
             return null;
         }
