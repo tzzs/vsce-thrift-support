@@ -107,8 +107,6 @@ function matchGlob(dir: string, globParts: string[], partIndex: number, result: 
         }
     } else {
         // Normal segment with possible * or ? wildcards
-        const regex = globSegmentToRegex(segment);
-
         let entries: fs.Dirent[];
         try {
             entries = fs.readdirSync(dir, {withFileTypes: true});
@@ -117,7 +115,7 @@ function matchGlob(dir: string, globParts: string[], partIndex: number, result: 
         }
 
         for (const entry of entries) {
-            if (!regex.test(entry.name)) continue;
+            if (!globMatch(segment, entry.name)) continue;
             const fullPath = path.join(dir, entry.name);
 
             if (isLast) {
@@ -137,25 +135,39 @@ function matchGlob(dir: string, globParts: string[], partIndex: number, result: 
 }
 
 /**
- * Convert a glob segment (e.g. "*.thrift") to a regex.
- * * → [^/]* (any chars except path separator)
- * ? → [^/]  (single char)
+ * Match a filename against a glob segment using pure string matching (no RegExp).
+ * Supports * (any chars) and ? (single char).
  */
-function globSegmentToRegex(segment: string): RegExp {
-    let regex = '^';
-    for (const ch of segment) {
-        if (ch === '*') {
-            regex += '[^/]*';
-        } else if (ch === '?') {
-            regex += '[^/]';
-        } else if ('.+^${}()|[]\\'.includes(ch)) {
-            regex += '\\' + ch;
+function globMatch(pattern: string, name: string): boolean {
+    let pi = 0; // pattern index
+    let ni = 0; // name index
+    let starPi = -1; // last * position in pattern
+    let starNi = -1; // name position when last * was hit
+
+    while (ni < name.length) {
+        if (pi < pattern.length && (pattern[pi] === name[ni] || pattern[pi] === '?')) {
+            pi++;
+            ni++;
+        } else if (pi < pattern.length && pattern[pi] === '*') {
+            starPi = pi;
+            starNi = ni;
+            pi++; // try matching * with zero chars first
+        } else if (starPi !== -1) {
+            // backtrack: let * match one more char
+            pi = starPi + 1;
+            starNi++;
+            ni = starNi;
         } else {
-            regex += ch;
+            return false;
         }
     }
-    regex += '$';
-    return new RegExp(regex);
+
+    // Consume trailing *s in pattern
+    while (pi < pattern.length && pattern[pi] === '*') {
+        pi++;
+    }
+
+    return pi === pattern.length;
 }
 
 function collectThriftFiles(dir: string, result: string[]): void {

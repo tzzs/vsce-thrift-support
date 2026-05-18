@@ -66,11 +66,10 @@ importers:
         version: 9.3.2
 
   packages/cli:
-    dependencies:
+    devDependencies:
       '@tanzz/thrift-core':
         specifier: workspace:*
         version: link:../core
-    devDependencies:
       esbuild:
         specifier: ^0.28.0
         version: 0.28.0
