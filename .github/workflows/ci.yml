@@ -41,8 +41,21 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      - name: Build core package
+        run: cd packages/core && npx tsc -p .
+
+      - name: Build CLI
+        run: cd packages/cli && node build.js
+
       - name: Run tests
         run: pnpm test
+
+      - name: CLI dogfood
+        run: |
+          node packages/cli/dist/cli.js --version
+          node packages/cli/dist/cli.js format --check test-files/example-enum.thrift
+          node packages/cli/dist/cli.js lint test-files/example-enum.thrift
+          node packages/cli/dist/cli.js symbols test-files/example-enum.thrift
 
       - name: Performance benchmark
         run: node -e "require('./tests/require-hook.js'); require('./tests/perf/run-performance-benchmark.js')" -- --structs 120 --fields 30 --iterations 5 --threshold-full-ms 400 --threshold-incremental-ms 100

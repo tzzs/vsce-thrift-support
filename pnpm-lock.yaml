@@ -65,6 +65,25 @@ importers:
         specifier: ^9.3.2
         version: 9.3.2
 
+  packages/cli:
+    dependencies:
+      '@tanzz/thrift-core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      esbuild:
+        specifier: ^0.28.0
+        version: 0.28.0
+      typescript:
+        specifier: ^4.9.5
+        version: 4.9.5
+
+  packages/core:
+    devDependencies:
+      typescript:
+        specifier: ^4.9.5
+        version: 4.9.5
+
 packages:
 
   '@azu/format-text@1.0.2':
