@@ -3,18 +3,19 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import {ThriftParser, analyzeThriftAst, collectTypesFromAst, DiagnosticSeverity} from '@tanzz/thrift-core';
+import {ThriftParser, analyzeThriftAst, collectTypesFromAst, collectIncludes, DiagnosticSeverity} from '@tanzz/thrift-core';
 import type {ThriftIssue} from '@tanzz/thrift-core';
 import type {ParsedArgs} from '../args';
+import type {ThriftCliConfig} from '../config';
 import {formatIssuesText, formatIssuesJson} from '../output';
 
-export function runLint(files: string[], args: ParsedArgs): number {
+export function runLint(files: string[], args: ParsedArgs, config: ThriftCliConfig = {}): number {
     if (files.length === 0) {
         process.stderr.write('Error: No files specified.\n');
         return 2;
     }
 
-    const severityFilter = args.severity ?? 'all';
+    const severityFilter = args.severity ?? config.lint?.severity ?? 'all';
     let totalIssues = 0;
     const allJsonIssues: object[] = [];
 
@@ -29,10 +30,9 @@ export function runLint(files: string[], args: ParsedArgs): number {
 
         let issues: ThriftIssue[];
         try {
-            // Resolve include types if include-path is specified
-            const includedTypes = resolveIncludeTypes(content, filePath, args.includePaths);
             const lines = content.split('\n');
             const ast = ThriftParser.parseContentWithCache(filePath, content);
+            const includedTypes = resolveIncludeTypes(ast, filePath, args.includePaths);
             issues = analyzeThriftAst(ast, lines, includedTypes);
         } catch (error) {
             process.stderr.write(`Error: Analysis failed for "${filePath}": ${error instanceof Error ? error.message : String(error)}\n`);
@@ -67,30 +67,28 @@ export function runLint(files: string[], args: ParsedArgs): number {
 }
 
 /**
- * 从 include 搜索路径中解析 include 文件的类型。
+ * 从 AST include 节点中解析 include 文件的类型。
+ * 使用 AST 而非原始正则，以避免匹配注释中的 include 指令。
  */
 function resolveIncludeTypes(
-    content: string,
+    ast: ReturnType<typeof ThriftParser.parseContentWithCache>,
     filePath: string,
     includePaths: string[]
 ): Map<string, string> | undefined {
     const includedTypes = new Map<string, string>();
-    const includeRegex = /^\s*include\s+["']([^"']+)["']/gm;
-    let match;
+    const searchDirs = [path.dirname(filePath), ...includePaths];
 
-    while ((match = includeRegex.exec(content)) !== null) {
-        const includeName = match[1];
+    for (const includeNode of collectIncludes(ast)) {
+        const includeName = includeNode.path;
         const alias = path.basename(includeName, '.thrift');
 
-        // Search in include paths and current file's directory
-        const searchDirs = [path.dirname(filePath), ...includePaths];
         for (const dir of searchDirs) {
             const resolvedPath = path.resolve(dir, includeName);
             if (fs.existsSync(resolvedPath)) {
                 try {
                     const includeContent = fs.readFileSync(resolvedPath, 'utf-8');
-                    const ast = ThriftParser.parseContentWithCache(resolvedPath, includeContent);
-                    const types = collectTypesFromAst(ast);
+                    const includeAst = ThriftParser.parseContentWithCache(resolvedPath, includeContent);
+                    const types = collectTypesFromAst(includeAst);
                     for (const [name, kind] of types) {
                         includedTypes.set(`${alias}.${name}`, kind);
                     }

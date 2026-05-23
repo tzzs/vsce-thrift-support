@@ -100,8 +100,8 @@ function matchGlob(dir: string, globParts: string[], partIndex: number, result: 
             if (entry.isDirectory()) {
                 // Continue matching ** from this subdirectory
                 matchGlob(fullPath, globParts, partIndex, result);
-            } else if (entry.isFile() && isLast) {
-                // ** as last segment matches files too
+            } else if (entry.isFile() && isLast && entry.name.endsWith('.thrift')) {
+                // ** as last segment matches .thrift files only
                 result.push(fullPath);
             }
         }
@@ -119,7 +119,7 @@ function matchGlob(dir: string, globParts: string[], partIndex: number, result: 
             const fullPath = path.join(dir, entry.name);
 
             if (isLast) {
-                if (entry.isFile()) {
+                if (entry.isFile() && entry.name.endsWith('.thrift')) {
                     result.push(fullPath);
                 } else if (entry.isDirectory()) {
                     // Pattern ended with a directory match — collect .thrift files

@@ -118,7 +118,6 @@ export class ThriftRefactorCodeActionProvider {
     private static readonly UNKNOWN_TYPE_CODES = new Set([
         'type.unknown',
         'service.returnType.unknown',
-        'service.extends.unknown',
         'service.throws.unknown',
         'typedef.unknownBase'
     ]);

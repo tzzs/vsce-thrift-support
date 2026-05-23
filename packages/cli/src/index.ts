@@ -2,6 +2,7 @@
  * thrift-support CLI 入口点。
  * 统一命令行工具：format / lint / parse / symbols
  */
+import * as fs from 'fs';
 import * as path from 'path';
 import {parseArgs} from './args';
 import {findConfigFile, loadConfig, resolveFormatOptions} from './config';
@@ -81,12 +82,23 @@ function main(): void {
         process.exit(0);
     }
 
-    // Load config — use --stdin-filepath for lookup when in stdin mode
-    const configLookupDir = args.files.length > 0
-        ? path.dirname(path.resolve(args.files[0]))
-        : args.stdinFilepath
-            ? path.dirname(path.resolve(args.stdinFilepath))
-            : process.cwd();
+    // Load config — use --stdin-filepath for lookup when in stdin mode.
+    // For directory inputs, search from the directory itself (not its parent).
+    let configLookupDir: string;
+    if (args.files.length > 0) {
+        const firstResolved = path.resolve(args.files[0]);
+        try {
+            configLookupDir = fs.statSync(firstResolved).isDirectory()
+                ? firstResolved
+                : path.dirname(firstResolved);
+        } catch {
+            configLookupDir = path.dirname(firstResolved);
+        }
+    } else if (args.stdinFilepath) {
+        configLookupDir = path.dirname(path.resolve(args.stdinFilepath));
+    } else {
+        configLookupDir = process.cwd();
+    }
     const configPath = args.configPath ?? findConfigFile(configLookupDir);
     const config = configPath ? loadConfig(configPath) : {};
 
@@ -107,7 +119,7 @@ function main(): void {
             break;
         }
         case 'lint':
-            exitCode = runLint(files, args);
+            exitCode = runLint(files, args, config);
             break;
         case 'parse':
             exitCode = runParse(files, args);

@@ -33,7 +33,11 @@ export function runFormat(
 
     // --stdin mode
     if (args.stdin) {
-        return formatStdin(formatter, options);
+        if (args.write) {
+            process.stderr.write('Error: --write cannot be used with --stdin.\n');
+            return 2;
+        }
+        return formatStdin(formatter, options, args.check);
     }
 
     if (files.length === 0) {
@@ -84,7 +88,7 @@ export function runFormat(
     return hasUnformatted ? 1 : 0;
 }
 
-function formatStdin(formatter: ThriftFormatter, options: ThriftFormattingOptions): number {
+function formatStdin(formatter: ThriftFormatter, options: ThriftFormattingOptions, checkMode: boolean): number {
     const chunks: Buffer[] = [];
     const buf = Buffer.alloc(65536);
     let bytesRead: number;
@@ -95,6 +99,13 @@ function formatStdin(formatter: ThriftFormatter, options: ThriftFormattingOption
     const content = Buffer.concat(chunks).toString('utf-8');
     try {
         const formatted = formatter.format(content, options);
+        if (checkMode) {
+            if (formatted !== content) {
+                process.stderr.write('<stdin>: unformatted\n');
+                return 1;
+            }
+            return 0;
+        }
         process.stdout.write(formatted);
         return 0;
     } catch (error) {
