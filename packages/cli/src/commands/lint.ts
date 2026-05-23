@@ -74,8 +74,6 @@ function resolveIncludeTypes(
     filePath: string,
     includePaths: string[]
 ): Map<string, string> | undefined {
-    if (includePaths.length === 0) return undefined;
-
     const includedTypes = new Map<string, string>();
     const includeRegex = /^\s*include\s+["']([^"']+)["']/gm;
     let match;

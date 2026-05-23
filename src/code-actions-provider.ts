@@ -63,21 +63,27 @@ export class ThriftRefactorCodeActionProvider {
                 return actions;
             }
 
+            // Scan workspace once for all unknown types (avoids N × files overhead)
+            const workspaceTypeMap = await this.buildWorkspaceTypeMap(token);
+            if (typeof token !== 'undefined' && token.isCancellationRequested) {
+                return actions;
+            }
+
             const includeSet = this.collectExistingIncludes(document);
             const insertLine = this.computeIncludeInsertLine(document);
             for (const [typeName, diagnostic] of unknownTypes) {
                 if (typeof token !== 'undefined' && token.isCancellationRequested) {
                     break;
                 }
-                const definitions = await this.findWorkspaceDefinitions(typeName, token);
-                for (const def of definitions) {
+                const definitions = workspaceTypeMap.get(typeName) ?? [];
+                for (const defUri of definitions) {
                     if (typeof token !== 'undefined' && token.isCancellationRequested) {
                         break;
                     }
-                    if (def.uri.toString() === document.uri.toString()) {
+                    if (defUri.toString() === document.uri.toString()) {
                         continue;
                     }
-                    const includePath = this.computeRelativeIncludePath(document.uri, def.uri);
+                    const includePath = this.computeRelativeIncludePath(document.uri, defUri);
                     if (includePath === undefined || includePath === '' || includeSet.has(includePath)) {
                         continue;
                     }
@@ -170,6 +176,13 @@ export class ThriftRefactorCodeActionProvider {
             if (ThriftRefactorCodeActionProvider.NON_TYPE_TOKENS.has(token) || seen.has(token)) {
                 continue;
             }
+            // Skip identifiers preceded by a non-keyword identifier — they're
+            // field/parameter names, not type references (e.g. `ex` in `SomeException ex`)
+            const before = text.slice(0, matchIndex);
+            const precMatch = before.match(/([A-Za-z_][A-Za-z0-9_]*)\s*$/);
+            if (precMatch && !ThriftRefactorCodeActionProvider.NON_TYPE_TOKENS.has(precMatch[1])) {
+                continue;
+            }
             seen.add(token);
             names.push(token);
         }
@@ -230,12 +243,17 @@ export class ThriftRefactorCodeActionProvider {
         return parser.parse();
     }
 
-    private async findWorkspaceDefinitions(
-        typeName: string,
+    /**
+     * Scan all workspace .thrift files once and build a map of type name → defining URIs.
+     * Passes the cancellation token to findFiles so cancelled requests abort early.
+     */
+    private async buildWorkspaceTypeMap(
         token?: vscode.CancellationToken
-    ): Promise<Array<{uri: vscode.Uri}>> {
-        const results: Array<{uri: vscode.Uri}> = [];
-        const files = await vscode.workspace.findFiles(config.filePatterns.thrift);
+    ): Promise<Map<string, vscode.Uri[]>> {
+        const typeMap = new Map<string, vscode.Uri[]>();
+        const files = await vscode.workspace.findFiles(
+            config.filePatterns.thrift, undefined, undefined, token
+        );
         for (const file of files) {
             if (typeof token !== 'undefined' && token.isCancellationRequested) {
                 break;
@@ -243,27 +261,29 @@ export class ThriftRefactorCodeActionProvider {
             try {
                 const text = await readThriftFile(file);
                 const ast = ThriftParser.parseContentWithCache(file.toString(), text);
-                const hasType = collectTopLevelTypes(ast).some(node =>
-                    node.name === typeName &&
-                    (node.type === nodes.ThriftNodeType.Struct ||
+                for (const node of collectTopLevelTypes(ast)) {
+                    if (node.type === nodes.ThriftNodeType.Struct ||
                         node.type === nodes.ThriftNodeType.Union ||
                         node.type === nodes.ThriftNodeType.Exception ||
                         node.type === nodes.ThriftNodeType.Enum ||
                         node.type === nodes.ThriftNodeType.Service ||
-                        node.type === nodes.ThriftNodeType.Typedef)
-                );
-                if (hasType) {
-                    results.push({uri: file});
+                        node.type === nodes.ThriftNodeType.Typedef) {
+                        let uris = typeMap.get(node.name);
+                        if (!uris) {
+                            uris = [];
+                            typeMap.set(node.name, uris);
+                        }
+                        uris.push(file);
+                    }
                 }
             } catch {
                 this.errorHandler.handleWarning('Workspace type scan failed', {
                     component: 'ThriftRefactorCodeActionProvider',
-                    operation: 'findWorkspaceDefinitions',
-                    filePath: file.fsPath,
-                    additionalInfo: {typeName}
+                    operation: 'buildWorkspaceTypeMap',
+                    filePath: file.fsPath
                 });
             }
         }
-        return results;
+        return typeMap;
     }
 }
