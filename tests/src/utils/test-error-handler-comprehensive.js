@@ -78,22 +78,20 @@ describe('ErrorHandler comprehensive', () => {
             assert.ok(found, 'should find aggregated error with count >= 3');
         });
 
-        it('should show notification for user-triggered operations', () => {
-            const vscode = require('vscode');
-            let shown = false;
-            const origShowError = vscode.window.showErrorMessage;
-            vscode.window.showErrorMessage = () => {
-                shown = true;
-                return Promise.resolve(undefined);
-            };
+        it('should log error to console for user-triggered operations', () => {
+            // core ErrorHandler is vscode-free: errors are logged via console, not showErrorMessage
+            const messages = [];
+            const origConsoleError = console.error;
+            console.error = (...args) => messages.push(args.join(' '));
             try {
                 handler.handleError(new Error('user error'), {
                     component: 'Provider',
                     operation: 'provideHover'
                 });
-                assert.ok(shown, 'should show error notification');
+                assert.ok(messages.length > 0, 'should log error to console');
+                assert.ok(messages[0].includes('Provider'), 'log should include component name');
             } finally {
-                vscode.window.showErrorMessage = origShowError;
+                console.error = origConsoleError;
             }
         });
     });
