@@ -5,8 +5,29 @@ const originalResolveFilename = Module._resolveFilename;
 const originalLoad = Module._load;
 const testsDir = __dirname;
 const repoRoot = path.join(testsDir, '..');
-const outSrcRoot = path.join(repoRoot, 'out', 'src');
+const coreOutRoot = path.join(repoRoot, 'packages', 'core', 'out');
+const vsceOutRoot = path.join(repoRoot, 'out');
 const mockVscodePath = path.join(testsDir, 'mock_vscode.js');
+
+// Modules that live in packages/core/out/ after Phase 5 migration.
+// Everything else stays in out/ (vscode package).
+const CORE_PATH_PREFIXES = [
+    'ast/',
+    'formatter/',
+    'interfaces.types',
+    'config/index',
+    'config/cache-config',
+    'diagnostics/types',
+    'diagnostics/utils',
+    'diagnostics/rules/',
+    'utils/cache-manager',
+    'utils/cache-expiry',
+    'utils/cache-keys',
+    'utils/error-handler',
+    'utils/memory-monitor',
+    'utils/optimized-lru-cache',
+    'utils/report-builder',
+];
 
 function normalizeRequest(request) {
     if (typeof request !== 'string') {
@@ -15,13 +36,21 @@ function normalizeRequest(request) {
     return request.replace(/\\/g, '/');
 }
 
-function mapOutSrc(request) {
+/**
+ * Map out/ paths to either packages/core/out/ or out/ (vscode).
+ * Uses an explicit list of core-only module prefixes.
+ */
+function mapOutPath(request) {
     const normalized = normalizeRequest(request);
-    const match = normalized.match(/^(?:\.{1,2}\/)+out\/src\/(.+)$/);
+    const match = normalized.match(/^(?:\.{1,2}\/)+out\/(.+?)(?:\.js)?$/);
     if (!match) {
         return null;
     }
-    return path.join(outSrcRoot, match[1]);
+    const relativePath = match[1];
+
+    const isCore = CORE_PATH_PREFIXES.some(prefix => relativePath === prefix.replace(/\/$/, '') || relativePath.startsWith(prefix));
+    const rootDir = isCore ? coreOutRoot : vsceOutRoot;
+    return path.join(rootDir, relativePath);
 }
 
 function mapMockVscode(request) {
@@ -38,7 +67,7 @@ function mapMockVscode(request) {
 }
 
 Module._resolveFilename = function (request, parent, isMain, options) {
-    const mapped = mapOutSrc(request) || mapMockVscode(request);
+    const mapped = mapOutPath(request) || mapMockVscode(request);
     if (mapped) {
         return originalResolveFilename.call(this, mapped, parent, isMain, options);
     }
@@ -56,7 +85,7 @@ Module._load = function (request, parent, isMain) {
     if (request === 'vscode') {
         return vscodeMock;
     }
-    const mapped = mapOutSrc(request) || mapMockVscode(request);
+    const mapped = mapOutPath(request) || mapMockVscode(request);
     if (mapped) {
         return originalLoad.call(this, mapped, parent, isMain);
     }

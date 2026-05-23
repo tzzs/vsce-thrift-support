@@ -6,7 +6,7 @@
     "lib": [
       "ES2022"
     ],
-    "rootDir": "src",
+    "rootDir": "packages/vscode/src",
     "sourceMap": true,
     "strict": true,
     "moduleResolution": "node16",
@@ -25,9 +25,11 @@
     ".vscode-test",
     "out",
     "tests",
-    "test-files"
+    "test-files",
+    "packages/core",
+    "packages/cli"
   ],
   "include": [
-    "src/**/*.ts"
+    "packages/vscode/src/**/*.ts"
   ]
 }

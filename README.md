@@ -48,6 +48,68 @@
 
 查看[高级特性文档](docs/advanced-features.md)了解流式传输、交互模式等实验性语法的使用方法。
 
+## 🖥️ CLI 工具
+
+除 VS Code 扩展外，本项目同时提供独立的 npm CLI 工具 `thrift-support`，可在 CI/CD 或命令行中使用。
+
+### 安装
+
+```bash
+npm install -g thrift-support
+# 或在项目内局部安装
+npm install --save-dev thrift-support
+```
+
+### 命令
+
+```bash
+# 检查格式化（CI 推荐）
+thrift-support format --check src/**/*.thrift
+
+# 格式化并写回文件
+thrift-support format --write src/
+
+# 从 stdin 读取并输出
+echo "struct Foo{1:i32 id}" | thrift-support format --stdin
+
+# 运行诊断（语法 + 语义规则）
+thrift-support lint src/**/*.thrift
+thrift-support lint --severity error --json src/**/*.thrift
+
+# 解析并输出 AST（JSON）
+thrift-support parse --stdin < myfile.thrift
+
+# 列出定义的符号
+thrift-support symbols --json src/my.thrift
+```
+
+### 配置文件
+
+在项目根目录创建 `.thriftrc.json`，CLI 会自动向上查找：
+
+```json
+{
+    "format": {
+        "indentSize": 4,
+        "trailingComma": "add",
+        "alignTypes": true,
+        "maxLineLength": 100
+    },
+    "lint": {
+        "severity": "error"
+    }
+}
+```
+
+### 退出码
+
+| 代码 | 含义 |
+|------|------|
+| 0 | 成功 |
+| 1 | Lint 错误（或 `--check` 发现未格式化文件） |
+| 2 | 用法错误 |
+| 3 | 内部错误 |
+
 ## 📦 安装
 
 1. 打开 VSCode

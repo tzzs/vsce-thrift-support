@@ -59,8 +59,8 @@ export class ThriftParser {
     private currentLine = 0;
     private tokenizer: ThriftTokenizer;
 
-    constructor(content: string) {
-        this.text = content;
+    constructor(content: string | {getText(): string}) {
+        this.text = typeof content === 'string' ? content : content.getText();
         this.lines = this.text.split(/\r?\n/);
         this.tokenizer = new ThriftTokenizer();
     }
@@ -77,6 +77,11 @@ export class ThriftParser {
 
         ThriftParser.setCachedAstByUriUnsafe(uri, ast);
         return ast;
+    }
+
+    /** Backward-compatible alias: parseWithCache({getText(), uri: {toString()}}) */
+    public static parseWithCache(doc: {getText(): string; uri: {toString(): string}}): nodes.ThriftDocument {
+        return ThriftParser.parseWithCacheByVersion(doc.uri.toString(), doc.getText());
     }
 
     /**
@@ -1493,7 +1498,29 @@ export class ThriftParser {
     /**
      * 带缓存的增量解析入口。
      */
+    public static incrementalParseWithCache(doc: {getText(): string; uri: {toString(): string}}, dirtyRange: LineRange): IncrementalParseResult | null;
+    public static incrementalParseWithCache(uri: string, content: string, dirtyRange: LineRange): IncrementalParseResult | null;
     public static incrementalParseWithCache(
+        uriOrDoc: string | {getText(): string; uri: {toString(): string}},
+        contentOrRange: string | LineRange,
+        dirtyRange?: LineRange
+    ): IncrementalParseResult | null {
+        let uri: string;
+        let content: string;
+        let range: LineRange;
+        if (typeof uriOrDoc === 'string') {
+            uri = uriOrDoc;
+            content = contentOrRange as string;
+            range = dirtyRange!;
+        } else {
+            uri = uriOrDoc.uri.toString();
+            content = uriOrDoc.getText();
+            range = contentOrRange as LineRange;
+        }
+        return ThriftParser._incrementalParseWithCache(uri, content, range);
+    }
+
+    private static _incrementalParseWithCache(
         uri: string,
         content: string,
         dirtyRange: LineRange

@@ -42,6 +42,68 @@ formatting, and navigation.
 - Extract type (typedef): infer type from selection or current field and generate a `typedef`
 - Move type to file: move `struct/enum/service/typedef` into a new `.thrift` file and auto-insert an `include`
 
+## 🖥️ CLI Tool
+
+In addition to the VS Code extension, a standalone npm CLI tool `thrift-support` is available for use in CI/CD pipelines or the command line.
+
+### Install
+
+```bash
+npm install -g thrift-support
+# or install locally in your project
+npm install --save-dev thrift-support
+```
+
+### Commands
+
+```bash
+# Check formatting (recommended for CI)
+thrift-support format --check src/**/*.thrift
+
+# Format and write back to files
+thrift-support format --write src/
+
+# Read from stdin and output to stdout
+echo "struct Foo{1:i32 id}" | thrift-support format --stdin
+
+# Run diagnostics (syntax + semantic rules)
+thrift-support lint src/**/*.thrift
+thrift-support lint --severity error --json src/**/*.thrift
+
+# Parse and output AST (JSON)
+thrift-support parse --stdin < myfile.thrift
+
+# List defined symbols
+thrift-support symbols --json src/my.thrift
+```
+
+### Configuration
+
+Create a `.thriftrc.json` in your project root; the CLI searches upward automatically:
+
+```json
+{
+    "format": {
+        "indentSize": 4,
+        "trailingComma": "add",
+        "alignTypes": true,
+        "maxLineLength": 100
+    },
+    "lint": {
+        "severity": "error"
+    }
+}
+```
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Lint errors (or `--check` found unformatted files) |
+| 2 | Usage error |
+| 3 | Internal error |
+
 ## 📦 Installation
 
 1. Open VSCode

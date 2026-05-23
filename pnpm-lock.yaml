@@ -16,6 +16,9 @@ importers:
       '@eslint/js':
         specifier: ^9.39.2
         version: 9.39.4
+      '@tanzz/thrift-core':
+        specifier: workspace:*
+        version: link:packages/core
       '@types/mocha':
         specifier: ^10.0.10
         version: 10.0.10
@@ -79,6 +82,22 @@ importers:
 
   packages/core:
     devDependencies:
+      typescript:
+        specifier: ^4.9.5
+        version: 4.9.5
+
+  packages/vscode:
+    dependencies:
+      '@tanzz/thrift-core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^16.0.0
+        version: 16.18.126
+      '@types/vscode':
+        specifier: ^1.75.0
+        version: 1.75.0
       typescript:
         specifier: ^4.9.5
         version: 4.9.5
