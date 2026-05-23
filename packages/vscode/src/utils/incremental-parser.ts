@@ -71,7 +71,7 @@ export class IncrementalParserManager {
      * Perform full parsing of a Thrift document.
      */
     private async parseFull(document: vscode.TextDocument): Promise<IncrementalParseResult> {
-        return performanceMonitor.measureAsync('incremental-parser.parseFull', async () => {
+        return performanceMonitor.measureAsync('incremental-parser.parseFull', () => {
             const ast = this.errorHandler.wrapSync(
                 () => ThriftParser.parseWithCacheByVersion(document.uri.fsPath, document.getText(), document.version),
                 {
@@ -81,11 +81,11 @@ export class IncrementalParserManager {
                 }
             ) ?? ({type: nodes.ThriftNodeType.Document, range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}}, body: [] as nodes.ThriftNode[]} as nodes.ThriftDocument);
 
-            return {
+            return Promise.resolve({
                 ast,
                 affectedNodes: [],
                 newNodes: ast.body
-            };
+            });
         }, document);
     }
 

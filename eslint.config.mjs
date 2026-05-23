@@ -11,7 +11,7 @@ export default [
   ...tseslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {
-    files: ['src/**/*.ts'],
+    files: ['packages/vscode/src/**/*.ts'],
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {

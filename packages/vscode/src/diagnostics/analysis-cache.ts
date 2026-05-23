@@ -1,4 +1,3 @@
-import * as vscode from 'vscode';
 import {nodes} from '@tanzz/thrift-core';
 import {config} from '@tanzz/thrift-core';
 import {LruCache} from '@tanzz/thrift-core';

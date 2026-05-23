@@ -148,7 +148,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                     },
                     []
                 );
-                if (refs) references.push(...refs);
+                if (refs) { references.push(...refs); }
             }
 
             // 缓存结果
