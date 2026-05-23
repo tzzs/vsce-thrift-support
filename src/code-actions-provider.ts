@@ -262,6 +262,7 @@ export class ThriftRefactorCodeActionProvider {
                 const text = await readThriftFile(file);
                 const ast = ThriftParser.parseContentWithCache(file.toString(), text);
                 for (const node of collectTopLevelTypes(ast)) {
+                    if (!node.name) continue;
                     if (node.type === nodes.ThriftNodeType.Struct ||
                         node.type === nodes.ThriftNodeType.Union ||
                         node.type === nodes.ThriftNodeType.Exception ||
