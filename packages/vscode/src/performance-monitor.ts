@@ -225,6 +225,21 @@ export class PerformanceMonitor {
             });
         }
 
+        // 错误统计
+        const errStats = this.errorHandler.getErrorStats();
+        if (errStats.total > 0 || errStats.warnings > 0) {
+            report.add();
+            report.add('### 错误统计');
+            report.add(`- **总错误数:** ${errStats.total}`);
+            report.add(`- **警告数:** ${errStats.warnings}`);
+            if (errStats.byComponent.size > 0) {
+                const topComponents = Array.from(errStats.byComponent.entries())
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 5);
+                report.add(`- **高频组件:** ${topComponents.map(([c, n]) => `${c}(${n})`).join(', ')}`);
+            }
+        }
+
         // 添加内存使用报告
         report.add();
         report.add(this.memoryMonitor.getMemoryReport());

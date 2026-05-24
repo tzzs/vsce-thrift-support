@@ -612,30 +612,32 @@ export class ThriftParser {
 
     private parseEnumBody(parent: nodes.Enum): number {
         let braceCount = 0;
-        // Find opening brace
+        // Find opening brace — mirror parseStructBody: use countBraces so that
+        // a single-line enum `enum E { A = 0 }` closes correctly on the same line.
         while (this.currentLine < this.lines.length) {
             const line = this.lines[this.currentLine];
             const scan = this.scanLine(line);
-            if (scan.stripped.includes('{')) {
-                braceCount++;
+            const braceStats = this.countBraces(scan.tokens);
+            if (braceStats.open > 0) {
+                braceCount += braceStats.open - braceStats.close;
                 break;
             }
             this.currentLine++;
         }
 
-        this.currentLine++; // Move past opening brace
+        this.currentLine++; // Move past opening brace line
+        if (braceCount <= 0) {
+            return this.currentLine;
+        }
 
         // Parse members until closing brace
         while (this.currentLine < this.lines.length && braceCount > 0) {
             const line = this.lines[this.currentLine];
             const scan = this.scanLine(line);
-            const trimmed = scan.stripped.trim();
 
-            if (trimmed.includes('{')) {
-                braceCount++;
-            }
-            if (trimmed.includes('}')) {
-                braceCount--;
+            const braceStats = this.countBraces(scan.tokens);
+            if (braceStats.open > 0 || braceStats.close > 0) {
+                braceCount += braceStats.open - braceStats.close;
                 if (braceCount <= 0) {
                     this.currentLine++;
                     break;
