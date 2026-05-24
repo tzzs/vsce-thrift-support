@@ -1,7 +1,7 @@
 # Thrift Language Support - 计划与进度（2.1.1 优化发布线）
 
 **当前版本**: 2.2.0
-**最新状态**: ✅ `pnpm test` 全量通过（999 passing）｜✅ Phase 5 全部完成（A/B/C/D/E/F）｜✅ PR #52 所有 Codex review 评论已 resolved｜✅ Dependabot 安全漏洞已修复
+**最新状态**: ✅ `pnpm test` 全量通过（1020 passing）｜✅ Phase 5 全部完成（A/B/C/D/E/F）｜✅ PR #52 所有 Codex review 评论已 resolved｜✅ Dependabot 安全漏洞已修复｜✅ 4.1/4.2/4.3 优化已完成
 **最后更新**: 2026-05-24（基于 claude/blissful-goodall-979518 分支，PR #52 待合并）
 
 本文档用于统一当前阶段的目标、风险、里程碑与验收方式，便于在多次迭代中保持方向一致与可回溯。
@@ -226,20 +226,20 @@
 - [ ] release-please monorepo manifest 模式评估
 - [ ] PR #52 合并入 master
 
-### 4.2 性能基准与监控体系
+### 4.2 性能基准与监控体系 ✅ 已完成
 
 - [x] 建立自动化性能测试流程（Phase 4.1 已完成）
 - [x] 集成性能回归检测（Phase 4.1 perf-assertions.js，超阈值 CI 失败）
-- [ ] 将错误统计集成到性能监控报告中
+- [x] 将错误统计集成到性能监控报告中（`getPerformanceReport()` 新增 `### 错误统计` 区块）
 - [x] 大文件（>1000 行）性能测试（Phase 4.3 分块格式化，CHUNK_THRESHOLD=10000）
-- [ ] 边界情况和并发场景测试补充
+- [x] 边界情况和并发场景测试补充（`test-boundary-conditions.js`，20 个测试覆盖字段 ID/枚举值/CacheManager LRU/ErrorHandler 并发）
 
-### 4.3 代码质量与维护性
+### 4.3 代码质量与维护性 ✅ 已完成
 
-- [ ] ESLint 配置优化：启用更多严格规则（如 `@typescript-eslint/no-explicit-any`）
-- [ ] 补充 JSDoc 文档，特别是配置参数和性能阈值的说明
-- [ ] 考虑对象池化优化频繁创建的对象（如 LineRange、Token 等）
-- [ ] 清理未使用的 import 和变量
+- [x] ESLint 配置优化：扩展覆盖 `packages/core/src` 和 `packages/cli/src`，统一 type-aware 严格规则（`no-explicit-any`/`no-floating-promises`/`strict-boolean-expressions` 等）
+- [x] 补充 JSDoc 文档：`line-range.ts` 全部导出函数 + `LineRange` 接口，`config/index.ts` 已有完整文档
+- [x] Token 对象创建优化：`tokenizeText` 改为直接字面量构造，消除展开分配开销
+- [x] 清理未使用的 import 和变量：ESLint 扫描后修复 core 5 处 Position/Range 冗余导入、cli 3 处类型断言/未使用变量，并统一 `!== null` 显式空值检查
 
 ### 4.4 配置扩展与用户定制
 
