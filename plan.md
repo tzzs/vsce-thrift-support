@@ -1,8 +1,8 @@
 # Thrift Language Support - 计划与进度（2.1.1 优化发布线）
 
 **当前版本**: 2.2.0
-**最新状态**: ✅ `pnpm test` 全量通过（1020 passing）｜✅ Phase 5 全部完成（A/B/C/D/E/F）｜✅ PR #52 所有 Codex review 评论已 resolved｜✅ Dependabot 安全漏洞已修复｜✅ 4.1/4.2/4.3/4.5 优化已完成
-**最后更新**: 2026-05-24（基于 claude/blissful-goodall-979518 分支，PR #52 待合并）
+**最新状态**: ✅ `pnpm test` 全量通过（1020 passing）｜✅ Phase 5 全部完成（A/B/C/D/E/F）｜✅ PR #52 所有 Codex review 评论已 resolved｜✅ Dependabot 安全漏洞已修复｜✅ 4.1/4.2/4.3/4.5 优化已完成｜✅ release-please monorepo manifest 已配置
+**最后更新**: 2026-05-25（基于 claude/blissful-goodall-979518 分支，PR #52 待合并）
 
 本文档用于统一当前阶段的目标、风险、里程碑与验收方式，便于在多次迭代中保持方向一致与可回溯。
 
@@ -223,7 +223,7 @@
 - [x] **Phase 5F**: 文档更新（README CLI 章节 + packages/cli/README.md + LICENSE）✅
 - [x] **CI/Publish 修复**：core 编译顺序、`build:core` 脚本、publish.yml checkout SHA 固定 ✅
 - [x] **Dependabot 安全修复**：qs@6.15.2、uuid@14.0.0（pnpm overrides）✅
-- [ ] release-please monorepo manifest 模式评估
+- [x] **release-please monorepo manifest 配置**：`.release-please-manifest.json` + `release-please-config.json` 三包组件（root/core/cli），workflow 切换 manifest 模式 ✅
 - [ ] PR #52 合并入 master
 
 ### 4.2 性能基准与监控体系 ✅ 已完成
@@ -300,7 +300,7 @@
 ### 6.2 可靠性指标 ✅ 已验证
 
 - ✅ 错误日志零崩溃
-- ✅ 999 个测试全部通过（从 676 → 999，+48%）
+- ✅ 1020 个测试全部通过（从 676 → 1020，+51%）
 - ✅ 关键操作错误率 <1%
 - ✅ 编译无错误、lint 无警告
 - ✅ 代码审查问题已全部修复
@@ -323,7 +323,7 @@
 
 - ✅ 变更提交前必须运行 `pnpm run lint` 与 `pnpm test`
 - ✅ 关键修复需包含最小回归测试
-- ✅ 所有优化通过 999 个测试验证（含属性级测试 + 性能断言）
+- ✅ 所有优化通过 1020 个测试验证（含属性级测试 + 性能断言）
 - ✅ 编译无错误、lint 无警告
 - ✅ CI 工作流：lint → build → test → benchmark → perf-assertions → CLI dogfood
 
@@ -333,7 +333,7 @@
 
 | 版本 | 日期 | 主要更新 |
 |------|------|----------|
-| 2.2.0 | 2026-05-24 | **Phase 5 全量完成 + CI/Publish 修复 + 安全加固**（PR #52，待合并）<br>- ✅ Phase 5B: `packages/vscode/` 迁移（~40 文件 + import 重写），lint scope 修正<br>- ✅ Phase 5D: require-hook 路径映射，13 个 CLI 集成测试，ErrorHandler 测试修复<br>- ✅ Phase 5F: README CLI 章节，packages/cli/README.md，LICENSE<br>- ✅ CI 步骤顺序：`Build core` → `Lint` → `Build`（type-aware ESLint 需 core 类型）<br>- ✅ `build:core` 脚本：`pnpm test` 在干净 checkout 可直接运行<br>- ✅ `publish.yml`：package job checkout 固定 SHA，VSIX 构建前先编 core<br>- ✅ Codex review 全部 resolved（glob .thrift 过滤、AST include 解析、severity 配置、extends 诊断排除、--stdin/--check 冲突等）<br>- ✅ Dependabot 安全修复：CVE-2026-8723（qs@6.15.2）、CVE-2026-41907（uuid@14.0.0）via pnpm overrides<br>- ✅ 999 passing，零 lint 错误 |
+| 2.2.0 | 2026-05-25 | **Phase 5 全量完成 + CI/Publish 修复 + 安全加固 + 代码质量提升**（PR #52，待合并）<br>- ✅ Phase 5B: `packages/vscode/` 迁移（~40 文件 + import 重写），lint scope 修正<br>- ✅ Phase 5D: require-hook 路径映射，13 个 CLI 集成测试，ErrorHandler 测试修复<br>- ✅ Phase 5F: README CLI 章节，packages/cli/README.md，LICENSE<br>- ✅ CI 步骤顺序：`Build core` → `Lint` → `Build`（type-aware ESLint 需 core 类型）<br>- ✅ `build:core` 脚本：`pnpm test` 在干净 checkout 可直接运行<br>- ✅ `publish.yml`：package job checkout 固定 SHA，VSIX 构建前先编 core<br>- ✅ Codex review 全部 resolved（glob .thrift 过滤、AST include 解析、severity 配置、extends 诊断排除、--stdin/--check 冲突等）<br>- ✅ Dependabot 安全修复：CVE-2026-8723（qs@6.15.2）、CVE-2026-41907（uuid@14.0.0）via pnpm overrides<br>- ✅ release-please monorepo manifest 配置（`.release-please-manifest.json`，三包独立 CHANGELOG）<br>- ✅ ESLint 扩展至 core+cli：type-aware 严格规则（no-explicit-any/no-floating-promises/strict-boolean-expressions），修复全部 lint 错误<br>- ✅ JSDoc 补充：`line-range.ts` 全部导出函数 + LineRange 接口；tokenizer 直接字面量构造优化<br>- ✅ 文档体系完善：新增 `ARCHITECTURE.md`、`PERFORMANCE.md`、`TROUBLESHOOTING.md`；README 新增性能章节<br>- ✅ 1020 passing，零 lint 错误 |
 | 2.4.0 | 2026-05-19 | **Monorepo + CLI 工具（Phase 5 A/C/E）+ CodeQL 安全修复**<br>- ✅ `packages/core/`: 核心逻辑零 vscode 依赖（AST、formatter、diagnostics、utils）<br>- ✅ `packages/cli/`: 独立 CLI 工具 `thrift-support`（format/lint/parse/symbols），333KB bundle<br>- ✅ CI 新增 CLI dogfood 步骤；publish 新增 npm_publish job<br>- ✅ `scripts/sync-versions.js` 版本同步<br>- ✅ CodeQL ReDoS 修复：parser 正则字符类重叠消除、formatter `trimEnd()`、Uri.parse `indexOf` 替代 |
 | 2.3.1 | 2026-05-17 | **Formatter 工程化演进（Phase 0–4）+ Quick Fix P0 修复**<br>- ✅ Quick Fix P0：取消令牌逻辑反转、include 路径工作区解析、诊断门控、元数据补全<br>- ✅ Phase 0 测试基础：幂等性穷举(168×9)、AST 往返(40)、注释不丢失(36)、fixture 回归(6)、性能基准入 CI<br>- ✅ Phase 1 正确性加固：safeLine 防崩溃、恶意输入韧性、parseStructFieldText 长度守卫<br>- ✅ Phase 2 注释稳定性：CommentMap 并行结构、lazy 构建集成、edge case 测试<br>- ✅ Phase 3 Printer 抽象：PrintBuffer IR + ConstPrinter 迁移<br>- ✅ Phase 4 大文件性能：CI 性能回归断言(12 tests)、分块格式化(>10000 行)、热路径优化<br>- ✅ 测试从 676 → 999 passing (+48%)，31 文件 +4386 行 |
 | 2.3.0 | 2026-05-15 | **Quick Fix / Code Action P0 修复**<br>- ✅ 取消令牌逻辑反转修复（无 token 时命名空间循环提前 break）<br>- ✅ include 建议接入 `findWorkspaceDefinitions`（真实相对路径替代文件名猜测）<br>- ✅ 灯泡与诊断按 `type.unknown` 联动（`context.diagnostics` 门控 Quick Fix）<br>- ✅ `vscode.Diagnostic` 补 `.code` / `.source='thrift'` 元数据<br>- ✅ 新增/调整 5 个 P0 专项测试，全量 676 passing |

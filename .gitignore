@@ -64,3 +64,4 @@ test-thrift/
 .qoder/
 .codex/
 .trae/
+.pnpm-store/
