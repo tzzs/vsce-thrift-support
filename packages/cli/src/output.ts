@@ -3,7 +3,6 @@
  */
 import type {ThriftIssue} from '@tanzz/thrift-core';
 import {DiagnosticSeverity} from '@tanzz/thrift-core';
-import type * as nodes from '@tanzz/thrift-core';
 
 const SEVERITY_LABELS: Record<number, string> = {
     [DiagnosticSeverity.Error]: 'error',
@@ -13,14 +12,14 @@ const SEVERITY_LABELS: Record<number, string> = {
 };
 
 export function formatIssuesText(filePath: string, issues: ThriftIssue[]): string {
-    if (issues.length === 0) return '';
+    if (issues.length === 0) {return '';}
 
     const lines: string[] = [];
     for (const issue of issues) {
         const severity = SEVERITY_LABELS[issue.severity] ?? 'unknown';
         const line = issue.range.start.line + 1;
         const col = issue.range.start.character + 1;
-        lines.push(`${filePath}:${line}:${col}: ${severity}: ${issue.message}${issue.code ? ` [${issue.code}]` : ''}`);
+        lines.push(`${filePath}:${line}:${col}: ${severity}: ${issue.message}${issue.code !== null && issue.code !== undefined ? ` [${issue.code}]` : ''}`);
     }
     return lines.join('\n');
 }
@@ -50,7 +49,7 @@ export function formatSymbolsText(symbols: SymbolInfo[], indent: number = 0): st
     const lines: string[] = [];
     const prefix = '  '.repeat(indent);
     for (const sym of symbols) {
-        const detail = sym.detail ? ` ${sym.detail}` : '';
+        const detail = sym.detail !== null && sym.detail !== undefined ? ` ${sym.detail}` : '';
         lines.push(`${prefix}${sym.kind} ${sym.name}${detail} (line ${sym.line})`);
         if (sym.children && sym.children.length > 0) {
             lines.push(formatSymbolsText(sym.children, indent + 1));

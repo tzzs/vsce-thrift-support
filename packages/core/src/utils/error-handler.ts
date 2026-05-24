@@ -8,8 +8,6 @@ export interface ErrorContext {
     additionalInfo?: Record<string, unknown>;
 }
 
-const NO_FALLBACK: unique symbol = Symbol('NO_FALLBACK');
-
 /**
  * ErrorHandler：统一错误与告警处理（core 版本，不依赖 vscode）。
  * 在 CLI/core 环境中使用 console 输出替代 vscode.window 通知。

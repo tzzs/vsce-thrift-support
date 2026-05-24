@@ -189,19 +189,11 @@ export function tokenizeText(text: string): Token[] {
             const line = text.slice(lineStart, i);
             const lineTokens = tokenizer.tokenizeLine(line);
             for (const token of lineTokens) {
-                tokens.push({
-                    ...token,
-                    start: token.start + lineStart,
-                    end: token.end + lineStart
-                });
+                // Construct directly to avoid spread allocation overhead
+                tokens.push({type: token.type, value: token.value, start: token.start + lineStart, end: token.end + lineStart});
             }
             if (i < text.length) {
-                tokens.push({
-                    type: 'whitespace',
-                    value: '\n',
-                    start: i,
-                    end: i + 1
-                });
+                tokens.push({type: 'whitespace', value: '\n', start: i, end: i + 1});
             }
             lineStart = i + 1;
         }

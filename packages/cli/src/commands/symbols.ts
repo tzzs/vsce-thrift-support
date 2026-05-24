@@ -35,7 +35,7 @@ export function runSymbols(files: string[], args: ParsedArgs): number {
                     process.stdout.write(`\n${filePath}:\n`);
                 }
                 const text = formatSymbolsText(symbols);
-                if (text) process.stdout.write(text + '\n');
+                if (text) {process.stdout.write(text + '\n');}
             }
         } catch (error) {
             process.stderr.write(`Error: Symbol extraction failed for "${filePath}": ${error instanceof Error ? error.message : String(error)}\n`);
@@ -80,7 +80,7 @@ function nodeToSymbol(node: nodes.ThriftNode, flat: boolean): SymbolInfo | null 
 
     switch (node.type) {
         case nodes.ThriftNodeType.Namespace: {
-            const ns = node as nodes.Namespace;
+            const ns = node;
             return {
                 name: ns.namespace,
                 kind: 'namespace',
@@ -89,7 +89,7 @@ function nodeToSymbol(node: nodes.ThriftNode, flat: boolean): SymbolInfo | null 
             };
         }
         case nodes.ThriftNodeType.Include: {
-            const inc = node as nodes.Include;
+            const inc = node;
             return {
                 name: inc.path,
                 kind: 'include',
@@ -97,7 +97,7 @@ function nodeToSymbol(node: nodes.ThriftNode, flat: boolean): SymbolInfo | null 
             };
         }
         case nodes.ThriftNodeType.Const: {
-            const c = node as nodes.Const;
+            const c = node;
             return {
                 name: c.name ?? '',
                 kind: 'const',
@@ -106,7 +106,7 @@ function nodeToSymbol(node: nodes.ThriftNode, flat: boolean): SymbolInfo | null 
             };
         }
         case nodes.ThriftNodeType.Typedef: {
-            const td = node as nodes.Typedef;
+            const td = node;
             return {
                 name: td.name ?? '',
                 kind: 'typedef',
@@ -115,7 +115,7 @@ function nodeToSymbol(node: nodes.ThriftNode, flat: boolean): SymbolInfo | null 
             };
         }
         case nodes.ThriftNodeType.Enum: {
-            const en = node as nodes.Enum;
+            const en = node;
             const children = en.members.map(m => ({
                 name: m.name ?? '',
                 kind: 'enum-member',
@@ -124,7 +124,7 @@ function nodeToSymbol(node: nodes.ThriftNode, flat: boolean): SymbolInfo | null 
             }));
             return {
                 name: en.name ?? '',
-                kind: en.isSenum ? 'senum' : 'enum',
+                kind: en.isSenum === true ? 'senum' : 'enum',
                 line,
                 children: flat ? children : (children.length > 0 ? children : undefined),
             };
@@ -132,7 +132,7 @@ function nodeToSymbol(node: nodes.ThriftNode, flat: boolean): SymbolInfo | null 
         case nodes.ThriftNodeType.Struct:
         case nodes.ThriftNodeType.Union:
         case nodes.ThriftNodeType.Exception: {
-            const st = node as nodes.Struct;
+            const st = node;
             const kind = node.type === nodes.ThriftNodeType.Struct ? 'struct'
                 : node.type === nodes.ThriftNodeType.Union ? 'union'
                 : 'exception';
@@ -150,7 +150,7 @@ function nodeToSymbol(node: nodes.ThriftNode, flat: boolean): SymbolInfo | null 
             };
         }
         case nodes.ThriftNodeType.Service: {
-            const svc = node as nodes.Service;
+            const svc = node;
             const children = svc.functions.map(fn => ({
                 name: fn.name ?? '',
                 kind: 'function',
@@ -161,12 +161,12 @@ function nodeToSymbol(node: nodes.ThriftNode, flat: boolean): SymbolInfo | null 
                 name: svc.name ?? '',
                 kind: 'service',
                 line,
-                detail: svc.extends ? `extends ${svc.extends}` : undefined,
+                detail: svc.extends !== null && svc.extends !== undefined ? `extends ${svc.extends}` : undefined,
                 children: flat ? children : (children.length > 0 ? children : undefined),
             };
         }
         case nodes.ThriftNodeType.Interaction: {
-            const inter = node as nodes.Interaction;
+            const inter = node;
             const children = inter.functions.map(fn => ({
                 name: fn.name ?? '',
                 kind: 'function',

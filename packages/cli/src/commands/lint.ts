@@ -45,7 +45,7 @@ export function runLint(files: string[], args: ParsedArgs, config: ThriftCliConf
             issues = issues.filter(issue => issue.severity <= targetSeverity);
         }
 
-        if (issues.length === 0) continue;
+        if (issues.length === 0) {continue;}
         totalIssues += issues.length;
 
         if (args.json) {

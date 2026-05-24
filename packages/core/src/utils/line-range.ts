@@ -1,16 +1,24 @@
-import {Range, Position} from '../types';
 
+/** Represents a contiguous span of lines (0-indexed, inclusive). */
 export interface LineRange {
     startLine: number;
     endLine: number;
 }
 
+/**
+ * Create a normalised LineRange, clamping start to ≥0 and end to ≥start.
+ * Fractional values are floored.
+ */
 export function createLineRange(startLine: number, endLine: number): LineRange {
     const s = Math.max(0, Math.floor(startLine));
     const e = Math.max(s, Math.floor(endLine));
     return {startLine: s, endLine: e};
 }
 
+/**
+ * Return a normalised copy of `range`, or `null` if input is falsy or
+ * contains non-finite values.
+ */
 export function normalizeLineRange(range: LineRange | null | undefined): LineRange | null {
     if (!range) {
         return null;
@@ -23,6 +31,10 @@ export function normalizeLineRange(range: LineRange | null | undefined): LineRan
     return createLineRange(startLine, endLine);
 }
 
+/**
+ * Merge an array of line ranges into the minimum set of non-overlapping
+ * ranges sorted by start line.  Adjacent ranges (gap ≤ 1) are coalesced.
+ */
 export function mergeLineRanges(ranges: LineRange[]): LineRange[] {
     if (!ranges.length) {
         return [];
@@ -52,6 +64,7 @@ export function mergeLineRanges(ranges: LineRange[]): LineRange[] {
     return merged;
 }
 
+/** Collapse an array of ranges into a single bounding range, or `null` if empty. */
 export function collapseLineRanges(ranges: LineRange[]): LineRange | null {
     if (!ranges.length) {
         return null;
@@ -66,6 +79,7 @@ export function collapseLineRanges(ranges: LineRange[]): LineRange | null {
     };
 }
 
+/** Number of lines covered by `range` (inclusive, minimum 0). */
 export function lineRangeLineCount(range: LineRange): number {
     const normalized = normalizeLineRange(range);
     if (!normalized) {
@@ -74,17 +88,20 @@ export function lineRangeLineCount(range: LineRange): number {
     return normalized.endLine - normalized.startLine + 1;
 }
 
-/**
- * Range 类型使用结构化接口，同时兼容 vscode.Range 和 core.Range
- */
+/** True if `range` and `lineRange` share at least one line. Accepts any Range-shaped object. */
 export function rangeIntersectsLineRange(range: {start: {line: number}; end: {line: number}}, lineRange: LineRange): boolean {
     return range.start.line <= lineRange.endLine && range.end.line >= lineRange.startLine;
 }
 
+/** True if `lineRange` is fully contained within `range`. */
 export function rangeContainsLineRange(range: {start: {line: number}; end: {line: number}}, lineRange: LineRange): boolean {
     return range.start.line <= lineRange.startLine && range.end.line >= lineRange.endLine;
 }
 
+/**
+ * Derive a LineRange from a text-change event.
+ * `lineDelta` is the net line count of the inserted text minus the replaced text.
+ */
 export function lineRangeFromChange(change: {range: {start: {line: number}; end: {line: number}}; text: string}): LineRange {
     const startLine = change.range.start.line;
     const lineDelta = change.text.split('\n').length - 1;

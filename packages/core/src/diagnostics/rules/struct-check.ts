@@ -1,4 +1,4 @@
-import {Range, DiagnosticSeverity} from '../../types';
+import {DiagnosticSeverity} from '../../types';
 import * as nodes from '../../ast/nodes.types';
 import {ThriftIssue} from '../types';
 import {isKnownType, isValidDefaultValue} from './type-utils';

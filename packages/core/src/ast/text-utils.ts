@@ -1,4 +1,4 @@
-import {Range, Position} from '../types';
+import {Range} from '../types';
 
 /**
  * 剔除行内注释内容，保留字符串字面量。

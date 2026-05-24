@@ -94,13 +94,13 @@ function main(): void {
         } catch {
             configLookupDir = path.dirname(firstResolved);
         }
-    } else if (args.stdinFilepath) {
+    } else if (args.stdinFilepath !== null && args.stdinFilepath !== undefined) {
         configLookupDir = path.dirname(path.resolve(args.stdinFilepath));
     } else {
         configLookupDir = process.cwd();
     }
     const configPath = args.configPath ?? findConfigFile(configLookupDir);
-    const config = configPath ? loadConfig(configPath) : {};
+    const config = configPath !== null && configPath !== undefined ? loadConfig(configPath) : {};
 
     // Expand file patterns
     const files = args.stdin ? [] : expandFiles(args.files);

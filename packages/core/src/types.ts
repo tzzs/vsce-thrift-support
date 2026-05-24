@@ -41,12 +41,12 @@ export class Range {
         ) {
             // Duck-typed Position objects (e.g. from vscode.Position)
             this.start = new Position(
-                (startLineOrStart as Position).line,
-                (startLineOrStart as Position).character
+                (startLineOrStart).line,
+                (startLineOrStart).character
             );
             this.end = new Position(
-                (startCharacterOrEnd as Position).line,
-                (startCharacterOrEnd as Position).character
+                (startCharacterOrEnd).line,
+                (startCharacterOrEnd).character
             );
         } else {
             this.start = new Position(

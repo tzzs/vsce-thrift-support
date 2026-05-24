@@ -64,10 +64,10 @@ export function resolveFormatOptions(
     const result: Partial<ThriftFormattingOptions> = {...base};
 
     // CLI flags override config file
-    if (overrides.indentSize !== undefined) result.indentSize = overrides.indentSize;
-    if (overrides.maxLineLength !== undefined) result.maxLineLength = overrides.maxLineLength;
-    if (overrides.trailingComma !== undefined) result.trailingComma = overrides.trailingComma;
-    if (overrides.collectionStyle !== undefined) result.collectionStyle = overrides.collectionStyle;
+    if (overrides.indentSize !== undefined) {result.indentSize = overrides.indentSize;}
+    if (overrides.maxLineLength !== undefined) {result.maxLineLength = overrides.maxLineLength;}
+    if (overrides.trailingComma !== undefined) {result.trailingComma = overrides.trailingComma;}
+    if (overrides.collectionStyle !== undefined) {result.collectionStyle = overrides.collectionStyle;}
 
     return result;
 }

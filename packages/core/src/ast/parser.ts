@@ -1,4 +1,4 @@
-import {Range, Position} from '../types';
+import {Range} from '../types';
 import * as nodes from './nodes.types';
 import {config} from '../config';
 import {

@@ -95,7 +95,7 @@ function matchGlob(dir: string, globParts: string[], partIndex: number, result: 
         }
 
         for (const entry of entries) {
-            if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+            if (entry.name.startsWith('.') || entry.name === 'node_modules') {continue;}
             const fullPath = path.join(dir, entry.name);
             if (entry.isDirectory()) {
                 // Continue matching ** from this subdirectory
@@ -115,7 +115,7 @@ function matchGlob(dir: string, globParts: string[], partIndex: number, result: 
         }
 
         for (const entry of entries) {
-            if (!globMatch(segment, entry.name)) continue;
+            if (!globMatch(segment, entry.name)) {continue;}
             const fullPath = path.join(dir, entry.name);
 
             if (isLast) {
@@ -182,7 +182,7 @@ function collectThriftFiles(dir: string, result: string[]): void {
         const fullPath = path.join(dir, entry.name);
         if (entry.isDirectory()) {
             // Skip hidden dirs and node_modules
-            if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+            if (entry.name.startsWith('.') || entry.name === 'node_modules') {continue;}
             collectThriftFiles(fullPath, result);
         } else if (entry.isFile() && entry.name.endsWith('.thrift')) {
             result.push(fullPath);

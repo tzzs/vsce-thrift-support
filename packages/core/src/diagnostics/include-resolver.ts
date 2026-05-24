@@ -16,7 +16,7 @@ export function collectTypesFromAst(ast: nodes.ThriftDocument): Map<string, stri
                 break;
             case nodes.ThriftNodeType.Enum:
                 if (typeof node.name === 'string' && node.name.length > 0) {
-                    typeKind.set(node.name, (node as nodes.Enum).isSenum === true ? 'senum' : 'enum');
+                    typeKind.set(node.name, (node).isSenum === true ? 'senum' : 'enum');
                 }
                 break;
             case nodes.ThriftNodeType.Struct:

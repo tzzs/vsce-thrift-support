@@ -32,7 +32,7 @@ export function runParse(files: string[], args: ParsedArgs): number {
             if (files.length === 1) {
                 process.stdout.write(JSON.stringify(ast, astReplacer, 2) + '\n');
             } else {
-                results.push({file: filePath, ast: JSON.parse(JSON.stringify(ast, astReplacer))});
+                results.push({file: filePath, ast: JSON.parse(JSON.stringify(ast, astReplacer)) as object});
             }
         } catch (error) {
             process.stderr.write(`Error: Parse failed for "${filePath}": ${error instanceof Error ? error.message : String(error)}\n`);
@@ -70,6 +70,6 @@ function parseStdin(): number {
  * JSON replacer that removes circular `parent` references from AST nodes.
  */
 function astReplacer(key: string, value: unknown): unknown {
-    if (key === 'parent') return undefined;
+    if (key === 'parent') {return undefined;}
     return value;
 }

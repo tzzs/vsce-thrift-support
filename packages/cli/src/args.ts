@@ -122,35 +122,35 @@ export function parseArgs(argv: string[]): ParsedArgs {
             }
             case '--indent-size': {
                 const val = parseInt(consumeNextArg(args, i, '--indent-size'), 10);
-                if (isNaN(val) || val < 1) parseError('--indent-size must be a positive integer');
+                if (isNaN(val) || val < 1) {parseError('--indent-size must be a positive integer');}
                 result.indentSize = val;
                 i++;
                 break;
             }
             case '--max-line-length': {
                 const val = parseInt(consumeNextArg(args, i, '--max-line-length'), 10);
-                if (isNaN(val) || val < 1) parseError('--max-line-length must be a positive integer');
+                if (isNaN(val) || val < 1) {parseError('--max-line-length must be a positive integer');}
                 result.maxLineLength = val;
                 i++;
                 break;
             }
             case '--trailing-comma': {
                 const val = consumeNextArg(args, i, '--trailing-comma');
-                if (!TRAILING_COMMA_VALUES.has(val)) parseError(`--trailing-comma must be one of: preserve, add, remove`);
+                if (!TRAILING_COMMA_VALUES.has(val)) {parseError(`--trailing-comma must be one of: preserve, add, remove`);}
                 result.trailingComma = val as 'preserve' | 'add' | 'remove';
                 i++;
                 break;
             }
             case '--collection-style': {
                 const val = consumeNextArg(args, i, '--collection-style');
-                if (!COLLECTION_STYLE_VALUES.has(val)) parseError(`--collection-style must be one of: preserve, multiline, auto`);
+                if (!COLLECTION_STYLE_VALUES.has(val)) {parseError(`--collection-style must be one of: preserve, multiline, auto`);}
                 result.collectionStyle = val as 'preserve' | 'multiline' | 'auto';
                 i++;
                 break;
             }
             case '--severity': {
                 const val = consumeNextArg(args, i, '--severity');
-                if (!SEVERITY_VALUES.has(val)) parseError(`--severity must be one of: error, warning, all`);
+                if (!SEVERITY_VALUES.has(val)) {parseError(`--severity must be one of: error, warning, all`);}
                 result.severity = val as 'error' | 'warning' | 'all';
                 i++;
                 break;

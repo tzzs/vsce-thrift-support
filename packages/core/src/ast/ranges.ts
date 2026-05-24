@@ -1,4 +1,4 @@
-import {Range, Position} from '../types';
+import {Range} from '../types';
 import {escapeRegExp, findFirstNonWhitespaceAfter, findLastNonWhitespaceUpTo, sliceTextByRange} from './text-utils';
 
 /**
