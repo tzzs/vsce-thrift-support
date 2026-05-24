@@ -50,6 +50,9 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+      - name: CLI coverage
+        run: pnpm run coverage:cli
+
       - name: CLI dogfood
         run: |
           node packages/cli/dist/cli.js --version
