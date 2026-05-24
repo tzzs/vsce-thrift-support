@@ -165,7 +165,7 @@
     "publish": "pnpm exec vsce publish",
     "test": "pnpm run build && mocha",
     "test:single": "pnpm run build && mocha --config .mocharc.single.json",
-    "coverage": "pnpm run build && nyc --reporter=text-summary mocha",
+    "coverage": "pnpm run build && c8 --reporter text-summary --reporter lcov mocha",
     "coverage:cli": "node packages/cli/build.js && c8 --src packages/cli/dist --reporter text-summary --reporter lcov mocha --no-config --timeout 30000 tests/cli/test-cli-integration.js",
     "perf:benchmark": "node tests/perf/run-performance-benchmark.js"
   },
