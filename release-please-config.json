@@ -3,6 +3,19 @@
   "release-search-depth": 50,
   "sequential-calls": true,
   "packages": {
-    ".": {}
+    ".": {
+      "release-type": "node",
+      "changelog-path": "CHANGELOG.md"
+    },
+    "packages/core": {
+      "release-type": "node",
+      "changelog-path": "CHANGELOG.md",
+      "component": "core"
+    },
+    "packages/cli": {
+      "release-type": "node",
+      "changelog-path": "CHANGELOG.md",
+      "component": "cli"
+    }
   }
 }
