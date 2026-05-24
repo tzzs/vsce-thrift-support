@@ -1,8 +1,8 @@
 # Thrift Language Support - 计划与进度（2.1.1 优化发布线）
 
 **当前版本**: 2.2.0
-**最新状态**: ✅ `pnpm test` 全量通过（999 passing）｜✅ Monorepo + CLI 包已实现（Phase 5 A/C/E）｜✅ CodeQL ReDoS 修复
-**最后更新**: 2026-05-24（基于 claude/blissful-goodall-979518 分支，PR #52）
+**最新状态**: ✅ `pnpm test` 全量通过（999 passing）｜✅ Phase 5 全部完成（A/B/C/D/E/F）｜✅ PR #52 所有 Codex review 评论已 resolved｜✅ Dependabot 安全漏洞已修复
+**最后更新**: 2026-05-24（基于 claude/blissful-goodall-979518 分支，PR #52 待合并）
 
 本文档用于统一当前阶段的目标、风险、里程碑与验收方式，便于在多次迭代中保持方向一致与可回溯。
 
@@ -148,6 +148,12 @@
 - [x] `scripts/sync-versions.js`: 根版本 → packages/core + packages/cli 同步
 - [x] GitHub npm Environment + NPM_TOKEN secret 已配置
 
+**Codex review 后续修复（commit `0bc85da`, `d95050d`, `fbd1199`）：**
+- [x] `ci.yml` 步骤顺序修正：`Build core package` 移至 `Lint` 之前（type-aware ESLint 需要 core 类型）
+- [x] 根 `package.json` 新增 `build:core` 脚本（`pnpm --filter @tanzz/thrift-core run build`），并加入 `build` 链，使 `pnpm test` 在干净 checkout 时无需手动预编译 core
+- [x] `publish.yml` `package` job：checkout 固定到 `github.event.workflow_run.head_sha || github.sha`（与 `npm_publish` job 保持一致，防止构建用错提交）
+- [x] `publish.yml` `package` job：在 `pnpm run build` 前加入 `Build core package` 步骤（clean runner 无 `packages/core/out/`，否则 VSIX 打包失败）
+
 #### Phase 5B: VS Code 扩展迁移 ✅ 已完成
 
 - [x] 创建 `packages/vscode/`，移动 ~40 个 provider/bridge/diagnostics/commands 文件
@@ -159,7 +165,8 @@
 
 - [x] 更新 `require-hook.js` 路径映射（CORE_PATH_PREFIXES 显式前缀路由）
 - [x] 创建 CLI 集成测试（`tests/cli/test-cli-integration.js`，13 个测试）
-- [x] 测试套件 999 passing，1 已知架构差异（vscode 通知 vs console.error）
+- [x] 修复 ErrorHandler 测试：迁移后 core 不再调用 `vscode.window.showErrorMessage`，改为断言 `console.error` 输出（commit `c6f8ce1`）
+- [x] 测试套件 999 passing，零已知失败
 
 #### Phase 5F: 文档更新 ✅ 已完成
 
@@ -214,7 +221,10 @@
 - [x] **Phase 5B**: VS Code 扩展迁移到 `packages/vscode/`（~40 文件移动 + import 重写）✅
 - [x] **Phase 5D**: 测试结构迁移（require-hook 路径更新 + CLI 集成测试）✅
 - [x] **Phase 5F**: 文档更新（README CLI 章节 + packages/cli/README.md + LICENSE）✅
+- [x] **CI/Publish 修复**：core 编译顺序、`build:core` 脚本、publish.yml checkout SHA 固定 ✅
+- [x] **Dependabot 安全修复**：qs@6.15.2、uuid@14.0.0（pnpm overrides）✅
 - [ ] release-please monorepo manifest 模式评估
+- [ ] PR #52 合并入 master
 
 ### 4.2 性能基准与监控体系
 
@@ -252,9 +262,9 @@
 
 - [x] 核心逻辑从 VS Code 解耦（Phase 5A — packages/core 零 vscode 依赖）
 - [x] 独立 CLI 工具发布（Phase 5C — npm 包 thrift-support）
+- [x] VS Code 扩展迁移到 packages/vscode（Phase 5B）
 - [ ] 语言服务层抽象与接口定义
 - [ ] 规划 LSP 迁移路径与兼容策略
-- [ ] 完成 VS Code 扩展迁移到 packages/vscode（Phase 5B）
 
 ### 5.2 高级功能扩展
 
@@ -323,7 +333,8 @@
 
 | 版本 | 日期 | 主要更新 |
 |------|------|----------|
-| 2.4.0 | 2026-05-19 | **Monorepo + CLI 工具（Phase 5 A/C/E）+ CodeQL 安全修复**<br>- ✅ `packages/core/`: 核心逻辑零 vscode 依赖（AST、formatter、diagnostics、utils）<br>- ✅ `packages/cli/`: 独立 CLI 工具 `thrift-support`（format/lint/parse/symbols），333KB bundle<br>- ✅ CI 新增 CLI dogfood 步骤；publish 新增 npm_publish job<br>- ✅ `scripts/sync-versions.js` 版本同步<br>- ✅ CodeQL ReDoS 修复：parser 正则字符类重叠消除、formatter `trimEnd()`、Uri.parse `indexOf` 替代<br>- ⏳ Phase 5B/D/F 待做（VS Code 迁移、测试迁移、文档） |
+| 2.2.0 | 2026-05-24 | **Phase 5 全量完成 + CI/Publish 修复 + 安全加固**（PR #52，待合并）<br>- ✅ Phase 5B: `packages/vscode/` 迁移（~40 文件 + import 重写），lint scope 修正<br>- ✅ Phase 5D: require-hook 路径映射，13 个 CLI 集成测试，ErrorHandler 测试修复<br>- ✅ Phase 5F: README CLI 章节，packages/cli/README.md，LICENSE<br>- ✅ CI 步骤顺序：`Build core` → `Lint` → `Build`（type-aware ESLint 需 core 类型）<br>- ✅ `build:core` 脚本：`pnpm test` 在干净 checkout 可直接运行<br>- ✅ `publish.yml`：package job checkout 固定 SHA，VSIX 构建前先编 core<br>- ✅ Codex review 全部 resolved（glob .thrift 过滤、AST include 解析、severity 配置、extends 诊断排除、--stdin/--check 冲突等）<br>- ✅ Dependabot 安全修复：CVE-2026-8723（qs@6.15.2）、CVE-2026-41907（uuid@14.0.0）via pnpm overrides<br>- ✅ 999 passing，零 lint 错误 |
+| 2.4.0 | 2026-05-19 | **Monorepo + CLI 工具（Phase 5 A/C/E）+ CodeQL 安全修复**<br>- ✅ `packages/core/`: 核心逻辑零 vscode 依赖（AST、formatter、diagnostics、utils）<br>- ✅ `packages/cli/`: 独立 CLI 工具 `thrift-support`（format/lint/parse/symbols），333KB bundle<br>- ✅ CI 新增 CLI dogfood 步骤；publish 新增 npm_publish job<br>- ✅ `scripts/sync-versions.js` 版本同步<br>- ✅ CodeQL ReDoS 修复：parser 正则字符类重叠消除、formatter `trimEnd()`、Uri.parse `indexOf` 替代 |
 | 2.3.1 | 2026-05-17 | **Formatter 工程化演进（Phase 0–4）+ Quick Fix P0 修复**<br>- ✅ Quick Fix P0：取消令牌逻辑反转、include 路径工作区解析、诊断门控、元数据补全<br>- ✅ Phase 0 测试基础：幂等性穷举(168×9)、AST 往返(40)、注释不丢失(36)、fixture 回归(6)、性能基准入 CI<br>- ✅ Phase 1 正确性加固：safeLine 防崩溃、恶意输入韧性、parseStructFieldText 长度守卫<br>- ✅ Phase 2 注释稳定性：CommentMap 并行结构、lazy 构建集成、edge case 测试<br>- ✅ Phase 3 Printer 抽象：PrintBuffer IR + ConstPrinter 迁移<br>- ✅ Phase 4 大文件性能：CI 性能回归断言(12 tests)、分块格式化(>10000 行)、热路径优化<br>- ✅ 测试从 676 → 999 passing (+48%)，31 文件 +4386 行 |
 | 2.3.0 | 2026-05-15 | **Quick Fix / Code Action P0 修复**<br>- ✅ 取消令牌逻辑反转修复（无 token 时命名空间循环提前 break）<br>- ✅ include 建议接入 `findWorkspaceDefinitions`（真实相对路径替代文件名猜测）<br>- ✅ 灯泡与诊断按 `type.unknown` 联动（`context.diagnostics` 门控 Quick Fix）<br>- ✅ `vscode.Diagnostic` 补 `.code` / `.source='thrift'` 元数据<br>- ✅ 新增/调整 5 个 P0 专项测试，全量 676 passing |
 | 2.1.1 | 2026-05-07 | **语言规范增强与构建优化**<br>- ✅ 完整支持 `interaction`、`stream`、`sink`、`performs` 关键字（AST + 所有 provider）<br>- ✅ esbuild 打包减小扩展体积<br>- ✅ CI 支持 Node.js 22 + 24 双运行时矩阵<br>- ✅ AST 解析器统一（optimized-parser → 标准 parser）<br>- ✅ 清理废弃 `slist` 类型，关键字与 Thrift 规范对齐<br>- ✅ 删除遗留文件和死代码<br>- ✅ 内存监控轮询间隔优化（30s → 120s）<br>- ✅ 新增 84 个低覆盖率模块测试 + 其他测试，从 309 → 424 通过<br>- ✅ 格式化修复：逗号/分号位置、service 大括号缩进、enum 空等号 |
