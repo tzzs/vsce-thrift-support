@@ -44,6 +44,16 @@
 - **数据收集（sink）**：支持实验性的数据收集语法
 - **交互模式（interaction）**：支持实验性的交互模式语法
 
+## ⚡ 性能表现
+
+- **增量解析**：编辑时只重新解析受影响的代码块，缓存命中时响应 <5ms
+- **智能缓存**：LRU-K 多级缓存 + 内存压力自动驱逐，覆盖 AST、诊断、定义、符号等各类查询
+- **并发分析**：最多同时分析 3 个文件（较早期版本提升 3×），配合防抖/节流避免 UI 卡顿
+- **大文件支持**：>10000 行文件按顶层块边界分块格式化，避免 O(n²) 对齐扫描
+- **CI 性能门禁**：内置基准测试，1000 行文件解析 <500ms、格式化 <500ms，超阈值自动失败
+
+详见 [PERFORMANCE.md](PERFORMANCE.md) 了解调优建议与 CI 集成方式。
+
 ## 📖 高级特性文档
 
 查看[高级特性文档](docs/advanced-features.md)了解流式传输、交互模式等实验性语法的使用方法。
@@ -226,7 +236,9 @@ struct User {
 
 ## 🐛 问题反馈
 
-如果您遇到任何问题或有功能建议，请通过以下方式反馈：
+遇到问题？先查看 [TROUBLESHOOTING.md](TROUBLESHOOTING.md) 中的常见解决方案。
+
+如果仍未解决，请通过以下方式反馈：
 
 1. **GitHub Issues**：在 [项目仓库](https://github.com/tzzs/vsce-thrift-support) 中创建 Issue
 2. **描述问题**：请详细描述遇到的问题，包括：
@@ -269,6 +281,15 @@ struct User {
 
 - 本地：[CHANGELOG.md](CHANGELOG.md)
 - GitHub：https://github.com/tzzs/vsce-thrift-support/blob/master/CHANGELOG.md
+
+## 📚 开发者文档
+
+| 文档 | 说明 |
+|------|------|
+| [DEVELOPMENT.md](DEVELOPMENT.md) | 开发环境搭建、构建、测试、发布流程 |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | 缓存系统、增量解析/格式化、并发控制详解 |
+| [PERFORMANCE.md](PERFORMANCE.md) | 性能调优、CI 集成、内存管理建议 |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | 常见问题排查指南 |
 
 ## 🔗 相关链接
 

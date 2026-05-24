@@ -42,6 +42,16 @@ formatting, and navigation.
 - Extract type (typedef): infer type from selection or current field and generate a `typedef`
 - Move type to file: move `struct/enum/service/typedef` into a new `.thrift` file and auto-insert an `include`
 
+## ⚡ Performance
+
+- **Incremental parsing**: only re-parses affected blocks on edit; cache hits respond in <5ms
+- **Smart caching**: LRU-K multi-tier cache with memory-pressure eviction, covering AST, diagnostics, definitions, symbols, and more
+- **Concurrent analysis**: up to 3 files analysed simultaneously (3× improvement over earlier versions), with debounce/throttle to prevent UI jank
+- **Large-file support**: files >10 000 lines are split at top-level block boundaries for formatting, avoiding O(n²) alignment scans
+- **CI performance gate**: built-in benchmarks enforce <500ms parse and <500ms format for 1000-line files; failures block CI
+
+See [PERFORMANCE.md](PERFORMANCE.md) for tuning tips and CI integration details.
+
 ## 🖥️ CLI Tool
 
 In addition to the VS Code extension, a standalone npm CLI tool `thrift-support` is available for use in CI/CD pipelines or the command line.
@@ -171,7 +181,9 @@ Note: Diagnostics update in real-time during editing and on save. You can review
 
 ## 🐛 Issues
 
-If you encounter issues or have feature requests:
+Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for common solutions first.
+
+If the problem persists:
 
 1. Create an issue in the GitHub repository
 2. Include details: VSCode version, extension version, steps to reproduce, expected vs. actual behavior
@@ -205,6 +217,15 @@ MIT License.
 ## 🔄 Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) locally or the GitHub Releases page for the complete history.
+
+## 📚 Developer Docs
+
+| Document | Description |
+|----------|-------------|
+| [DEVELOPMENT.md](DEVELOPMENT.md) | Environment setup, build, test, and release workflow |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Cache system, incremental parse/format, concurrency details |
+| [PERFORMANCE.md](PERFORMANCE.md) | Tuning tips, CI integration, memory management |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and solutions |
 
 ## 🔗 Links
 
