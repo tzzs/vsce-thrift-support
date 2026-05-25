@@ -86,7 +86,7 @@ importers:
     devDependencies:
       typescript:
         specifier: ^5.6.0
-        version: 5.9.3
+        version: 5.6.3
 
   packages/vscode:
     dependencies:
@@ -95,8 +95,8 @@ importers:
         version: link:../core
     devDependencies:
       '@types/node':
-        specifier: ^16.0.0
-        version: 16.18.126
+        specifier: ^22.0.0
+        version: 22.15.3
       '@types/vscode':
         specifier: ^1.75.0
         version: 1.75.0

@@ -6,8 +6,8 @@
         "@tanzz/thrift-core": "workspace:*"
     },
     "devDependencies": {
-        "typescript": "^4.9.5",
+        "typescript": "^5.6.0",
         "@types/vscode": "^1.75.0",
-        "@types/node": "^16.0.0"
+        "@types/node": "^22.0.0"
     }
 }
