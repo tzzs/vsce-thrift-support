@@ -24,7 +24,7 @@ bump-major:
 clean:
 	rm -f $(EXT_NAME)-*.vsix
 
-install: bump
+install: package
 	@VSIX=$$(ls -t $(EXT_NAME)-*.vsix 2>/dev/null | head -1); \
 	if [ -z "$$VSIX" ]; then \
 		echo "Error: no .vsix file found. Run 'make package' first."; \
