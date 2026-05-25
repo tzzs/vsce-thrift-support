@@ -11,6 +11,13 @@ const sharedRules = {
       selector: 'variableLike',
       format: ['camelCase', 'PascalCase', 'UPPER_CASE'],
     },
+    {
+      // Allow `_` prefix for unused parameters
+      selector: 'parameter',
+      format: ['camelCase', 'PascalCase'],
+      leadingUnderscore: 'allow',
+      filter: { regex: '^_', match: true },
+    },
   ],
   eqeqeq: ['error', 'always'],
   curly: 'warn',

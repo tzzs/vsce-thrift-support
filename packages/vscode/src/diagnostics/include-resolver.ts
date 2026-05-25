@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import {nodes} from '@tanzz/thrift-core';
 import {ThriftParser} from '@tanzz/thrift-core';
 import {config} from '@tanzz/thrift-core';
-import {ErrorHandler} from '@tanzz/thrift-core';
+import {ErrorHandler, safeResolveIncludePath} from '@tanzz/thrift-core';
 
 const includeTypesCache = new Map<string, Map<string, string>>();
 const includeFileTimestamps = new Map<string, number>();
@@ -74,6 +74,7 @@ function parseTypesFromContent(content: string, uri: string): Map<string, string
 export function getIncludedFiles(document: vscode.TextDocument): vscode.Uri[] {
     const includedFiles: vscode.Uri[] = [];
     const documentDir = path.dirname(document.uri.fsPath);
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? documentDir;
     const ast = ThriftParser.parseWithCacheByVersion(document.uri.fsPath, document.getText(), document.version);
     const handler = ErrorHandler.getInstance();
 
@@ -81,14 +82,9 @@ export function getIncludedFiles(document: vscode.TextDocument): vscode.Uri[] {
         if (node.type !== nodes.ThriftNodeType.Include) {
             continue;
         }
-        const includePath = (node ).path;
-        let fullPath: string;
-
-        if (path.isAbsolute(includePath)) {
-            fullPath = includePath;
-        } else {
-            fullPath = path.resolve(documentDir, includePath);
-        }
+        const includePath = node.path;
+        const fullPath = safeResolveIncludePath(includePath, documentDir, workspaceRoot);
+        if (fullPath === undefined) { continue; }
 
         const uri = handler.safe(() => vscode.Uri.file(fullPath), null);
         if (uri) {

@@ -18,7 +18,7 @@ export const CACHE_CONFIGS: Record<string, CacheConfig> = {
         ttl: config.cache.astMaxAgeMs,
         lruK: 2, // 考虑最近 2 次访问
         evictionThreshold: 0.8, // 使用率达到 80% 时开始驱逐
-        priorityFn: (key, value) => {
+        priorityFn: (_key, value) => {
             // 优先保留大文件的 AST（假设访问频率更高）
             const astSize = (value as {content?: string}).content?.length ?? 0;
             return astSize;
@@ -31,7 +31,7 @@ export const CACHE_CONFIGS: Record<string, CacheConfig> = {
         ttl: config.cache.astMaxAgeMs,
         lruK: 2,
         evictionThreshold: 0.7, // 更激进的驱逐策略
-        priorityFn: (key, value) => {
+        priorityFn: (_key, value) => {
             // 优先保留大区域的 AST
             const regionSize = Array.isArray(value) ? value.length : 0;
             return regionSize;

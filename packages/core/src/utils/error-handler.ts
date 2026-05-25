@@ -48,12 +48,12 @@ export class ErrorHandler {
         console.error(`[${context.component}:${context.operation}] ${errorMessage}`);
     }
 
-    handleWarning(message: string, context: ErrorContext): void {
+    handleWarning(_message: string, context: ErrorContext): void {
         this.errorStats.warnings++;
         this.incrementCounter(this.errorStats.byComponent, context.component);
     }
 
-    handleInfo(message: string, context: ErrorContext): void {
+    handleInfo(_message: string, context: ErrorContext): void {
         this.errorStats.infos++;
         this.incrementCounter(this.errorStats.byComponent, context.component);
     }

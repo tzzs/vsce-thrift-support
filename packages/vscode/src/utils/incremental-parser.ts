@@ -128,39 +128,6 @@ export class IncrementalParserManager {
         return {result, wasIncremental, improvement};
     }
 
-    /**
-     * Synchronous version of full parse for performance comparison
-     */
-    private parseFullSync(document: vscode.TextDocument): IncrementalParseResult {
-        const ast = ThriftParser.parseWithCacheByVersion(document.uri.fsPath, document.getText(), document.version);
-
-        return {
-            ast,
-            affectedNodes: [], // For full parse, we consider all nodes as potentially affected
-            newNodes: ast.body  // All nodes are effectively "new" in a full parse context
-        };
-    }
-
-    /**
-     * Synchronous version of incremental parse for performance comparison
-     */
-    private parseIncrementallySync(document: vscode.TextDocument, dirtyRange?: LineRange): IncrementalParseResult {
-        // If no dirty range, fallback to full parsing
-        if (!dirtyRange) {
-            return this.parseFullSync(document);
-        }
-
-        // Use the static incremental parse method from ThriftParser
-        const result = ThriftParser.incrementalParseWithCache(document.uri.fsPath, document.getText(), dirtyRange);
-
-        if (result) {
-            // Successfully performed incremental parsing
-            return result;
-        } else {
-            // Fallback to full parsing if incremental parsing isn't available
-            return this.parseFullSync(document);
-        }
-    }
 }
 
 /**

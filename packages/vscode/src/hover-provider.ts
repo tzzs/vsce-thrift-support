@@ -5,7 +5,7 @@ import {CacheManager} from '@tanzz/thrift-core';
 import {readThriftFile} from './utils/file-reader';
 import {ThriftParser} from '@tanzz/thrift-core';
 import {collectIncludes} from '@tanzz/thrift-core';
-import {ErrorHandler} from '@tanzz/thrift-core';
+import {ErrorHandler, safeResolveIncludePath} from '@tanzz/thrift-core';
 import {config} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
 import {createLocation} from './utils/vscode-utils';
@@ -164,14 +164,11 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
         const includedFiles: vscode.Uri[] = [];
         const documentDir = path.dirname(document.uri.fsPath);
 
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? documentDir;
         for (const includeNode of collectIncludes(ast)) {
             const includePath = includeNode.path;
-            let fullPath: string;
-            if (path.isAbsolute(includePath)) {
-                fullPath = includePath;
-            } else {
-                fullPath = path.resolve(documentDir, includePath);
-            }
+            const fullPath = safeResolveIncludePath(includePath, documentDir, workspaceRoot);
+            if (fullPath === undefined) { continue; }
             const uri = this.errorHandler.safe(() => vscode.Uri.file(fullPath), undefined);
             if (uri) {
                 includedFiles.push(uri);

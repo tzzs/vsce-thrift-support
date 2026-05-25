@@ -52,7 +52,6 @@ export class MemoryAwareCacheManager {
     private memoryPressureLevel: 'normal' | 'medium' | 'high' = 'normal';
     private lastMemoryCheck = 0;
     private memoryCheckInterval = 30000; // 30秒检查一次
-    private gcThreshold = 0.8; // GC触发阈值
     private dynamicAdjustmentFactor = 1.0; // 动态调整因子
 
     /**

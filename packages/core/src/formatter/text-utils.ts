@@ -3,6 +3,8 @@
  * @param content - Inline body text to split.
  * @returns Top-level parts with surrounding whitespace trimmed.
  */
+import {QuoteTracker} from '../utils/quote-tracker';
+
 export function splitTopLevelParts(content: string): string[] {
     const parts: string[] = [];
     let buf = '';
@@ -10,80 +12,47 @@ export function splitTopLevelParts(content: string): string[] {
     let depthParen = 0;
     let depthBrace = 0;
     let depthBracket = 0;
-    let inS = false;
-    let inD = false;
-    let escaped = false;
+    const qt = new QuoteTracker();
 
     for (let i = 0; i < content.length; i++) {
         const ch = content[i];
         const next = i + 1 < content.length ? content[i + 1] : '';
 
-        if (escaped) {
-            buf += ch;
-            escaped = false;
-            continue;
-        }
-        if (inS) {
-            if (ch === '\\') {
-                escaped = true;
-            } else if (ch === '\'') {
-                inS = false;
+        if (!qt.inside()) {
+            if (ch === '<') {
+                depthAngle++;
+            } else if (ch === '>') {
+                depthAngle = Math.max(0, depthAngle - 1);
+            } else if (ch === '(') {
+                depthParen++;
+            } else if (ch === ')') {
+                depthParen = Math.max(0, depthParen - 1);
+            } else if (ch === '{') {
+                depthBrace++;
+            } else if (ch === '}') {
+                depthBrace = Math.max(0, depthBrace - 1);
+            } else if (ch === '[') {
+                depthBracket++;
+            } else if (ch === ']') {
+                depthBracket = Math.max(0, depthBracket - 1);
             }
-            buf += ch;
-            continue;
-        }
-        if (inD) {
-            if (ch === '\\') {
-                escaped = true;
-            } else if (ch === '"') {
-                inD = false;
-            }
-            buf += ch;
-            continue;
-        }
 
-        if (ch === '\'') {
-            inS = true;
-            buf += ch;
-            continue;
-        }
-        if (ch === '"') {
-            inD = true;
-            buf += ch;
-            continue;
-        }
-
-        if (ch === '<') {
-            depthAngle++;
-        } else if (ch === '>') {
-            depthAngle = Math.max(0, depthAngle - 1);
-        } else if (ch === '(') {
-            depthParen++;
-        } else if (ch === ')') {
-            depthParen = Math.max(0, depthParen - 1);
-        } else if (ch === '{') {
-            depthBrace++;
-        } else if (ch === '}') {
-            depthBrace = Math.max(0, depthBrace - 1);
-        } else if (ch === '[') {
-            depthBracket++;
-        } else if (ch === ']') {
-            depthBracket = Math.max(0, depthBracket - 1);
-        }
-
-        const atTop = depthAngle === 0 && depthParen === 0 && depthBrace === 0 && depthBracket === 0;
-        if (atTop && (ch === ';' || ch === ',')) {
-            if (buf.trim()) {
-                parts.push(buf.trim());
-            }
-            buf = '';
-            if (next === ' ' || next === '\t') {
+            const atTop = depthAngle === 0 && depthParen === 0 && depthBrace === 0 && depthBracket === 0;
+            if (atTop && (ch === ';' || ch === ',')) {
+                if (buf.trim()) {
+                    parts.push(buf.trim());
+                }
+                buf = '';
+                qt.feed(ch);
+                if (next === ' ' || next === '\t') {
+                    continue;
+                }
                 continue;
             }
-            continue;
         }
 
         buf += ch;
+        qt.feed(ch);
     }
 
     if (buf.trim()) {
@@ -110,45 +79,20 @@ export function normalizeGenericsInSignature(text: string): string {
     }
     const res: string[] = [];
     let depthAngle = 0;
-    let inS = false;
-    let inD = false;
+    const qt = new QuoteTracker();
     const n = code.length;
     for (let i = 0; i < n; i++) {
         const ch = code[i];
 
-        if (inD) {
-            if (ch === '\\' && i + 1 < n) {
-                res.push(ch);
-                res.push(code[++i]);
-                continue;
-            }
+        if (qt.inside()) {
             res.push(ch);
-            if (ch === '"') {
-                inD = false;
-            }
-            continue;
-        }
-        if (inS) {
-            if (ch === '\\' && i + 1 < n) {
-                res.push(ch);
-                res.push(code[++i]);
-                continue;
-            }
-            res.push(ch);
-            if (ch === '\'') {
-                inS = false;
-            }
+            qt.feed(ch);
             continue;
         }
 
-        if (ch === '"') {
-            inD = true;
+        if (ch === '"' || ch === '\'') {
             res.push(ch);
-            continue;
-        }
-        if (ch === '\'') {
-            inS = true;
-            res.push(ch);
+            qt.feed(ch);
             continue;
         }
         if (ch === '<') {

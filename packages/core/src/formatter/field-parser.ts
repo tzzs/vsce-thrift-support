@@ -1,5 +1,6 @@
 import {ConstField, EnumField, StructField} from '../interfaces.types';
 import * as nodes from '../ast/nodes.types';
+import {QuoteTracker} from '../utils/quote-tracker';
 
 /**
  * 拆分行内注释。
@@ -7,48 +8,19 @@ import * as nodes from '../ast/nodes.types';
  * @returns 代码与注释
  */
 export function splitLineComment(line: string): {code: string; comment: string} {
-    let inS = false;
-    let inD = false;
-    let escaped = false;
+    const qt = new QuoteTracker();
     for (let i = 0; i < line.length; i++) {
         const ch = line[i];
         const next = i + 1 < line.length ? line[i + 1] : '';
-        if (inS) {
-            if (!escaped && ch === '\\') {
-                escaped = true;
-                continue;
+        if (!qt.inside()) {
+            if (ch === '/' && next === '/') {
+                return {code: line.slice(0, i), comment: line.slice(i).trim()};
             }
-            if (!escaped && ch === '\'') {
-                inS = false;
+            if (ch === '#') {
+                return {code: line.slice(0, i), comment: line.slice(i).trim()};
             }
-            escaped = false;
-            continue;
         }
-        if (inD) {
-            if (!escaped && ch === '\\') {
-                escaped = true;
-                continue;
-            }
-            if (!escaped && ch === '"') {
-                inD = false;
-            }
-            escaped = false;
-            continue;
-        }
-        if (ch === '\'') {
-            inS = true;
-            continue;
-        }
-        if (ch === '"') {
-            inD = true;
-            continue;
-        }
-        if (ch === '/' && next === '/') {
-            return {code: line.slice(0, i), comment: line.slice(i).trim()};
-        }
-        if (ch === '#') {
-            return {code: line.slice(0, i), comment: line.slice(i).trim()};
-        }
+        qt.feed(ch);
     }
     return {code: line, comment: ''};
 }
@@ -63,54 +35,26 @@ export function splitTrailingAnnotation(source: string): {base: string; annotati
     if (!trimmed.endsWith(')')) {
         return {base: source.trim(), annotation: ''};
     }
-    let inS = false;
-    let inD = false;
-    let escaped = false;
+    const qt = new QuoteTracker();
     const stack: number[] = [];
     let lastPair: {start: number; end: number} | null = null;
 
     for (let i = 0; i < trimmed.length; i++) {
         const ch = trimmed[i];
-        if (inS) {
-            if (!escaped && ch === '\\') {
-                escaped = true;
+        if (!qt.inside()) {
+            if (ch === '(') {
+                stack.push(i);
                 continue;
             }
-            if (!escaped && ch === '\'') {
-                inS = false;
-            }
-            escaped = false;
-            continue;
-        }
-        if (inD) {
-            if (!escaped && ch === '\\') {
-                escaped = true;
+            if (ch === ')' && stack.length > 0) {
+                const start = stack.pop() as number;
+                if (stack.length === 0) {
+                    lastPair = {start, end: i};
+                }
                 continue;
             }
-            if (!escaped && ch === '"') {
-                inD = false;
-            }
-            escaped = false;
-            continue;
         }
-        if (ch === '\'') {
-            inS = true;
-            continue;
-        }
-        if (ch === '"') {
-            inD = true;
-            continue;
-        }
-        if (ch === '(') {
-            stack.push(i);
-            continue;
-        }
-        if (ch === ')' && stack.length > 0) {
-            const start = stack.pop() as number;
-            if (stack.length === 0) {
-                lastPair = {start, end: i};
-            }
-        }
+        qt.feed(ch);
     }
 
     if (!lastPair) {

@@ -1,3 +1,5 @@
+import {QuoteTracker} from '../../utils/quote-tracker';
+
 const PRIMITIVES = new Set<string>([
     'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64', 'double', 'string', 'binary', 'uuid'
 ]);
@@ -92,65 +94,29 @@ function splitTopLevelAngles(typeInner: string): string[] {
  */
 function stripTypeAnnotations(typeText: string): string {
     let out = '';
-    let inSingle = false;
-    let inDouble = false;
-    let escaped = false;
     let parenDepth = 0;
+    const qt = new QuoteTracker();
 
     for (let i = 0; i < typeText.length; i++) {
         const ch = typeText[i];
 
         if (parenDepth > 0) {
-            if (!escaped && ch === '\\') {
-                escaped = true;
-                continue;
+            qt.feed(ch);
+            if (!qt.inside() && ch === ')') {
+                parenDepth--;
             }
-            if (!escaped) {
-                if (ch === '"' && !inSingle) {
-                    inDouble = !inDouble;
-                    continue;
-                }
-                if (ch === '\'' && !inDouble) {
-                    inSingle = !inSingle;
-                    continue;
-                }
-            } else {
-                escaped = false;
-                continue;
-            }
+            continue;
         }
 
-        if (!inSingle && !inDouble) {
+        if (!qt.inside()) {
             if (ch === '(') {
                 parenDepth++;
                 continue;
             }
-            if (ch === ')') {
-                if (parenDepth > 0) {
-                    parenDepth--;
-                    continue;
-                }
-            }
         }
 
-        if (parenDepth === 0) {
-            if (!escaped && ch === '\\') {
-                escaped = true;
-                out += ch;
-                continue;
-            }
-            if (!escaped) {
-                if (ch === '"' && !inSingle) {
-                    inDouble = !inDouble;
-                } else if (ch === '\'' && !inDouble) {
-                    inSingle = !inSingle;
-                }
-                out += ch;
-            } else {
-                out += ch;
-                escaped = false;
-            }
-        }
+        out += ch;
+        qt.feed(ch);
     }
 
     return out.trim();
@@ -252,60 +218,33 @@ function isQuotedString(text: string): boolean {
  */
 export function extractDefaultValue(codeLine: string): string | null {
     let depthAngle = 0, depthBracket = 0, depthBrace = 0, depthParen = 0;
-    let inS = false, inD = false, escaped = false;
+    const qt = new QuoteTracker();
     let eq = -1;
     for (let i = 0; i < codeLine.length; i++) {
         const ch = codeLine[i];
-        if (inS) {
-            if (!escaped && ch === '\\') {
-                escaped = true;
-                continue;
+        if (!qt.inside()) {
+            if (ch === '<') {
+                depthAngle++;
+            } else if (ch === '>') {
+                depthAngle = Math.max(0, depthAngle - 1);
+            } else if (ch === '[') {
+                depthBracket++;
+            } else if (ch === ']') {
+                depthBracket = Math.max(0, depthBracket - 1);
+            } else if (ch === '{') {
+                depthBrace++;
+            } else if (ch === '}') {
+                depthBrace = Math.max(0, depthBrace - 1);
+            } else if (ch === '(') {
+                depthParen++;
+            } else if (ch === ')') {
+                depthParen = Math.max(0, depthParen - 1);
+            } else if (ch === '=' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
+                eq = i;
+                break;
             }
-            if (!escaped && ch === '\'') {
-                inS = false;
-            }
-            escaped = false;
-            continue;
         }
-        if (inD) {
-            if (!escaped && ch === '\\') {
-                escaped = true;
-                continue;
-            }
-            if (!escaped && ch === '"') {
-                inD = false;
-            }
-            escaped = false;
-            continue;
-        }
-        if (ch === '\'') {
-            inS = true;
-            continue;
-        }
-        if (ch === '"') {
-            inD = true;
-            continue;
-        }
-        if (ch === '<') {
-            depthAngle++;
-        } else if (ch === '>') {
-            depthAngle = Math.max(0, depthAngle - 1);
-        } else if (ch === '[') {
-            depthBracket++;
-        } else if (ch === ']') {
-            depthBracket = Math.max(0, depthBracket - 1);
-        } else if (ch === '{') {
-            depthBrace++;
-        } else if (ch === '}') {
-            depthBrace = Math.max(0, depthBrace - 1);
-        } else if (ch === '(') {
-            depthParen++;
-        } else if (ch === ')') {
-            depthParen = Math.max(0, depthParen - 1);
-        } else if (ch === '=' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
-            eq = i;
-            break;
-        }
+        qt.feed(ch);
     }
     if (eq === -1) {
         return null;
@@ -313,78 +252,39 @@ export function extractDefaultValue(codeLine: string): string | null {
 
     let i = eq + 1;
     depthAngle = depthBracket = depthBrace = depthParen = 0;
-    inS = inD = false;
-    escaped = false;
+    qt.reset();
     let buf = '';
     const n = codeLine.length;
     while (i < n) {
         const ch = codeLine[i];
-        if (inS) {
-            buf += ch;
-            if (!escaped && ch === '\\') {
-                escaped = true;
-                i++;
-                continue;
+        if (!qt.inside()) {
+            if (ch === '<') {
+                depthAngle++;
+            } else if (ch === '>') {
+                depthAngle = Math.max(0, depthAngle - 1);
+            } else if (ch === '[') {
+                depthBracket++;
+            } else if (ch === ']') {
+                depthBracket = Math.max(0, depthBracket - 1);
+            } else if (ch === '{') {
+                depthBrace++;
+            } else if (ch === '}') {
+                depthBrace = Math.max(0, depthBrace - 1);
+            } else if (ch === '(' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
+                break;
+            } else if (ch === '(') {
+                depthParen++;
+            } else if (ch === ')') {
+                depthParen = Math.max(0, depthParen - 1);
             }
-            if (!escaped && ch === '\'') {
-                inS = false;
-            }
-            escaped = false;
-            i++;
-            continue;
-        }
-        if (inD) {
-            buf += ch;
-            if (!escaped && ch === '\\') {
-                escaped = true;
-                i++;
-                continue;
-            }
-            if (!escaped && ch === '"') {
-                inD = false;
-            }
-            escaped = false;
-            i++;
-            continue;
-        }
-        if (ch === '\'') {
-            inS = true;
-            buf += ch;
-            i++;
-            continue;
-        }
-        if (ch === '"') {
-            inD = true;
-            buf += ch;
-            i++;
-            continue;
-        }
 
-        if (ch === '<') {
-            depthAngle++;
-        } else if (ch === '>') {
-            depthAngle = Math.max(0, depthAngle - 1);
-        } else if (ch === '[') {
-            depthBracket++;
-        } else if (ch === ']') {
-            depthBracket = Math.max(0, depthBracket - 1);
-        } else if (ch === '{') {
-            depthBrace++;
-        } else if (ch === '}') {
-            depthBrace = Math.max(0, depthBrace - 1);
-        } else if (ch === '(' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
-            break;
-        } else if (ch === '(') {
-            depthParen++;
-        } else if (ch === ')') {
-            depthParen = Math.max(0, depthParen - 1);
-        }
-
-        if ((ch === ',' || ch === ';') && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
-            break;
+            if ((ch === ',' || ch === ';') && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
+                break;
+            }
         }
 
         buf += ch;
+        qt.feed(ch);
         i++;
     }
     return buf.trim();

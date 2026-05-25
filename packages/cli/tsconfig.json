@@ -1,8 +1,8 @@
 {
     "compilerOptions": {
-        "target": "ES2020",
-        "module": "CommonJS",
-        "moduleResolution": "node",
+        "target": "ES2022",
+        "module": "Node16",
+        "moduleResolution": "node16",
         "outDir": "out",
         "rootDir": "src",
         "declaration": false,
@@ -11,7 +11,11 @@
         "sourceMap": true,
         "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
-        "lib": ["ES2020"],
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitOverride": true,
+        "lib": ["ES2022"],
         "types": ["node"]
     },
     "include": ["src/**/*.ts"],

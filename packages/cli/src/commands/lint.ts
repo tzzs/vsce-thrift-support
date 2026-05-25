@@ -3,7 +3,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import {ThriftParser, analyzeThriftAst, collectTypesFromAst, collectIncludes, DiagnosticSeverity} from '@tanzz/thrift-core';
+import {ThriftParser, analyzeThriftAst, collectTypesFromAst, collectIncludes, DiagnosticSeverity, safeResolveIncludePath} from '@tanzz/thrift-core';
 import type {ThriftIssue} from '@tanzz/thrift-core';
 import type {ParsedArgs} from '../args';
 import type {ThriftCliConfig} from '../config';
@@ -83,7 +83,8 @@ function resolveIncludeTypes(
         const alias = path.basename(includeName, '.thrift');
 
         for (const dir of searchDirs) {
-            const resolvedPath = path.resolve(dir, includeName);
+            const resolvedPath = safeResolveIncludePath(includeName, dir, dir);
+            if (resolvedPath === undefined) { continue; }
             if (fs.existsSync(resolvedPath)) {
                 try {
                     const includeContent = fs.readFileSync(resolvedPath, 'utf-8');

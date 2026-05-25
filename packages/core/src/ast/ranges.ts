@@ -146,7 +146,7 @@ export function findThrowsStartInRange(
  */
 export function buildConstValueRange(
     lines: string[],
-    startLine: number,
+    _startLine: number,
     endLine: number,
     eqLine: number,
     eqChar: number

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import {ErrorHandler} from '@tanzz/thrift-core';
+import {ErrorHandler, safeResolveIncludePath} from '@tanzz/thrift-core';
 import {createLocation} from '../utils/vscode-utils';
 
 const decoder = new TextDecoder('utf-8');
@@ -148,18 +148,20 @@ export async function findIncludeForNamespace(
 
 export async function resolveModulePath(includePath: string, documentDir: string): Promise<string | undefined> {
     const candidates: string[] = [];
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? documentDir;
     if (path.isAbsolute(includePath)) {
-        candidates.push(path.normalize(includePath));
-    } else if (includePath.startsWith('./') || includePath.startsWith('../')) {
-        candidates.push(path.resolve(documentDir, includePath));
+        const safe = safeResolveIncludePath(includePath, workspaceRoot, workspaceRoot);
+        if (safe !== undefined) { candidates.push(safe); }
     } else {
-        candidates.push(path.resolve(documentDir, includePath));
+        const safe = safeResolveIncludePath(includePath, documentDir, workspaceRoot);
+        if (safe !== undefined) { candidates.push(safe); }
     }
 
-    const workspaceDir = path.resolve(documentDir, '..');
     const baseName = path.basename(includePath);
-    candidates.push(path.resolve(workspaceDir, includePath));
-    candidates.push(path.resolve(workspaceDir, 'test-files', baseName));
+    const safe = safeResolveIncludePath(includePath, workspaceRoot, workspaceRoot);
+    if (safe !== undefined) { candidates.push(safe); }
+    const testSafe = safeResolveIncludePath(baseName, path.join(workspaceRoot, 'test-files'), workspaceRoot);
+    if (testSafe !== undefined) { candidates.push(testSafe); }
 
     for (const candidate of candidates) {
         try {

@@ -10,6 +10,7 @@ import {
     setCachedAstRange
 } from './cache';
 import {createLineRange, LineRange} from '../utils/line-range';
+import {QuoteTracker} from '../utils/quote-tracker';
 import {createField, createDocument, createStructBlock, createEnumBlock, createServiceBlock, createInteractionBlock} from './factory';
 import {isExpired, isFresh} from '../utils/cache-expiry';
 import {
@@ -431,9 +432,16 @@ export class ThriftParser {
         return structNode;
     }
 
-    private parseStructBody(parent: nodes.Struct): number {
+    /**
+     * 通用的大括号包裹块解析器。
+     * Phase 1: 定位开括号 `{`
+     * Phase 2: 逐行扫描，调用 bodyParser 解析内容，直到 braceCount 归零。
+     */
+    private parseBracedBlock(
+        bodyParser: (line: string, scan: {stripped: string; tokens: Token[]}) => void
+    ): number {
         let braceCount = 0;
-        // Find opening brace
+        // Phase 1: Find opening brace
         while (this.currentLine < this.lines.length) {
             const line = this.lines[this.currentLine];
             const scan = this.scanLine(line);
@@ -450,7 +458,7 @@ export class ThriftParser {
             return this.currentLine;
         }
 
-        // Parse fields until closing brace
+        // Phase 2: Parse body until closing brace
         while (this.currentLine < this.lines.length && braceCount > 0) {
             const line = this.lines[this.currentLine];
             const scan = this.scanLine(line);
@@ -464,16 +472,21 @@ export class ThriftParser {
                 }
             }
 
+            bodyParser(line, scan);
+            this.currentLine++;
+        }
+
+        return this.currentLine;
+    }
+
+    private parseStructBody(parent: nodes.Struct): number {
+        return this.parseBracedBlock((line, scan) => {
             const field = this.parseStructFieldLine(parent, line, scan.stripped, scan.tokens);
             if (field) {
                 parent.fields.push(field);
                 this.addChild(parent, field);
             }
-
-            this.currentLine++;
-        }
-
-        return this.currentLine;
+        });
     }
 
     private parseStructFieldLine(parent: nodes.Struct, line: string, cleanLine: string, tokens: Token[]): nodes.Field | null {
@@ -611,49 +624,13 @@ export class ThriftParser {
     }
 
     private parseEnumBody(parent: nodes.Enum): number {
-        let braceCount = 0;
-        // Find opening brace — mirror parseStructBody: use countBraces so that
-        // a single-line enum `enum E { A = 0 }` closes correctly on the same line.
-        while (this.currentLine < this.lines.length) {
-            const line = this.lines[this.currentLine];
-            const scan = this.scanLine(line);
-            const braceStats = this.countBraces(scan.tokens);
-            if (braceStats.open > 0) {
-                braceCount += braceStats.open - braceStats.close;
-                break;
-            }
-            this.currentLine++;
-        }
-
-        this.currentLine++; // Move past opening brace line
-        if (braceCount <= 0) {
-            return this.currentLine;
-        }
-
-        // Parse members until closing brace
-        while (this.currentLine < this.lines.length && braceCount > 0) {
-            const line = this.lines[this.currentLine];
-            const scan = this.scanLine(line);
-
-            const braceStats = this.countBraces(scan.tokens);
-            if (braceStats.open > 0 || braceStats.close > 0) {
-                braceCount += braceStats.open - braceStats.close;
-                if (braceCount <= 0) {
-                    this.currentLine++;
-                    break;
-                }
-            }
-
+        return this.parseBracedBlock((line, scan) => {
             const member = this.parseEnumMemberLine(parent, line, scan.stripped, scan.tokens);
             if (member) {
                 parent.members.push(member);
                 this.addChild(parent, member);
             }
-
-            this.currentLine++;
-        }
-
-        return this.currentLine;
+        });
     }
 
     private parseEnumMemberLine(parent: nodes.Enum, line: string, cleanLine: string, tokens: Token[]): nodes.EnumMember | null {
@@ -775,36 +752,7 @@ export class ThriftParser {
     }
 
     private parseInteractionBody(parent: nodes.Interaction): number {
-        let braceCount = 0;
-        while (this.currentLine < this.lines.length) {
-            const line = this.lines[this.currentLine];
-            const scan = this.scanLine(line);
-            const braceStats = this.countBraces(scan.tokens);
-            if (braceStats.open > 0) {
-                braceCount += braceStats.open - braceStats.close;
-                break;
-            }
-            this.currentLine++;
-        }
-
-        this.currentLine++;
-        if (braceCount <= 0) {
-            return this.currentLine;
-        }
-
-        while (this.currentLine < this.lines.length && braceCount > 0) {
-            const line = this.lines[this.currentLine];
-            const scan = this.scanLine(line);
-
-            const braceStats = this.countBraces(scan.tokens);
-            if (braceStats.open > 0 || braceStats.close > 0) {
-                braceCount += braceStats.open - braceStats.close;
-                if (braceCount <= 0) {
-                    this.currentLine++;
-                    break;
-                }
-            }
-
+        return this.parseBracedBlock((line, scan) => {
             const funcParsed = this.parseServiceFunctionLine(line, scan.stripped, scan.tokens);
             if (funcParsed) {
                 const funcNode = this.buildFunctionNode(parent, funcParsed, line);
@@ -813,46 +761,11 @@ export class ThriftParser {
                     this.addChild(parent, funcNode);
                 }
             }
-
-            this.currentLine++;
-        }
-
-        return this.currentLine;
+        });
     }
 
     private parseServiceBody(parent: nodes.Service): number {
-        let braceCount = 0;
-        // Find opening brace
-        while (this.currentLine < this.lines.length) {
-            const line = this.lines[this.currentLine];
-            const scan = this.scanLine(line);
-            const braceStats = this.countBraces(scan.tokens);
-            if (braceStats.open > 0) {
-                braceCount += braceStats.open - braceStats.close;
-                break;
-            }
-            this.currentLine++;
-        }
-
-        this.currentLine++; // Move past opening brace
-        if (braceCount <= 0) {
-            return this.currentLine;
-        }
-
-        // Parse functions until closing brace
-        while (this.currentLine < this.lines.length && braceCount > 0) {
-            const line = this.lines[this.currentLine];
-            const scan = this.scanLine(line);
-
-            const braceStats = this.countBraces(scan.tokens);
-            if (braceStats.open > 0 || braceStats.close > 0) {
-                braceCount += braceStats.open - braceStats.close;
-                if (braceCount <= 0) {
-                    this.currentLine++;
-                    break;
-                }
-            }
-
+        return this.parseBracedBlock((line, scan) => {
             const funcParsed = this.parseServiceFunctionLine(line, scan.stripped, scan.tokens);
             if (funcParsed) {
                 const funcNode = this.buildFunctionNode(parent, funcParsed, line);
@@ -861,18 +774,96 @@ export class ThriftParser {
                     this.addChild(parent, funcNode);
                 }
             } else {
-                // Check for performs declaration
                 const perfNode = this.parsePerforms(parent, line, scan.stripped, scan.tokens);
                 if (perfNode) {
                     (parent.performs ??= []).push(perfNode);
                     this.addChild(parent, perfNode);
                 }
             }
+        });
+    }
 
-            this.currentLine++;
+    /**
+     * Scan a line for throws clause starting at `start`, return the index after the throws block.
+     */
+    private skipThrowsBlock(line: string, start: number): number {
+        if (line.substring(start, start + 6) !== 'throws') {
+            return start;
         }
+        let throwsParenCount = 0;
+        let j = start + 6;
+        for (; j < line.length; j++) {
+            if (line[j] === '(') {
+                throwsParenCount++;
+            } else if (line[j] === ')') {
+                throwsParenCount--;
+                if (throwsParenCount === 0) {
+                    j++;
+                    break;
+                }
+            }
+        }
+        while (j < line.length && /\s/.test(line[j])) {
+            j++;
+        }
+        return j;
+    }
 
-        return this.currentLine;
+    /**
+     * Find function signature end by scanning for the closing paren after args,
+     * then skipping any throws clause and trailing whitespace.
+     */
+    private findFunctionEnd(
+        startLine: number,
+        startChar: number,
+        initialParenCount: number
+    ): {endLine: number; endChar: number} | null {
+        let parenCount = initialParenCount;
+        for (let lineNum = startLine; lineNum < this.lines.length; lineNum++) {
+            const text = this.lines[lineNum];
+            const colStart = lineNum === startLine ? startChar : 0;
+            for (let i = colStart; i < text.length; i++) {
+                if (text[i] === '(') {
+                    parenCount++;
+                } else if (text[i] === ')') {
+                    parenCount--;
+                    if (parenCount === 0) {
+                        const j = this.skipThrowsBlock(text, i + 1);
+                        if (j < text.length && (text[j] === ',' || text[j] === ';' || text[j] === '{')) {
+                            return {endLine: lineNum, endChar: j + 1};
+                        }
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Parse throws clause if present between args end and function end.
+     */
+    private parseFunctionThrows(
+        argsEndLine: number,
+        argsEndChar: number,
+        funcEndLine: number,
+        funcEndChar: number
+    ): {fields: nodes.Field[]; endLine: number; endChar: number} {
+        const throwsFields: nodes.Field[] = [];
+        let resultEndLine = funcEndLine;
+        let resultEndChar = funcEndChar;
+
+        const throwsStart = findThrowsStartInRange(
+            this.lines, argsEndLine, argsEndChar, funcEndLine, funcEndChar
+        );
+        if (throwsStart) {
+            const throwsResult = readParenthesizedText(this.lines, throwsStart.line, throwsStart.char + 1);
+            if (throwsResult) {
+                throwsFields.push(...parseFieldList(throwsResult.text, throwsStart.line, throwsStart.char + 1));
+                resultEndLine = throwsResult.endLine;
+                resultEndChar = throwsResult.endChar;
+            }
+        }
+        return {fields: throwsFields, endLine: resultEndLine, endChar: resultEndChar};
     }
 
     private buildFunctionNode(
@@ -907,129 +898,28 @@ export class ThriftParser {
         let funcEndChar = funcParsed.funcEndChar;
 
         const args: nodes.Field[] = [];
-        const throwsFields: nodes.Field[] = [];
-
         const parenStartPos = line.indexOf('(');
         let argResult: {text: string; endLine: number; endChar: number} | null = null;
         if (parenStartPos !== -1) {
             argResult = readParenthesizedText(this.lines, this.currentLine, parenStartPos + 1);
             if (argResult) {
                 args.push(...parseFieldList(argResult.text, this.currentLine, parenStartPos + 1));
+                funcEndLine = argResult.endLine;
+                funcEndChar = this.lines[argResult.endLine] ? this.lines[argResult.endLine].length : 0;
             }
         }
 
-        let parenCount = 0;
-        let foundEnd = false;
-        if (argResult) {
-            funcEndLine = argResult.endLine;
-            funcEndChar = this.lines[argResult.endLine] ? this.lines[argResult.endLine].length : 0;
+        const end = this.findFunctionEnd(funcStartLine, funcStartChar, 0);
+        if (end) {
+            funcEndLine = end.endLine;
+            funcEndChar = end.endChar;
         }
 
-        for (let i = funcStartChar; i < line.length; i++) {
-            const char = line[i];
-            if (char === '(') {
-                parenCount++;
-            } else if (char === ')') {
-                parenCount--;
-                if (parenCount === 0) {
-                    let j = i + 1;
-                    while (j < line.length && /\s/.test(line[j])) {
-                        j++;
-                    }
-                    if (line.substring(j, j + 6) === 'throws') {
-                        let throwsParenCount = 0;
-                        for (let k = j + 6; k < line.length; k++) {
-                            if (line[k] === '(') {
-                                throwsParenCount++;
-                            } else if (line[k] === ')') {
-                                throwsParenCount--;
-                                if (throwsParenCount === 0) {
-                                    j = k + 1;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    while (j < line.length && /\s/.test(line[j])) {
-                        j++;
-                    }
-                    if (j < line.length && (line[j] === ',' || line[j] === ';' || line[j] === '{')) {
-                        funcEndChar = j + 1;
-                        foundEnd = true;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (!foundEnd) {
-            let searchLine = funcStartLine + 1;
-            while (searchLine < this.lines.length && !foundEnd) {
-                const searchLineText = this.lines[searchLine];
-                for (let i = 0; i < searchLineText.length; i++) {
-                    const char = searchLineText[i];
-                    if (char === '(') {
-                        parenCount++;
-                    } else if (char === ')') {
-                        parenCount--;
-                        if (parenCount === 0) {
-                            let j = i + 1;
-                            while (j < searchLineText.length && /\s/.test(searchLineText[j])) {
-                                j++;
-                            }
-                            if (searchLineText.substring(j, j + 6) === 'throws') {
-                                let throwsParenCount = 0;
-                                for (let k = j + 6; k < searchLineText.length; k++) {
-                                    if (searchLineText[k] === '(') {
-                                        throwsParenCount++;
-                                    } else if (searchLineText[k] === ')') {
-                                        throwsParenCount--;
-                                        if (throwsParenCount === 0) {
-                                            j = k + 1;
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            while (j < searchLineText.length && /\s/.test(searchLineText[j])) {
-                                j++;
-                            }
-                            if (j < searchLineText.length && (searchLineText[j] === ',' || searchLineText[j] === ';' || searchLineText[j] === '{')) {
-                                funcEndLine = searchLine;
-                                funcEndChar = j + 1;
-                                foundEnd = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-                if (!foundEnd) {
-                    searchLine++;
-                }
-            }
-        }
-
-        const throwsStart = findThrowsStartInRange(
-            this.lines,
-            argResult ? argResult.endLine : funcStartLine,
-            argResult ? argResult.endChar + 1 : Math.max(parenStartPos + 1, funcStartChar),
-            funcEndLine,
-            funcEndChar
-        );
-        let throwsResult: {text: string; endLine: number; endChar: number} | null = null;
-        if (throwsStart) {
-            throwsResult = readParenthesizedText(this.lines, throwsStart.line, throwsStart.char + 1);
-            if (throwsResult) {
-                throwsFields.push(...parseFieldList(throwsResult.text, throwsStart.line, throwsStart.char + 1));
-            }
-        }
-        if (throwsResult) {
-            funcEndLine = Math.max(funcEndLine, throwsResult.endLine);
-            funcEndChar = throwsResult.endChar;
-        } else if (argResult) {
-            funcEndLine = Math.max(funcEndLine, argResult.endLine);
-            funcEndChar = argResult.endChar;
-        }
+        const argsEndLine = argResult ? argResult.endLine : funcStartLine;
+        const argsEndChar = argResult ? argResult.endChar + 1 : Math.max(parenStartPos + 1, funcStartChar);
+        const throws = this.parseFunctionThrows(argsEndLine, argsEndChar, funcEndLine, funcEndChar);
+        funcEndLine = throws.endLine;
+        funcEndChar = throws.endChar;
 
         const funcNode: nodes.ThriftFunction = {
             type: nodes.ThriftNodeType.Function,
@@ -1043,14 +933,14 @@ export class ThriftParser {
             isStream: isStream || undefined,
             isSink: isSink || undefined,
             arguments: args,
-            throws: throwsFields
+            throws: throws.fields
         };
 
         args.forEach(arg => {
             arg.parent = funcNode;
             this.addChild(funcNode, arg);
         });
-        throwsFields.forEach(field => {
+        throws.fields.forEach(field => {
             field.parent = funcNode;
             this.addChild(funcNode, field);
         });
@@ -1230,44 +1120,20 @@ export class ThriftParser {
         let depthBracket = 0;
         let depthParen = 0;
         let seenEquals = false;
-        let inS = false;
-        let inD = false;
-        let escaped = false;
         let eqLine = -1;
         let eqChar = -1;
+        const qt = new QuoteTracker();
 
         while (endLine < this.lines.length) {
             const line = this.lines[endLine];
             for (let i = 0; i < line.length; i++) {
                 const ch = line[i];
-                if (inS) {
-                    if (!escaped && ch === '\\') {
-                        escaped = true;
-                        continue;
-                    }
-                    if (!escaped && ch === '\'') {
-                        inS = false;
-                    }
-                    escaped = false;
+                if (qt.inside()) {
+                    qt.feed(ch);
                     continue;
                 }
-                if (inD) {
-                    if (!escaped && ch === '\\') {
-                        escaped = true;
-                        continue;
-                    }
-                    if (!escaped && ch === '"') {
-                        inD = false;
-                    }
-                    escaped = false;
-                    continue;
-                }
-                if (ch === '\'') {
-                    inS = true;
-                    continue;
-                }
-                if (ch === '"') {
-                    inD = true;
+                if (ch === '\'' || ch === '"') {
+                    qt.feed(ch);
                     continue;
                 }
                 if (ch === '=' && !seenEquals) {
@@ -1416,22 +1282,30 @@ export class ThriftParser {
     public analyzeDependencies(ast: nodes.ThriftDocument): Map<nodes.ThriftNode, nodes.ThriftNode[]> {
         const dependencies = new Map<nodes.ThriftNode, nodes.ThriftNode[]>();
 
-        // Simple dependency analysis: identify references between nodes
-        // For example, if a service uses a struct, the service depends on the struct
+        // Build O(1) type-name lookup from ast.body
+        const typeIndex = new Map<string, nodes.ThriftNode>();
+        for (const node of ast.body) {
+            if (node.name !== undefined &&
+                (node.type === nodes.ThriftNodeType.Struct ||
+                    node.type === nodes.ThriftNodeType.Enum ||
+                    node.type === nodes.ThriftNodeType.Typedef ||
+                    node.type === nodes.ThriftNodeType.Service)) {
+                typeIndex.set(node.name, node);
+            }
+        }
+
         for (const node of ast.body) {
             const nodeDeps: nodes.ThriftNode[] = [];
 
-            // Look for type references in the node content
             if (node.type === nodes.ThriftNodeType.Service) {
                 const service = node;
                 for (const func of service.functions) {
-                    // Find dependencies in function return types and argument types
-                    this.addTypeDependency(ast, func.returnType, nodeDeps);
+                    this.addTypeDependency(typeIndex, func.returnType, nodeDeps);
                     for (const arg of func.arguments) {
-                        this.addTypeDependency(ast, arg.fieldType, nodeDeps);
+                        this.addTypeDependency(typeIndex, arg.fieldType, nodeDeps);
                     }
                     for (const thr of func.throws) {
-                        this.addTypeDependency(ast, thr.fieldType, nodeDeps);
+                        this.addTypeDependency(typeIndex, thr.fieldType, nodeDeps);
                     }
                 }
             } else if (node.type === nodes.ThriftNodeType.Struct ||
@@ -1439,11 +1313,11 @@ export class ThriftParser {
                 node.type === nodes.ThriftNodeType.Union) {
                 const structLike = node;
                 for (const field of structLike.fields) {
-                    this.addTypeDependency(ast, field.fieldType, nodeDeps);
+                    this.addTypeDependency(typeIndex, field.fieldType, nodeDeps);
                 }
             } else if (node.type === nodes.ThriftNodeType.Const) {
                 const constNode = node;
-                this.addTypeDependency(ast, constNode.valueType, nodeDeps);
+                this.addTypeDependency(typeIndex, constNode.valueType, nodeDeps);
             }
 
             if (nodeDeps.length > 0) {
@@ -1454,25 +1328,16 @@ export class ThriftParser {
         return dependencies;
     }
 
-    private addTypeDependency(ast: nodes.ThriftDocument, typeStr: string | undefined, deps: nodes.ThriftNode[]): void {
+    private addTypeDependency(typeIndex: Map<string, nodes.ThriftNode>, typeStr: string | undefined, deps: nodes.ThriftNode[]): void {
         if (typeStr === undefined || typeStr === '') {
             return;
         }
 
-        // Extract potential type names from typeStr (handles complex types like list<string>, map<i32, string>, etc.)
         const typeMatches = typeStr.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) ?? [];
         for (const typeName of typeMatches) {
-            // Look for nodes with matching names
-            for (const potentialDep of ast.body) {
-                if (potentialDep.name === typeName &&
-                    (potentialDep.type === nodes.ThriftNodeType.Struct ||
-                        potentialDep.type === nodes.ThriftNodeType.Enum ||
-                        potentialDep.type === nodes.ThriftNodeType.Typedef ||
-                        potentialDep.type === nodes.ThriftNodeType.Service)) {
-                    if (!deps.includes(potentialDep)) {
-                        deps.push(potentialDep);
-                    }
-                }
+            const dep = typeIndex.get(typeName);
+            if (dep !== undefined && !deps.includes(dep)) {
+                deps.push(dep);
             }
         }
     }

@@ -41,7 +41,6 @@ import {normalizeGenericsInSignature, splitTopLevelParts} from './text-utils';
 import {createLineRange, LineRange} from '../utils/line-range';
 import {hashContent} from '../utils/cache-expiry';
 import {ErrorHandler} from '../utils/error-handler';
-import {buildCommentMap, CommentMap} from './comment-map';
 
 const formatErrorHandler = new ErrorHandler();
 
@@ -93,15 +92,6 @@ export function formatThriftContent(
     }
 
     const astIndex = buildAstIndex(ast);
-    // Lazy CommentMap: only built when a consumer first accesses it.
-    // Currently no formatter path reads from it, so this avoids ~5ms of
-    // per-line tokenization overhead on large files.
-    let cachedCommentMap: CommentMap | null = null;
-    const getCommentMap = (): CommentMap => {
-        cachedCommentMap ??= buildCommentMap(content, astIndex);
-        return cachedCommentMap;
-    };
-    void getCommentMap;
     const {
         structStarts,
         structFieldIndex,
