@@ -18,43 +18,104 @@ export function getPrimitiveTypes(): Set<string> {
     return PRIMITIVES;
 }
 
+const CONTAINER_KEYWORDS = new Set(['list', 'set', 'map', 'stream', 'sink', 'interaction', 'reference']);
+
+export interface ContainerTypeInfo {
+    keyword: string;
+    typeArgs: string[];
+}
+
 /**
- * 判断类型文本是否为有效的容器类型定义。
- * @param typeText 类型文本
- * @returns 是否为容器类型
+ * Parse a container type using angle-bracket depth tracking instead of regex.
+ * Handles nested generics like list<map<string, i32>> correctly.
+ * @returns Container info or null if the type is not a valid container.
  */
+export function parseContainerTypeInfo(typeText: string): ContainerTypeInfo | null {
+    const cleaned = typeText.trim();
+    // Find the keyword before the first '<'
+    let keywordEnd = -1;
+    for (let i = 0; i < cleaned.length; i++) {
+        const ch = cleaned[i];
+        if (ch === '<') {
+            keywordEnd = i;
+            break;
+        }
+        if (ch === ' ' || ch === '\t') {
+            if (keywordEnd === -1) {
+                keywordEnd = i;
+            }
+            // Continue scanning — there could be spaces before '<'
+            continue;
+        }
+        keywordEnd = -1;
+    }
+    if (keywordEnd <= 0) { return null; }
+
+    const keyword = cleaned.slice(0, keywordEnd).trim();
+    if (!CONTAINER_KEYWORDS.has(keyword)) { return null; }
+
+    // Find the matching '>' using depth tracking
+    const openPos = cleaned.indexOf('<', keywordEnd);
+    if (openPos === -1) { return null; }
+
+    let depth = 0;
+    let closePos = -1;
+    for (let i = openPos; i < cleaned.length; i++) {
+        if (cleaned[i] === '<') { depth++; }
+        if (cleaned[i] === '>') {
+            depth--;
+            if (depth === 0) { closePos = i; break; }
+        }
+    }
+    if (closePos === -1) { return null; }
+
+    // Check nothing follows except whitespace/annotations
+    const tail = cleaned.slice(closePos + 1).trim();
+    if (tail.length > 0 && !tail.startsWith('(')) { return null; }
+
+    const inner = cleaned.slice(openPos + 1, closePos).trim();
+    if (inner.length === 0) { return null; }
+
+    const typeArgs = splitTopLevelAngles(inner);
+    if (keyword === 'map' && typeArgs.length !== 2) { return null; }
+    if (keyword !== 'map' && typeArgs.length !== 1) { return null; }
+
+    return {keyword, typeArgs};
+}
+
+/**
+ * Strip trailing annotations from a type string for structural analysis.
+ * Uses paren depth tracking to handle nested annotations like (range={min:0, max:100}).
+ */
+function stripAnnotationsForType(typeText: string): string {
+    let depth = 0;
+    let cutStart = -1;
+    const qt = new QuoteTracker();
+    for (let i = 0; i < typeText.length; i++) {
+        const ch = typeText[i];
+        if (qt.inside()) { qt.feed(ch); continue; }
+        if (ch === '\'' || ch === '"') { qt.feed(ch); continue; }
+        if (ch === '(') {
+            if (depth === 0) { cutStart = i; }
+            depth++;
+        }
+        if (ch === ')') {
+            depth--;
+            if (depth === 0 && cutStart !== -1) {
+                // Check nothing follows except whitespace
+                const tail = typeText.slice(i + 1).trim();
+                if (tail.length === 0) {
+                    return typeText.slice(0, cutStart).trim();
+                }
+                cutStart = -1;
+            }
+        }
+    }
+    return typeText.trim();
+}
+
 function parseContainerType(typeText: string): boolean {
-    const noSpace = typeText.replace(/\s+/g, '');
-    if (/^list<.*>$/.test(noSpace)) {
-        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
-        return inner.trim().length > 0;
-    }
-    if (/^set<.*>$/.test(noSpace)) {
-        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
-        return inner.trim().length > 0;
-    }
-    if (/^map<.*>$/.test(noSpace)) {
-        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
-        const parts = splitTopLevelAngles(inner);
-        return parts.length === 2;
-    }
-    if (/^stream<.*>$/.test(noSpace)) {
-        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
-        return inner.trim().length > 0;
-    }
-    if (/^sink<.*>$/.test(noSpace)) {
-        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
-        return inner.trim().length > 0;
-    }
-    if (/^interaction<.*>$/.test(noSpace)) {
-        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
-        return inner.trim().length > 0;
-    }
-    if (/^reference<.*>$/.test(noSpace)) {
-        const inner = typeText.slice(typeText.indexOf('<') + 1, typeText.lastIndexOf('>'));
-        return inner.trim().length > 0;
-    }
-    return false;
+    return parseContainerTypeInfo(stripAnnotationsForType(typeText)) !== null;
 }
 
 /**
@@ -199,8 +260,9 @@ export function resolveMultilineDefaultFromLines(
     }
 
     const fullValue = parts.join('\n');
-    // Strip trailing comma/semicolon and annotations
-    return fullValue.replace(/[,;]\s*$/, '').replace(/\s*\([^()]*\)\s*$/, '').trimEnd();
+    // Strip trailing comma/semicolon, then annotations (with nested paren support)
+    const withoutComma = fullValue.replace(/[,;]\s*$/, '');
+    return stripAnnotationsForType(withoutComma).trimEnd();
 }
 
 export function isKnownType(typeName: string, definedTypes: Set<string>, includeAliases: Set<string>): boolean {
@@ -393,20 +455,19 @@ function valueMatchesType(valueRaw: string, typeText: string): boolean {
         const inner = v.slice(1, -1);
         return uuidRegex.test(inner);
     }
-    if (/^list<.+>$/.test(t)) {
-        if (!(v.startsWith('[') && v.endsWith(']'))) {
-            return false;
+    const containerInfo = parseContainerTypeInfo(t);
+    if (containerInfo !== null) {
+        if (containerInfo.keyword === 'list') {
+            return v.startsWith('[') && v.endsWith(']');
         }
-        const inner = v.slice(1, -1).trim();
-        if (inner.length === 0) {
-            return true;
+        if (containerInfo.keyword === 'set') {
+            // set literals accept both [...] and {...} in Thrift IDL
+            return (v.startsWith('[') && v.endsWith(']')) || (v.startsWith('{') && v.endsWith('}'));
         }
-        return true;
-    }
-    if (/^set<.+>$/.test(t)) {
-        return true;
-    }
-    if (/^map<.+>$/.test(t)) {
+        if (containerInfo.keyword === 'map') {
+            return v.startsWith('{') && v.endsWith('}');
+        }
+        // stream, sink, interaction, reference — accept any value
         return true;
     }
 

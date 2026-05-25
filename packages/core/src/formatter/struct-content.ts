@@ -6,7 +6,7 @@ type StructFormatter = (fields: StructField[], options: ThriftFormattingOptions,
 type StructFieldParser = (text: string) => StructField | null;
 type StructFieldBuilder = (line: string, fieldNode: nodes.Field) => StructField | null;
 type SignatureNormalizer = (text: string) => string;
-type ServiceMethodMatcher = (line: string) => boolean;
+type ServiceMethodMatcher = (line: string, lineIndex: number) => boolean;
 
 interface StructContentDeps {
     getIndent: IndentProvider;
@@ -63,7 +63,7 @@ export function formatStructContentLine(
         };
     }
 
-    if (deps.isServiceMethod(line)) {
+    if (deps.isServiceMethod(line, lineIndex)) {
         const normalized = deps.normalizeGenericsInSignature(line);
         return {
             handled: true,

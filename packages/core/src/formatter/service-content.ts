@@ -1,7 +1,7 @@
 import {ThriftFormattingOptions} from '../interfaces.types';
 
 type IndentProvider = (level: number, options: ThriftFormattingOptions) => string;
-type ServiceMethodMatcher = (line: string) => boolean;
+type ServiceMethodMatcher = (line: string, lineIndex: number) => boolean;
 type SignatureNormalizer = (text: string) => string;
 
 interface ServiceContentDeps {
@@ -27,6 +27,7 @@ interface ServiceContentResult {
  */
 export function formatServiceContentLine(
     line: string,
+    lineIndex: number,
     serviceIndentLevel: number,
     options: ThriftFormattingOptions,
     deps: ServiceContentDeps,
@@ -86,7 +87,7 @@ export function formatServiceContentLine(
         };
     }
 
-    if (deps.isServiceMethod(line)) {
+    if (deps.isServiceMethod(line, lineIndex)) {
         const normalized = deps.normalizeGenericsInSignature(line);
         const methodIndent = deps.getServiceIndent(serviceIndentLevel + 1, options);
         return {

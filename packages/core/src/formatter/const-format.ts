@@ -1,9 +1,31 @@
 import {ConstField, ThriftFormattingOptions} from '../interfaces.types';
+import {QuoteTracker} from '../utils/quote-tracker';
 
 type IndentProvider = (level: number, options: ThriftFormattingOptions) => string;
 
 interface ConstFormatDeps {
     getIndent: IndentProvider;
+}
+
+/**
+ * Check if a single-line value is a collection delimited by [...] or {...},
+ * correctly skipping brackets inside quoted strings.
+ */
+function isInlineDelimitedCollection(value: string): boolean {
+    if (value.length < 2) { return false; }
+    const open = value[0];
+    if (open !== '[' && open !== '{') { return false; }
+    const close = open === '[' ? ']' : '}';
+    const qt = new QuoteTracker();
+    let depth = 0;
+    for (let i = 0; i < value.length; i++) {
+        const ch = value[i];
+        if (qt.inside()) { qt.feed(ch); continue; }
+        if (ch === '\'' || ch === '"') { qt.feed(ch); continue; }
+        if (ch === open) { depth++; }
+        if (ch === close) { depth--; }
+    }
+    return depth === 0 && value[value.length - 1] === close;
 }
 
 /**
@@ -33,7 +55,7 @@ export function formatConstFields(
 
     const adjFields = fields.map((f) => {
         let value = f.value;
-        const isInlineCollection = !value.includes('\n') && ((/^\[.*]$/.test(value)) || (/^\{.*}$/.test(value)));
+        const isInlineCollection = !value.includes('\n') && isInlineDelimitedCollection(value);
 
         let shouldExpand = false;
         if (isInlineCollection) {

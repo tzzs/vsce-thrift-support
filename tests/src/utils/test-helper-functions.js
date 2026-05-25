@@ -159,7 +159,7 @@ struct User {
       5: set<string> invalid = "not a set"
     }`;
         issues = diagnosticsModule.analyzeThriftText(setTest);
-        assert.ok(issues.filter(i => i.code === 'value.typeMismatch').length === 0, 'Invalid set defaults currently not flagged by implementation');
+        assert.ok(issues.filter(i => i.code === 'value.typeMismatch').length === 1, 'Invalid set defaults should be detected');
 
         // Map defaults
         const mapTest = `struct Test {
@@ -168,7 +168,7 @@ struct User {
       3: map<string, i32> invalid = "not a map"
     }`;
         issues = diagnosticsModule.analyzeThriftText(mapTest);
-        assert.ok(issues.filter(i => i.code === 'value.typeMismatch').length === 0, 'Invalid map defaults currently not flagged by implementation');
+        assert.ok(issues.filter(i => i.code === 'value.typeMismatch').length === 1, 'Invalid map defaults should be detected');
     };
 
     // Test 6: Bracket balance checking

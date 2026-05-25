@@ -23,9 +23,9 @@ struct Example {
 
 // Test nested containers in function parameters
 service TestService {
-    list<list<map<string, i32>>> getDeepData()
+    list<list<map<string,i32>>> getDeepData()
     void processComplexData(1: ComplexType data)
-    map<string, list<set<i64>>> transformData(1: set<list<map<i32, string>>> input)
+    map<string,list<set<i64>>> transformData(1: set<list<map<i32,string>>> input)
 }
 
 // Test with annotations

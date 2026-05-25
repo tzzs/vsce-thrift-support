@@ -1,4 +1,22 @@
 import {PrintBuffer} from './printer';
+import {QuoteTracker} from '../utils/quote-tracker';
+
+function isInlineDelimited(value: string): boolean {
+    if (value.length < 2) { return false; }
+    const open = value[0];
+    if (open !== '[' && open !== '{') { return false; }
+    const close = open === '[' ? ']' : '}';
+    const qt = new QuoteTracker();
+    let depth = 0;
+    for (let i = 0; i < value.length; i++) {
+        const ch = value[i];
+        if (qt.inside()) { qt.feed(ch); continue; }
+        if (ch === '\'' || ch === '"') { qt.feed(ch); continue; }
+        if (ch === open) { depth++; }
+        if (ch === close) { depth--; }
+    }
+    return depth === 0 && value[value.length - 1] === close;
+}
 
 function splitCollectionItems(inner: string): string[] {
     const items: string[] = [];
@@ -53,7 +71,7 @@ export function renderConstCollection(
     indentLevel: number,
     maxWidth: number
 ): string {
-    const isInline = !value.includes('\n') && (/^\[.*]$/.test(value) || /^\{.*}$/.test(value));
+    const isInline = !value.includes('\n') && isInlineDelimited(value);
     if (!isInline) {
         return value;
     }

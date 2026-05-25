@@ -98,6 +98,7 @@ export function formatThriftContent(
         enumStarts,
         enumMemberIndex,
         serviceStarts,
+        serviceFunctionIndex,
         interactionStarts,
         constStarts,
         constEnds
@@ -344,7 +345,7 @@ export function formatThriftContent(
                     buildStructFieldFromAst,
                     parseStructFieldText,
                     normalizeGenericsInSignature,
-                    isServiceMethod: isServiceMethodLine
+                    isServiceMethod: (line, li) => isServiceMethodLine(line, li, serviceFunctionIndex)
                 }
             );
             structFields = structResult.structFields;
@@ -360,10 +361,10 @@ export function formatThriftContent(
 
         // Handle service content
         if (inService) {
-            const serviceResult = formatServiceContentLine(line, serviceIndentLevel, options, {
+            const serviceResult = formatServiceContentLine(line, i, serviceIndentLevel, options, {
                 getServiceIndent,
                 normalizeGenericsInSignature,
-                isServiceMethod: isServiceMethodLine
+                isServiceMethod: (line, li) => isServiceMethodLine(line, li, serviceFunctionIndex)
             }, serviceAnnotationDepth);
             formattedLines.push(...serviceResult.formattedLines);
             serviceAnnotationDepth = serviceResult.annotationDepth;
@@ -376,10 +377,10 @@ export function formatThriftContent(
 
         // Handle interaction content (same formatting as service)
         if (inInteraction) {
-            const interactionResult = formatServiceContentLine(line, serviceIndentLevel, options, {
+            const interactionResult = formatServiceContentLine(line, i, serviceIndentLevel, options, {
                 getServiceIndent,
                 normalizeGenericsInSignature,
-                isServiceMethod: isServiceMethodLine
+                isServiceMethod: (line, li) => isServiceMethodLine(line, li, serviceFunctionIndex)
             }, interactionAnnotationDepth);
             formattedLines.push(...interactionResult.formattedLines);
             interactionAnnotationDepth = interactionResult.annotationDepth;

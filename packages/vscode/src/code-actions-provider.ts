@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import {readThriftFile} from './utils/file-reader';
 import {ThriftParser} from '@tanzz/thrift-core';
 import {nodes} from '@tanzz/thrift-core';
-import {collectIncludes, collectTopLevelTypes} from '@tanzz/thrift-core';
+import {collectIncludes, collectTopLevelTypes, parseContainerTypeInfo} from '@tanzz/thrift-core';
 import {config} from '@tanzz/thrift-core';
 import {ErrorHandler} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
@@ -161,30 +161,32 @@ export class ThriftRefactorCodeActionProvider {
     /**
      * 从类型表达式文本（如 `Bar` / `ns.Bar` / `list<Bar>`）中抽取候选类型名，
      * 过滤掉容器关键字与基本类型，并跳过命名空间别名（紧跟 `.` 的标识符）。
+     * 使用 angle-bracket 深度追踪替代正则处理嵌套泛型。
      */
     private extractTypeNames(text: string): string[] {
         const names: string[] = [];
         const seen = new Set<string>();
-        for (const match of text.matchAll(/[A-Za-z_][A-Za-z0-9_]*/g)) {
-            const token = match[0];
-            const matchIndex = match.index ?? 0;
-            const after = text.slice(matchIndex + token.length);
-            if (/^\s*\./.test(after)) {
-                continue; // namespace alias, e.g. the `ns` in `ns.Bar`
+        const collectNames = (typeExpr: string): void => {
+            const cleaned = typeExpr.trim();
+            if (cleaned.length === 0) { return; }
+            const info = parseContainerTypeInfo(cleaned);
+            if (info !== null) {
+                for (const arg of info.typeArgs) {
+                    collectNames(arg);
+                }
+                return;
             }
-            if (ThriftRefactorCodeActionProvider.NON_TYPE_TOKENS.has(token) || seen.has(token)) {
-                continue;
+            // Plain type reference: extract the last dot-separated part
+            const parts = cleaned.split('.');
+            const name = parts[parts.length - 1].trim();
+            if (name.length > 0 &&
+                !ThriftRefactorCodeActionProvider.NON_TYPE_TOKENS.has(name) &&
+                !seen.has(name)) {
+                seen.add(name);
+                names.push(name);
             }
-            // Skip identifiers preceded by a non-keyword identifier — they're
-            // field/parameter names, not type references (e.g. `ex` in `SomeException ex`)
-            const before = text.slice(0, matchIndex);
-            const precMatch = before.match(/([A-Za-z_][A-Za-z0-9_]*)\s*$/);
-            if (precMatch && !ThriftRefactorCodeActionProvider.NON_TYPE_TOKENS.has(precMatch[1])) {
-                continue;
-            }
-            seen.add(token);
-            names.push(token);
-        }
+        };
+        collectNames(text);
         return names;
     }
 

@@ -54,3 +54,5 @@ export {MemoryMonitor} from './utils/memory-monitor';
 export {ReportBuilder, formatMb} from './utils/report-builder';
 export {safeResolveIncludePath} from './utils/safe-path';
 export {QuoteTracker} from './utils/quote-tracker';
+export {parseContainerTypeInfo} from './diagnostics/rules/type-utils';
+export type {ContainerTypeInfo} from './diagnostics/rules/type-utils';

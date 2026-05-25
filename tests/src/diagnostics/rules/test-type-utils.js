@@ -217,11 +217,18 @@ describe('type-utils', () => {
         });
 
         it('should validate set defaults', () => {
-            assert.strictEqual(isValidDefaultValue('set<string>', 'anything'), true);
+            assert.strictEqual(isValidDefaultValue('set<string>', '{"a", "b"}'), true);
+            assert.strictEqual(isValidDefaultValue('set<i32>', '[1, 2, 3]'), true);
         });
 
         it('should validate map defaults', () => {
-            assert.strictEqual(isValidDefaultValue('map<string, i32>', 'anything'), true);
+            assert.strictEqual(isValidDefaultValue('map<string, i32>', '{"a": 1, "b": 2}'), true);
+        });
+
+        it('should reject invalid container defaults', () => {
+            assert.strictEqual(isValidDefaultValue('set<string>', 'anything'), false);
+            assert.strictEqual(isValidDefaultValue('map<string, i32>', 'anything'), false);
+            assert.strictEqual(isValidDefaultValue('list<string>', 'anything'), false);
         });
     });
 });

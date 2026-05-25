@@ -76,12 +76,39 @@ export function splitTrailingAnnotation(source: string): {base: string; annotati
  * @returns 规范化后的类型
  */
 export function normalizeType(type: string): string {
-    return type
-        .replace(/\s+</g, '<')
-        .replace(/<\s+/g, '<')
-        .replace(/\s+>/g, '>')
-        .replace(/>\s*/g, '>')
-        .replace(/\s*,\s*/g, ',');
+    const qt = new QuoteTracker();
+    const out: string[] = [];
+    let i = 0;
+    while (i < type.length) {
+        const ch = type[i];
+        if (qt.inside()) {
+            out.push(ch);
+            qt.feed(ch);
+            i++;
+            continue;
+        }
+        if (ch === '\'' || ch === '"') {
+            out.push(ch);
+            qt.feed(ch);
+            i++;
+            continue;
+        }
+        // Consume whitespace before/after <, >, and around ,
+        if (ch === '<' || ch === '>' || ch === ',') {
+            // Trim trailing whitespace before the symbol
+            while (out.length > 0 && out[out.length - 1] === ' ') {
+                out.pop();
+            }
+            out.push(ch);
+            // Skip whitespace after the symbol
+            i++;
+            while (i < type.length && type[i] === ' ') { i++; }
+            continue;
+        }
+        out.push(ch);
+        i++;
+    }
+    return out.join('');
 }
 
 /**
