@@ -1,12 +1,13 @@
 import {DiagnosticSeverity} from '../../types';
 import * as nodes from '../../ast/nodes.types';
 import {ThriftIssue} from '../types';
-import {isKnownType, isValidDefaultValue} from './type-utils';
+import {isKnownType, isValidDefaultValue, resolveMultilineDefaultFromLines} from './type-utils';
 
 export function checkStruct(
     node: nodes.Struct,
     definedTypes: Set<string>,
     includeAliases: Set<string>,
+    lines: string[],
     issues: ThriftIssue[]
 ) {
     const fieldIds = new Set<number>();
@@ -30,13 +31,23 @@ export function checkStruct(
             });
         }
 
-        if (typeof field.defaultValue === 'string' && field.defaultValue.length > 0 && !isValidDefaultValue(field.fieldType, field.defaultValue)) {
-            issues.push({
-                message: `Invalid default value '${field.defaultValue}' for type '${field.fieldType}'`,
-                range: field.defaultValueRange ?? field.range,
-                severity: DiagnosticSeverity.Warning,
-                code: 'value.typeMismatch'
-            });
+        let defaultValue = field.defaultValue;
+        if (typeof defaultValue === 'string' && defaultValue.length > 0) {
+            // Resolve multi-line default values that were truncated by the single-line parser
+            if (defaultValue.startsWith('[') || defaultValue.startsWith('{') || defaultValue.startsWith('(')) {
+                const multiline = resolveMultilineDefaultFromLines(lines, field.range.start.line, defaultValue);
+                if (multiline !== null) {
+                    defaultValue = multiline;
+                }
+            }
+            if (!isValidDefaultValue(field.fieldType, defaultValue)) {
+                issues.push({
+                    message: `Invalid default value '${defaultValue}' for type '${field.fieldType}'`,
+                    range: field.defaultValueRange ?? field.range,
+                    severity: DiagnosticSeverity.Warning,
+                    code: 'value.typeMismatch'
+                });
+            }
         }
     }
 }

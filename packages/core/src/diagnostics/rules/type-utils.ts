@@ -129,6 +129,80 @@ function stripTypeAnnotations(typeText: string): string {
  * @param includeAliases include 别名集合
  * @returns 是否为已知类型
  */
+/**
+ * Detect whether a default value string has unclosed brackets/braces/parens
+ * indicating it was truncated by single-line parsing.
+ */
+function hasUnclosedDelimiters(value: string): boolean {
+    let depthBracket = 0, depthBrace = 0, depthParen = 0;
+    const qt = new QuoteTracker();
+    for (let i = 0; i < value.length; i++) {
+        const ch = value[i];
+        if (qt.inside()) { qt.feed(ch); continue; }
+        if (ch === '\'' || ch === '"') { qt.feed(ch); continue; }
+        if (ch === '[') { depthBracket++; }
+        if (ch === ']') { depthBracket = Math.max(0, depthBracket - 1); }
+        if (ch === '{') { depthBrace++; }
+        if (ch === '}') { depthBrace = Math.max(0, depthBrace - 1); }
+        if (ch === '(') { depthParen++; }
+        if (ch === ')') { depthParen = Math.max(0, depthParen - 1); }
+    }
+    return depthBracket > 0 || depthBrace > 0 || depthParen > 0;
+}
+
+/**
+ * Read subsequent lines to build the complete multi-line default value.
+ * Used by diagnostics to properly validate multi-line collection defaults.
+ */
+export function resolveMultilineDefaultFromLines(
+    lines: string[],
+    startLine: number,
+    initialValue: string
+): string | null {
+    if (!hasUnclosedDelimiters(initialValue)) {
+        return null;
+    }
+
+    let depthBracket = 0, depthBrace = 0, depthParen = 0;
+    const qt = new QuoteTracker();
+    for (let i = 0; i < initialValue.length; i++) {
+        const ch = initialValue[i];
+        if (qt.inside()) { qt.feed(ch); continue; }
+        if (ch === '\'' || ch === '"') { qt.feed(ch); continue; }
+        if (ch === '[') { depthBracket++; }
+        if (ch === ']') { depthBracket = Math.max(0, depthBracket - 1); }
+        if (ch === '{') { depthBrace++; }
+        if (ch === '}') { depthBrace = Math.max(0, depthBrace - 1); }
+        if (ch === '(') { depthParen++; }
+        if (ch === ')') { depthParen = Math.max(0, depthParen - 1); }
+    }
+
+    const parts: string[] = [initialValue];
+    let endLine = startLine;
+    const maxLine = Math.min(startLine + 50, lines.length - 1);
+
+    while ((depthBracket > 0 || depthBrace > 0 || depthParen > 0) && endLine < maxLine) {
+        endLine++;
+        const nextLine = lines[endLine];
+        for (let i = 0; i < nextLine.length; i++) {
+            const ch = nextLine[i];
+            if (qt.inside()) { qt.feed(ch); continue; }
+            if (ch === '\'' || ch === '"') { qt.feed(ch); continue; }
+            if (ch === '[') { depthBracket++; }
+            if (ch === ']') { depthBracket = Math.max(0, depthBracket - 1); }
+            if (ch === '{') { depthBrace++; }
+            if (ch === '}') { depthBrace = Math.max(0, depthBrace - 1); }
+            if (ch === '(') { depthParen++; }
+            if (ch === ')') { depthParen = Math.max(0, depthParen - 1); }
+        }
+        parts.push(nextLine);
+    }
+
+    const fullValue = parts.join('\n');
+    // Strip trailing comma/semicolon and annotations
+    return fullValue.replace(/[,;]\s*$/, '').replace(/\s*\([^()]*\)\s*$/, '').trimEnd();
+}
+
 export function isKnownType(typeName: string, definedTypes: Set<string>, includeAliases: Set<string>): boolean {
     if (!typeName) {
         return false;

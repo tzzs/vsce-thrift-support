@@ -61,7 +61,7 @@ export function analyzeThriftAst(
             case nodes.ThriftNodeType.Struct:
             case nodes.ThriftNodeType.Union:
             case nodes.ThriftNodeType.Exception:
-                checkStruct(node , definedTypes, includeAliases, issues);
+                checkStruct(node , definedTypes, includeAliases, lines, issues);
                 break;
             case nodes.ThriftNodeType.Typedef:
                 checkTypedef(node , lines, definedTypes, includeAliases, issues);
