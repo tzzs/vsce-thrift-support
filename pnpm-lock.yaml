@@ -79,8 +79,8 @@ importers:
         specifier: ^0.28.0
         version: 0.28.0
       typescript:
-        specifier: ^4.9.5
-        version: 4.9.5
+        specifier: ^5.6.0
+        version: 5.6.3
 
   packages/core:
     devDependencies:
@@ -101,8 +101,8 @@ importers:
         specifier: ^1.75.0
         version: 1.75.0
       typescript:
-        specifier: ^4.9.5
-        version: 4.9.5
+        specifier: ^5.6.0
+        version: 5.6.3
 
 packages:
 
@@ -507,8 +507,8 @@ packages:
   '@types/mocha@10.0.10':
     resolution: {integrity: sha512-xPyYSz1cMPnJQhl0CLMH68j3gprKZaTjG3s5Vi+fDgx+uhG9NOXwbVt52eFS8ECyXhyKcjDLCBEqBExKuiZb7Q==}
 
-  '@types/node@16.18.126':
-    resolution: {integrity: sha512-OTcgaiwfGFBKacvfwuHzzn1KLxH/er8mluiy8/uM3sGXHaRe73RrSIj01jow9t4kJEW633Ov+cOexXeiApTyAw==}
+  '@types/node@22.15.3':
+    resolution: {integrity: sha512-lX7HFZeHf4QG/J7tBZqrCAXwz9J5RD56Y6MpP0eJkka8p+K0RY/yBTW7CYFJ4VGCclxqOLKmiGP5juQc6MKgcw==}
 
   '@types/node@22.19.19':
     resolution: {integrity: sha512-dyh/xO2Fh5bYrfWaaqGrRQQGkNdmYw6AmaAUvYeUMNTWQtvb796ikLdmTchRmOlOiIJ1TDXfWgVx1QkUlQ6Hew==}
@@ -1844,9 +1844,9 @@ packages:
       eslint: ^8.57.0 || ^9.0.0 || ^10.0.0
       typescript: '>=4.8.4 <6.1.0'
 
-  typescript@4.9.5:
-    resolution: {integrity: sha512-1FXk9E2Hm+QzZQ7z+McJiHL4NW1F2EzMu9Nq9i3zAaGqibafqYwCVU6WyWAuyQRRzOlxou8xZSyXLEN8oKj24g==}
-    engines: {node: '>=4.2.0'}
+  typescript@5.6.3:
+    resolution: {integrity: sha512-hjcS1mhfuyi4WW8IWtjP7brDrG2cuDZukyrYrSauoXGNgx0S7zceP07adYkJycEr56BOUTNPzbInooiN3fn1qw==}
+    engines: {node: '>=14.17'}
     hasBin: true
 
   typescript@5.9.3:
@@ -2377,7 +2377,7 @@ snapshots:
 
   '@types/mocha@10.0.10': {}
 
-  '@types/node@16.18.126': {}
+  '@types/node@22.15.3': {}
 
   '@types/node@22.19.19':
     dependencies:
@@ -3862,7 +3862,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  typescript@4.9.5: {}
+  typescript@5.6.3: {}
 
   typescript@5.9.3: {}
 
