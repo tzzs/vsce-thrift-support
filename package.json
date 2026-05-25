@@ -166,7 +166,7 @@
     "test": "pnpm run build && mocha",
     "test:single": "pnpm run build && mocha --config .mocharc.single.json",
     "coverage": "pnpm run build && c8 --reporter text-summary --reporter lcov mocha",
-    "coverage:cli": "node packages/cli/build.js && c8 --src packages/cli/dist --reporter text-summary --reporter lcov mocha --no-config --timeout 30000 tests/cli/test-cli-integration.js",
+    "coverage:cli": "pnpm --filter @tanzz/thrift-core run build && node packages/cli/build.js && pnpm exec tsc -p packages/cli/tsconfig.json && c8 --exclude 'packages/core/**' --exclude-after-remap --reporter text-summary --reporter lcov mocha --no-config --timeout 30000 tests/cli/test-cli-integration.js tests/cli/test-cli-units.js",
     "perf:benchmark": "node tests/perf/run-performance-benchmark.js"
   },
   "devDependencies": {
@@ -181,7 +181,6 @@
     "esbuild": "^0.28.0",
     "eslint": "^9.15.0",
     "mocha": "^11.7.5",
-    "nyc": "^15.1.0",
     "rimraf": "^3.0.2",
     "ts-node": "^10.9.2",
     "typescript": "^4.9.5",
@@ -198,30 +197,5 @@
       "qs": ">=6.15.2",
       "uuid": ">=11.1.1"
     }
-  },
-  "nyc": {
-    "include": [
-      "out/**/*.js",
-      "src/**/*.ts"
-    ],
-    "exclude": [
-      "tests/**",
-      "test-files/**",
-      "test-thrift/**"
-    ],
-    "extension": [
-      ".js",
-      ".ts"
-    ],
-    "cache": true,
-    "cache-dir": ".nyc_cache",
-    "all": false,
-    "exclude-after-remap": true,
-    "sourceMap": true,
-    "instrument": true,
-    "reporter": [
-      "text-summary",
-      "lcov"
-    ]
   }
 }

@@ -47,6 +47,9 @@ jobs:
       - name: Build CLI
         run: cd packages/cli && node build.js
 
+      - name: Build CLI TypeScript
+        run: pnpm exec tsc -p packages/cli/tsconfig.json
+
       - name: Run tests
         run: pnpm test
 
