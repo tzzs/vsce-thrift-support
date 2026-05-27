@@ -332,14 +332,19 @@ export class ThriftParser {
             const nameToken = findFirstIdentifier(tokens, 1);
             if (nameToken) {
                 let extendsName: string | undefined;
+                let extendsRange: Range | undefined;
                 const extendsIndex = findIdentifierIndex(tokens, 'extends', nameToken.index + 1);
                 if (extendsIndex !== -1) {
                     const parentName = readQualifiedIdentifier(tokens, extendsIndex + 1);
                     if (parentName) {
                         extendsName = parentName.value;
+                        extendsRange = this.createRange(
+                            this.currentLine, parentName.startOffset,
+                            this.currentLine, parentName.endOffset
+                        );
                     }
                 }
-                return this.parseService(parent, nameToken.value, extendsName);
+                return this.parseService(parent, nameToken.value, extendsName, extendsRange);
             }
             const invalid = this.createInvalidNode(parent, line, 'Invalid service declaration');
             this.currentLine++;
@@ -715,7 +720,7 @@ export class ThriftParser {
         };
     }
 
-    private parseService(parent: nodes.ThriftNode, name: string, extendsClass: string | undefined): nodes.Service {
+    private parseService(parent: nodes.ThriftNode, name: string, extendsClass: string | undefined, extendsRange?: Range): nodes.Service {
         const startLine = this.currentLine;
         const line = this.lines[startLine];
         const keywordIndex = line.indexOf('service');
@@ -724,7 +729,8 @@ export class ThriftParser {
             name,
             nameRange: findWordRangeInLine(line, startLine, name, searchStart),
             parent,
-            extends: extendsClass
+            extends: extendsClass,
+            extendsRange
         });
 
         // Parse body

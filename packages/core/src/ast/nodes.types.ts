@@ -150,6 +150,7 @@ export interface Field extends ThriftNodeBase {
 export interface Service extends ThriftNodeBase {
     type: ThriftNodeType.Service;
     extends?: string;
+    extendsRange?: Range;
     functions: ThriftFunction[];
     performs?: Performs[];
 }

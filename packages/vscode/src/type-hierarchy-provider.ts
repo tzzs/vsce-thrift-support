@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
-import {ThriftParser, nodes, ErrorHandler, config} from '@tanzz/thrift-core';
+import {ThriftParser, nodes, ErrorHandler, config, CacheManager} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
+import {ThriftFileWatcher} from './utils/file-watcher';
 import {toVscodeRange} from './utils/vscode-utils';
 
 interface DocPair {
@@ -178,9 +179,30 @@ function positionInRange(
 export class ThriftTypeHierarchyProvider implements vscode.TypeHierarchyProvider {
     private readonly errorHandler: ErrorHandler;
     private readonly decoder = new TextDecoder('utf-8');
+    private readonly cacheManager?: CacheManager;
+    private readonly fileWatcher?: ThriftFileWatcher;
+
+    private static readonly CACHE_NAME = 'type-hierarchy-workspace-docs';
+    private static readonly CACHE_KEY = 'all';
 
     constructor(deps?: Partial<CoreDependencies>) {
         this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
+        this.cacheManager = deps?.cacheManager;
+        this.fileWatcher = deps?.fileWatcher;
+        this.setupCacheInvalidation();
+    }
+
+    /** Clear workspace-documents cache when any .thrift file changes. */
+    private setupCacheInvalidation(): void {
+        if (!this.fileWatcher || !this.cacheManager) {
+            return;
+        }
+        const invalidate = () => this.cacheManager!.clear(ThriftTypeHierarchyProvider.CACHE_NAME);
+        this.fileWatcher.createWatcherWithEvents(config.filePatterns.thrift, {
+            onChange: invalidate,
+            onCreate: invalidate,
+            onDelete: invalidate,
+        });
     }
 
     public prepareTypeHierarchy(
@@ -221,8 +243,13 @@ export class ThriftTypeHierarchyProvider implements vscode.TypeHierarchyProvider
         try {
             const docs = await this.getWorkspaceDocuments();
             const index = buildTypeHierarchyIndex(docs);
+            const visited = new Set<string>([item.name]);
             const entry = index.get(item.name);
             if (entry === undefined || entry.parentName === undefined || entry.parentName === '') {
+                return [];
+            }
+            // Cycle detection: break on circular extends chains
+            if (visited.has(entry.parentName)) {
                 return [];
             }
             const parent = index.get(entry.parentName);
@@ -250,9 +277,15 @@ export class ThriftTypeHierarchyProvider implements vscode.TypeHierarchyProvider
             const docs = await this.getWorkspaceDocuments();
             const index = buildTypeHierarchyIndex(docs);
             const target = item.name;
+            const visited = new Set<string>([target]);
             const subs: vscode.TypeHierarchyItem[] = [];
             for (const entry of index.values()) {
+                // Cycle detection: skip entries already in the visited chain
+                if (visited.has(entry.name)) {
+                    continue;
+                }
                 if (entry.parentName === target) {
+                    visited.add(entry.name);
                     subs.push(entryToItem(entry));
                 }
             }
@@ -301,6 +334,13 @@ export class ThriftTypeHierarchyProvider implements vscode.TypeHierarchyProvider
     }
 
     private async getWorkspaceDocuments(): Promise<DocPair[]> {
+        const cached = this.cacheManager?.get<DocPair[]>(
+            ThriftTypeHierarchyProvider.CACHE_NAME,
+            ThriftTypeHierarchyProvider.CACHE_KEY
+        );
+        if (cached) {
+            return cached;
+        }
         const out: DocPair[] = [];
         if (vscode.workspace === undefined) {
             return out;
@@ -312,6 +352,11 @@ export class ThriftTypeHierarchyProvider implements vscode.TypeHierarchyProvider
                 out.push({uri: file, ast});
             }
         }
+        this.cacheManager?.set(
+            ThriftTypeHierarchyProvider.CACHE_NAME,
+            ThriftTypeHierarchyProvider.CACHE_KEY,
+            out
+        );
         return out;
     }
 }

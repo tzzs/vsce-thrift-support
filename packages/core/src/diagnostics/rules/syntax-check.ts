@@ -1,5 +1,6 @@
 import {Range, DiagnosticSeverity} from '../../types';
 import {ThriftIssue} from '../types';
+import {DIAGNOSTIC_CODES} from '../diagnostic-codes';
 
 export function checkSyntax(codeLines: string[], issues: ThriftIssue[]) {
     const stack: {ch: string; line: number; char: number}[] = [];
@@ -56,7 +57,7 @@ export function checkSyntax(codeLines: string[], issues: ThriftIssue[]) {
                         message: `Unmatched closing '${ch}'`,
                         range: new Range(lineNo, i, lineNo, i + 1),
                         severity: DiagnosticSeverity.Error,
-                        code: 'syntax.unmatchedCloser'
+                        code: DIAGNOSTIC_CODES.SYNTAX_UNMATCHED_CLOSER
                     });
                 } else {
                     const pair: Record<string, string> = {'}': '{', ')': '('};
@@ -65,7 +66,7 @@ export function checkSyntax(codeLines: string[], issues: ThriftIssue[]) {
                             message: `Mismatched '${open.ch}' and '${ch}'`,
                             range: new Range(lineNo, i, lineNo, i + 1),
                             severity: DiagnosticSeverity.Error,
-                            code: 'syntax.mismatched'
+                            code: DIAGNOSTIC_CODES.SYNTAX_MISMATCHED
                         });
                     }
                 }
@@ -78,7 +79,7 @@ export function checkSyntax(codeLines: string[], issues: ThriftIssue[]) {
             message: `Unclosed '${open.ch}'`,
             range: new Range(open.line, open.char, open.line, open.char + 1),
             severity: DiagnosticSeverity.Error,
-            code: 'syntax.unclosed'
+            code: DIAGNOSTIC_CODES.SYNTAX_UNCLOSED
         });
     }
 }

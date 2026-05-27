@@ -10,6 +10,7 @@ import {nodes} from '@tanzz/thrift-core';
 import {collectIncludes, collectTopLevelTypes, parseContainerTypeInfo} from '@tanzz/thrift-core';
 import {config} from '@tanzz/thrift-core';
 import {ErrorHandler} from '@tanzz/thrift-core';
+import {UNKNOWN_TYPE_DIAGNOSTIC_CODES} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
 
 /**
@@ -115,12 +116,7 @@ export class ThriftRefactorCodeActionProvider {
         'optional', 'required'
     ]);
 
-    private static readonly UNKNOWN_TYPE_CODES = new Set([
-        'type.unknown',
-        'service.returnType.unknown',
-        'service.throws.unknown',
-        'typedef.unknownBase'
-    ]);
+    private static readonly UNKNOWN_TYPE_CODES = UNKNOWN_TYPE_DIAGNOSTIC_CODES;
 
     /**
      * 从 context.diagnostics 中提取与请求范围重叠的「未知类型」名称，

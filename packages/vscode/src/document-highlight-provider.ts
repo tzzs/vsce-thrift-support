@@ -120,8 +120,7 @@ export function collectHighlights(
                 }
                 // service extends target → Read
                 if (node.extends === target) {
-                    // We don't have a precise range for the extends name; fall back to nameRange.
-                    pushIfRange(node.nameRange, vscode.DocumentHighlightKind.Read);
+                    pushIfRange(node.extendsRange ?? node.nameRange, vscode.DocumentHighlightKind.Read);
                 }
                 for (const func of node.functions) {
                     visit(func);

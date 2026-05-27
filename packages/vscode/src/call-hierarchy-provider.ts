@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
-import {ThriftParser, nodes, ErrorHandler, config, parseContainerTypeInfo} from '@tanzz/thrift-core';
+import {ThriftParser, nodes, ErrorHandler, config, parseContainerTypeInfo, CacheManager} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
+import {ThriftFileWatcher} from './utils/file-watcher';
 import {toVscodeRange} from './utils/vscode-utils';
 
 const PRIMITIVE_TYPES = new Set<string>([
@@ -130,9 +131,30 @@ function positionInRange(
 export class ThriftCallHierarchyProvider implements vscode.CallHierarchyProvider {
     private readonly errorHandler: ErrorHandler;
     private readonly decoder = new TextDecoder('utf-8');
+    private readonly cacheManager?: CacheManager;
+    private readonly fileWatcher?: ThriftFileWatcher;
+
+    private static readonly CACHE_NAME = 'call-hierarchy-workspace-docs';
+    private static readonly CACHE_KEY = 'all';
 
     constructor(deps?: Partial<CoreDependencies>) {
         this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
+        this.cacheManager = deps?.cacheManager;
+        this.fileWatcher = deps?.fileWatcher;
+        this.setupCacheInvalidation();
+    }
+
+    /** Clear workspace-documents cache when any .thrift file changes. */
+    private setupCacheInvalidation(): void {
+        if (!this.fileWatcher || !this.cacheManager) {
+            return;
+        }
+        const invalidate = () => this.cacheManager!.clear(ThriftCallHierarchyProvider.CACHE_NAME);
+        this.fileWatcher.createWatcherWithEvents(config.filePatterns.thrift, {
+            onChange: invalidate,
+            onCreate: invalidate,
+            onDelete: invalidate,
+        });
     }
 
     public prepareCallHierarchy(
@@ -322,6 +344,13 @@ export class ThriftCallHierarchyProvider implements vscode.CallHierarchyProvider
     }
 
     private async getWorkspaceDocuments(): Promise<Array<{uri: vscode.Uri; ast: nodes.ThriftDocument}>> {
+        const cached = this.cacheManager?.get<Array<{uri: vscode.Uri; ast: nodes.ThriftDocument}>>(
+            ThriftCallHierarchyProvider.CACHE_NAME,
+            ThriftCallHierarchyProvider.CACHE_KEY
+        );
+        if (cached) {
+            return cached;
+        }
         const out: Array<{uri: vscode.Uri; ast: nodes.ThriftDocument}> = [];
         if (vscode.workspace === undefined) {
             return out;
@@ -333,6 +362,11 @@ export class ThriftCallHierarchyProvider implements vscode.CallHierarchyProvider
                 out.push({uri: file, ast});
             }
         }
+        this.cacheManager?.set(
+            ThriftCallHierarchyProvider.CACHE_NAME,
+            ThriftCallHierarchyProvider.CACHE_KEY,
+            out
+        );
         return out;
     }
 }

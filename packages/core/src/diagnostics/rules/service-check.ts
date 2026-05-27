@@ -2,6 +2,7 @@ import {Range, DiagnosticSeverity} from '../../types';
 import * as nodes from '../../ast/nodes.types';
 import {ThriftIssue} from '../types';
 import {isKnownType, resolveNamespacedBase} from './type-utils';
+import {DIAGNOSTIC_CODES} from '../diagnostic-codes';
 
 export function checkService(
     node: nodes.Service | nodes.Interaction,
@@ -33,14 +34,14 @@ export function checkService(
                 message: `Unknown parent service '${parentName}' in extends`,
                 range,
                 severity: DiagnosticSeverity.Error,
-                code: 'service.extends.unknown'
+                code: DIAGNOSTIC_CODES.SERVICE_EXTENDS_UNKNOWN
             });
         } else if (parentKind !== 'service') {
             issues.push({
                 message: `Parent type '${parentName}' is not a service`,
                 range,
                 severity: DiagnosticSeverity.Error,
-                code: 'service.extends.notService'
+                code: DIAGNOSTIC_CODES.SERVICE_EXTENDS_NOT_SERVICE
             });
         }
     }
@@ -55,7 +56,7 @@ export function checkService(
                     message: `oneway method '${fnName}' must return void`,
                     range: fn.range,
                     severity: DiagnosticSeverity.Error,
-                    code: 'service.oneway.returnNotVoid'
+                    code: DIAGNOSTIC_CODES.SERVICE_ONEWAY_RETURN_NOT_VOID
                 });
             }
             if (fn.throws !== undefined && fn.throws.length > 0) {
@@ -63,7 +64,7 @@ export function checkService(
                     message: `oneway method '${fnName}' must not declare throws`,
                     range: fn.range,
                     severity: DiagnosticSeverity.Error,
-                    code: 'service.oneway.hasThrows'
+                    code: DIAGNOSTIC_CODES.SERVICE_ONEWAY_HAS_THROWS
                 });
             }
         }
@@ -73,7 +74,7 @@ export function checkService(
                 message: `Unknown return type '${fn.returnType}'`,
                 range: findTypeRange(lines, lineNo, fn.returnType, fn.range),
                 severity: DiagnosticSeverity.Error,
-                code: 'service.returnType.unknown'
+                code: DIAGNOSTIC_CODES.SERVICE_RETURN_TYPE_UNKNOWN
             });
         }
 
@@ -83,7 +84,7 @@ export function checkService(
                     message: `Unknown type '${arg.fieldType}'`,
                     range: arg.typeRange ?? arg.range,
                     severity: DiagnosticSeverity.Error,
-                    code: 'type.unknown'
+                    code: DIAGNOSTIC_CODES.TYPE_UNKNOWN
                 });
             }
         }
@@ -96,14 +97,14 @@ export function checkService(
                     message: `Unknown exception type '${thr.fieldType}' in throws`,
                     range: thr.range,
                     severity: DiagnosticSeverity.Error,
-                    code: 'service.throws.unknown'
+                    code: DIAGNOSTIC_CODES.SERVICE_THROWS_UNKNOWN
                 });
             } else if (kind !== 'exception') {
                 issues.push({
                     message: `Type '${thr.fieldType}' in throws is not an exception`,
                     range: thr.range,
                     severity: DiagnosticSeverity.Error,
-                    code: 'service.throws.notException'
+                    code: DIAGNOSTIC_CODES.SERVICE_THROWS_NOT_EXCEPTION
                 });
             }
         }

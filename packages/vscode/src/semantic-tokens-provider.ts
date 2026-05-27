@@ -120,17 +120,9 @@ function scanIdentifierTokens(
             continue;
         }
 
-        const prevCh = offset > 0 ? text[offset - 1] : '';
         const nextCh = text[offset + ident.length];
 
-        let tokenType: number;
-        if (nextCh === '.') {
-            tokenType = TOKEN_TYPE_INDEX['namespace'];
-        } else if (prevCh === '.') {
-            tokenType = TOKEN_TYPE_INDEX['type'];
-        } else {
-            tokenType = TOKEN_TYPE_INDEX['type'];
-        }
+        const tokenType = nextCh === '.' ? TOKEN_TYPE_INDEX['namespace'] : TOKEN_TYPE_INDEX['type'];
 
         out.push({
             line: baseLine,

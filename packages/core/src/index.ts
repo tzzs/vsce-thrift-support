@@ -17,6 +17,8 @@ export {ThriftFormatter} from './formatter/index';
 export {formatThriftContent} from './formatter/formatter-core';
 
 // Diagnostics
+export {DIAGNOSTIC_CODES, UNKNOWN_TYPE_DIAGNOSTIC_CODES} from './diagnostics/diagnostic-codes';
+export type {DiagnosticCode} from './diagnostics/diagnostic-codes';
 export {analyzeThriftAst, analyzeThriftText} from './diagnostics/rules/analyzer';
 export {collectTypesFromAst} from './diagnostics/include-resolver';
 export type {ThriftIssue, BlockCacheValue, MemberCacheValue, BlockAstCacheEntry, BlockCache, MemberCache, MemberCacheByBlock} from './diagnostics/types';

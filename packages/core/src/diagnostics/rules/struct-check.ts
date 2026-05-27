@@ -2,6 +2,7 @@ import {DiagnosticSeverity} from '../../types';
 import * as nodes from '../../ast/nodes.types';
 import {ThriftIssue} from '../types';
 import {isKnownType, isValidDefaultValue, resolveMultilineDefaultFromLines} from './type-utils';
+import {DIAGNOSTIC_CODES} from '../diagnostic-codes';
 
 export function checkStruct(
     node: nodes.Struct,
@@ -17,7 +18,7 @@ export function checkStruct(
                 message: `Duplicate field id ${field.id}`,
                 range: field.range,
                 severity: DiagnosticSeverity.Error,
-                code: 'field.duplicateId'
+                code: DIAGNOSTIC_CODES.FIELD_DUPLICATE_ID
             });
         }
         fieldIds.add(field.id);
@@ -27,7 +28,7 @@ export function checkStruct(
                 message: `Unknown type '${field.fieldType}'`,
                 range: field.typeRange ?? field.range,
                 severity: DiagnosticSeverity.Error,
-                code: 'type.unknown'
+                code: DIAGNOSTIC_CODES.TYPE_UNKNOWN
             });
         }
 
@@ -45,7 +46,7 @@ export function checkStruct(
                     message: `Invalid default value '${defaultValue}' for type '${field.fieldType}'`,
                     range: field.defaultValueRange ?? field.range,
                     severity: DiagnosticSeverity.Warning,
-                    code: 'value.typeMismatch'
+                    code: DIAGNOSTIC_CODES.VALUE_TYPE_MISMATCH
                 });
             }
         }

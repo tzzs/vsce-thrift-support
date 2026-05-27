@@ -81,11 +81,13 @@ export function createServiceBlock(params: {
     nameRange?: Range;
     parent: nodes.ThriftNode;
     extends?: string;
+    extendsRange?: Range;
 }): nodes.Service {
     return {
         type: nodes.ThriftNodeType.Service,
         name: params.name,
         extends: params.extends,
+        extendsRange: params.extendsRange,
         range: PLACEHOLDER_RANGE,
         nameRange: params.nameRange,
         parent: params.parent,

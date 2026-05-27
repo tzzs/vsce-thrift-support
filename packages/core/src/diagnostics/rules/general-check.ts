@@ -2,6 +2,7 @@ import {Range, DiagnosticSeverity} from '../../types';
 import * as nodes from '../../ast/nodes.types';
 import {ThriftIssue} from '../types';
 import {getPrimitiveTypes, isIntegerLiteral, isKnownType} from './type-utils';
+import {DIAGNOSTIC_CODES} from '../diagnostic-codes';
 
 const primitives = getPrimitiveTypes();
 
@@ -19,7 +20,7 @@ export function checkTypedef(
             message: `Unknown base type '${baseType}' in typedef`,
             range: findTypeRange(lines, lineNo, baseType, node.range),
             severity: DiagnosticSeverity.Error,
-            code: 'typedef.unknownBase'
+            code: DIAGNOSTIC_CODES.TYPEDEF_UNKNOWN_BASE
         });
     }
 }
@@ -38,7 +39,7 @@ export function checkConst(
             message: `Unknown type '${constType}'`,
             range: findTypeRange(lines, lineNo, constType, node.range),
             severity: DiagnosticSeverity.Error,
-            code: 'type.unknown'
+            code: DIAGNOSTIC_CODES.TYPE_UNKNOWN
         });
     }
 }
@@ -51,7 +52,7 @@ export function checkEnum(node: nodes.Enum, issues: ThriftIssue[]) {
                     message: `Enum value must be an integer literal`,
                     range: member.range,
                     severity: DiagnosticSeverity.Error,
-                    code: 'enum.valueNotInteger'
+                    code: DIAGNOSTIC_CODES.ENUM_VALUE_NOT_INTEGER
                 });
             }
         }
