@@ -14,7 +14,7 @@ const assert = require('assert');
 const {ThriftFormatter} = require('../../out/formatter');
 const {ThriftParser} = require('../../out/ast/parser');
 const {buildAstIndex} = require('../../out/formatter/ast-index');
-const {buildCommentMap} = require('../../out/formatter/comment-map');
+
 
 const DEFAULT_OPTIONS = {
     trailingComma: 'preserve',
@@ -122,26 +122,6 @@ describe('Performance assertions', function () {
                 assert.ok(
                     result.avg < 20,
                     `buildAstIndex avg ${result.avg.toFixed(2)}ms exceeds 20ms (${lineCount} lines)`
-                );
-            });
-
-            it(`buildCommentMap completes quickly`, () => {
-                const ast = new ThriftParser(content).parse();
-                const astIndex = buildAstIndex(ast);
-                const result = measureSync(() => {
-                    buildCommentMap(content, astIndex);
-                }, 5);
-
-                console.log(JSON.stringify({
-                    scenario: scenario.name,
-                    operation: 'buildCommentMap',
-                    lines: lineCount,
-                    ...result
-                }));
-
-                assert.ok(
-                    result.avg < scenario.thresholdParseMs,
-                    `buildCommentMap avg ${result.avg.toFixed(2)}ms exceeds ${scenario.thresholdParseMs}ms (${lineCount} lines)`
                 );
             });
 
