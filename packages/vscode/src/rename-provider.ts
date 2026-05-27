@@ -126,7 +126,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         cache: Map<string, vscode.TextDocument>
     ): Promise<vscode.TextDocument | undefined> {
         const key = this.getUriKey(uri);
-        const fallbackKey = this.getUriKey(fallback.uri );
+        const fallbackKey = this.getUriKey(fallback.uri);
         if (key && key === fallbackKey) {
             return fallback;
         }

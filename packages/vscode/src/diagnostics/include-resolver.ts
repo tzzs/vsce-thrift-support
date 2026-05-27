@@ -97,7 +97,7 @@ export function getIncludedFiles(document: vscode.TextDocument, workspaceIndex?:
         }
     }
 
-    return includedFiles;
+    return includedFiles.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
 }
 
 /**
