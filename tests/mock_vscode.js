@@ -185,6 +185,23 @@ class DocumentHighlight {
     }
 }
 
+/**
+ * Simple event emitter for mock VS Code events.
+ * Stores listeners and allows tests to fire them manually.
+ */
+function makeEventEmitter() {
+    const listeners = [];
+    return {
+        subscribe: (cb) => {
+            listeners.push(cb);
+            return { dispose: () => { const idx = listeners.indexOf(cb); if (idx >= 0) listeners.splice(idx, 1); } };
+        },
+        fire: (...args) => { for (const cb of [...listeners]) cb(...args); },
+        reset: () => { listeners.length = 0; },
+        get count() { return listeners.length; }
+    };
+}
+
 function mergeDeep(target, source) {
     if (!source) {
         return {...target};
@@ -210,6 +227,30 @@ function createWorkspaceInstance() {
         }
     };
     workspaceClone.textDocuments = [];
+
+    // Replace no-op event stubs with real emitters that store callbacks
+    const onDidOpen = makeEventEmitter();
+    const onDidChange = makeEventEmitter();
+    const onDidSave = makeEventEmitter();
+    const onDidClose = makeEventEmitter();
+
+    workspaceClone.onDidOpenTextDocument = (cb) => onDidOpen.subscribe(cb);
+    workspaceClone.onDidChangeTextDocument = (cb) => onDidChange.subscribe(cb);
+    workspaceClone.onDidSaveTextDocument = (cb) => onDidSave.subscribe(cb);
+    workspaceClone.onDidCloseTextDocument = (cb) => onDidClose.subscribe(cb);
+
+    // Expose fire methods so tests can simulate VS Code events
+    workspaceClone._fireDidOpenTextDocument = (doc) => onDidOpen.fire(doc);
+    workspaceClone._fireDidChangeTextDocument = (event) => onDidChange.fire(event);
+    workspaceClone._fireDidSaveTextDocument = (doc) => onDidSave.fire(doc);
+    workspaceClone._fireDidCloseTextDocument = (doc) => onDidClose.fire(doc);
+    workspaceClone._resetEvents = () => {
+        onDidOpen.reset();
+        onDidChange.reset();
+        onDidSave.reset();
+        onDidClose.reset();
+    };
+
     return workspaceClone;
 }
 
@@ -361,10 +402,18 @@ if (!vscode.languages) {
     vscode.languages = commonDefaults.languages;
 }
 
+// Window event emitters — stored at module level so reset() can recreate them
+let windowEventEmitters = {
+    onDidChangeActiveTextEditor: makeEventEmitter()
+};
+
 // Ensure window is properly set with all methods
 if (!vscode.window || typeof vscode.window !== 'object') {
     vscode.window = {...commonDefaults.window};
 }
+// Override onDidChangeActiveTextEditor with event emitter
+vscode.window.onDidChangeActiveTextEditor = (cb) => windowEventEmitters.onDidChangeActiveTextEditor.subscribe(cb);
+vscode.window._fireDidChangeActiveTextEditor = (editor) => windowEventEmitters.onDidChangeActiveTextEditor.fire(editor);
 
 let currentWorkspace = createWorkspaceInstance();
 
@@ -442,6 +491,13 @@ Object.assign(vscode, {
         // Reset window methods to defaults
         Object.assign(vscode.window, commonDefaults.window);
         vscode.window.activeTextEditor = commonDefaults.window.activeTextEditor;
+
+        // Recreate window event emitters for clean test state
+        windowEventEmitters = {
+            onDidChangeActiveTextEditor: makeEventEmitter()
+        };
+        vscode.window.onDidChangeActiveTextEditor = (cb) => windowEventEmitters.onDidChangeActiveTextEditor.subscribe(cb);
+        vscode.window._fireDidChangeActiveTextEditor = (editor) => windowEventEmitters.onDidChangeActiveTextEditor.fire(editor);
     }
 });
 
