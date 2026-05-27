@@ -1,8 +1,8 @@
 # Thrift Language Support - 计划与进度（2.1.1 优化发布线）
 
 **当前版本**: 2.2.0
-**最新状态**: ✅ `pnpm test` 全量通过（1020 passing）｜✅ Phase 5 全部完成（A/B/C/D/E/F）｜✅ PR #52 所有 Codex review 评论已 resolved｜✅ Dependabot 安全漏洞已修复｜✅ 4.1/4.2/4.3/4.5 优化已完成｜✅ release-please monorepo manifest 已配置
-**最后更新**: 2026-05-25（基于 claude/blissful-goodall-979518 分支，PR #52 待合并）
+**最新状态**: ✅ `pnpm test` 全量通过（990 passing）｜✅ Phase 5 全部完成（A/B/C/D/E/F）｜✅ 死代码清理完成（-106 编译产物, -4 dead 源文件, -2 dead 测试文件）｜✅ Dependabot 安全漏洞已修复｜✅ release-please monorepo manifest 已配置｜🔧 Phase 6 规划中
+**最后更新**: 2026-05-26（基于 claude/blissful-goodall-979518 分支，Phase 6 路线已确定）
 
 本文档用于统一当前阶段的目标、风险、里程碑与验收方式，便于在多次迭代中保持方向一致与可回溯。
 
@@ -241,13 +241,152 @@
 - [x] Token 对象创建优化：`tokenizeText` 改为直接字面量构造，消除展开分配开销
 - [x] 清理未使用的 import 和变量：ESLint 扫描后修复 core 5 处 Position/Range 冗余导入、cli 3 处类型断言/未使用变量，并统一 `!== null` 显式空值检查
 
-### 4.4 配置扩展与用户定制
+### 4.4 配置扩展与用户定制 🔧 移至 Phase 6E
 
 - [ ] 考虑将部分配置项暴露给用户（如并发数、缓存大小）
 - [ ] 添加配置迁移提示（向后兼容旧配置）
 - [ ] 配置验证与边界值检查
 
-### 4.5 文档与开发者体验 ✅ 已完成
+---
+  
+## 4.6 Phase 6: VS Code 高级特性 + 配置扩展（2026-05-26 启动）🔧
+
+严格串行交付：每个子阶段完成、测试通过、验证后再开始下一个。
+
+### Phase 6A: Semantic Tokens（语义令牌着色）
+
+**目标**: 用 AST 驱动的语义着色替代/增强 TextMate 正则高亮，区分类型/变量/参数/方法等语义类别。
+
+**为什么优先**: VS Code 用户感知最强的特性之一。Thrift 的 TextMate 语法无法区分 `struct User { name: string }` 中的 `name`（字段）和 `const name = "foo"` 中的 `name`（常量），Semantic Tokens 可以。
+
+**实现方案**:
+
+- **新文件**: `packages/vscode/src/semantic-tokens-provider.ts`
+- **Token 类型映射**: AST 节点 → VS Code SemanticTokenTypes
+  - `ThriftDocument` → `namespace`
+  - `Struct` / `Union` / `Exception` → `struct` / `type`
+  - `Enum` → `enum`
+  - `Service` / `Interaction` → `interface`
+  - `Field` → `property`
+  - `Function` → `method`
+  - `Const` → `variable`
+  - `Typedef` → `type`
+  - `Include` → `namespace`
+  - 关键字 (`required`/`optional`/`oneway`/`throws`/`stream`/`sink` 等) → `keyword` + `modifier`
+  - 注释/字符串/数字 → 对应字面量类型
+- **Token 修饰符**: `declaration`（定义处）、`readonly`、`deprecated`、`defaultLibrary`
+- **Legend 注册**: `packages/vscode/src/setup.ts` 中注册 `vscode.languages.registerDocumentSemanticTokensProvider`
+- **增量支持**: 实现 `provideDocumentSemanticTokensEdits`（利用已有增量解析器，只重算脏区 token）
+- **性能目标**: 1000 行文件 < 10ms（AST 遍历 + token 构建，利用已有 AST 缓存）
+
+**验收标准**:
+- [ ] Thrift 文件在支持 semantic highlighting 的主题下显示语义着色
+- [ ] AST 覆盖所有节点类型的 token 映射
+- [ ] 增量更新正确（编辑后只有脏区重新生成 token）
+- [ ] 500 行 × 200 struct 大文件场景 token 构建 < 20ms
+- [ ] 新增 ≥ 10 个单元测试（token 映射正确性 + 增量更新 + 边界情况）
+- [ ] `pnpm test` 全量通过
+
+---
+
+### Phase 6B: Call Hierarchy（调用层级）
+
+**目标**: 展示 service/interaction 方法的调用关系图，支持 incoming/outgoing calls。
+
+**实现方案**:
+
+- **新文件**: `packages/vscode/src/call-hierarchy-provider.ts`
+- **数据来源**: AST 遍历 + 跨文件引用图（复用 `references/` 模块的 `reference-search.ts` 和定义查找）
+- **prepareCallHierarchy**: 在光标位置的函数定义处返回 `vscode.CallHierarchyItem`
+- **provideCallHierarchyIncomingCalls**: 查找调用该函数的所有位置
+- **provideCallHierarchyOutgoingCalls**: 查找该函数调用的其他函数
+- **调用关系检测策略**:
+  - 同一文件内：AST 遍历所有 service/interaction 方法体，匹配函数名
+  - 跨文件：利用 include 依赖图和定义查找，搜索工作区中调用目标方法的位置
+- **注册**: `vscode.languages.registerCallHierarchyProvider`
+
+**验收标准**:
+- [ ] 在 service 方法上右键 → Show Call Hierarchy 显示调用树
+- [ ] Incoming calls 正确（展示谁调用了这个方法）
+- [ ] Outgoing calls 正确（展示这个方法调用了谁）
+- [ ] 跨文件调用关系可追踪（通过 include 链）
+- [ ] 新增 ≥ 8 个测试（同文件调用 + 跨文件调用 + 空结果 + 边界）
+- [ ] `pnpm test` 全量通过
+
+---
+
+### Phase 6C: Type Hierarchy（类型层级）
+
+**目标**: 展示 struct/union/exception 的继承层级以及 service extends 关系。
+
+**实现方案**:
+
+- **新文件**: `packages/vscode/src/type-hierarchy-provider.ts`
+- **数据来源**: AST 类型定义 + 继承关系提取
+- **prepareTypeHierarchy**: 在光标位置的类型定义处返回 `vscode.TypeHierarchyItem`
+- **provideTypeHierarchySupertypes**: 查找父类型（如 `struct Child extends Parent` 中的 `Parent`）
+- **provideTypeHierarchySubtypes**: 查找子类型（所有 extends 当前类型的定义）
+- **支持的关系**:
+  - `struct A extends B` — struct 继承
+  - `service A extends B` — service 继承
+  - `exception A extends B` — exception 继承
+- **注册**: `vscode.languages.registerTypeHierarchyProvider`
+
+**验收标准**:
+- [ ] 在 struct/exception 上右键 → Show Type Hierarchy 显示继承树
+- [ ] Supertypes 正确（沿 extends 链向上）
+- [ ] Subtypes 正确（查找所有 extends 当前类型的定义，含跨文件）
+- [ ] Service extends 关系正确
+- [ ] 新增 ≥ 8 个测试
+- [ ] `pnpm test` 全量通过
+
+---
+
+### Phase 6D: Document Highlight（文档内高亮）
+
+**目标**: 光标选中标识符时，高亮当前文档中所有同名引用。
+
+**实现方案**:
+
+- **新文件**: `packages/vscode/src/document-highlight-provider.ts`
+- **实现**: `vscode.languages.registerDocumentHighlightProvider`
+- 光标所在位置 → 获取标识符 → AST 遍历找到所有同名引用 → 返回 `DocumentHighlight[]`
+- 区分读/写：定义处标 `Write`，引用处标 `Read`
+- **性能**: 单文件 AST 遍历，利用已有 AST 缓存，1000 行 < 5ms
+
+**验收标准**:
+- [ ] 光标放在字段名/变量名/类型名上时，文档内同名引用被高亮
+- [ ] 定义处和引用处正确区分（Write vs Read）
+- [ ] 新增 ≥ 5 个测试
+- [ ] `pnpm test` 全量通过
+
+---
+
+### Phase 6E: 配置扩展与验证
+
+**目标**: 将 4.4 的配置项落地，暴露内部调优参数，添加配置校验。
+
+**实现方案**:
+
+- **暴露的配置项**:
+  - `thrift.performance.maxConcurrentAnalyses`（默认 3）
+  - `thrift.performance.cacheSize`（控制 LRU 容量）
+  - `thrift.performance.cacheTTL`（毫秒）
+  - `thrift.performance.memoryPressureThreshold`（MB）
+- **配置验证**: `packages/core/src/config/` 中添加 `validateConfig()`，检查边界值
+- **迁移提示**: 在 `package.json` contributes.configuration 中为旧键添加 `deprecationMessage`
+- **配置注释**: 为所有新增项添加清晰的 `markdownDescription`
+
+**验收标准**:
+- [ ] 4 个新配置项在 VS Code 设置面板中可见，带描述和默认值
+- [ ] 边界值（负数 TTL、0 并发等）被校验拦截
+- [ ] 旧配置键显示弃用提示
+- [ ] 新增 ≥ 5 个配置相关测试
+- [ ] `pnpm test` 全量通过
+
+---
+
+
 
 - [x] 更新 README 突出性能改进（中英文 README 均新增 ⚡ 性能表现章节 + 开发者文档索引表）
 - [x] 创建 `PERFORMANCE.md`（基准指标、配置调优、大型工作区建议、CI 集成示例、内存管理、常见性能问题）
@@ -268,10 +407,14 @@
 
 ### 5.2 高级功能扩展
 
+- [x] Semantic Tokens（语义令牌着色）→ 移至 Phase 6A
+- [x] Call Hierarchy（调用层级）→ 移至 Phase 6B
+- [x] Type Hierarchy（类型层级）→ 移至 Phase 6C
+- [x] Document Highlight（文档内高亮）→ 移至 Phase 6D
 - [ ] Web Worker 迁移（将格式化核心移至 Worker）
 - [ ] 预解析与缓存预热策略
-- [ ] 高级编辑功能（Call Hierarchy/Type Hierarchy/Refactor）
 - [ ] 语义诊断与 Quick Fix 扩展
+- [ ] 重构能力增强（Extract Variable / Inline Type 等）
 
 ### 5.3 质量保障与生态扩展
 
@@ -316,6 +459,39 @@
 - ✅ 类型安全性增强（显式泛型、空引用修复）
 - ✅ AST 解析器统一（单一标准 parser 实现）
 - ✅ 关键字与 Thrift 规范对齐
+- ✅ **死代码清理**：移除 106 个编译产物（`.js`/`.js.map`）、2 个未集成模块（comment-map/const-printer）、旧 `src/` 空目录
+
+### 6.4 Phase 6 验收指标
+
+#### Semantic Tokens（6A）
+
+- [ ] 1000 行文件 semantic token 构建 < 10ms
+- [ ] AST 节点类型 → token 类型映射覆盖率 100%
+- [ ] 增量更新正确（编辑后仅脏区重算）
+- [ ] 主题语义着色可观察（Dark+/Light+ 内置主题验证）
+
+#### Call Hierarchy + Type Hierarchy（6B/6C）
+
+- [ ] Incoming/Outgoing calls 正确（含跨文件）
+- [ ] Type supertypes/subtypes 正确（含跨文件）
+- [ ] 大型工作区（50+ 文件）调用图构建 < 500ms
+
+#### Document Highlight（6D）
+
+- [ ] 单文件高亮响应 < 5ms
+- [ ] Write/Read 区分正确
+
+#### 配置扩展（6E）
+
+- [ ] 4 个新配置项在 VS Code 设置面板可见
+- [ ] 边界值校验生效
+- [ ] 旧键迁移提示可读
+
+#### 整体
+
+- [ ] `pnpm test` 全量通过
+- [ ] 编译无错误、lint 无警告
+- [ ] 每个子阶段新增 ≥ 对应测试数量
 
 ---
 
@@ -333,7 +509,8 @@
 
 | 版本 | 日期 | 主要更新 |
 |------|------|----------|
-| 2.2.0 | 2026-05-25 | **Phase 5 全量完成 + CI/Publish 修复 + 安全加固 + 代码质量提升**（PR #52，待合并）<br>- ✅ Phase 5B: `packages/vscode/` 迁移（~40 文件 + import 重写），lint scope 修正<br>- ✅ Phase 5D: require-hook 路径映射，13 个 CLI 集成测试，ErrorHandler 测试修复<br>- ✅ Phase 5F: README CLI 章节，packages/cli/README.md，LICENSE<br>- ✅ CI 步骤顺序：`Build core` → `Lint` → `Build`（type-aware ESLint 需 core 类型）<br>- ✅ `build:core` 脚本：`pnpm test` 在干净 checkout 可直接运行<br>- ✅ `publish.yml`：package job checkout 固定 SHA，VSIX 构建前先编 core<br>- ✅ Codex review 全部 resolved（glob .thrift 过滤、AST include 解析、severity 配置、extends 诊断排除、--stdin/--check 冲突等）<br>- ✅ Dependabot 安全修复：CVE-2026-8723（qs@6.15.2）、CVE-2026-41907（uuid@14.0.0）via pnpm overrides<br>- ✅ release-please monorepo manifest 配置（`.release-please-manifest.json`，三包独立 CHANGELOG）<br>- ✅ ESLint 扩展至 core+cli：type-aware 严格规则（no-explicit-any/no-floating-promises/strict-boolean-expressions），修复全部 lint 错误<br>- ✅ JSDoc 补充：`line-range.ts` 全部导出函数 + LineRange 接口；tokenizer 直接字面量构造优化<br>- ✅ 文档体系完善：新增 `ARCHITECTURE.md`、`PERFORMANCE.md`、`TROUBLESHOOTING.md`；README 新增性能章节<br>- ✅ 1020 passing，零 lint 错误 |
+| 2.3.0 | 计划中 | **Phase 6: VS Code 高级特性 + 配置扩展**<br>🔧 6A: Semantic Tokens — AST 驱动语义着色<br>🔧 6B: Call Hierarchy — service 方法调用层级<br>🔧 6C: Type Hierarchy — struct/exception/service 继承层级<br>🔧 6D: Document Highlight — 文档内同名引用高亮<br>🔧 6E: 配置扩展 — 暴露性能参数 + 配置校验 + 迁移提示<br>✅ 破冰: 死代码清理 — `.js`/`.js.map` 编译产物(106) + 未集成模块(2) + test files(2) |
+| 2.2.0 | 2026-05-25 | **Phase 5 全量完成 + CI/Publish 修复 + 安全加固 + 代码质量提升**（PR #52，待合并）<br>- ✅ Phase 5B: `packages/vscode/` 迁移（~40 文件 + import 重写），lint scope 修正<br>- ✅ Phase 5D: require-hook 路径映射，13 个 CLI 集成测试，ErrorHandler 测试修复<br>- ✅ Phase 5F: README CLI 章节，packages/cli/README.md，LICENSE<br>- ✅ CI 步骤顺序：`Build core` → `Lint` → `Build`（type-aware ESLint 需 core 类型）<br>- ✅ `build:core` 脚本：`pnpm test` 在干净 checkout 可直接运行<br>- ✅ `publish.yml`：package job checkout 固定 SHA，VSIX 构建前先编 core<br>- ✅ Codex review 全部 resolved（glob .thrift 过滤、AST include 解析、severity 配置、extends 诊断排除、--stdin/--check 冲突等）<br>- ✅ Dependabot 安全修复：CVE-2026-8723（qs@6.15.2）、CVE-2026-41907（uuid@14.0.0）via pnpm overrides<br>- ✅ release-please monorepo manifest 配置（`.release-please-manifest.json`，三包独立 CHANGELOG）<br>- ✅ ESLint 扩展至 core+cli：type-aware 严格规则，修复全部 lint 错误<br>- ✅ JSDoc 补充：`line-range.ts` 全部导出函数 + tokenizer 字面量构造优化<br>- ✅ 文档体系完善：新增 `ARCHITECTURE.md`、`PERFORMANCE.md`、`TROUBLESHOOTING.md`；README 新增性能章节<br>- ✅ 1020 passing，零 lint 错误 |
 | 2.4.0 | 2026-05-19 | **Monorepo + CLI 工具（Phase 5 A/C/E）+ CodeQL 安全修复**<br>- ✅ `packages/core/`: 核心逻辑零 vscode 依赖（AST、formatter、diagnostics、utils）<br>- ✅ `packages/cli/`: 独立 CLI 工具 `thrift-support`（format/lint/parse/symbols），333KB bundle<br>- ✅ CI 新增 CLI dogfood 步骤；publish 新增 npm_publish job<br>- ✅ `scripts/sync-versions.js` 版本同步<br>- ✅ CodeQL ReDoS 修复：parser 正则字符类重叠消除、formatter `trimEnd()`、Uri.parse `indexOf` 替代 |
 | 2.3.1 | 2026-05-17 | **Formatter 工程化演进（Phase 0–4）+ Quick Fix P0 修复**<br>- ✅ Quick Fix P0：取消令牌逻辑反转、include 路径工作区解析、诊断门控、元数据补全<br>- ✅ Phase 0 测试基础：幂等性穷举(168×9)、AST 往返(40)、注释不丢失(36)、fixture 回归(6)、性能基准入 CI<br>- ✅ Phase 1 正确性加固：safeLine 防崩溃、恶意输入韧性、parseStructFieldText 长度守卫<br>- ✅ Phase 2 注释稳定性：CommentMap 并行结构、lazy 构建集成、edge case 测试<br>- ✅ Phase 3 Printer 抽象：PrintBuffer IR + ConstPrinter 迁移<br>- ✅ Phase 4 大文件性能：CI 性能回归断言(12 tests)、分块格式化(>10000 行)、热路径优化<br>- ✅ 测试从 676 → 999 passing (+48%)，31 文件 +4386 行 |
 | 2.3.0 | 2026-05-15 | **Quick Fix / Code Action P0 修复**<br>- ✅ 取消令牌逻辑反转修复（无 token 时命名空间循环提前 break）<br>- ✅ include 建议接入 `findWorkspaceDefinitions`（真实相对路径替代文件名猜测）<br>- ✅ 灯泡与诊断按 `type.unknown` 联动（`context.diagnostics` 门控 Quick Fix）<br>- ✅ `vscode.Diagnostic` 补 `.code` / `.source='thrift'` 元数据<br>- ✅ 新增/调整 5 个 P0 专项测试，全量 676 passing |

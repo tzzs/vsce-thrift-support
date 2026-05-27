@@ -61,6 +61,130 @@ class CodeAction {
     }
 }
 
+// --- Phase 6A/6B/6C/6D mocks ---
+
+class SemanticTokensLegend {
+    constructor(tokenTypes, tokenModifiers) {
+        this.tokenTypes = Array.isArray(tokenTypes) ? tokenTypes.slice() : [];
+        this.tokenModifiers = Array.isArray(tokenModifiers) ? tokenModifiers.slice() : [];
+    }
+}
+
+class SemanticTokens {
+    constructor(data, resultId) {
+        this.data = data instanceof Uint32Array ? data : new Uint32Array(data || []);
+        this.resultId = resultId;
+    }
+}
+
+// Minimal SemanticTokensBuilder mimicking VS Code's behavior: collects
+// (line, char, length, tokenType, modifierMask) and serializes to a delta-encoded
+// Uint32Array on build(). Sufficient for unit tests verifying tokens.
+class SemanticTokensBuilder {
+    constructor(legend) {
+        this.legend = legend;
+        this.entries = [];
+    }
+
+    push(rangeOrLine, tokenTypeOrChar, modifiersOrLen, _typeOrUndefined, _modOrUndefined) {
+        if (typeof rangeOrLine === 'object' && rangeOrLine && rangeOrLine.start && rangeOrLine.end) {
+            // push(range, tokenType, tokenModifiers?)
+            const range = rangeOrLine;
+            const tokenType = tokenTypeOrChar;
+            const tokenModifiers = modifiersOrLen;
+            const line = range.start.line;
+            const startChar = range.start.character;
+            const length = range.end.character - range.start.character;
+            const tokenTypeIdx = this.legend && Array.isArray(this.legend.tokenTypes)
+                ? this.legend.tokenTypes.indexOf(tokenType)
+                : -1;
+            let modMask = 0;
+            if (Array.isArray(tokenModifiers) && this.legend && Array.isArray(this.legend.tokenModifiers)) {
+                for (const m of tokenModifiers) {
+                    const idx = this.legend.tokenModifiers.indexOf(m);
+                    if (idx >= 0) {
+                        modMask |= (1 << idx);
+                    }
+                }
+            }
+            this.entries.push({line, startChar, length, tokenType: tokenTypeIdx, tokenModifiers: modMask});
+        } else {
+            // push(line, char, length, tokenTypeIdx, modifierMask)
+            this.entries.push({
+                line: rangeOrLine,
+                startChar: tokenTypeOrChar,
+                length: modifiersOrLen,
+                tokenType: _typeOrUndefined,
+                tokenModifiers: _modOrUndefined || 0
+            });
+        }
+    }
+
+    build(resultId) {
+        // Delta encode like VS Code
+        const arr = [];
+        let lastLine = 0;
+        let lastChar = 0;
+        for (const entry of this.entries) {
+            const deltaLine = entry.line - lastLine;
+            const deltaChar = deltaLine === 0 ? entry.startChar - lastChar : entry.startChar;
+            arr.push(deltaLine, deltaChar, entry.length, entry.tokenType, entry.tokenModifiers);
+            lastLine = entry.line;
+            lastChar = entry.startChar;
+        }
+        return new SemanticTokens(new Uint32Array(arr), resultId);
+    }
+}
+
+class CallHierarchyItem {
+    constructor(kind, name, detail, uri, range, selectionRange) {
+        this.kind = kind;
+        this.name = name;
+        this.detail = detail;
+        this.uri = uri;
+        this.range = range;
+        this.selectionRange = selectionRange;
+    }
+}
+
+class CallHierarchyIncomingCall {
+    constructor(from, fromRanges) {
+        this.from = from;
+        this.fromRanges = fromRanges;
+    }
+}
+
+class CallHierarchyOutgoingCall {
+    constructor(to, fromRanges) {
+        this.to = to;
+        this.fromRanges = fromRanges;
+    }
+}
+
+class TypeHierarchyItem {
+    constructor(kind, name, detail, uri, range, selectionRange) {
+        this.kind = kind;
+        this.name = name;
+        this.detail = detail;
+        this.uri = uri;
+        this.range = range;
+        this.selectionRange = selectionRange;
+    }
+}
+
+const DocumentHighlightKind = {
+    Text: 0,
+    Read: 1,
+    Write: 2
+};
+
+class DocumentHighlight {
+    constructor(range, kind) {
+        this.range = range;
+        this.kind = kind === undefined ? DocumentHighlightKind.Text : kind;
+    }
+}
+
 function mergeDeep(target, source) {
     if (!source) {
         return {...target};
@@ -118,7 +242,11 @@ const commonDefaults = {
             },
             dispose: () => {
             }
-        })
+        }),
+        registerDocumentSemanticTokensProvider: () => ({dispose: () => {}}),
+        registerCallHierarchyProvider: () => ({dispose: () => {}}),
+        registerTypeHierarchyProvider: () => ({dispose: () => {}}),
+        registerDocumentHighlightProvider: () => ({dispose: () => {}})
     },
     workspace: {
         findFiles: async () => [],
@@ -216,6 +344,17 @@ vscode.CodeActionKind = CodeActionKind;
 vscode.CodeAction = CodeAction;
 vscode.WorkspaceEdit = WorkspaceEdit;
 vscode.Selection = Selection;
+
+// Phase 6A/6B/6C/6D constructors and enums
+vscode.SemanticTokensLegend = SemanticTokensLegend;
+vscode.SemanticTokens = SemanticTokens;
+vscode.SemanticTokensBuilder = SemanticTokensBuilder;
+vscode.CallHierarchyItem = CallHierarchyItem;
+vscode.CallHierarchyIncomingCall = CallHierarchyIncomingCall;
+vscode.CallHierarchyOutgoingCall = CallHierarchyOutgoingCall;
+vscode.TypeHierarchyItem = TypeHierarchyItem;
+vscode.DocumentHighlight = DocumentHighlight;
+vscode.DocumentHighlightKind = DocumentHighlightKind;
 
 // Ensure languages is properly set
 if (!vscode.languages) {

@@ -14,6 +14,10 @@ import {registerFoldingRangeProvider} from './folding-range-provider';
 import {registerSelectionRangeProvider} from './selection-range-provider';
 import {ThriftRenameProvider} from './rename-provider';
 import {ThriftRefactorCodeActionProvider} from './code-actions-provider';
+import {registerSemanticTokensProvider} from './semantic-tokens-provider';
+import {registerCallHierarchyProvider} from './call-hierarchy-provider';
+import {registerTypeHierarchyProvider} from './type-hierarchy-provider';
+import {registerDocumentHighlightProvider} from './document-highlight-provider';
 import {setupIncrementalParsingTracking} from './utils/incremental-parser';
 
 /**
@@ -103,4 +107,16 @@ export function registerProviders(context: vscode.ExtensionContext, deps: CoreDe
             }
         )
     );
+
+    // Phase 6A: Semantic tokens (AST-driven semantic colorization)
+    registerSemanticTokensProvider(context, deps);
+
+    // Phase 6B: Call hierarchy (service method override / type reference graph)
+    registerCallHierarchyProvider(context, deps);
+
+    // Phase 6C: Type hierarchy (service extends chain + typedef aliases)
+    registerTypeHierarchyProvider(context, deps);
+
+    // Phase 6D: Document highlight (in-document identifier occurrences)
+    registerDocumentHighlightProvider(context, deps);
 }
