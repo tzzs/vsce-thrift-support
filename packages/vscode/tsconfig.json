@@ -1,0 +1,22 @@
+{
+    "compilerOptions": {
+        "module": "Node16",
+        "target": "ES2022",
+        "outDir": "../../out",
+        "lib": ["ES2022"],
+        "sourceMap": true,
+        "strict": true,
+        "moduleResolution": "node16",
+        "types": ["node", "vscode"],
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "declaration": false,
+        "removeComments": true,
+        "paths": {
+            "@tanzz/thrift-core": ["../core/src/index.ts"]
+        }
+    },
+    "include": ["src/**/*.ts"],
+    "exclude": ["node_modules", "../../out", "../../tests"]
+}

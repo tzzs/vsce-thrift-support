@@ -197,6 +197,58 @@ function run() {
     issues = analyzeThriftText(extremeNesting);
     assert.ok(findByCode(issues, 'value.typeMismatch').length === 0, 'Brackets in string values should not affect parsing');
 
+    // Test 21: Multi-line list default value should not trigger false positive
+    const multilineList = `struct Test {
+    1: list<string> items = [
+      "line1",
+      "line2",
+      "line3"
+    ] (description="Multi-line list")
+  }`;
+    issues = analyzeThriftText(multilineList);
+    assert.ok(findByCode(issues, 'value.typeMismatch').length === 0, 'Multi-line list default should be valid');
+
+    // Test 22: Multi-line map default value should not trigger false positive
+    const multilineMap = `struct Test {
+    1: map<string, i32> scores = {
+      "alice": 100,
+      "bob": 90,
+      "charlie": 80
+    } (description="Multi-line map")
+  }`;
+    issues = analyzeThriftText(multilineMap);
+    assert.ok(findByCode(issues, 'value.typeMismatch').length === 0, 'Multi-line map default should be valid');
+
+    // Test 23: Multi-line set default value should not trigger false positive
+    const multilineSet = `struct Test {
+    1: set<i32> numbers = [
+      1,
+      2,
+      3,
+      4
+    ]
+  }`;
+    issues = analyzeThriftText(multilineSet);
+    assert.ok(findByCode(issues, 'value.typeMismatch').length === 0, 'Multi-line set default should be valid');
+
+    // Test 24: Multi-line nested collection default should not trigger false positive
+    const multilineNested = `struct Test {
+    1: list<map<string, list<i32>>> data = [
+      {"key1": [1, 2]},
+      {"key2": [3, 4]}
+    ] (description="Nested multi-line")
+  }`;
+    issues = analyzeThriftText(multilineNested);
+    assert.ok(findByCode(issues, 'value.typeMismatch').length === 0, 'Multi-line nested collection default should be valid');
+
+    // Test 25: Single-line collection defaults should still validate correctly
+    const singleLineInvalid = `struct Test {
+    1: list<string> items = "not_a_list",
+    2: i32 num = "not_a_number"
+  }`;
+    issues = analyzeThriftText(singleLineInvalid);
+    assert.ok(findByCode(issues, 'value.typeMismatch').length >= 1, 'Invalid single-line defaults should still be detected');
+
 }
 
 describe('diagnostics-edge-cases', () => {

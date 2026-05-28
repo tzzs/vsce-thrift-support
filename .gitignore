@@ -64,3 +64,8 @@ test-thrift/
 .qoder/
 .codex/
 .trae/
+.pnpm-store/
+
+# Prevent compiled output from being committed into source directories
+packages/*/src/**/*.js
+packages/*/src/**/*.js.map

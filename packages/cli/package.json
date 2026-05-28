@@ -1,0 +1,39 @@
+{
+    "name": "thrift-support",
+    "version": "2.2.0",
+    "description": "CLI tool for Apache Thrift IDL: format, lint, parse, symbols",
+    "bin": {
+        "thrift-support": "./dist/cli.js"
+    },
+    "files": [
+        "dist/cli.js",
+        "dist/cli.js.map",
+        "README.md",
+        "LICENSE"
+    ],
+    "keywords": [
+        "thrift",
+        "formatter",
+        "linter",
+        "cli",
+        "ast",
+        "parser"
+    ],
+    "engines": {
+        "node": ">=16"
+    },
+    "devDependencies": {
+        "@tanzz/thrift-core": "workspace:*",
+        "esbuild": "^0.28.0",
+        "typescript": "^5.6.0"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/tzzs/vsce-thrift-support.git"
+    },
+    "license": "MIT",
+    "scripts": {
+        "build": "node build.js",
+        "prepublishOnly": "pnpm run build"
+    }
+}

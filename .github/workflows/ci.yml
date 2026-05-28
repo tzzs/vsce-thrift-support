@@ -29,11 +29,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22.18.0
+          node-version: 24.x
           cache: pnpm
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Build core package
+        run: cd packages/core && npx tsc -p .
 
       - name: Lint
         run: pnpm run lint
@@ -41,5 +44,30 @@ jobs:
       - name: Build
         run: pnpm run build
 
+      - name: Build CLI
+        run: cd packages/cli && node build.js
+
+      - name: Build CLI TypeScript
+        run: pnpm exec tsc -p packages/cli/tsconfig.json
+
       - name: Run tests
         run: pnpm test
+
+      - name: Plugin coverage
+        run: pnpm run coverage
+
+      - name: CLI coverage
+        run: pnpm run coverage:cli
+
+      - name: CLI dogfood
+        run: |
+          node packages/cli/dist/cli.js --version
+          node packages/cli/dist/cli.js format --check test-files/example-enum.thrift
+          node packages/cli/dist/cli.js lint test-files/example-enum.thrift
+          node packages/cli/dist/cli.js symbols test-files/example-enum.thrift
+
+      - name: Performance benchmark
+        run: node -e "require('./tests/require-hook.js'); require('./tests/perf/run-performance-benchmark.js')" -- --structs 120 --fields 30 --iterations 5 --threshold-full-ms 400 --threshold-incremental-ms 100
+
+      - name: Performance assertions (multi-size)
+        run: pnpm exec mocha --require tests/require-hook.js --timeout 120000 tests/perf/perf-assertions.js

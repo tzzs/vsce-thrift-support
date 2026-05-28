@@ -271,4 +271,139 @@ struct Profile {
         if (cancelledDefinition) {
         }
     });
+
+    // ---- Workspace fallback and edge cases ----
+
+    it('should fallback to workspace search when type not in current file or includes', async () => {
+        const provider = new ThriftDefinitionProvider();
+
+        // Document references a type that only exists in another workspace file
+        const text = 'struct Main { 1: RemoteType field }';
+        const doc = createMockDocument(text);
+        const pos = createMockPosition(0, 19); // on "RemoteType"
+
+        // Set up findFiles to return a workspace file that defines RemoteType
+        const workspaceFile = vscode.Uri.file('/ws/other.thrift');
+        const originalFindFiles = vscode.workspace.findFiles;
+        const originalReadFile = vscode.workspace.fs.readFile;
+        try {
+            vscode.workspace.findFiles = async () => [workspaceFile];
+            vscode.workspace.fs.readFile = async (uri) => {
+                if (uri.fsPath === workspaceFile.fsPath) {
+                    return Buffer.from('struct RemoteType { 1: string name }');
+                }
+                return Buffer.from('');
+            };
+
+            const result = await provider.provideDefinition(doc, pos, createMockCancellationToken());
+            assert.ok(result, 'Should find definition via workspace fallback');
+            assert.ok(Array.isArray(result) ? result[0].uri.fsPath.includes('other.thrift') : result.uri.fsPath.includes('other.thrift'),
+                'Definition should be in the workspace file');
+        } finally {
+            vscode.workspace.findFiles = originalFindFiles;
+            vscode.workspace.fs.readFile = originalReadFile;
+        }
+    });
+
+    it('should return undefined when workspace search finds nothing', async () => {
+        const provider = new ThriftDefinitionProvider();
+
+        const text = 'struct Main { 1: NowhereType field }';
+        const doc = createMockDocument(text);
+        const pos = createMockPosition(0, 19); // on "NowhereType"
+
+        const originalFindFiles = vscode.workspace.findFiles;
+        const originalReadFile = vscode.workspace.fs.readFile;
+        try {
+            // Return a file that doesn't have the type
+            const workspaceFile = vscode.Uri.file('/ws/unrelated.thrift');
+            vscode.workspace.findFiles = async () => [workspaceFile];
+            vscode.workspace.fs.readFile = async () => Buffer.from('struct Other { 1: i32 x }');
+
+            const result = await provider.provideDefinition(doc, pos, createMockCancellationToken());
+            assert.strictEqual(result, undefined, 'Should return undefined when no match in workspace');
+        } finally {
+            vscode.workspace.findFiles = originalFindFiles;
+            vscode.workspace.fs.readFile = originalReadFile;
+        }
+    });
+
+    it('should handle readFile error gracefully in included file loop', async () => {
+        const provider = new ThriftDefinitionProvider();
+
+        // Document with an include statement (not an include-provider scenario, just to get into the loop)
+        // We'll test this by directly testing the error handler catch in the included-files loop
+        const text = `include "missing.thrift"
+
+struct Foo {
+    1: UnknownType x
+}`;
+        const doc = createMockDocument(text, 'with-include.thrift');
+        const pos = createMockPosition(3, 12); // on "UnknownType"
+
+        // Make readFile throw for any file access
+        const originalReadFile = vscode.workspace.fs.readFile;
+        try {
+            vscode.workspace.fs.readFile = async () => {
+                throw new Error('Simulated file read failure');
+            };
+
+            const result = await provider.provideDefinition(doc, pos, createMockCancellationToken());
+            // Should not crash; returns undefined or workspace definition
+            assert.strictEqual(result, undefined, 'Should not crash on readFile error');
+        } finally {
+            vscode.workspace.fs.readFile = originalReadFile;
+        }
+    });
+
+    it('should search included file via open text document when already open', async () => {
+        const provider = new ThriftDefinitionProvider();
+
+        // Use matching directory so include resolution finds the open doc
+        const baseDir = '/tmp/def-test';
+        const includeUri = vscode.Uri.file(baseDir + '/shared.thrift');
+        const docUri = vscode.Uri.file(baseDir + '/needs-include.thrift');
+
+        const docText = `include "shared.thrift"
+
+struct Main {
+    1: SharedType field
+}`;
+        const doc = {
+            uri: docUri,
+            getText: () => docText,
+            languageId: 'thrift',
+            lineAt: (line) => ({ text: docText.split('\n')[line] || '', lineNumber: line }),
+            getWordRangeAtPosition: (pos) => {
+                const lineText = docText.split('\n')[pos.line] || '';
+                const wordRegex = /\b([A-Za-z_][A-Za-z0-9_]*)\b/g;
+                let match;
+                while ((match = wordRegex.exec(lineText)) !== null) {
+                    const start = match.index;
+                    const end = start + match[0].length;
+                    if (pos.character >= start && pos.character <= end) {
+                        return { start: { line: pos.line, character: start }, end: { line: pos.line, character: end } };
+                    }
+                }
+                return null;
+            }
+        };
+
+        // Push an open doc for the included file
+        const openIncludeDoc = {
+            uri: includeUri,
+            getText: () => 'struct SharedType { 1: i32 id }',
+            languageId: 'thrift'
+        };
+        vscode.workspace.textDocuments.push(openIncludeDoc);
+
+        const pos = createMockPosition(3, 16); // on "SharedType"
+        try {
+            const result = await provider.provideDefinition(doc, pos, createMockCancellationToken());
+            assert.ok(result, 'Should find definition in open included document');
+        } finally {
+            const idx = vscode.workspace.textDocuments.indexOf(openIncludeDoc);
+            if (idx >= 0) vscode.workspace.textDocuments.splice(idx, 1);
+        }
+    });
 });

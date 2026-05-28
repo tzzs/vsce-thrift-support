@@ -1,0 +1,13 @@
+{
+    "name": "@tanzz/thrift-vscode",
+    "private": true,
+    "description": "VS Code extension source for thrift-support (requires @tanzz/thrift-core)",
+    "dependencies": {
+        "@tanzz/thrift-core": "workspace:*"
+    },
+    "devDependencies": {
+        "typescript": "^5.6.0",
+        "@types/vscode": "^1.75.0",
+        "@types/node": "^22.0.0"
+    }
+}

@@ -12,24 +12,24 @@ function run() {
         isServiceMethod: (line) => /^\s*(oneway\s+)?[A-Za-z_][A-Za-z0-9_]*(?:\s*<[^>]*>)?\s+[A-Za-z_][A-Za-z0-9_]*\s*\([^)]*\)(\s*throws\s*\([^)]*\))?\s*[;,]?$/.test(line)
     };
 
-    const closeResult = formatServiceContentLine('}', 0, options, deps);
+    const closeResult = formatServiceContentLine('}', 0, 0, options, deps);
     assert.deepStrictEqual(closeResult.formattedLines, ['}'], 'Expected closing brace formatting');
     assert.strictEqual(closeResult.closeService, true, 'Expected closeService for brace');
 
-    const paramResult = formatServiceContentLine('1: i32 id', 0, options, deps);
+    const paramResult = formatServiceContentLine('1: i32 id', 1, 0, options, deps);
     assert.deepStrictEqual(paramResult.formattedLines, ['    1: i32 id'], 'Expected params to indent two levels');
 
-    const methodResult = formatServiceContentLine('map < string , i32 > ping(1: i32 id)', 0, options, deps);
+    const methodResult = formatServiceContentLine('map < string , i32 > ping(1: i32 id)', 2, 0, options, deps);
     assert.deepStrictEqual(
         methodResult.formattedLines,
         ['  map<string,i32> ping(1: i32 id)'],
         'Expected service method normalization and indent'
     );
 
-    const docResult = formatServiceContentLine('/** doc */', 0, options, deps);
+    const docResult = formatServiceContentLine('/** doc */', 3, 0, options, deps);
     assert.deepStrictEqual(docResult.formattedLines, ['  /** doc */'], 'Expected doc comment indent');
 
-    const otherResult = formatServiceContentLine('// note', 0, options, deps);
+    const otherResult = formatServiceContentLine('// note', 6, 0, options, deps);
     assert.deepStrictEqual(otherResult.formattedLines, ['  // note'], 'Expected comment indent');
 
 }
