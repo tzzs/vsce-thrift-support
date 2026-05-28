@@ -7,6 +7,7 @@ import {config} from '@tanzz/thrift-core';
 import {ErrorHandler} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
 import {toVscodeRange} from './utils/vscode-utils';
+import {nodeTypeToSymbolKind} from './utils/symbol-utils';
 
 /**
  * ThriftDocumentSymbolProvider：提供文档符号与 Outline 支持。
@@ -90,72 +91,56 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
     private createSymbol(node: nodes.ThriftNode): vscode.DocumentSymbol | null {
         let name = node.name ?? 'Script';
         let detail = '';
-        let kind = vscode.SymbolKind.File;
-        // The parser provides ranges for the whole node (including body).
-        // Selection range should ideally be just the name, but for now we can use the whole range or a sub-range if available.
-        // We will default selection range to the start of the node range if name range isn't explicitly tracked separate from node range.
-        // Improvements can be made in the parser to track name specific range.
-        // For this refactor, we try to estimate selection range or just use the node range.
+        // Derive kind from the shared mapping; cases below handle only detail/name.
+        const kind = nodeTypeToSymbolKind(node.type);
 
-        // Refined logical ranges
         const range = node.range;
-        const selectionRange = node.range; // Ideally this points to just the identifier
+        const selectionRange = node.range;
 
         switch (node.type) {
             case nodes.ThriftNodeType.Namespace: {
-                kind = vscode.SymbolKind.Namespace;
                 name = `namespace ${node.scope}`;
                 detail = `${name} ${node.namespace}`;
                 break;
             }
             case nodes.ThriftNodeType.Include: {
-                kind = vscode.SymbolKind.File;
                 name = `include ${name}`;
                 detail = `include ${name}`;
                 break;
             }
             case nodes.ThriftNodeType.Const: {
-                kind = vscode.SymbolKind.Constant;
                 detail = `const ${node.valueType} ${name}`;
                 break;
             }
             case nodes.ThriftNodeType.Typedef: {
-                kind = vscode.SymbolKind.TypeParameter;
                 detail = `typedef ${node.aliasType} ${name}`;
                 break;
             }
             case nodes.ThriftNodeType.Struct: {
-                kind = vscode.SymbolKind.Struct;
                 detail = `struct ${name}`;
                 break;
             }
             case nodes.ThriftNodeType.Union: {
-                kind = vscode.SymbolKind.Struct;
                 detail = `union ${name}`;
                 break;
             }
             case nodes.ThriftNodeType.Exception: {
-                kind = vscode.SymbolKind.Class;
                 detail = `exception ${name}`;
                 break;
             }
             case nodes.ThriftNodeType.Enum: {
-                kind = vscode.SymbolKind.Enum;
                 detail = `enum ${name}`;
                 break;
             }
             case nodes.ThriftNodeType.Service: {
-                kind = vscode.SymbolKind.Interface;
                 detail = `service ${name}${node.extends !== undefined ? ` extends ${node.extends}` : ''}`;
                 break;
             }
             case nodes.ThriftNodeType.Interaction: {
-                kind = vscode.SymbolKind.Interface;
                 detail = `interaction ${name}`;
                 break;
             }
             case nodes.ThriftNodeType.EnumMember: {
-                kind = vscode.SymbolKind.EnumMember;
                 detail = name;
                 if (node.initializer !== undefined) {
                     detail += ` = ${node.initializer}`;
@@ -163,12 +148,10 @@ export class ThriftDocumentSymbolProvider implements vscode.DocumentSymbolProvid
                 break;
             }
             case nodes.ThriftNodeType.Field: {
-                kind = vscode.SymbolKind.Field;
                 detail = `${node.id}: ${node.requiredness ? node.requiredness + ' ' : ''}${node.fieldType} ${name}`;
                 break;
             }
             case nodes.ThriftNodeType.Function: {
-                kind = vscode.SymbolKind.Method;
                 detail = `${node.oneway ? 'oneway ' : ''}${node.returnType} ${name}`;
                 break;
             }

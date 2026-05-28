@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import {ThriftParser, nodes, ErrorHandler, config, CacheManager} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
 import {ThriftFileWatcher} from './utils/file-watcher';
-import {toVscodeRange} from './utils/vscode-utils';
+import {toVscodeRange, positionInRange} from './utils/vscode-utils';
 
 interface DocPair {
     uri: vscode.Uri;
@@ -148,25 +148,6 @@ function isHierarchicalType(node: nodes.ThriftNode): boolean {
     );
 }
 
-function positionInRange(
-    line: number,
-    character: number,
-    sLine: number,
-    sChar: number,
-    eLine: number,
-    eChar: number
-): boolean {
-    if (line < sLine || line > eLine) {
-        return false;
-    }
-    if (line === sLine && character < sChar) {
-        return false;
-    }
-    if (line === eLine && character > eChar) {
-        return false;
-    }
-    return true;
-}
 
 /**
  * AST-driven Type Hierarchy for Thrift IDL.
@@ -243,20 +224,25 @@ export class ThriftTypeHierarchyProvider implements vscode.TypeHierarchyProvider
         try {
             const docs = await this.getWorkspaceDocuments();
             const index = buildTypeHierarchyIndex(docs);
+            // Walk the full ancestor chain in one call so that cycle detection is guaranteed
+            // within a single provider invocation (prevents A→B→A infinite UI expansion).
+            const chain: vscode.TypeHierarchyItem[] = [];
             const visited = new Set<string>([item.name]);
-            const entry = index.get(item.name);
-            if (entry === undefined || entry.parentName === undefined || entry.parentName === '') {
-                return [];
+            let current = index.get(item.name);
+            while (current !== undefined && current.parentName !== undefined && current.parentName !== '') {
+                if (visited.has(current.parentName)) {
+                    // Cycle detected — stop traversal to avoid an infinite chain.
+                    break;
+                }
+                visited.add(current.parentName);
+                const parent = index.get(current.parentName);
+                if (!parent) {
+                    break;
+                }
+                chain.push(entryToItem(parent));
+                current = parent;
             }
-            // Cycle detection: break on circular extends chains
-            if (visited.has(entry.parentName)) {
-                return [];
-            }
-            const parent = index.get(entry.parentName);
-            if (!parent) {
-                return [];
-            }
-            return [entryToItem(parent)];
+            return chain;
         } catch (error) {
             this.errorHandler.handleError(error, {
                 component: 'ThriftTypeHierarchyProvider',

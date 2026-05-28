@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import {ThriftParser, nodes, ErrorHandler, parseContainerTypeInfo} from '@tanzz/thrift-core';
 import type {Range as CoreRange} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
+import {PRIMITIVE_TYPES, CONTAINER_KEYWORDS} from './utils/thrift-constants';
 
 export const SEMANTIC_TOKEN_TYPES = [
     'namespace',
@@ -43,15 +44,6 @@ export function buildLegend(): vscode.SemanticTokensLegend {
         Array.from(SEMANTIC_TOKEN_MODIFIERS)
     );
 }
-
-const PRIMITIVE_TYPES = new Set<string>([
-    'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64',
-    'double', 'string', 'binary', 'uuid', 'slist'
-]);
-
-const CONTAINER_KEYWORDS = new Set<string>([
-    'list', 'set', 'map', 'stream', 'sink'
-]);
 
 export interface RawSemanticToken {
     line: number;

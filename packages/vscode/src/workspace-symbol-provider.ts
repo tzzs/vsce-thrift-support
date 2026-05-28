@@ -9,6 +9,7 @@ import {nodes} from '@tanzz/thrift-core';
 import {config} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
 import {createLocation} from './utils/vscode-utils';
+import {nodeTypeToSymbolKind} from './utils/symbol-utils';
 
 /**
  * ThriftWorkspaceSymbolProvider：提供全局符号搜索。
@@ -352,24 +353,7 @@ export class ThriftWorkspaceSymbolProvider {
     }
 
     private getSymbolKind(type: nodes.ThriftNodeType): vscode.SymbolKind {
-        switch (type) {
-            case nodes.ThriftNodeType.Struct:
-            case nodes.ThriftNodeType.Union:
-                return vscode.SymbolKind.Struct;
-            case nodes.ThriftNodeType.Exception:
-                return vscode.SymbolKind.Class;
-            case nodes.ThriftNodeType.Enum:
-                return vscode.SymbolKind.Enum;
-            case nodes.ThriftNodeType.Service:
-            case nodes.ThriftNodeType.Interaction:
-                return vscode.SymbolKind.Interface;
-            case nodes.ThriftNodeType.Typedef:
-                return vscode.SymbolKind.TypeParameter;
-            case nodes.ThriftNodeType.Const:
-                return vscode.SymbolKind.Constant;
-            default:
-                return vscode.SymbolKind.Variable;
-        }
+        return nodeTypeToSymbolKind(type);
     }
 }
 

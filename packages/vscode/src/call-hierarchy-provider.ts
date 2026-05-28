@@ -2,16 +2,8 @@ import * as vscode from 'vscode';
 import {ThriftParser, nodes, ErrorHandler, config, parseContainerTypeInfo, CacheManager} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
 import {ThriftFileWatcher} from './utils/file-watcher';
-import {toVscodeRange} from './utils/vscode-utils';
-
-const PRIMITIVE_TYPES = new Set<string>([
-    'void', 'bool', 'byte', 'i8', 'i16', 'i32', 'i64',
-    'double', 'string', 'binary', 'uuid', 'slist'
-]);
-
-const CONTAINER_KEYWORDS = new Set<string>([
-    'list', 'set', 'map', 'stream', 'sink'
-]);
+import {toVscodeRange, positionInRange} from './utils/vscode-utils';
+import {PRIMITIVE_TYPES, CONTAINER_KEYWORDS} from './utils/thrift-constants';
 
 export interface ServiceMethodLocation {
     serviceName: string;
@@ -99,25 +91,6 @@ export function findFunctionAtPosition(
     return null;
 }
 
-function positionInRange(
-    line: number,
-    character: number,
-    sLine: number,
-    sChar: number,
-    eLine: number,
-    eChar: number
-): boolean {
-    if (line < sLine || line > eLine) {
-        return false;
-    }
-    if (line === sLine && character < sChar) {
-        return false;
-    }
-    if (line === eLine && character > eChar) {
-        return false;
-    }
-    return true;
-}
 
 /**
  * AST-driven Call Hierarchy for Thrift IDL.

@@ -265,7 +265,17 @@ export function resolveMultilineDefaultFromLines(
     return stripAnnotationsForType(withoutComma).trimEnd();
 }
 
-export function isKnownType(typeName: string, definedTypes: Set<string>, includeAliases: Set<string>): boolean {
+export function isKnownType(
+    typeName: string,
+    definedTypes: Set<string>,
+    includeAliases: Set<string>,
+    _depth = 0
+): boolean {
+    // Guard against pathological deeply-nested generic types (e.g. list<list<list<...>>>)
+    // that could cause a stack overflow.
+    if (_depth > 10) {
+        return false;
+    }
     if (!typeName) {
         return false;
     }
@@ -291,7 +301,7 @@ export function isKnownType(typeName: string, definedTypes: Set<string>, include
     if (parseContainerType(t)) {
         const inner = t.slice(t.indexOf('<') + 1, t.lastIndexOf('>'));
         const parts = splitTopLevelAngles(inner);
-        return parts.every(p => isKnownType(p, definedTypes, includeAliases));
+        return parts.every(p => isKnownType(p, definedTypes, includeAliases, _depth + 1));
     }
     return false;
 }

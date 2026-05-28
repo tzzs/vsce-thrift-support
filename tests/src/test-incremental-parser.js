@@ -277,6 +277,34 @@ service TestService {
         assert.deepStrictEqual(names, ['NewA', 'B']);
     });
 
+    it('removes deleted node when newNodes is empty', () => {
+        // P0-1 regression: mergeIncrementalResults used to return the original AST unchanged
+        // when newNodes was empty, silently keeping the deleted node in the tree.
+        // Now it must always apply the diff — even pure deletions (affectedNodes non-empty,
+        // newNodes empty) must remove the affected node.
+        const parser = new ThriftParser('struct A {}');
+        const nodeA = {type: nodes.ThriftNodeType.Struct, name: 'A', range: new vscode.Range(0, 0, 0, 10)};
+        const nodeB = {type: nodes.ThriftNodeType.Struct, name: 'B', range: new vscode.Range(1, 0, 1, 10)};
+        const fullAst = {
+            type: nodes.ThriftNodeType.Document,
+            range: new vscode.Range(0, 0, 1, 10),
+            body: [nodeA, nodeB]
+        };
+        // Simulates the case where struct A was deleted: parseRange returns [] for the affected range,
+        // and affectedNodes contains the old nodeA.
+        const incrementalResult = {
+            ast: fullAst,
+            affectedNodes: [nodeA],
+            newNodes: []          // ← deletion produces an empty newNodes
+        };
+
+        const merged = parser.mergeIncrementalResults(fullAst, incrementalResult);
+        const names = merged.body.map(node => node.name);
+
+        assert.deepStrictEqual(names, ['B'],
+            `deleted node 'A' must be removed from body; got ${JSON.stringify(names)}`);
+    });
+
     it('saves and restores parse context', () => {
         const thriftContent = `namespace cpp test
 

@@ -177,7 +177,6 @@ export class ConfigService {
      * @returns 验证结果
      */
     validate(key: string, value: unknown): {valid: boolean; error?: string} {
-        // 验证 indentSize
         if (key === 'format.indentSize') {
             if (typeof value !== 'number') {
                 return {valid: false, error: 'Indent size must be a number'};
@@ -187,8 +186,6 @@ export class ConfigService {
             }
             return {valid: true};
         }
-
-        // 验证 maxLineLength
         if (key === 'format.maxLineLength') {
             if (typeof value !== 'number') {
                 return {valid: false, error: 'Max line length must be a number'};
@@ -198,8 +195,6 @@ export class ConfigService {
             }
             return {valid: true};
         }
-
-        // 验证 trailingComma
         if (key === 'format.trailingComma') {
             if (typeof value !== 'string') {
                 return {valid: false, error: 'Trailing comma must be a string'};
@@ -210,15 +205,9 @@ export class ConfigService {
             }
             return {valid: true};
         }
-
-        // 验证布尔类型配置
         const booleanKeys = [
-            'format.alignTypes',
-            'format.alignNames',
-            'format.alignAssignments',
-            'format.alignStructDefaults',
-            'format.alignAnnotations',
-            'format.alignComments',
+            'format.alignTypes', 'format.alignNames', 'format.alignAssignments',
+            'format.alignStructDefaults', 'format.alignAnnotations', 'format.alignComments',
             'diagnostics.debug'
         ];
         if (booleanKeys.includes(key)) {
@@ -227,8 +216,6 @@ export class ConfigService {
             }
             return {valid: true};
         }
-
-        // 验证 collectionStyle
         if (key === 'format.collectionStyle') {
             if (typeof value !== 'string') {
                 return {valid: false, error: 'Collection style must be a string'};
@@ -239,8 +226,6 @@ export class ConfigService {
             }
             return {valid: true};
         }
-
-        // 其他配置使用宽松验证
         return {valid: true};
     }
 

@@ -15,8 +15,8 @@ import {createLocation} from './utils/vscode-utils';
  */
 export class ThriftHoverProvider implements vscode.HoverProvider {
 
-    // 使用单例定义提供器，避免重复创建实例
-    private static definitionProvider: ThriftDefinitionProvider | null = null;
+    // Lazily-created definition provider, scoped to this instance (no static state).
+    private definitionProvider: ThriftDefinitionProvider | null = null;
 
     // 缓存管理器
     private cacheManager: CacheManager;
@@ -40,21 +40,14 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
     }
 
     /**
-     * 清理全局缓存（静态入口）。
-     */
-    public static clearCache(): void {
-        if (ThriftHoverProvider.definitionProvider) {
-            ThriftHoverProvider.definitionProvider.clearCache();
-        }
-    }
-
-    /**
-     * 清理实例级缓存。
+     * 清理此 provider 持有的所有缓存（hover 本地缓存 + definition provider 缓存）。
      */
     public clearCache(): void {
         this.cacheManager.clear('hoverIncludes');
         this.cacheManager.clear('hoverContent');
-        ThriftHoverProvider.clearCache();
+        if (this.definitionProvider) {
+            this.definitionProvider.clearCache();
+        }
     }
 
     /**
@@ -119,11 +112,11 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
     }
 
     private getDefinitionProvider(): ThriftDefinitionProvider {
-        ThriftHoverProvider.definitionProvider ??= new ThriftDefinitionProvider({
+        this.definitionProvider ??= new ThriftDefinitionProvider({
             cacheManager: this.cacheManager,
             errorHandler: this.errorHandler
         });
-        return ThriftHoverProvider.definitionProvider;
+        return this.definitionProvider;
     }
 
     private normalizeDefinition(

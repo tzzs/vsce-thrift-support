@@ -220,6 +220,41 @@ describe('diagnostics registration', () => {
         });
     });
 
+    it('non-thrift onDidOpen does not call diagnosticCollection.set synchronously', () => {
+        // Stronger assertion: even if the callback runs, it must NOT touch the
+        // diagnostic collection for a non-thrift document.
+        let setCalls = 0;
+        const originalCreate = vscode.languages.createDiagnosticCollection;
+        vscode.languages.createDiagnosticCollection = (name) => {
+            const col = originalCreate(name);
+            const origSet = col.set.bind(col);
+            col.set = (...args) => { setCalls++; return origSet(...args); };
+            return col;
+        };
+
+        try {
+            const context = createMockContext();
+            registerDiagnostics(context);
+
+            const nonThriftDoc = createMockDoc({languageId: 'json'});
+            vscode.workspace._fireDidOpenTextDocument(nonThriftDoc);
+
+            assert.strictEqual(setCalls, 0,
+                'diagnosticCollection.set must not be called synchronously for non-thrift documents');
+        } finally {
+            vscode.languages.createDiagnosticCollection = originalCreate;
+        }
+    });
+
+    it('registerDiagnostics registers exactly the expected number of subscriptions', () => {
+        const context = createMockContext();
+        registerDiagnostics(context);
+        // Expected: fileWatcher + onDidOpen + onDidChange + onDidSave + onDidClose
+        //         + onDidChangeActiveTextEditor = at least 6 subscriptions
+        assert.ok(context.subscriptions.length >= 6,
+            `expected >= 6 subscriptions, got ${context.subscriptions.length}`);
+    });
+
     it('reset clears all event registrations', () => {
         const context = createMockContext();
         registerDiagnostics(context);

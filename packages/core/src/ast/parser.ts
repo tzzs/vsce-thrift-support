@@ -143,69 +143,6 @@ export class ThriftParser {
         return root;
     }
 
-    /**
-     * 解析文档的一部分，并将其集成到现有AST中
-     */
-    public parseSection(startLine: number, endLine: number, existingAst?: nodes.ThriftDocument): nodes.ThriftDocument {
-        // If no existing AST is provided, create a new one
-        const ast = existingAst ?? createDocument({
-            range: this.createRange(0, 0, this.lines.length > 0 ? this.lines.length - 1 : 0,
-                this.lines.length > 0 ? this.lines[this.lines.length - 1].length : 0),
-            body: []
-        });
-
-        // Save current state
-        const originalCurrentLine = this.currentLine;
-
-        // Create a map to track existing nodes by their range for efficient lookup
-        const existingNodeMap = new Map<string, nodes.ThriftNode>();
-        if (existingAst) {
-            for (const node of existingAst.body) {
-                const key = `${node.range.start.line}-${node.range.end.line}`;
-                existingNodeMap.set(key, node);
-            }
-        }
-
-        // Parse the specific section
-        this.currentLine = startLine;
-        while (this.currentLine <= endLine && this.currentLine < this.lines.length) {
-            const line = this.lines[this.currentLine];
-            if (line.trim()) {
-                const node = this.parseNextNode(ast);
-                if (node) {
-                    // Check if there's an existing node that overlaps with the new node
-                    const overlapKey = `${node.range.start.line}-${node.range.end.line}`;
-                    const existingNode = existingNodeMap.get(overlapKey);
-
-                    if (!existingNode) {
-                        // No overlap, simply add the new node
-                        ast.body.push(node);
-                        this.addChild(ast, node);
-                    } else {
-                        // Overlap detected - replace the existing node
-                        const index = ast.body.findIndex(n =>
-                            n.range.start.line === existingNode.range.start.line &&
-                            n.range.end.line === existingNode.range.end.line
-                        );
-                        if (index !== -1) {
-                            ast.body[index] = node;
-                        } else {
-                            ast.body.push(node);
-                        }
-                        this.addChild(ast, node);
-                    }
-                }
-            } else {
-                this.currentLine++;
-            }
-        }
-
-        // Restore original state
-        this.currentLine = originalCurrentLine;
-
-        return ast;
-    }
-
     private ensureChildren(node: nodes.ThriftNode): nodes.ThriftNode[] {
         return node.children ??= [];
     }
@@ -503,11 +440,11 @@ export class ThriftParser {
         }
         const idIndex = tokens.findIndex(token => token.type === 'number');
         if (idIndex === -1) {
-            return this.parseStructFieldLineFallback(parent, line, cleanLine);
+            return null;
         }
         const colonIndex = findSymbolIndexFrom(tokens, ':', idIndex + 1);
         if (colonIndex === -1) {
-            return this.parseStructFieldLineFallback(parent, line, cleanLine);
+            return null;
         }
         let cursor = colonIndex + 1;
         let requiredness: 'required' | 'optional' | undefined;
@@ -518,7 +455,7 @@ export class ThriftParser {
         }
         const typeStartToken = tokens[cursor];
         if (typeStartToken === undefined) {
-            return this.parseStructFieldLineFallback(parent, line, cleanLine);
+            return null;
         }
         let nameTokenIndex = -1;
         let angleDepth = 0;
@@ -540,12 +477,12 @@ export class ThriftParser {
             }
         }
         if (nameTokenIndex === -1) {
-            return this.parseStructFieldLineFallback(parent, line, cleanLine);
+            return null;
         }
         const nameToken = tokens[nameTokenIndex];
         const fieldType = cleanLine.slice(typeStartToken.start, nameToken.start).trim();
         if (!fieldType) {
-            return this.parseStructFieldLineFallback(parent, line, cleanLine);
+            return null;
         }
         const valueTarget = stripTrailingAnnotation(cleanLine.replace(/[,;]\s*$/, ''));
         const nameRange = this.createRange(
@@ -577,27 +514,6 @@ export class ThriftParser {
                 ? this.createRange(this.currentLine, defaultStart, this.currentLine, defaultEnd)
                 : undefined
         });
-    }
-
-    /**
-     * Struct 字段解析的兜底路径。
-     *
-     * 审计结论（2026-05）：主路径 `parseStructFieldLine` 已覆盖所有合法字段语法。
-     * 每个 fallback 触发条件（缺数字 / 缺冒号 / 类型 token 缺失 / 在 `<>` 之外找不到
-     * identifier / 类型切片为空）都是旧 regex `^\d+:\s*[a-zA-Z0-9_<>.,]+\s+[a-zA-Z_]\w*`
-     * 失败条件的严格子集 —— 主路径解析不了的输入，fallback regex 同样无法匹配。
-     *
-     * 旧 regex 的类型字符类 `[a-zA-Z0-9_<>.,]+` 对嵌套泛型如 `map<string, list<i32>>`
-     * 会在首个逗号处截断，本身就有 bug；主路径用 angleDepth 跟踪正确处理嵌套。
-     *
-     * 返回 null 等同于"未识别行，跳过"，与旧 regex 不匹配时的行为一致。
-     */
-    private parseStructFieldLineFallback(
-        _parent: nodes.Struct,
-        _line: string,
-        _cleanLine: string
-    ): nodes.Field | null {
-        return null;
     }
 
     private parseEnum(parent: nodes.ThriftNode, name: string, isSenum: boolean): nodes.Enum {
@@ -1034,7 +950,7 @@ export class ThriftParser {
         const typeStart = isStream ? returnTypeStartIndex - 1 : (isSink ? returnTypeStartIndex - 1 : returnTypeStartIndex);
         const returnType = cleanLine.slice(tokens[typeStart].start, nameToken.start).trim();
         if (!returnType) {
-            return this.parseServiceFunctionLineFallback(line, cleanLine);
+            return null;
         }
         const funcStartLine = this.currentLine;
         const funcStartChar = tokens[typeStart].start;
@@ -1064,39 +980,6 @@ export class ThriftParser {
             funcEndChar: line.length
         };
     }
-
-    /**
-     * Service / Interaction 函数签名解析的兜底路径。
-     *
-     * 审计结论（2026-05）：主路径 `parseServiceFunctionLine` 已覆盖所有合法函数语法
-     * （`[oneway] [stream|sink] <returnType> <name>(...)`）。每个 fallback 触发条件
-     * （缺 `(` / `(` 前无 identifier / returnType 起始 token 缺失 / returnType 切片为空）
-     * 都是旧 regex `^(?:oneway\s+)?(?:(stream|sink)\s+)?[a-zA-Z0-9_<>.,]+\s+[a-zA-Z_]\w*\s*\(`
-     * 失败条件的严格子集 —— 主路径解析不了的输入，fallback regex 同样无法匹配。
-     *
-     * 同 `parseStructFieldLineFallback`，旧 regex 的类型字符类对嵌套泛型有 bug。
-     *
-     * 返回 null 等同于"未识别行，跳过"，与旧 regex 不匹配时的行为一致。
-     */
-    private parseServiceFunctionLineFallback(
-        _line: string,
-        _cleanLine: string
-    ): {
-        name: string;
-        returnType: string;
-        nameRange: Range | undefined;
-        returnTypeRange: Range | undefined;
-        oneway: boolean;
-        isStream: boolean;
-        isSink: boolean;
-        funcStartLine: number;
-        funcStartChar: number;
-        funcEndLine: number;
-        funcEndChar: number;
-    } | null {
-        return null;
-    }
-
 
     private parseConst(parent: nodes.ThriftNode, valueType: string, name: string): nodes.Const {
         const startLine = this.currentLine;
@@ -1468,8 +1351,12 @@ export class ThriftParser {
         fullAst: nodes.ThriftDocument,
         incrementalResult: IncrementalParseResult
     ): nodes.ThriftDocument {
-        // If there are no new nodes, return the original AST
-        if (incrementalResult.newNodes.length === 0) {
+        // NOTE: do NOT short-circuit on empty newNodes — deletions produce exactly that case
+        // (affectedNodes non-empty, newNodes empty). We must always apply the diff so that
+        // deleted nodes are removed from the body.
+
+        // If nothing changed at all, return the original AST unchanged
+        if (incrementalResult.newNodes.length === 0 && incrementalResult.affectedNodes.length === 0) {
             return fullAst;
         }
 

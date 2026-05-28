@@ -63,7 +63,7 @@ export function registerProviders(context: vscode.ExtensionContext, deps: CoreDe
 
     // Add file watcher for hover cache
     const hoverFileWatcher = fileWatcher.createWatcher(config.filePatterns.thrift, () => {
-        ThriftHoverProvider.clearCache();
+        hoverProvider.clearCache();
     });
     context.subscriptions.push(hoverFileWatcher);
 
