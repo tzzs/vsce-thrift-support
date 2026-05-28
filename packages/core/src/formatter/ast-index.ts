@@ -3,6 +3,8 @@ import * as nodes from '../ast/nodes.types';
 export interface AstIndex {
     structStarts: Map<number, nodes.Struct>;
     structFieldIndex: Map<number, nodes.Field>;
+    /** start.line → end.line for multi-line struct fields (only when end > start) */
+    structFieldEnds: Map<number, number>;
     enumStarts: Map<number, nodes.Enum>;
     enumMemberIndex: Map<number, nodes.EnumMember>;
     serviceStarts: Map<number, nodes.Service>;
@@ -20,6 +22,7 @@ export interface AstIndex {
 export function buildAstIndex(ast: nodes.ThriftDocument): AstIndex {
     const structStarts = new Map<number, nodes.Struct>();
     const structFieldIndex = new Map<number, nodes.Field>();
+    const structFieldEnds = new Map<number, number>();
     const enumStarts = new Map<number, nodes.Enum>();
     const enumMemberIndex = new Map<number, nodes.EnumMember>();
     const serviceStarts = new Map<number, nodes.Service>();
@@ -36,7 +39,17 @@ export function buildAstIndex(ast: nodes.ThriftDocument): AstIndex {
                 const structNode = node;
                 structStarts.set(structNode.range.start.line, structNode);
                 structNode.fields.forEach(field => {
-                    structFieldIndex.set(field.range.start.line, field);
+                    const startLine = field.range.start.line;
+                    const endLine = field.range.end.line;
+                    structFieldIndex.set(startLine, field);
+                    if (endLine > startLine) {
+                        structFieldEnds.set(startLine, endLine);
+                        for (let li = startLine + 1; li <= endLine; li++) {
+                            if (!structFieldIndex.has(li)) {
+                                structFieldIndex.set(li, field);
+                            }
+                        }
+                    }
                 });
                 break;
             }
@@ -77,6 +90,7 @@ export function buildAstIndex(ast: nodes.ThriftDocument): AstIndex {
     return {
         structStarts,
         structFieldIndex,
+        structFieldEnds,
         enumStarts,
         enumMemberIndex,
         serviceStarts,

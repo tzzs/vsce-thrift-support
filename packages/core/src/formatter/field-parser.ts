@@ -113,11 +113,14 @@ export function normalizeType(type: string): string {
 
 /**
  * 基于 AST 构建结构体字段描述。
- * @param line 原始行文本
+ * @param line 原始行文本（多行字段时为整段拼接、用 \n 分隔）
  * @param field AST 字段节点
  * @returns 结构体字段信息
  */
 export function buildStructFieldFromAst(line: string, field: nodes.Field): StructField | null {
+    if (line.includes('\n')) {
+        return buildMultiLineStructFieldFromAst(line, field);
+    }
     const {code, comment} = splitLineComment(line);
     let remainder = code.trim();
     let trailing = '';
@@ -158,6 +161,102 @@ export function buildStructFieldFromAst(line: string, field: nodes.Field): Struc
         comment,
         annotation
     };
+}
+
+/**
+ * 处理跨行的 struct field。
+ * 输入是源文件中 field 起始行到结束行的拼接（用 \n 分隔）。
+ * 输出的 suffix 中保留 \n，延续行已 trim 前导空白，留待格式化阶段重新缩进。
+ */
+function buildMultiLineStructFieldFromAst(text: string, field: nodes.Field): StructField | null {
+    const rawLines = text.split('\n');
+    const cleanedLines = rawLines.map(l => splitLineComment(l).code);
+    const qualifier = field.requiredness ?? '';
+    const type = normalizeType(field.fieldType || '');
+    const name = field.name ?? '';
+    if (!name || !type) {
+        return null;
+    }
+
+    const firstLine = cleanedLines[0];
+    const eqIdx = findTopLevelEqualsIndex(firstLine);
+    if (eqIdx === -1) {
+        // No `=` on the first line — fall back to single-line behavior on first line.
+        return buildStructFieldFromAst(rawLines[0], field);
+    }
+
+    const lastIdx = cleanedLines.length - 1;
+    let lastClean = cleanedLines[lastIdx].trimEnd();
+    let trailing = '';
+    const tsMatch = lastClean.match(/([,;]\s*)$/);
+    if (tsMatch) {
+        trailing = tsMatch[1].trim();
+        lastClean = lastClean.slice(0, lastClean.length - tsMatch[1].length).trimEnd();
+    }
+    let annotation = '';
+    const annSplit = splitTrailingAnnotation(lastClean);
+    if (annSplit.annotation) {
+        annotation = annSplit.annotation;
+        lastClean = annSplit.base.trimEnd();
+    }
+
+    const firstDV = firstLine.slice(eqIdx + 1).trim();
+    const dvParts: string[] = [firstDV];
+    for (let i = 1; i < lastIdx; i++) {
+        dvParts.push(cleanedLines[i].trim());
+    }
+    if (lastIdx > 0) {
+        const lastDV = lastClean.trim();
+        if (lastDV) {
+            dvParts.push(lastDV);
+        }
+    }
+    const defaultValueText = dvParts.join('\n');
+
+    let suffix = ` = ${defaultValueText}`;
+    if (trailing) {
+        suffix += trailing;
+    }
+
+    return {
+        line: text.trim(),
+        id: String(field.id),
+        qualifier,
+        type,
+        name,
+        suffix,
+        comment: '',
+        annotation
+    };
+}
+
+/**
+ * 找到首行中的顶层 `=`（不在字符串、`<>`、`[]`、`{}`、`()` 内）。
+ */
+function findTopLevelEqualsIndex(text: string): number {
+    const qt = new QuoteTracker();
+    let depthAngle = 0;
+    let depthBracket = 0;
+    let depthBrace = 0;
+    let depthParen = 0;
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (!qt.inside()) {
+            if (ch === '<') { depthAngle++; }
+            else if (ch === '>') { depthAngle = Math.max(0, depthAngle - 1); }
+            else if (ch === '[') { depthBracket++; }
+            else if (ch === ']') { depthBracket = Math.max(0, depthBracket - 1); }
+            else if (ch === '{') { depthBrace++; }
+            else if (ch === '}') { depthBrace = Math.max(0, depthBrace - 1); }
+            else if (ch === '(') { depthParen++; }
+            else if (ch === ')') { depthParen = Math.max(0, depthParen - 1); }
+            else if (ch === '=' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
+                return i;
+            }
+        }
+        qt.feed(ch);
+    }
+    return -1;
 }
 
 /**

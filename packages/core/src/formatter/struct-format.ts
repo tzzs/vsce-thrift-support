@@ -95,13 +95,18 @@ export function formatStructFields(
         maxQualifierWidth = Math.max(maxQualifierWidth, field.qualifier.length);
         maxTypeWidth = Math.max(maxTypeWidth, field.type.length);
         maxNameWidth = Math.max(maxNameWidth, field.name.length);
-        if (options.alignAnnotations && field.annotation !== undefined && field.annotation !== '') {
+        const isMultiLineField = !!(field.suffix && field.suffix.includes('\n'));
+        if (!isMultiLineField && options.alignAnnotations && field.annotation !== undefined && field.annotation !== '') {
             maxAnnotationWidth = Math.max(maxAnnotationWidth, field.annotation.length);
         }
         return field;
     });
 
     parsedFields.forEach(field => {
+        // Multi-line fields' annotations/comments live on the last line and don't participate in alignment.
+        if (field.suffix && field.suffix.includes('\n')) {
+            return;
+        }
         let contentWidth = 0;
         contentWidth += maxFieldIdWidth + 2;
 
@@ -181,6 +186,9 @@ export function formatStructFields(
             if (f === undefined || f.annotation === undefined || f.annotation === '') {
                 return;
             }
+            if (f.suffix && f.suffix.includes('\n')) {
+                return;
+            }
             const w = calculateAnnotationStartPosition(
                 f,
                 options,
@@ -199,6 +207,18 @@ export function formatStructFields(
     const commentCount = parsedFields.reduce((acc, f) => acc + ((f !== undefined && f.comment) ? 1 : 0), 0);
 
     return parsedFields.map(field => {
+        if (field.suffix && field.suffix.includes('\n')) {
+            return formatMultiLineStructField(
+                field,
+                options,
+                indentLevel,
+                deps,
+                maxFieldIdWidth,
+                maxQualifierWidth,
+                maxTypeWidth,
+                maxNameWidth
+            );
+        }
         let formattedLine = deps.getIndent(indentLevel, options);
 
         const fieldIdWithColon = field.id + ':';
@@ -296,4 +316,121 @@ export function formatStructFields(
 
         return formattedLine;
     });
+}
+
+/**
+ * Format a struct field whose default value spans multiple lines.
+ * Outputs a multi-line string: header on the first line, continuation lines re-indented
+ * one level deeper, and the closing bracket + annotation/trailing on the final line.
+ */
+function formatMultiLineStructField(
+    field: StructField,
+    options: ThriftFormattingOptions,
+    indentLevel: number,
+    deps: StructFormatDeps,
+    maxFieldIdWidth: number,
+    maxQualifierWidth: number,
+    maxTypeWidth: number,
+    maxNameWidth: number
+): string {
+    const baseIndent = deps.getIndent(indentLevel, options);
+    const innerIndent = deps.getIndent(indentLevel + 1, options);
+
+    let suffix = field.suffix || '';
+    let hasComma = /,\s*$/.test(suffix);
+    const hasSemicolon = /;\s*$/.test(suffix);
+    suffix = suffix.replace(/\s+$/, '');
+    if (hasComma) {
+        suffix = suffix.replace(/,\s*$/, '');
+    }
+    if (hasSemicolon) {
+        suffix = suffix.replace(/;\s*$/, '');
+    }
+    if (options.trailingComma === 'add' && !hasComma && !hasSemicolon) {
+        hasComma = true;
+    } else if (options.trailingComma === 'remove' && hasComma && !hasSemicolon) {
+        hasComma = false;
+    }
+
+    // suffix is like " = {\nLine2\nLine3\n}"  — strip leading " = "
+    const eqStripped = suffix.replace(/^\s*=\s*/, '');
+    const parts = eqStripped.split('\n');
+    const firstDV = parts[0] ?? '';
+    const middleDV = parts.length > 2 ? parts.slice(1, -1) : [];
+    const lastDV = parts.length > 1 ? parts[parts.length - 1] : '';
+
+    // String continuation (backslash-terminated multi-line string): preserve verbatim
+    // so the embedded whitespace inside the string isn't perturbed.
+    if (firstDV.startsWith('"') || firstDV.startsWith('\'')) {
+        let header = baseIndent;
+        header += (field.id + ':').padEnd(maxFieldIdWidth + 1) + ' ';
+        if (options.alignTypes) {
+            header += field.qualifier.padEnd(maxQualifierWidth);
+            if (maxQualifierWidth > 0) {
+                header += ' ';
+            }
+            header += field.type.padEnd(maxTypeWidth);
+        } else {
+            header += field.qualifier;
+            if (field.qualifier.length > 0) {
+                header += ' ';
+            }
+            header += field.type;
+        }
+        header += ' ';
+        header += options.alignFieldNames ? field.name.padEnd(maxNameWidth) : field.name;
+        header += ' = ' + firstDV;
+        const tailLines = [...middleDV];
+        let last = lastDV;
+        if (field.annotation !== undefined && field.annotation !== '') {
+            last += ' ' + field.annotation;
+        }
+        if (hasSemicolon) { last += ';'; }
+        else if (hasComma) { last += ','; }
+        if (field.comment) { last += ' ' + field.comment; }
+        if (parts.length > 1) {
+            tailLines.push(last);
+        }
+        return [header, ...tailLines].join('\n');
+    }
+
+    let firstLine = baseIndent;
+    firstLine += (field.id + ':').padEnd(maxFieldIdWidth + 1) + ' ';
+    if (options.alignTypes) {
+        firstLine += field.qualifier.padEnd(maxQualifierWidth);
+        if (maxQualifierWidth > 0) {
+            firstLine += ' ';
+        }
+        firstLine += field.type.padEnd(maxTypeWidth);
+    } else {
+        firstLine += field.qualifier;
+        if (field.qualifier.length > 0) {
+            firstLine += ' ';
+        }
+        firstLine += field.type;
+    }
+    firstLine += ' ';
+    if (options.alignFieldNames) {
+        firstLine += field.name.padEnd(maxNameWidth);
+    } else {
+        firstLine += field.name;
+    }
+    firstLine += ' = ' + firstDV;
+
+    const middleLines = middleDV.map(m => innerIndent + m);
+
+    let lastLine = baseIndent + lastDV;
+    if (field.annotation !== undefined && field.annotation !== '') {
+        lastLine += ' ' + field.annotation;
+    }
+    if (hasSemicolon) {
+        lastLine += ';';
+    } else if (hasComma) {
+        lastLine += ',';
+    }
+    if (field.comment) {
+        lastLine += ' ' + field.comment;
+    }
+
+    return [firstLine, ...middleLines, lastLine].join('\n');
 }

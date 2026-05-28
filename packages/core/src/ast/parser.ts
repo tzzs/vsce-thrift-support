@@ -421,13 +421,173 @@ export class ThriftParser {
     }
 
     private parseStructBody(parent: nodes.Struct): number {
-        return this.parseBracedBlock((line, scan) => {
+        // Phase 1: locate the opening brace; account for `{...}` closing on the same line
+        let braceCount = 0;
+        while (this.currentLine < this.lines.length) {
+            const line = this.lines[this.currentLine];
+            const scan = this.scanLine(line);
+            const braces = this.countBraces(scan.tokens);
+            if (braces.open > 0) {
+                braceCount = braces.open - braces.close;
+                break;
+            }
+            this.currentLine++;
+        }
+        this.currentLine++;
+        if (braceCount <= 0) {
+            return this.currentLine;
+        }
+
+        // Phase 2: parse fields with multi-line awareness, until struct body closes
+        while (this.currentLine < this.lines.length) {
+            const line = this.lines[this.currentLine];
+            const scan = this.scanLine(line);
+            const trimmed = scan.stripped.trim();
+
+            // Struct body terminator is a top-level `}` on this line
+            if (trimmed.startsWith('}')) {
+                this.currentLine++;
+                break;
+            }
+
+            if (!trimmed || scan.tokens.length === 0) {
+                this.currentLine++;
+                continue;
+            }
+
+            const startLine = this.currentLine;
             const field = this.parseStructFieldLine(parent, line, scan.stripped, scan.tokens);
             if (field) {
+                const endLine = this.computeStructFieldEndLine(startLine);
+                if (endLine > startLine) {
+                    field.range = this.createRange(
+                        startLine,
+                        0,
+                        endLine,
+                        (this.lines[endLine] ?? '').length
+                    );
+                }
                 parent.fields.push(field);
                 this.addChild(parent, field);
+                this.currentLine = endLine + 1;
+            } else {
+                this.currentLine++;
             }
-        });
+        }
+        return this.currentLine;
+    }
+
+    /**
+     * 给定字段起始行，计算其真实结束行（考虑跨行 default value 与尾部注解）。
+     * 字符级扫描 `[]`/`{}`/`()` 嵌套；遇到 struct body 自身的 `}`（所有 brace 深度归零时出现的 `}`）则停止。
+     * 内联处理字符串字面量与单行/块注释，避免依赖 tokenizer 的跨行 state。
+     */
+    private computeStructFieldEndLine(startLine: number): number {
+        let depthAngle = 0;
+        let depthBracket = 0;
+        let depthBrace = 0;
+        let depthParen = 0;
+        let inBlockComment = false;
+
+        for (let li = startLine; li < this.lines.length; li++) {
+            const stripped = this.stripCommentsAndStrings(this.lines[li], inBlockComment);
+            inBlockComment = stripped.endsInBlockComment;
+            const text = stripped.text;
+            for (let i = 0; i < text.length; i++) {
+                const ch = text[i];
+                if (ch === '<') { depthAngle++; continue; }
+                if (ch === '>') { depthAngle = Math.max(0, depthAngle - 1); continue; }
+                if (ch === '[') { depthBracket++; continue; }
+                if (ch === ']') { depthBracket = Math.max(0, depthBracket - 1); continue; }
+                if (ch === '{') { depthBrace++; continue; }
+                if (ch === '}') {
+                    if (depthBrace === 0) {
+                        return Math.max(startLine, li - 1);
+                    }
+                    depthBrace--;
+                    continue;
+                }
+                if (ch === '(') { depthParen++; continue; }
+                if (ch === ')') { depthParen = Math.max(0, depthParen - 1); continue; }
+                if (depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0
+                    && (ch === ',' || ch === ';')) {
+                    return li;
+                }
+            }
+            if (!inBlockComment) {
+                const next = this.findNextNonEmptyLineRaw(li + 1);
+                if (next === -1) { return li; }
+                const nextStripped = this.stripCommentsAndStrings(this.lines[next], false).text.trim();
+                // Recovery: if the next line opens a new field, treat the current field as ended
+                // here even when brackets are still unbalanced (malformed source).
+                if (/^\d+\s*:/.test(nextStripped)) {
+                    return li;
+                }
+                if (depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0
+                    && nextStripped.startsWith('}')) {
+                    return li;
+                }
+            }
+        }
+        return this.lines.length - 1;
+    }
+
+    private findNextNonEmptyLineRaw(startIdx: number): number {
+        for (let i = startIdx; i < this.lines.length; i++) {
+            if (this.stripCommentsAndStrings(this.lines[i], false).text.trim()) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * 去除字符串字面量内容与注释，仅保留结构性字符（括号、逗号、分号等）。
+     * 字符串内容替换为空格以保持列对齐稳定。
+     * 不修改 this.tokenizer 的跨行 state。
+     */
+    private stripCommentsAndStrings(line: string, inBlockComment: boolean): {text: string; endsInBlockComment: boolean} {
+        let out = '';
+        let i = 0;
+        let block = inBlockComment;
+        let escaped = false;
+        while (i < line.length) {
+            if (block) {
+                const close = line.indexOf('*/', i);
+                if (close === -1) {
+                    return {text: out, endsInBlockComment: true};
+                }
+                i = close + 2;
+                block = false;
+                continue;
+            }
+            const ch = line[i];
+            const next = i + 1 < line.length ? line[i + 1] : '';
+            if (ch === '/' && next === '*') {
+                block = true;
+                i += 2;
+                continue;
+            }
+            if ((ch === '/' && next === '/') || ch === '#') {
+                break;
+            }
+            if (ch === '"' || ch === '\'') {
+                const quote = ch;
+                i++;
+                escaped = false;
+                while (i < line.length) {
+                    const c = line[i];
+                    if (escaped) { escaped = false; i++; continue; }
+                    if (c === '\\') { escaped = true; i++; continue; }
+                    if (c === quote) { i++; break; }
+                    i++;
+                }
+                continue;
+            }
+            out += ch;
+            i++;
+        }
+        return {text: out, endsInBlockComment: block};
     }
 
     private parseStructFieldLine(parent: nodes.Struct, line: string, cleanLine: string, tokens: Token[]): nodes.Field | null {

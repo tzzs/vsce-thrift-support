@@ -95,6 +95,7 @@ export function formatThriftContent(
     const {
         structStarts,
         structFieldIndex,
+        structFieldEnds,
         enumStarts,
         enumMemberIndex,
         serviceStarts,
@@ -345,7 +346,9 @@ export function formatThriftContent(
                     buildStructFieldFromAst,
                     parseStructFieldText,
                     normalizeGenericsInSignature,
-                    isServiceMethod: (line, li) => isServiceMethodLine(line, li, serviceFunctionIndex)
+                    isServiceMethod: (line, li) => isServiceMethodLine(line, li, serviceFunctionIndex),
+                    sourceLines: lines,
+                    structFieldEnds
                 }
             );
             structFields = structResult.structFields;
@@ -355,6 +358,9 @@ export function formatThriftContent(
             indentLevel = structResult.indentLevel;
             inStruct = structResult.inStruct;
             if (structResult.handled) {
+                if (structResult.skipToIndex !== undefined && structResult.skipToIndex > i) {
+                    i = structResult.skipToIndex;
+                }
                 continue;
             }
         }
