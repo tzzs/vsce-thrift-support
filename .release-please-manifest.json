@@ -1,5 +1,5 @@
 {
   ".": "3.0.0",
-  "packages/core": "2.3.0",
-  "packages/cli": "2.3.0"
+  "packages/core": "3.0.0",
+  "packages/cli": "3.0.0"
 }
