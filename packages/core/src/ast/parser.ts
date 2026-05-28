@@ -17,7 +17,6 @@ import {
     buildConstValueRange,
     findDefaultValueRange,
     findInitializerRange,
-    findNameRangeInLine,
     findThrowsStartInRange,
     findTypeRangeInLine,
     findWordRangeInLine,
@@ -34,7 +33,7 @@ import {
     findSymbolIndexFrom,
     readQualifiedIdentifier
 } from './token-utils';
-import {ThriftTokenizer, Token} from './tokenizer';
+import {ThriftTokenizer, Token, tokenizeLine} from './tokenizer';
 
 export interface ParseRegion {
     startLine: number;
@@ -580,33 +579,25 @@ export class ThriftParser {
         });
     }
 
-    private parseStructFieldLineFallback(parent: nodes.Struct, line: string, cleanLine: string): nodes.Field | null {
-        const trimmed = cleanLine.trim();
-        const codeStart = cleanLine.indexOf(trimmed);
-        const fieldMatch = trimmed.match(/^(\d+):\s*(?:(required|optional)\s+)?([a-zA-Z0-9_<>.,]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
-        if (!fieldMatch) {
-            return null;
-        }
-        const valueTarget = stripTrailingAnnotation(cleanLine.replace(/[,;]\s*$/, ''));
-        const nameRange = findNameRangeInLine(cleanLine, this.currentLine, fieldMatch[4], trimmed);
-        const typeRange = findTypeRangeInLine(cleanLine, this.currentLine, fieldMatch[3].trim(), codeStart);
-        const defaultInfo = findDefaultValueRange(valueTarget);
-        const defaultStart = defaultInfo ? defaultInfo.start : null;
-        const defaultEnd = defaultInfo ? defaultInfo.end : null;
-        return createField({
-            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
-            nameRange,
-            typeRange,
-            parent,
-            id: parseInt(fieldMatch[1], 10),
-            requiredness: fieldMatch[2] as 'required' | 'optional',
-            fieldType: fieldMatch[3].trim(),
-            name: fieldMatch[4],
-            defaultValue: defaultInfo?.value,
-            defaultValueRange: defaultStart !== null && defaultEnd !== null
-                ? this.createRange(this.currentLine, defaultStart, this.currentLine, defaultEnd)
-                : undefined
-        });
+    /**
+     * Struct 字段解析的兜底路径。
+     *
+     * 审计结论（2026-05）：主路径 `parseStructFieldLine` 已覆盖所有合法字段语法。
+     * 每个 fallback 触发条件（缺数字 / 缺冒号 / 类型 token 缺失 / 在 `<>` 之外找不到
+     * identifier / 类型切片为空）都是旧 regex `^\d+:\s*[a-zA-Z0-9_<>.,]+\s+[a-zA-Z_]\w*`
+     * 失败条件的严格子集 —— 主路径解析不了的输入，fallback regex 同样无法匹配。
+     *
+     * 旧 regex 的类型字符类 `[a-zA-Z0-9_<>.,]+` 对嵌套泛型如 `map<string, list<i32>>`
+     * 会在首个逗号处截断，本身就有 bug；主路径用 angleDepth 跟踪正确处理嵌套。
+     *
+     * 返回 null 等同于"未识别行，跳过"，与旧 regex 不匹配时的行为一致。
+     */
+    private parseStructFieldLineFallback(
+        _parent: nodes.Struct,
+        _line: string,
+        _cleanLine: string
+    ): nodes.Field | null {
+        return null;
     }
 
     private parseEnum(parent: nodes.ThriftNode, name: string, isSenum: boolean): nodes.Enum {
@@ -1074,7 +1065,23 @@ export class ThriftParser {
         };
     }
 
-    private parseServiceFunctionLineFallback(line: string, cleanLine: string): {
+    /**
+     * Service / Interaction 函数签名解析的兜底路径。
+     *
+     * 审计结论（2026-05）：主路径 `parseServiceFunctionLine` 已覆盖所有合法函数语法
+     * （`[oneway] [stream|sink] <returnType> <name>(...)`）。每个 fallback 触发条件
+     * （缺 `(` / `(` 前无 identifier / returnType 起始 token 缺失 / returnType 切片为空）
+     * 都是旧 regex `^(?:oneway\s+)?(?:(stream|sink)\s+)?[a-zA-Z0-9_<>.,]+\s+[a-zA-Z_]\w*\s*\(`
+     * 失败条件的严格子集 —— 主路径解析不了的输入，fallback regex 同样无法匹配。
+     *
+     * 同 `parseStructFieldLineFallback`，旧 regex 的类型字符类对嵌套泛型有 bug。
+     *
+     * 返回 null 等同于"未识别行，跳过"，与旧 regex 不匹配时的行为一致。
+     */
+    private parseServiceFunctionLineFallback(
+        _line: string,
+        _cleanLine: string
+    ): {
         name: string;
         returnType: string;
         nameRange: Range | undefined;
@@ -1087,32 +1094,7 @@ export class ThriftParser {
         funcEndLine: number;
         funcEndChar: number;
     } | null {
-        const trimmed = cleanLine.trim();
-        const funcMatch = trimmed.match(/^(?:(oneway)\s+)?(?:(stream|sink)\s+)?([a-zA-Z0-9_<>.,]+)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
-        if (!funcMatch) {
-            return null;
-        }
-        const funcStartLine = this.currentLine;
-        const funcStartChar = cleanLine.indexOf(funcMatch[0]);
-        const returnTypeRaw = funcMatch[3].trim();
-        const isStream = funcMatch[2] === 'stream';
-        const isSink = funcMatch[2] === 'sink';
-        const returnType = isStream ? `stream ${returnTypeRaw}` : (isSink ? `sink ${returnTypeRaw}` : returnTypeRaw);
-        const nameRange = findWordRangeInLine(cleanLine, funcStartLine, funcMatch[4], funcStartChar);
-        const returnTypeRange = findTypeRangeInLine(cleanLine, funcStartLine, returnType, funcStartChar);
-        return {
-            name: funcMatch[4],
-            returnType,
-            nameRange,
-            returnTypeRange,
-            oneway: !!funcMatch[1],
-            isStream,
-            isSink,
-            funcStartLine,
-            funcStartChar,
-            funcEndLine: funcStartLine,
-            funcEndChar: line.length
-        };
+        return null;
     }
 
 
@@ -1238,29 +1220,38 @@ export class ThriftParser {
 
     /**
      * 更新分析受更改影响的区域（扩展脏区算法），现在具有更精确的依赖分析。
+     *
+     * Token 驱动：所有花括号 / 关键字 / 终止符判定都基于 tokenizer 解析后的 token 流，
+     * 避免字符串字面量（如 `const Msg = {"key": "{value}"}` 中的 `{` / `}`）被误计入
+     * 花括号深度，导致脏区边界判断错误。
      */
     public analyzeAffectedRegion(startLine: number, endLine: number): {start: number; end: number} {
-        // Start with the initial range
         let affectedStart = startLine;
         let affectedEnd = endLine;
 
-        // Expand upward to capture multi-line constructs that might be affected
-        // For example, if we modify the middle of a struct, we need to capture the whole struct
-        for (let line = startLine; line >= 0 && line > startLine - 50; line--) { // Limit expansion for performance
+        // 上行扫描：定位包含 startLine 的顶级声明
+        for (let line = startLine; line >= 0 && line > startLine - 50; line--) {
             const text = this.lines[line];
-            if (text && (text.trim().match(/\b(struct|service|interaction|enum|union|exception)\s+\w+/) ||
-                text.trim().includes('{'))) {
-                // Found a top-level construct definition
+            if (text === undefined) {
+                continue;
+            }
+            const tokens = this.tokenizeLineMeaningful(text);
+            if (tokens.length === 0) {
+                continue;
+            }
+            if (isTopLevelDeclaration(tokens) || hasSymbolToken(tokens, '{')) {
                 affectedStart = line;
 
-                // Now expand downward to find the end of this construct
+                // 下行扫描：基于 token 计数花括号深度（忽略字符串/注释内的字符）
                 let braceDepth = 0;
                 for (let searchLine = line; searchLine < this.lines.length && searchLine < line + 100; searchLine++) {
-                    const searchText = this.lines[searchLine];
-                    const openBraces = (searchText.match(/{/g) ?? []).length;
-                    const closeBraces = (searchText.match(/}/g) ?? []).length;
-                    braceDepth += openBraces - closeBraces;
-
+                    const sText = this.lines[searchLine];
+                    if (sText === undefined) {
+                        continue;
+                    }
+                    const sTokens = this.tokenizeLineMeaningful(sText);
+                    const braces = this.countBraces(sTokens);
+                    braceDepth += braces.open - braces.close;
                     if (braceDepth <= 0) {
                         affectedEnd = Math.max(affectedEnd, searchLine);
                         break;
@@ -1270,16 +1261,28 @@ export class ThriftParser {
             }
         }
 
-        // Expand downward to capture continuation of constructs that might span multiple lines
+        // 下行扫描：扩展到包含 `}` 或以 `;` / `,` 终止的行
         for (let line = endLine; line < this.lines.length && line < endLine + 20; line++) {
             const text = this.lines[line];
-            if (text && (text.includes('}') || text.trim().endsWith(';') || text.trim().endsWith(','))) {
+            if (text === undefined) {
+                continue;
+            }
+            const tokens = this.tokenizeLineMeaningful(text);
+            if (hasSymbolToken(tokens, '}') || endsWithStatementTerminator(tokens)) {
                 affectedEnd = line;
                 break;
             }
         }
 
         return {start: affectedStart, end: affectedEnd};
+    }
+
+    /**
+     * 单行无状态 tokenize（不依赖 `this.tokenizer` 的跨行块注释状态）。
+     * 用于 `analyzeAffectedRegion` 这类从文档中间开始扫描的场景。
+     */
+    private tokenizeLineMeaningful(line: string): Token[] {
+        return filterMeaningfulTokens(tokenizeLine(line));
     }
 
     /**
@@ -1579,4 +1582,53 @@ export class ThriftParser {
     private createRange(startLine: number, startChar: number, endLine: number, endChar: number): Range {
         return new Range(startLine, startChar, endLine, endChar);
     }
+}
+
+/**
+ * 顶级声明关键字集合。用于 `analyzeAffectedRegion` 上行扫描时识别脏区所属的声明。
+ */
+const TOP_LEVEL_DECL_KEYWORDS = new Set<string>([
+    'struct', 'service', 'interaction', 'enum', 'union', 'exception'
+]);
+
+/**
+ * 判断 token 流是否以顶级声明开头，即 `keyword + identifier` 模式。
+ * 替代正则 `/\b(struct|service|interaction|enum|union|exception)\s+\w+/`。
+ */
+function isTopLevelDeclaration(tokens: Token[]): boolean {
+    for (let i = 0; i < tokens.length - 1; i++) {
+        const t = tokens[i];
+        if (t.type === 'identifier' && TOP_LEVEL_DECL_KEYWORDS.has(t.value)) {
+            const next = tokens[i + 1];
+            if (next.type === 'identifier') {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/**
+ * 检查 token 流中是否包含某个 symbol。复用一次性遍历，避免对原始字符串再做 `match` / `includes`，
+ * 也能自动忽略字符串字面量内出现的同名字符。
+ */
+function hasSymbolToken(tokens: Token[], value: string): boolean {
+    for (const t of tokens) {
+        if (t.type === 'symbol' && t.value === value) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * 判断最后一个有效 token 是否是语句终止符 (`;` 或 `,`)。
+ * 替代 `text.trim().endsWith(';')` / `endsWith(',')` —— 字符串字面量内的标点不会被误判。
+ */
+function endsWithStatementTerminator(tokens: Token[]): boolean {
+    const last = tokens[tokens.length - 1];
+    if (last === undefined || last.type !== 'symbol') {
+        return false;
+    }
+    return last.value === ';' || last.value === ',';
 }

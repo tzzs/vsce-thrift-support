@@ -44,6 +44,52 @@ service TestService {
         assert.ok(affectedRange.end >= 5);
     });
 
+    it('analyzeAffectedRegion ignores braces inside string literals during upward scan', () => {
+        // 关键场景：字符串字面量内的 `{` 不应被识别为结构性花括号。
+        // 旧实现用 `text.trim().includes('{')` 检测，会把字符串内的 `{` 也算上，
+        // 导致上行扫描在 line 1/2 提前停下，affectedStart 被错误设置到中间行。
+        // Token-based 实现只在真正的 `{` symbol 处停下，正确扫描到 struct 开头 (line 0)。
+        const thriftContent = [
+            'struct Outer {',                                            // line 0
+            '  1: string template = "prefix {literal} suffix",',         // line 1
+            '  2: string config = "{ contains brace }",',                // line 2
+            '  3: i32 id',                                               // line 3
+            '}'                                                          // line 4
+        ].join('\n');
+
+        const parser = new ThriftParser(thriftContent);
+        // 编辑在 line 2（含字面量花括号的字段）
+        const affected = parser.analyzeAffectedRegion(2, 2);
+        // 上行扫描应找到 struct Outer 的真实开头 (line 0)，而不是被字符串里的 `{` 误判。
+        assert.strictEqual(affected.start, 0,
+            `affectedStart should be the real 'struct {' line, got ${affected.start}`);
+    });
+
+    it('analyzeAffectedRegion brace depth tracking skips string-literal braces', () => {
+        // 关键差异点：旧 `match(/}/g)` 把字符串内的 `}` 当作结构性闭合，
+        // 让 braceDepth 提前归零，affectedEnd 在 line 2 就被锁定。
+        // Token-based 实现忽略字符串内的 `}`，正确扫描到 line 4 真正的 struct 闭合。
+        //
+        // 注意：所有非闭合行的最后一个 meaningful token 都不是 `;` 或 `,`，
+        // 避免被第二个 for 循环（终止符扫描）提前重置。
+        const thriftContent = [
+            'struct Box {',                                              // line 0
+            '  1: string a',                                             // line 1 — 最后 token 是 'a'
+            '  2: string b = "} close-in-literal"',                      // line 2 — 最后 token 是 string
+            '  3: string c',                                             // line 3 — 最后 token 是 'c'
+            '}'                                                          // line 4 — 真正的闭合
+        ].join('\n');
+
+        const parser = new ThriftParser(thriftContent);
+        // 编辑在 line 0（struct 开头）
+        const affected = parser.analyzeAffectedRegion(0, 0);
+        // 旧实现会在 line 2 字符串内的 `}` 处误判 depth=0，end 锁在 2。
+        // Token-based 实现应识别到 line 4 的真实闭合。
+        assert.strictEqual(affected.start, 0);
+        assert.strictEqual(affected.end, 4,
+            `brace-depth scan should reach the real '}' at line 4 (string literal '}' must be ignored), got affectedEnd=${affected.end}`);
+    });
+
     it('uses region-based cache', () => {
         const uri = 'test.thrift';
         const range = {startLine: 0, endLine: 5};
