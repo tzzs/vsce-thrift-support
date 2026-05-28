@@ -1,5 +1,13 @@
 # Changelog | 更新日志
 
+## [2.2.1](https://github.com/tzzs/vsce-thrift-support/compare/v2.2.0...v2.2.1) (2026-05-10)
+
+
+### Bug Fixes
+
+* **security:** guard against prototype pollution in merge utilities ([668db40](https://github.com/tzzs/vsce-thrift-support/commit/668db40019d5f1904e969b75e2c83b64e4c9018d))
+* **security:** guard against prototype pollution in merge utilities ([3bdc713](https://github.com/tzzs/vsce-thrift-support/commit/3bdc71302ca8c2349704a52a4eca456a00b7cf3a))
+
 ## [2.2.0](https://github.com/tzzs/vsce-thrift-support/compare/v2.1.1...v2.2.0) (2026-05-09)
 
 
