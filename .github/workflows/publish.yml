@@ -25,6 +25,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
 
       - name: Setup pnpm
@@ -38,6 +39,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Build core package
+        run: cd packages/core && npx tsc -p .
 
       - name: Build
         run: pnpm run build --if-present
@@ -155,3 +159,50 @@ jobs:
 
       - name: Publish to Open VSX
         run: npx ovsx publish --skip-duplicate --packagePath thrift-support-${{ needs.package.outputs.version }}.vsix
+
+  npm_publish:
+    needs: [ package, github_release ]
+    if: ${{ needs.package.outputs.should_publish == 'true' }}
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.18.0
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Sync sub-package versions
+        run: node scripts/sync-versions.js
+
+      - name: Build core
+        run: cd packages/core && npx tsc -p .
+
+      - name: Build CLI
+        run: cd packages/cli && node build.js
+
+      - name: Verify CLI
+        run: |
+          node packages/cli/dist/cli.js --version
+          node packages/cli/dist/cli.js format --check test-files/example-enum.thrift
+
+      - name: Publish CLI to npm
+        run: cd packages/cli && pnpm publish --no-git-checks --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

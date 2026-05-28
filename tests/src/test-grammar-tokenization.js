@@ -72,8 +72,8 @@ describe('TextMate Grammar Tokenization', () => {
 
             assert.ok(hasScopes(tokens, 'service', ['meta.service.thrift', 'storage.type.thrift']),
                 'service keyword should have meta.service and storage.type scopes');
-            assert.ok(hasScopes(tokens, 'Foo', ['meta.service.thrift', 'entity.name.type.thrift']),
-                'service name should have entity.name.type scope');
+            assert.ok(hasScopes(tokens, 'Foo', ['meta.service.thrift', 'entity.name.type.interface.thrift']),
+                'service name should have entity.name.type.interface scope');
             assert.ok(hasScopes(tokens, 'bar', ['meta.method.definition.thrift', 'entity.name.function.thrift']),
                 'method name should have entity.name.function scope');
             assert.ok(noTokenHasScope(tokens, 'constant.other.map.thrift'),
@@ -86,8 +86,8 @@ describe('TextMate Grammar Tokenization', () => {
 
             assert.ok(hasScopes(tokens, 'service', ['meta.service.thrift', 'storage.type.thrift']),
                 'service keyword should have meta.service and storage.type scopes');
-            assert.ok(hasScopes(tokens, 'ThriftTest', ['meta.service.thrift', 'entity.name.type.thrift']),
-                'service name should have entity.name.type scope');
+            assert.ok(hasScopes(tokens, 'ThriftTest', ['meta.service.thrift', 'entity.name.type.interface.thrift']),
+                'service name should have entity.name.type.interface scope');
             assert.ok(hasScopes(tokens, 'testVoid', ['meta.method.definition.thrift', 'entity.name.function.thrift']),
                 'method name should have entity.name.function scope even with { on next line');
             assert.ok(noTokenHasScope(tokens, 'constant.other.map.thrift'),
@@ -101,8 +101,8 @@ describe('TextMate Grammar Tokenization', () => {
 
             assert.ok(hasScopes(tokens, 'service', ['meta.service.thrift']),
                 'service should be in meta.service block');
-            assert.ok(hasScopes(tokens, 'UserService', ['meta.service.thrift', 'entity.name.type.thrift']),
-                'service name should be entity.name.type');
+            assert.ok(hasScopes(tokens, 'UserService', ['meta.service.thrift', 'entity.name.type.interface.thrift']),
+                'service name should be entity.name.type.interface');
             assert.ok(tokens.some(t => t.text === 'extends' && t.scopes.includes('keyword.other.thrift')),
                 'extends keyword should be keyword.other');
             assert.ok(tokens.some(t => t.text === 'shared.SharedService' && t.scopes.includes('entity.other.inherited-class.thrift')),
@@ -132,8 +132,8 @@ describe('TextMate Grammar Tokenization', () => {
 
             assert.ok(hasScopes(tokens, 'struct', ['meta.struct.thrift', 'storage.type.thrift']),
                 'struct keyword should have meta.struct and storage.type scopes');
-            assert.ok(hasScopes(tokens, 'MyStruct', ['meta.struct.thrift', 'entity.name.type.thrift']),
-                'struct name should have entity.name.type scope');
+            assert.ok(hasScopes(tokens, 'MyStruct', ['meta.struct.thrift', 'entity.name.type.class.thrift']),
+                'struct name should have entity.name.type.class scope');
             assert.ok(hasScopes(tokens, 'name', ['variable.other.member.thrift']),
                 'field name should have variable.other.member scope');
             assert.ok(noTokenHasScope(tokens, 'constant.other.map.thrift'),
@@ -146,8 +146,8 @@ describe('TextMate Grammar Tokenization', () => {
 
             assert.ok(hasScopes(tokens, 'struct', ['meta.struct.thrift', 'storage.type.thrift']),
                 'struct keyword should have meta.struct scope');
-            assert.ok(hasScopes(tokens, 'MyStruct', ['meta.struct.thrift', 'entity.name.type.thrift']),
-                'struct name should have entity.name.type scope');
+            assert.ok(hasScopes(tokens, 'MyStruct', ['meta.struct.thrift', 'entity.name.type.class.thrift']),
+                'struct name should have entity.name.type.class scope');
             assert.ok(hasScopes(tokens, 'name', ['variable.other.member.thrift']),
                 'field name should have variable.other.member scope');
             assert.ok(noTokenHasScope(tokens, 'constant.other.map.thrift'),
@@ -162,8 +162,8 @@ describe('TextMate Grammar Tokenization', () => {
 
             assert.ok(hasScopes(tokens, 'enum', ['meta.enum.thrift', 'storage.type.thrift']),
                 'enum keyword should have meta.enum and storage.type scopes');
-            assert.ok(hasScopes(tokens, 'Numberz', ['meta.enum.thrift', 'entity.name.type.thrift']),
-                'enum name should have entity.name.type scope');
+            assert.ok(hasScopes(tokens, 'Numberz', ['meta.enum.thrift', 'entity.name.type.enum.thrift']),
+                'enum name should have entity.name.type.enum scope');
             assert.ok(hasScopes(tokens, 'ONE', ['constant.other.enum.thrift']),
                 'enum value with explicit assignment should have constant.other.enum scope');
             assert.ok(hasScopes(tokens, 'TWO', ['constant.other.enum.thrift']),
@@ -245,14 +245,14 @@ describe('TextMate Grammar Tokenization', () => {
     });
 
     describe('Type scopes', () => {
-        it('should assign storage.type.thrift to primitive types', () => {
+        it('should assign storage.type.primitive.thrift to primitive types', () => {
             const lines = ['struct S {', '  1: i32 num,', '  2: string text,', '}'];
             const tokens = tokenizeLines(lines);
 
-            assert.ok(hasScopes(tokens, 'i32', ['storage.type.thrift']),
-                'i32 should have storage.type scope per TextMate spec');
-            assert.ok(hasScopes(tokens, 'string', ['storage.type.thrift']),
-                'string should have storage.type scope per TextMate spec');
+            assert.ok(hasScopes(tokens, 'i32', ['storage.type.primitive.thrift']),
+                'i32 should have storage.type.primitive scope');
+            assert.ok(hasScopes(tokens, 'string', ['storage.type.primitive.thrift']),
+                'string should have storage.type.primitive scope');
         });
 
         it('should assign entity.name.type to user-defined types', () => {
@@ -407,8 +407,8 @@ describe('TextMate Grammar Tokenization', () => {
             const lines = ['service S {', '  void foo(1: required string name),', '}'];
             const tokens = tokenizeLines(lines);
 
-            assert.ok(hasScopes(tokens, 'string', ['storage.type.thrift']),
-                'string type after required should have storage.type.thrift scope');
+            assert.ok(hasScopes(tokens, 'string', ['storage.type.primitive.thrift']),
+                'string type after required should have storage.type.primitive scope');
             assert.ok(!getScopes(tokens, 'string').includes('variable.parameter.thrift'),
                 'string type should not be misidentified as variable.parameter.thrift');
         });
@@ -475,31 +475,31 @@ describe('TextMate Grammar Tokenization', () => {
     });
 
     describe('Nested container type tokenization', () => {
-        it('i32 inside set<i32> in a struct field should have storage.type.thrift', () => {
+        it('i32 inside set<i32> in a struct field should have storage.type.primitive.thrift', () => {
             const lines = ['struct S {', '  1: set<i32> field,', '}'];
             const tokens = tokenizeLines(lines);
-            assert.ok(hasScopes(tokens, 'i32', ['storage.type.thrift']),
-                'i32 inside set<> should have storage.type.thrift');
+            assert.ok(hasScopes(tokens, 'i32', ['storage.type.primitive.thrift']),
+                'i32 inside set<> should have storage.type.primitive.thrift');
         });
 
-        it('inner container keyword in 2-level nesting should have storage.type.thrift', () => {
+        it('inner container keyword in 2-level nesting should have storage.type.collection.thrift', () => {
             const lines = ['struct S {', '  1: list<map<string, i32>> field,', '}'];
             const tokens = tokenizeLines(lines);
-            assert.ok(hasScopes(tokens, 'map', ['storage.type.thrift']),
-                'map keyword inside list<> should have storage.type.thrift');
-            assert.ok(hasScopes(tokens, 'i32', ['storage.type.thrift']),
-                'i32 inside map<> inside list<> should have storage.type.thrift');
+            assert.ok(hasScopes(tokens, 'map', ['storage.type.collection.thrift']),
+                'map keyword inside list<> should have storage.type.collection.thrift');
+            assert.ok(hasScopes(tokens, 'i32', ['storage.type.primitive.thrift']),
+                'i32 inside map<> inside list<> should have storage.type.primitive.thrift');
         });
 
-        it('all type keywords in 3-level nesting should have storage.type.thrift', () => {
+        it('all type keywords in 3-level nesting should have correct scopes', () => {
             const lines = ['struct S {', '  1: list<map<string, set<i32>>> field,', '}'];
             const tokens = tokenizeLines(lines);
-            assert.ok(hasScopes(tokens, 'map', ['storage.type.thrift']),
-                'map inside list<> should have storage.type.thrift');
-            assert.ok(hasScopes(tokens, 'set', ['storage.type.thrift']),
-                'set inside map<> inside list<> should have storage.type.thrift');
-            assert.ok(hasScopes(tokens, 'i32', ['storage.type.thrift']),
-                'i32 inside set<> (3 levels) should have storage.type.thrift');
+            assert.ok(hasScopes(tokens, 'map', ['storage.type.collection.thrift']),
+                'map inside list<> should have storage.type.collection.thrift');
+            assert.ok(hasScopes(tokens, 'set', ['storage.type.collection.thrift']),
+                'set inside map<> inside list<> should have storage.type.collection.thrift');
+            assert.ok(hasScopes(tokens, 'i32', ['storage.type.primitive.thrift']),
+                'i32 inside set<> (3 levels) should have storage.type.primitive.thrift');
         });
 
         it('annotation after inner type in nested context should have meta.annotation.thrift', () => {
@@ -509,8 +509,8 @@ describe('TextMate Grammar Tokenization', () => {
                 '}'
             ];
             const tokens = tokenizeLines(lines);
-            assert.ok(hasScopes(tokens, 'i32', ['storage.type.thrift']),
-                'i32 inside set<> in annotated nested map should have storage.type.thrift');
+            assert.ok(hasScopes(tokens, 'i32', ['storage.type.primitive.thrift']),
+                'i32 inside set<> in annotated nested map should have storage.type.primitive.thrift');
             assert.ok(tokens.some(t => t.scopes.includes('meta.annotation.thrift')),
                 'annotation (python.immutable = "") inside nested type should have meta.annotation.thrift');
         });
@@ -525,12 +525,12 @@ describe('TextMate Grammar Tokenization', () => {
 
             const i32Tokens = tokens.filter(t => t.text === 'i32');
             assert.ok(i32Tokens.length > 0, 'should find i32 tokens');
-            assert.ok(i32Tokens.every(t => t.scopes.includes('storage.type.thrift')),
-                'all i32 tokens in deeply nested type should have storage.type.thrift');
+            assert.ok(i32Tokens.every(t => t.scopes.includes('storage.type.primitive.thrift')),
+                'all i32 tokens in deeply nested type should have storage.type.primitive.thrift');
 
             const setTokens = tokens.filter(t => t.text === 'set');
-            assert.ok(setTokens.every(t => t.scopes.includes('storage.type.thrift')),
-                'all set tokens in nested type should have storage.type.thrift');
+            assert.ok(setTokens.every(t => t.scopes.includes('storage.type.collection.thrift')),
+                'all set tokens in nested type should have storage.type.collection.thrift');
 
             assert.ok(tokens.some(t => t.scopes.includes('meta.annotation.thrift')),
                 'annotations inside nested types should have meta.annotation.thrift');
@@ -546,12 +546,12 @@ describe('TextMate Grammar Tokenization', () => {
         it('typedef with nested containers should tokenize inner types correctly', () => {
             const lines = ['typedef set<map<string, list<i64>>> ComplexType'];
             const tokens = tokenizeLines(lines);
-            assert.ok(hasScopes(tokens, 'map', ['storage.type.thrift']),
-                'map inside typedef nested set<> should have storage.type.thrift');
-            assert.ok(hasScopes(tokens, 'list', ['storage.type.thrift']),
-                'list inside typedef nested map<> should have storage.type.thrift');
-            assert.ok(hasScopes(tokens, 'i64', ['storage.type.thrift']),
-                'i64 inside typedef 3-level nesting should have storage.type.thrift');
+            assert.ok(hasScopes(tokens, 'map', ['storage.type.collection.thrift']),
+                'map inside typedef nested set<> should have storage.type.collection.thrift');
+            assert.ok(hasScopes(tokens, 'list', ['storage.type.collection.thrift']),
+                'list inside typedef nested map<> should have storage.type.collection.thrift');
+            assert.ok(hasScopes(tokens, 'i64', ['storage.type.primitive.thrift']),
+                'i64 inside typedef 3-level nesting should have storage.type.primitive.thrift');
         });
     });
 

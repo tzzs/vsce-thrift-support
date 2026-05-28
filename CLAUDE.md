@@ -8,7 +8,7 @@ VS Code extension providing comprehensive language support for Apache Thrift IDL
 
 ## Development Environment
 
-- Node.js: 22.18.0 (must match CI)
+- Node.js: 24.x LTS (must match CI)
 - pnpm: 10.25.0 (package manager — do not use npm)
 - VS Code Engine: ^1.75.0
 - TypeScript: ^4.9.5
@@ -122,7 +122,7 @@ Config resolution: `thrift.format.*` first, then legacy `thrift-support.formatti
 
 | Workflow | Trigger | Action |
 |----------|---------|--------|
-| `ci.yml` | Every push + PR | `npm ci` → `lint` → `build` → `test` (Node 22.18.0) |
+| `ci.yml` | Every push + PR | `npm ci` → `lint` → `build` → `test` (Node 24.x LTS) |
 | `release-please.yml` | Push to master | Creates release PRs from conventional commits |
 | `publish.yml` | GitHub Release published | Build + publish to VS Marketplace + Open VSX |
 

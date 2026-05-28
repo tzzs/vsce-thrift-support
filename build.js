@@ -1,7 +1,7 @@
 const esbuild = require('esbuild');
 
 const sharedConfig = {
-    entryPoints: ['src/extension.ts'],
+    entryPoints: ['packages/vscode/src/extension.ts'],
     bundle: true,
     outfile: 'dist/extension.js',
     external: ['vscode'],

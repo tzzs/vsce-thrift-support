@@ -104,8 +104,11 @@ async function testCodeActionsProviderHandlesErrors() {
         {diagnostics: []},
         {isCancellationRequested: false}
     );
-    if (!Array.isArray(result) || result.length !== 0) {
-        throw new Error('CodeActionProvider should return [] on error');
+    if (!Array.isArray(result)) {
+        throw new Error('CodeActionProvider should return an array');
+    }
+    if (result.length !== 2) {
+        throw new Error(`CodeActionProvider should return 2 refactor actions (got ${result.length})`);
     }
 }
 

@@ -66,7 +66,10 @@ async function measure(label, iterations, fn) {
     const avg = total / durations.length;
     const min = Math.min(...durations);
     const max = Math.max(...durations);
-    console.log(`${label}: avg ${avg.toFixed(2)}ms (min ${min.toFixed(2)} / max ${max.toFixed(2)})`);
+    const sorted = [...durations].sort((a, b) => a - b);
+    const p95 = sorted[Math.floor(sorted.length * 0.95)];
+    console.log(`${label}: avg ${avg.toFixed(2)}ms, p95 ${p95.toFixed(2)}ms (min ${min.toFixed(2)} / max ${max.toFixed(2)})`);
+    return {label, avg, min, max, p95};
 }
 
 async function run() {
@@ -75,9 +78,13 @@ async function run() {
     const structCount = parseArg('--structs', 120);
     const fieldCount = parseArg('--fields', 30);
     const iterations = parseArg('--iterations', 10);
+    const thresholdFullMs = parseArg('--threshold-full-ms', 0);
+    const thresholdIncrementalMs = parseArg('--threshold-incremental-ms', 0);
 
     const text = generateLargeThrift(structCount, fieldCount);
     const doc = createDoc(text, 'perf-benchmark.thrift', 1);
+    const lineCount = text.split('\n').length;
+    console.log(`Generated: ${structCount} structs × ${fieldCount} fields = ${lineCount} lines\n`);
 
     const manager = new DiagnosticManager();
     const tracker = IncrementalTracker.getInstance();
@@ -89,12 +96,14 @@ async function run() {
 
     await manager.performAnalysis(doc);
 
-    await measure('Diagnostics (full)', iterations, async () => {
+    const results = [];
+
+    results.push(await measure('Diagnostics (full)', iterations, async () => {
         doc.version += 1;
         await manager.performAnalysis(doc);
-    });
+    }));
 
-    await measure('Diagnostics (incremental)', iterations, async () => {
+    results.push(await measure('Diagnostics (incremental)', iterations, async () => {
         doc.version += 1;
         const updatedText = updateLines(text, [
             { line: 2, value: '  2: i32 field_0_2' },
@@ -116,13 +125,13 @@ async function run() {
             ]
         );
         await manager.performAnalysis(updatedDoc);
-    });
+    }));
 
-    await measure('Formatting (full)', iterations, async () => {
+    results.push(await measure('Formatting (full)', iterations, async () => {
         formattingProvider.provideDocumentFormattingEdits(doc, {insertSpaces: true, tabSize: 4});
-    });
+    }));
 
-    await measure('Formatting (incremental)', iterations, async () => {
+    results.push(await measure('Formatting (incremental)', iterations, async () => {
         tracker.markChanges({
             document: doc,
             contentChanges: [
@@ -133,9 +142,33 @@ async function run() {
             ]
         });
         formattingProvider.provideDocumentFormattingEdits(doc, {insertSpaces: true, tabSize: 4});
-    });
+    }));
+
+    const failures = [];
+    if (thresholdFullMs > 0) {
+        for (const r of results) {
+            if (!r.label.includes('incremental') && r.avg > thresholdFullMs) {
+                failures.push(`${r.label}: avg ${r.avg.toFixed(2)}ms exceeds threshold ${thresholdFullMs}ms`);
+            }
+        }
+    }
+    if (thresholdIncrementalMs > 0) {
+        for (const r of results) {
+            if (r.label.includes('incremental') && r.avg > thresholdIncrementalMs) {
+                failures.push(`${r.label}: avg ${r.avg.toFixed(2)}ms exceeds threshold ${thresholdIncrementalMs}ms`);
+            }
+        }
+    }
 
     console.log('\nDone.');
+
+    if (failures.length > 0) {
+        console.error('\nPerformance threshold violations:');
+        for (const f of failures) {
+            console.error(`  FAIL: ${f}`);
+        }
+        process.exit(1);
+    }
 }
 
 run().catch((error) => {
