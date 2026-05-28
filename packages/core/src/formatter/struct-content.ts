@@ -15,6 +15,10 @@ interface StructContentDeps {
     parseStructFieldText: StructFieldParser;
     normalizeGenericsInSignature: SignatureNormalizer;
     isServiceMethod: ServiceMethodMatcher;
+    /** Original source lines (used for multi-line field slicing). */
+    sourceLines?: string[];
+    /** Map of multi-line field start line → end line (inclusive). */
+    structFieldEnds?: Map<number, number>;
 }
 
 interface StructContentResult {
@@ -23,6 +27,8 @@ interface StructContentResult {
     indentLevel: number;
     structFields: StructField[];
     formattedLines: string[];
+    /** When set, outer loop should skip to this line index (inclusive last consumed). */
+    skipToIndex?: number;
 }
 
 /**
@@ -75,16 +81,40 @@ export function formatStructContentLine(
     }
 
     const fieldNode = structFieldIndex.get(lineIndex);
-    const fieldInfo = fieldNode
-        ? deps.buildStructFieldFromAst(line, fieldNode)
-        : deps.parseStructFieldText(line);
+    // Continuation line of a multi-line field already consumed — swallow without output.
+    if (fieldNode && fieldNode.range.start.line !== lineIndex) {
+        return {
+            handled: true,
+            inStruct: true,
+            indentLevel,
+            structFields,
+            formattedLines: []
+        };
+    }
+    // For multi-line field start, build the field from the full source span so the
+    // formatter can re-indent continuation lines correctly.
+    let fieldInfo: StructField | null = null;
+    let skipToIndex: number | undefined;
+    if (fieldNode) {
+        const endLine = deps.structFieldEnds?.get(lineIndex);
+        if (endLine !== undefined && deps.sourceLines && endLine > lineIndex) {
+            const slice = deps.sourceLines.slice(lineIndex, endLine + 1).join('\n');
+            fieldInfo = deps.buildStructFieldFromAst(slice, fieldNode);
+            skipToIndex = endLine;
+        } else {
+            fieldInfo = deps.buildStructFieldFromAst(line, fieldNode);
+        }
+    } else {
+        fieldInfo = deps.parseStructFieldText(line);
+    }
     if (fieldInfo) {
         return {
             handled: true,
             inStruct: true,
             indentLevel,
             structFields: [...structFields, fieldInfo],
-            formattedLines: []
+            formattedLines: [],
+            skipToIndex
         };
     }
 
