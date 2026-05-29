@@ -66,6 +66,10 @@ test-thrift/
 .trae/
 .pnpm-store/
 
+# Git worktrees
+.worktree/
+.worktrees/
+
 # Prevent compiled output from being committed into source directories
 packages/*/src/**/*.js
 packages/*/src/**/*.js.map
