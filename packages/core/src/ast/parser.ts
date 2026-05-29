@@ -543,7 +543,8 @@ export class ThriftParser {
 
     /**
      * 去除字符串字面量内容与注释，仅保留结构性字符（括号、逗号、分号等）。
-     * 字符串内容替换为空格以保持列对齐稳定。
+     * 注意：字符串内容被**移除**（不保留占位符），因此返回的 text 不可用于
+     * 列位置计算——仅适用于结构性扫描。
      * 不修改 this.tokenizer 的跨行 state。
      */
     private stripCommentsAndStrings(line: string, inBlockComment: boolean): {text: string; endsInBlockComment: boolean} {
