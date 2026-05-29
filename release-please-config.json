@@ -2,10 +2,12 @@
   "commit-search-depth": 200,
   "release-search-depth": 50,
   "sequential-calls": true,
+  "pull-request-title-pattern": "chore${scope}: release ${component} ${version}",
   "packages": {
     ".": {
       "release-type": "node",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "component": "thrift-support"
     },
     "packages/core": {
       "release-type": "node",
