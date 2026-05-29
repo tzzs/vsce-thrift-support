@@ -289,7 +289,7 @@ export function resolveMultilineStringDefault(
     // first part: strip the trailing continuation backslash
     const parts: string[] = [trimmed.slice(0, -1)];
     let endLine = startLine;
-    const maxLine = Math.min(startLine + 50, lines.length - 1);
+    const maxLine = lines.length - 1;
 
     while (endLine < maxLine) {
         endLine++;
