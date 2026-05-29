@@ -27,7 +27,14 @@ interface StructContentResult {
     indentLevel: number;
     structFields: StructField[];
     formattedLines: string[];
-    /** When set, outer loop should skip to this line index (inclusive last consumed). */
+    /**
+     * 当本行是多行字段的起始行时，设为该字段的结束行号（含）。
+     * 外层 formatter-core.ts 的主循环检查此字段，将 `i` 跳到 `skipToIndex`，
+     * 跳过已合并处理的续行。
+     *
+     * 前置条件：调用方必须在 deps 中提供 sourceLines 和 structFieldEnds，
+     * 且 structFieldEnds 中的 key 必须也在 structFieldIndex 中存在。
+     */
     skipToIndex?: number;
 }
 

@@ -358,7 +358,9 @@ export function formatThriftContent(
             indentLevel = structResult.indentLevel;
             inStruct = structResult.inStruct;
             if (structResult.handled) {
-                if (structResult.skipToIndex !== undefined && structResult.skipToIndex > i) {
+                // 多行字段：struct-content 已将起始行到结束行合并为一个字段；
+            // 跳过已消费的续行，避免重复处理。
+            if (structResult.skipToIndex !== undefined && structResult.skipToIndex > i) {
                     i = structResult.skipToIndex;
                 }
                 continue;
