@@ -44,6 +44,9 @@ export function buildAstIndex(ast: nodes.ThriftDocument): AstIndex {
                     structFieldIndex.set(startLine, field);
                     if (endLine > startLine) {
                         structFieldEnds.set(startLine, endLine);
+                        // 为多行字段的所有中间行填充 structFieldIndex，
+                        // 使 struct-content.ts 中的 fieldNode.range.start.line !== lineIndex
+                        // 检查能将续行标记为已处理，避免将其当作独立字段解析。
                         for (let li = startLine + 1; li <= endLine; li++) {
                             if (!structFieldIndex.has(li)) {
                                 structFieldIndex.set(li, field);
