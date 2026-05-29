@@ -179,6 +179,9 @@ function buildMultiLineStructFieldFromAst(text: string, field: nodes.Field): Str
         return null;
     }
 
+    // 提取首行行内注释
+    const firstLineComment = splitLineComment(rawLines[0]).comment;
+
     const firstLine = cleanedLines[0];
     const eqIdx = findTopLevelEqualsIndex(firstLine);
     if (eqIdx === -1) {
@@ -188,6 +191,8 @@ function buildMultiLineStructFieldFromAst(text: string, field: nodes.Field): Str
 
     const lastIdx = cleanedLines.length - 1;
     let lastClean = cleanedLines[lastIdx].trimEnd();
+    // 提取最后一行行内注释
+    const lastLineComment = splitLineComment(rawLines[lastIdx]).comment;
     let trailing = '';
     const tsMatch = lastClean.match(/([,;]\s*)$/);
     if (tsMatch) {
@@ -219,6 +224,9 @@ function buildMultiLineStructFieldFromAst(text: string, field: nodes.Field): Str
         suffix += trailing;
     }
 
+    // 合并注释：优先最后一行注释，其次首行注释
+    const comment = lastLineComment || firstLineComment;
+
     return {
         line: text.trim(),
         id: String(field.id),
@@ -226,7 +234,7 @@ function buildMultiLineStructFieldFromAst(text: string, field: nodes.Field): Str
         type,
         name,
         suffix,
-        comment: '',
+        comment,
         annotation
     };
 }
