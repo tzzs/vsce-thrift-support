@@ -265,6 +265,77 @@ export function resolveMultilineDefaultFromLines(
     return stripAnnotationsForType(withoutComma).trimEnd();
 }
 
+/**
+ * Resolve a multi-line string default value that uses Thrift's backslash
+ * line-continuation syntax. E.g.:
+ *   "Hello \
+ *   World"
+ * becomes "Hello World".
+ */
+export function resolveMultilineStringDefault(
+    lines: string[],
+    startLine: number,
+    initialValue: string
+): string | null {
+    const trimmed = initialValue.trimEnd();
+    const quote = trimmed[0];
+    if (quote !== '"' && quote !== '\'') { return null; }
+
+    // Already properly closed on the same line — no resolution needed
+    if (trimmed.endsWith(quote) && trimmed.length >= 2) { return null; }
+
+    if (!trimmed.endsWith('\\')) { return null; }
+
+    // first part: strip the trailing continuation backslash
+    const parts: string[] = [trimmed.slice(0, -1)];
+    let endLine = startLine;
+    const maxLine = lines.length - 1;
+
+    while (endLine < maxLine) {
+        endLine++;
+        const rawLine = lines[endLine] ?? '';
+        const stripped = stripCodeLineComments(rawLine);
+        if (stripped.trimEnd().endsWith('\\')) {
+            parts.push(stripped.slice(0, -1));
+        } else {
+            parts.push(stripped);
+            break;
+        }
+    }
+
+    const fullValue = parts.join('');
+    const withoutComma = fullValue.replace(/[,;]\s*$/, '');
+    return stripAnnotationsForType(withoutComma).trimEnd();
+}
+
+/**
+ * Strip // line comment from a code line, respecting quote context.
+ */
+function stripCodeLineComments(line: string): string {
+    let inS = false, inD = false, escaped = false;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (inS) {
+            if (!escaped && ch === '\\') { escaped = true; continue; }
+            if (!escaped && ch === '\'') { inS = false; }
+            escaped = false;
+            continue;
+        }
+        if (inD) {
+            if (!escaped && ch === '\\') { escaped = true; continue; }
+            if (!escaped && ch === '"') { inD = false; }
+            escaped = false;
+            continue;
+        }
+        if (ch === '\'') { inS = true; continue; }
+        if (ch === '"') { inD = true; continue; }
+        if (ch === '/' && i + 1 < line.length && line[i + 1] === '/') {
+            return line.slice(0, i);
+        }
+    }
+    return line;
+}
+
 export function isKnownType(
     typeName: string,
     definedTypes: Set<string>,

@@ -1,6 +1,7 @@
 import {ConstField, EnumField, StructField} from '../interfaces.types';
 import * as nodes from '../ast/nodes.types';
 import {QuoteTracker} from '../utils/quote-tracker';
+import {BracketDepthTracker} from '../utils/bracket-depth-tracker';
 
 /**
  * 拆分行内注释。
@@ -178,6 +179,9 @@ function buildMultiLineStructFieldFromAst(text: string, field: nodes.Field): Str
         return null;
     }
 
+    // 提取首行行内注释
+    const firstLineComment = splitLineComment(rawLines[0]).comment;
+
     const firstLine = cleanedLines[0];
     const eqIdx = findTopLevelEqualsIndex(firstLine);
     if (eqIdx === -1) {
@@ -187,6 +191,8 @@ function buildMultiLineStructFieldFromAst(text: string, field: nodes.Field): Str
 
     const lastIdx = cleanedLines.length - 1;
     let lastClean = cleanedLines[lastIdx].trimEnd();
+    // 提取最后一行行内注释
+    const lastLineComment = splitLineComment(rawLines[lastIdx]).comment;
     let trailing = '';
     const tsMatch = lastClean.match(/([,;]\s*)$/);
     if (tsMatch) {
@@ -218,6 +224,9 @@ function buildMultiLineStructFieldFromAst(text: string, field: nodes.Field): Str
         suffix += trailing;
     }
 
+    // 合并注释：优先最后一行注释，其次首行注释
+    const comment = lastLineComment || firstLineComment;
+
     return {
         line: text.trim(),
         id: String(field.id),
@@ -225,7 +234,7 @@ function buildMultiLineStructFieldFromAst(text: string, field: nodes.Field): Str
         type,
         name,
         suffix,
-        comment: '',
+        comment,
         annotation
     };
 }
@@ -235,22 +244,12 @@ function buildMultiLineStructFieldFromAst(text: string, field: nodes.Field): Str
  */
 function findTopLevelEqualsIndex(text: string): number {
     const qt = new QuoteTracker();
-    let depthAngle = 0;
-    let depthBracket = 0;
-    let depthBrace = 0;
-    let depthParen = 0;
+    const bt = new BracketDepthTracker();
     for (let i = 0; i < text.length; i++) {
         const ch = text[i];
         if (!qt.inside()) {
-            if (ch === '<') { depthAngle++; }
-            else if (ch === '>') { depthAngle = Math.max(0, depthAngle - 1); }
-            else if (ch === '[') { depthBracket++; }
-            else if (ch === ']') { depthBracket = Math.max(0, depthBracket - 1); }
-            else if (ch === '{') { depthBrace++; }
-            else if (ch === '}') { depthBrace = Math.max(0, depthBrace - 1); }
-            else if (ch === '(') { depthParen++; }
-            else if (ch === ')') { depthParen = Math.max(0, depthParen - 1); }
-            else if (ch === '=' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
+            bt.feed(ch);
+            if (ch === '=' && bt.atTop()) {
                 return i;
             }
         }

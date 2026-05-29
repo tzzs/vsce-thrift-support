@@ -417,7 +417,7 @@ function formatMultiLineStructField(
     }
     firstLine += ' = ' + firstDV;
 
-    const middleLines = middleDV.map(m => innerIndent + m);
+    const middleLines = middleDV.filter(m => m.trim().length > 0).map(m => innerIndent + m);
 
     let lastLine = baseIndent + lastDV;
     if (field.annotation !== undefined && field.annotation !== '') {

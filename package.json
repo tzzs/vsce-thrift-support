@@ -2,7 +2,7 @@
   "name": "thrift-support",
   "displayName": "Thrift Support",
   "description": "Apache Thrift language support: syntax highlighting, formatting, diagnostics, navigation, completion, and rename",
-  "version": "2.2.1",
+  "version": "3.0.0",
   "publisher": "tanzz",
   "icon": "icon.png",
   "repository": {
@@ -150,7 +150,7 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "pnpm run compile && pnpm run bundle",
+    "vscode:prepublish": "pnpm run build:core && pnpm run compile && pnpm run bundle",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "bundle": "node build.js",
