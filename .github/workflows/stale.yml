@@ -1,0 +1,112 @@
+name: stale
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: issues
+            days-before-issue-stale: 30
+            days-before-issue-close: 14
+            days-before-pr-stale: -1
+            days-before-pr-close: -1
+            exempt-issue-labels: bug,enhancement,needs-info,waiting-for-author,pinned
+            stale-issue-message: |
+              This issue has been automatically marked as stale due to 30 days of inactivity.
+              It will be closed in 14 days if no further activity occurs.
+              If you believe this issue is still relevant, please leave a comment.
+            close-issue-message: |
+              This issue has been automatically closed due to extended inactivity.
+              Feel free to reopen if the issue persists or is still relevant.
+
+          - name: enhancements
+            days-before-issue-stale: 90
+            days-before-issue-close: 30
+            days-before-pr-stale: -1
+            days-before-pr-close: -1
+            any-of-issue-labels: enhancement
+            stale-issue-message: |
+              This enhancement request has been automatically marked as stale due to 90 days of inactivity.
+              It will be closed in 30 days if no further activity occurs.
+              If you believe this is still relevant, please leave a comment.
+            close-issue-message: |
+              This enhancement request has been automatically closed due to extended inactivity.
+              Feel free to reopen if this is still desired.
+
+          - name: bugs
+            days-before-issue-stale: 60
+            days-before-issue-close: -1
+            days-before-pr-stale: -1
+            days-before-pr-close: -1
+            any-of-issue-labels: bug
+            exempt-issue-labels: enhancement
+            stale-issue-message: |
+              This bug report has been automatically marked as stale due to 60 days of inactivity.
+              Bugs are never automatically closed, but maintainers may close them manually if no longer reproducible.
+              Please update if this issue is still relevant.
+
+          - name: needs-info
+            days-before-issue-stale: 7
+            days-before-issue-close: 3
+            days-before-pr-stale: -1
+            days-before-pr-close: -1
+            any-of-issue-labels: needs-info,waiting-for-author
+            exempt-issue-labels: bug,enhancement
+            stale-issue-message: |
+              This issue requires more information from the author and has not had activity for 7 days.
+              It will be closed in 3 days if the requested information is not provided.
+            close-issue-message: |
+              This issue has been automatically closed due to lack of requested information.
+              Feel free to reopen with the requested details.
+
+          - name: prs
+            days-before-issue-stale: -1
+            days-before-issue-close: -1
+            days-before-pr-stale: 60
+            days-before-pr-close: 14
+            exempt-pr-labels: pinned,security
+            stale-pr-message: |
+              This pull request has been automatically marked as stale due to 60 days of inactivity.
+              It will be closed in 14 days if no further activity occurs.
+            close-pr-message: |
+              This pull request has been automatically closed due to extended inactivity.
+              Feel free to reopen or create a new PR if you'd like to continue working on this.
+
+    steps:
+      - name: Stale (${{ matrix.name }})
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          days-before-issue-stale: ${{ matrix.days-before-issue-stale }}
+          days-before-issue-close: ${{ matrix.days-before-issue-close }}
+          days-before-pr-stale: ${{ matrix.days-before-pr-stale }}
+          days-before-pr-close: ${{ matrix.days-before-pr-close }}
+          any-of-issue-labels: ${{ matrix.any-of-issue-labels || '' }}
+          exempt-issue-labels: ${{ matrix.exempt-issue-labels || '' }}
+          exempt-pr-labels: ${{ matrix.exempt-pr-labels || '' }}
+          stale-issue-message: ${{ matrix.stale-issue-message || '' }}
+          close-issue-message: ${{ matrix.close-issue-message || '' }}
+          stale-pr-message: ${{ matrix.stale-pr-message || '' }}
+          close-pr-message: ${{ matrix.close-pr-message || '' }}
+          close-issue-reason: not_planned
+          stale-issue-label: stale
+          stale-pr-label: stale
+          labels-to-remove-when-unstale: stale
+          labels-to-add-when-stale: stale
+          remove-stale-when-updated: true
+          operations-per-run: 200
