@@ -1,7 +1,7 @@
 import {DiagnosticSeverity} from '../../types';
 import * as nodes from '../../ast/nodes.types';
 import {ThriftIssue} from '../types';
-import {isKnownType, isValidDefaultValue, resolveMultilineDefaultFromLines} from './type-utils';
+import {isKnownType, isValidDefaultValue, resolveMultilineDefaultFromLines, resolveMultilineStringDefault} from './type-utils';
 import {DIAGNOSTIC_CODES} from '../diagnostic-codes';
 
 export function checkStruct(
@@ -35,8 +35,15 @@ export function checkStruct(
         let defaultValue = field.defaultValue;
         if (typeof defaultValue === 'string' && defaultValue.length > 0) {
             // Resolve multi-line default values that were truncated by the single-line parser
-            if (defaultValue.startsWith('[') || defaultValue.startsWith('{') || defaultValue.startsWith('(')) {
+            const tdv = defaultValue.trim();
+            if (tdv.startsWith('[') || tdv.startsWith('{') || tdv.startsWith('(')) {
                 const multiline = resolveMultilineDefaultFromLines(lines, field.range.start.line, defaultValue);
+                if (multiline !== null) {
+                    defaultValue = multiline;
+                }
+            } else if (tdv.startsWith('"') || tdv.startsWith('\'')) {
+                // Handle multi-line string values with backslash line-continuation
+                const multiline = resolveMultilineStringDefault(lines, field.range.start.line, defaultValue);
                 if (multiline !== null) {
                     defaultValue = multiline;
                 }
