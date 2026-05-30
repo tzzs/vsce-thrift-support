@@ -4,7 +4,7 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import type {ThriftFormattingOptions} from '@tanzz/thrift-core';
+import type {DiagnosticsRuleOptions, ThriftFormattingOptions} from '@tanzz/thrift-core';
 
 const CONFIG_FILENAME = '.thriftrc.json';
 
@@ -13,6 +13,7 @@ export interface ThriftCliConfig {
     lint?: {
         severity?: 'error' | 'warning' | 'all';
     };
+    diagnostics?: DiagnosticsRuleOptions;
 }
 
 /**

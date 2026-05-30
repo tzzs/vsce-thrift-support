@@ -754,6 +754,21 @@ describe('CLI unit tests', () => {
             }
         });
 
+        it('applies config.diagnostics rule overrides', () => {
+            const {file, dir} = tmpThrift('cli-ulint-diag-rules-',
+                'struct Foo {\n  1: i32 a\n  1: i32 b\n}\n');
+            try {
+                const o = captureOutput(() => lintMod.runLint(
+                    [file],
+                    makeArgs({command: 'lint'}),
+                    {diagnostics: {rules: {'field.duplicateId': 'off'}}}
+                ));
+                assert.strictEqual(o.returned, 0, 'disabled duplicate field ID rule should not fail lint');
+            } finally {
+                fs.rmSync(dir, {recursive: true});
+            }
+        });
+
         it('--quiet suppresses stdout output', () => {
             // Duplicate field IDs trigger field.duplicateId (Error severity)
             const {file, dir} = tmpThrift('cli-ulint-quiet-',
