@@ -10,6 +10,8 @@ import {config} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
 import {createLocation} from './utils/vscode-utils';
 import {nodeTypeToSymbolKind} from './utils/symbol-utils';
+import {IndexedThriftSymbol} from './indexing/symbol-index';
+import {WorkspaceIndex} from './indexing/workspace-index';
 
 /**
  * ThriftWorkspaceSymbolProvider：提供全局符号搜索。
@@ -21,11 +23,13 @@ export class ThriftWorkspaceSymbolProvider {
     private lastFileListUpdate = 0;
     private readonly FILE_LIST_UPDATE_INTERVAL = config.workspaceSymbols.fileListUpdateIntervalMs;
     private errorHandler: ErrorHandler;
+    private readonly workspaceIndex: WorkspaceIndex | undefined;
     private readonly component = 'ThriftWorkspaceSymbolProvider';
 
     constructor(deps?: Partial<CoreDependencies>) {
         this.cacheManager = deps?.cacheManager ?? new CacheManager();
         this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
+        this.workspaceIndex = deps?.workspaceIndex;
 
         // 注册缓存配置
         this.cacheManager.registerCache('workspaceSymbols', {
@@ -57,6 +61,13 @@ export class ThriftWorkspaceSymbolProvider {
         query: string,
         token: vscode.CancellationToken
     ): vscode.ProviderResult<vscode.SymbolInformation[]> {
+        if (this.workspaceIndex !== undefined) {
+            if (token.isCancellationRequested) {
+                return [];
+            }
+            return this.getSymbolsFromWorkspaceIndex(query);
+        }
+
         const cacheKey = query || 'all';
 
         // 先从缓存中获取
@@ -134,6 +145,21 @@ export class ThriftWorkspaceSymbolProvider {
             (symbol) =>
                 symbol.name.toLowerCase().includes(lowerQuery) ||
                 symbol.containerName.toLowerCase().includes(lowerQuery)
+        );
+    }
+
+    private getSymbolsFromWorkspaceIndex(query: string): vscode.SymbolInformation[] {
+        const indexedSymbols = this.workspaceIndex?.getAllSymbols() ?? [];
+        const symbols = indexedSymbols.map(symbol => this.toSymbolInformation(symbol));
+        return this.filterSymbols(symbols, query);
+    }
+
+    private toSymbolInformation(symbol: IndexedThriftSymbol): vscode.SymbolInformation {
+        return new vscode.SymbolInformation(
+            symbol.name,
+            nodeTypeToSymbolKind(symbol.kind),
+            symbol.namespace ?? '',
+            createLocation(symbol.uri, symbol.nameRange)
         );
     }
 
