@@ -125,14 +125,16 @@ Create a `.thriftrc.json` in your project root; the CLI searches upward automati
 
 ## 🧭 Project Structure
 
-- `src/`: extension core (providers, formatter, diagnostics, extension entry)
-- `src/formatter/`: formatting engine (pure formatting logic)
-- `src/formatting-bridge/`: VS Code formatting bridge (options/context/range helpers)
-- `src/references/`: reference helpers (AST cache, traversal, symbol typing)
-- `src/utils/`: shared utilities (cache, file IO, error handling)
-- `tests/`: unit and scenario tests
+- `packages/core/src/`: pure Thrift parsing, formatting, diagnostics, cache, and shared utilities
+- `packages/vscode/src/`: VS Code extension entrypoint, providers, commands, and configuration bridge
+- `packages/cli/src/`: CLI argument parsing, config loading, and format/lint/symbols commands
+- `syntaxes/`: TextMate syntax grammar
+- `tests/src/`: canonical Mocha test suite
+- `tests/cli/`: CLI integration and unit tests
+- `tests/perf/`: performance benchmarks
+- `tests/debug/`: manual reproduction and debug scripts
 - `test-files/` / `tests/src/**/test-files/`: fixtures
-- `syntaxes/` / `language-configuration.json`: syntax highlighting + language config
+- `language-configuration.json`: VS Code bracket, comment, and language configuration
 
 ### Formatting
 

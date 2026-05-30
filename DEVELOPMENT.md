@@ -29,45 +29,42 @@ Node 版本。仓库提供 `.nvmrc` 和 `.node-version`，切换到 Node 24.16.0
 
 ```
 thrift-support/
-├── src/
-│   ├── extension.ts            # 扩展入口，注册能力与命令
-│   ├── formatter.ts            # 格式化核心逻辑
-│   ├── definition-provider.ts   # 跳转到定义/引用解析
-│   ├── codeActions.ts          # 提供抽取类型/移动类型等重构 Code Actions
-│   └── refactor.ts             # 重命名（RenameProvider），与重构命令关联
+├── packages/
+│   ├── core/src/               # 纯 Thrift 解析、格式化、诊断、缓存与工具
+│   ├── vscode/src/             # VS Code 扩展入口、providers、commands、配置桥接
+│   └── cli/src/                # CLI 参数解析、配置读取、format/lint/symbols 命令
 ├── syntaxes/
 │   └── thrift.tmLanguage.json  # 语法高亮的 TextMate 语法
 ├── language-configuration.json # 语言括号/注释等配置
-├── tests/                      # 测试脚本（包括 test-rename-provider.js / test-code-actions-provider.js）
+├── tests/src/                  # 规范 Mocha 测试
+├── tests/cli/                  # CLI 集成与单元测试
+├── tests/perf/                 # 性能基准测试
+├── tests/debug/                # 手动复现与调试脚本
 └── test-files/                 # 示例与测试用 Thrift 文件
 ```
 
 ### 模块划分
 
-- 扩展入口（Extension）— <mcfile name="extension.ts" path="src/extension.ts"></mcfile>
+- 扩展入口（Extension）— `packages/vscode/src/extension.ts`
     - 激活时机：onLanguage:thrift （当 targeting VS Code >= 1.75.0 时会自动从 contributions 生成）
     - 注册命令与提供者（格式化、跳转到定义、重命名、Code Actions）
     - 暴露/绑定重构命令：`thrift.refactor.extractType`、`thrift.refactor.moveType`
     - 读取并响应配置变更
 
-- 格式化器（Formatter）— <mcfile name="formatter.ts" path="src/formatter.ts"></mcfile>
+- 格式化器（Formatter）— `packages/core/src/formatter/`
     - 负责文档/选区格式化、对齐策略、缩进与行长控制
     - 受配置项影响（如 alignTypes/alignFieldNames/alignComments/trailingComma/indentSize/maxLineLength/collectionStyle 等）
 
-- 定义提供器（Definition Provider）— <mcfile name="definition-provider.ts" path="src/definition-provider.ts"></mcfile>
+- 定义提供器（Definition Provider）— `packages/vscode/src/definition-provider.ts`
     - 解析 include 关系与跨文件符号定位
     - 支持工作区范围的跳转到定义
 
--
+- 重命名与重构（Refactor）— `packages/vscode/src/rename-provider.ts`、`packages/vscode/src/code-actions-provider.ts`、`packages/vscode/src/commands/refactoring.ts`
+    - `rename-provider.ts` 提供 RenameProvider：统一实现标识符重命名（F2）
+    - `code-actions-provider.ts` 提供重构 Code Actions：抽取类型、移动类型等，并与注册的命令协作
 
-重命名与重构（Refactor）— <mcfile name="refactor.ts" path="src/refactor.ts"></mcfile>, <mcfile name="codeActions.ts" path="src/codeActions.ts"></mcfile>
-- `refactor.ts` 提供 RenameProvider：统一实现标识符重命名（F2）
-- `codeActions.ts` 提供重构 Code Actions：抽取类型、移动类型等，并与注册的命令协作
-
--
-
-语法与语言配置— <mcfile name="thrift.tmLanguage.json" path="syntaxes/thrift.tmLanguage.json"></mcfile>、<mcfile name="language-configuration.json" path="language-configuration.json"></mcfile>（[syntaxes/thrift.tmLanguage.json](syntaxes/thrift.tmLanguage.json)、[language-configuration.json](language-configuration.json)）
-- 提供高亮、括号配对、注释等语言层支持
+- 语法与语言配置— [syntaxes/thrift.tmLanguage.json](syntaxes/thrift.tmLanguage.json)、[language-configuration.json](language-configuration.json)
+    - 提供高亮、括号配对、注释等语言层支持
 
 ### 设计要点
 
@@ -87,7 +84,7 @@ thrift-support/
 
 ### 格式化器配置与优先级（重要）
 
-核心逻辑集中在 <mcfile name="formatter.ts" path="src/formatter.ts"></mcfile> 中。
+核心逻辑位于 `packages/core/src/formatter/`，VS Code 格式化桥接位于 `packages/vscode/src/formatting-bridge/`。
 
 - 对齐选项：
     - alignTypes / alignFieldNames（外部配置键为 alignNames）：控制类型与字段名的列对齐。
@@ -111,17 +108,17 @@ thrift-support/
 - 其它常见项：
     - indentSize、maxLineLength、collectionStyle（preserve/inline/multiLine）等。
 
-以上选项共同决定“最大内容宽度”和各列的目标对齐位置，详细实现与宽度计算请参考 <mcfile name="formatter.ts" path="src/formatter.ts"></mcfile>。
+以上选项共同决定“最大内容宽度”和各列的目标对齐位置，详细实现与宽度计算请参考 `packages/core/src/formatter/`。
 
 ### 语言规范同步（IDL 0.23）与实现更新
 
 - 背景：自 Apache Thrift IDL 0.23 起，uuid 被纳入内建基础类型（BaseType）。
 - 代码同步点：
-    - <mcfile name="diagnostics/index.ts" path="src/diagnostics/index.ts"></mcfile>
+    - `packages/vscode/src/diagnostics/index.ts`
         - 基本类型集合包含 `uuid`
         - 改进字段解析：剥离类型后缀注解、跨行注释剥离，避免在注释中做括号/语法检查
         - 以健壮解析提取字段类型与名称，支持嵌套容器与 required/optional 标志
-    - <mcfile name="definition-provider.ts" path="src/definition-provider.ts"></mcfile>
+    - `packages/vscode/src/definition-provider.ts`
         - `isPrimitiveType` 集合包含 `uuid`，防止误将其当作用户类型做“跳转到定义”
     - <mcfile name="thrift.tmLanguage.json" path="syntaxes/thrift.tmLanguage.json"></mcfile>
         - `storage.type.primitive.thrift` 的匹配正则包含 `uuid`，确保语法高亮正确
@@ -131,7 +128,7 @@ thrift-support/
         - 交叉验证 `diagnostics` 不再报“未知类型”
         - 验证 `Go to Definition` 在 `uuid` 上不进行跳转（因其为基元类型）
         - 语法高亮对 `uuid` 呈现与其它基元一致的着色
-    - 运行：`npm run test` / `npm run test:all`；必要时补充端到端用例
+    - 运行：`npm test -- --exit`；必要时补充端到端用例
 
 ## 参考规范与示例
 
@@ -393,16 +390,19 @@ npm run compile
 npm run watch
 
 # 运行主要测试
-npm run test
+npm test -- --exit
 
-# 全量测试
-npm run test:all
+# 运行单个测试文件
+npm run test:single
 
 # 生成覆盖率报告（控制台摘要 + coverage/ 覆盖率目录）
 npm run coverage
 
-# 仅运行常量相关测试（如有）
-npm run test:const
+# CLI 覆盖率
+npm run coverage:cli
+
+# 性能基准
+npm run perf:benchmark
 ```
 
 ## 本地打包与发布（可选）
@@ -453,7 +453,7 @@ npm run test:const
     - pnpm install
     - npm run lint
     - npm run build
-    - npm test 或 npm run test:all
+    - npm test -- --exit
 2) 更新变更日志（如需人工补充）：
     - 参照 [changelog_template.md](./changelog_template.md) 的双语结构与一行式要点
     - 确认 compare 链接、提交链接与版本号无误
