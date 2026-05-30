@@ -66,8 +66,31 @@ jobs:
           node packages/cli/dist/cli.js lint test-files/example-enum.thrift
           node packages/cli/dist/cli.js symbols test-files/example-enum.thrift
 
+  performance:
+    runs-on: ubuntu-latest
+    needs: checks
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build
+
       - name: Performance benchmark
-        run: node -e "require('./tests/require-hook.js'); require('./tests/perf/run-performance-benchmark.js')" -- --structs 120 --fields 30 --iterations 5 --threshold-full-ms 400 --threshold-incremental-ms 100
+        run: pnpm run perf:benchmark:ci -- --structs 120 --fields 30
 
       - name: Performance assertions (multi-size)
         run: pnpm exec mocha --require tests/require-hook.js --timeout 120000 tests/perf/perf-assertions.js

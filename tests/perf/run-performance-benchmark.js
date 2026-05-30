@@ -15,6 +15,8 @@ const {DiagnosticManager} = require('../../out/diagnostics');
 const {ThriftFormattingProvider} = require('../../out/formatting-bridge/index.js');
 const {IncrementalTracker} = require('../../out/utils/incremental-tracker.js');
 const {config} = require('../../out/config/index.js');
+const {ThriftParser} = require('../../out/ast/parser.js');
+const {WorkspaceIndex} = require('../../out/indexing/workspace-index.js');
 
 function parseArg(flag, fallback) {
     const idx = process.argv.indexOf(flag);
@@ -61,7 +63,7 @@ function updateLines(text, updates) {
     return lines.join('\n');
 }
 
-async function measure(label, iterations, fn) {
+async function measure(category, operation, label, iterations, fn) {
     const durations = [];
     for (let i = 0; i < iterations; i += 1) {
         const start = performance.now();
@@ -75,7 +77,7 @@ async function measure(label, iterations, fn) {
     const sorted = [...durations].sort((a, b) => a - b);
     const p95 = sorted[Math.floor(sorted.length * 0.95)];
     logText(`${label}: avg ${avg.toFixed(2)}ms, p95 ${p95.toFixed(2)}ms (min ${min.toFixed(2)} / max ${max.toFixed(2)})`);
-    return {label, avg, min, max, p95};
+    return {category, operation, label, avg, min, max, p95};
 }
 
 async function run() {
@@ -97,6 +99,7 @@ async function run() {
     const manager = new DiagnosticManager();
     const tracker = IncrementalTracker.getInstance();
     const formattingProvider = new ThriftFormattingProvider({incrementalTracker: tracker});
+    const workspaceFiles = createWorkspaceIndexFiles(text);
 
     config.incremental.analysisEnabled = true;
     config.incremental.formattingEnabled = true;
@@ -106,12 +109,26 @@ async function run() {
 
     const results = [];
 
-    results.push(await measure('Diagnostics (full)', iterations, async () => {
+    results.push(await measure('parser', 'parse-full', 'Parser (full)', iterations, async () => {
+        new ThriftParser(text).parse();
+    }));
+
+    results.push(await measure('workspace-index', 'refresh', 'Workspace index (refresh)', iterations, async () => {
+        const index = new WorkspaceIndex({
+            findFiles: async () => Array.from(workspaceFiles.keys()).map(file => vscode.Uri.file(file)),
+            readFile: async uri => workspaceFiles.get(uri.fsPath) ?? '',
+            createWatcher: () => ({dispose() {}})
+        });
+        await index.refresh();
+        index.dispose();
+    }));
+
+    results.push(await measure('diagnostics', 'full', 'Diagnostics (full)', iterations, async () => {
         doc.version += 1;
         await manager.performAnalysis(doc);
     }));
 
-    results.push(await measure('Diagnostics (incremental)', iterations, async () => {
+    results.push(await measure('diagnostics', 'incremental', 'Diagnostics (incremental)', iterations, async () => {
         doc.version += 1;
         const updatedText = updateLines(text, [
             { line: 2, value: '  2: i32 field_0_2' },
@@ -135,11 +152,11 @@ async function run() {
         await manager.performAnalysis(updatedDoc);
     }));
 
-    results.push(await measure('Formatting (full)', iterations, async () => {
+    results.push(await measure('formatter', 'full', 'Formatting (full)', iterations, async () => {
         formattingProvider.provideDocumentFormattingEdits(doc, {insertSpaces: true, tabSize: 4});
     }));
 
-    results.push(await measure('Formatting (incremental)', iterations, async () => {
+    results.push(await measure('formatter', 'incremental', 'Formatting (incremental)', iterations, async () => {
         tracker.markChanges({
             document: doc,
             contentChanges: [
@@ -172,6 +189,7 @@ async function run() {
 
     if (jsonOutput) {
         process.stdout.write(JSON.stringify({
+            schemaVersion: 1,
             parameters: {
                 structCount,
                 fieldCount,
@@ -199,6 +217,13 @@ function logText(message) {
         return;
     }
     console.log(message);
+}
+
+function createWorkspaceIndexFiles(text) {
+    return new Map([
+        ['/tmp/perf-benchmark.thrift', 'include "shared.thrift"\n' + text],
+        ['/tmp/shared.thrift', 'namespace js shared\nstruct SharedType { 1: string id }\n']
+    ]);
 }
 
 run().catch((error) => {
