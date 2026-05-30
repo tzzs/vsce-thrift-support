@@ -1,5 +1,7 @@
 const {performance} = require('perf_hooks');
 
+require('../require-hook.js');
+
 const {createVscodeMock, installVscodeMock} = require('../mock_vscode.js');
 
 const vscode = createVscodeMock({
@@ -21,6 +23,10 @@ function parseArg(flag, fallback) {
     }
     const value = Number(process.argv[idx + 1]);
     return Number.isFinite(value) ? value : fallback;
+}
+
+function hasFlag(flag) {
+    return process.argv.includes(flag);
 }
 
 function generateLargeThrift(structCount, fieldCount) {
@@ -68,12 +74,14 @@ async function measure(label, iterations, fn) {
     const max = Math.max(...durations);
     const sorted = [...durations].sort((a, b) => a - b);
     const p95 = sorted[Math.floor(sorted.length * 0.95)];
-    console.log(`${label}: avg ${avg.toFixed(2)}ms, p95 ${p95.toFixed(2)}ms (min ${min.toFixed(2)} / max ${max.toFixed(2)})`);
+    logText(`${label}: avg ${avg.toFixed(2)}ms, p95 ${p95.toFixed(2)}ms (min ${min.toFixed(2)} / max ${max.toFixed(2)})`);
     return {label, avg, min, max, p95};
 }
 
 async function run() {
-    console.log('\nRunning performance benchmark (diagnostics + formatting)...');
+    const jsonOutput = hasFlag('--json');
+    globalThis.__PERF_JSON_OUTPUT__ = jsonOutput;
+    logText('\nRunning performance benchmark (diagnostics + formatting)...');
 
     const structCount = parseArg('--structs', 120);
     const fieldCount = parseArg('--fields', 30);
@@ -84,7 +92,7 @@ async function run() {
     const text = generateLargeThrift(structCount, fieldCount);
     const doc = createDoc(text, 'perf-benchmark.thrift', 1);
     const lineCount = text.split('\n').length;
-    console.log(`Generated: ${structCount} structs × ${fieldCount} fields = ${lineCount} lines\n`);
+    logText(`Generated: ${structCount} structs × ${fieldCount} fields = ${lineCount} lines\n`);
 
     const manager = new DiagnosticManager();
     const tracker = IncrementalTracker.getInstance();
@@ -160,7 +168,22 @@ async function run() {
         }
     }
 
-    console.log('\nDone.');
+    logText('\nDone.');
+
+    if (jsonOutput) {
+        process.stdout.write(JSON.stringify({
+            parameters: {
+                structCount,
+                fieldCount,
+                iterations,
+                lineCount,
+                thresholdFullMs,
+                thresholdIncrementalMs
+            },
+            results,
+            failures
+        }, null, 2) + '\n');
+    }
 
     if (failures.length > 0) {
         console.error('\nPerformance threshold violations:');
@@ -169,6 +192,13 @@ async function run() {
         }
         process.exit(1);
     }
+}
+
+function logText(message) {
+    if (globalThis.__PERF_JSON_OUTPUT__ === true) {
+        return;
+    }
+    console.log(message);
 }
 
 run().catch((error) => {

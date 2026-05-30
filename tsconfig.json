@@ -10,6 +10,15 @@
     "sourceMap": true,
     "strict": true,
     "moduleResolution": "node16",
+    "baseUrl": ".",
+    "paths": {
+      "@tanzz/thrift-core": [
+        "packages/core/out/index.d.ts"
+      ],
+      "@tanzz/thrift-core/*": [
+        "packages/core/out/*"
+      ]
+    },
     "types": [
       "node",
       "vscode"

@@ -10,8 +10,10 @@ import {nodes} from '@tanzz/thrift-core';
 import {collectIncludes, collectTopLevelTypes, parseContainerTypeInfo} from '@tanzz/thrift-core';
 import {config} from '@tanzz/thrift-core';
 import {ErrorHandler} from '@tanzz/thrift-core';
+import {DIAGNOSTIC_CODES} from '@tanzz/thrift-core';
 import {UNKNOWN_TYPE_DIAGNOSTIC_CODES} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
+import {WorkspaceIndex} from './indexing/workspace-index';
 
 /**
  * ThriftRefactorCodeActionProvider：提供重构与 Quick Fix。
@@ -23,9 +25,11 @@ export class ThriftRefactorCodeActionProvider {
         vscode.CodeActionKind.QuickFix
     ];
     private errorHandler: ErrorHandler;
+    private readonly workspaceIndex: WorkspaceIndex | undefined;
 
     constructor(deps?: Partial<CoreDependencies>) {
         this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
+        this.workspaceIndex = deps?.workspaceIndex;
     }
 
     /**
@@ -55,6 +59,9 @@ export class ThriftRefactorCodeActionProvider {
             const move = new vscode.CodeAction('Move type to file...', 'refactor.move' as unknown as vscode.CodeActionKind);
             move.command = {command: 'thrift.refactor.moveType', title: 'Move type to file...'};
             actions.push(move);
+
+            this.addDuplicateFieldIdQuickFixes(document, range, context, actions);
+            this.addOnewayReturnTypeQuickFixes(document, range, context, actions);
 
             // QuickFix is gated on diagnostics: only offer "insert include" for types that
             // the diagnostics layer flagged as unknown (code 'type.unknown') and whose range
@@ -118,6 +125,148 @@ export class ThriftRefactorCodeActionProvider {
 
     private static readonly UNKNOWN_TYPE_CODES = UNKNOWN_TYPE_DIAGNOSTIC_CODES;
 
+    private addDuplicateFieldIdQuickFixes(
+        document: vscode.TextDocument,
+        range: vscode.Range | vscode.Selection,
+        context: vscode.CodeActionContext,
+        actions: vscode.CodeAction[]
+    ): void {
+        for (const diagnostic of context?.diagnostics ?? []) {
+            const code = this.getDiagnosticCode(diagnostic);
+            if (code !== DIAGNOSTIC_CODES.FIELD_DUPLICATE_ID ||
+                !this.rangesOverlap(diagnostic.range, range)) {
+                continue;
+            }
+            const replacement = this.findReplacementFieldId(document, diagnostic.range);
+            if (replacement === undefined) {
+                continue;
+            }
+            const fix = new vscode.CodeAction(
+                `Change duplicate field ID to ${replacement.nextId}`,
+                vscode.CodeActionKind.QuickFix
+            );
+            fix.edit = new vscode.WorkspaceEdit();
+            fix.edit.replace(document.uri, replacement.range, String(replacement.nextId));
+            fix.diagnostics = [diagnostic];
+            actions.push(fix);
+        }
+    }
+
+    private findReplacementFieldId(
+        document: vscode.TextDocument,
+        diagnosticRange: vscode.Range
+    ): {range: vscode.Range; nextId: number} | undefined {
+        const ast = this.getDocumentAst(document);
+        const structNode = ast.body.find((node): node is nodes.Struct =>
+            (node.type === nodes.ThriftNodeType.Struct ||
+                node.type === nodes.ThriftNodeType.Union ||
+                node.type === nodes.ThriftNodeType.Exception) &&
+            diagnosticRange.start.line >= node.range.start.line &&
+            diagnosticRange.start.line <= node.range.end.line
+        );
+        if (structNode === undefined) {
+            return undefined;
+        }
+        const usedIds = new Set(structNode.fields.map(field => field.id));
+        let nextId = 1;
+        while (usedIds.has(nextId)) {
+            nextId++;
+        }
+        const line = document.lineAt(diagnosticRange.start.line).text;
+        const match = /^(\s*)(-?\d+)/.exec(line);
+        if (match === null) {
+            return undefined;
+        }
+        const start = match[1].length;
+        return {
+            range: new vscode.Range(diagnosticRange.start.line, start, diagnosticRange.start.line, start + match[2].length),
+            nextId
+        };
+    }
+
+    private addOnewayReturnTypeQuickFixes(
+        document: vscode.TextDocument,
+        range: vscode.Range | vscode.Selection,
+        context: vscode.CodeActionContext,
+        actions: vscode.CodeAction[]
+    ): void {
+        for (const diagnostic of context?.diagnostics ?? []) {
+            const code = this.getDiagnosticCode(diagnostic);
+            if (code !== DIAGNOSTIC_CODES.SERVICE_ONEWAY_RETURN_NOT_VOID ||
+                !this.rangesOverlap(diagnostic.range, range)) {
+                continue;
+            }
+            const returnTypeRange = this.findOnewayReturnTypeRange(document, diagnostic.range);
+            if (returnTypeRange === undefined) {
+                continue;
+            }
+            const fix = new vscode.CodeAction('Change oneway return type to void', vscode.CodeActionKind.QuickFix);
+            fix.edit = new vscode.WorkspaceEdit();
+            fix.edit.replace(document.uri, returnTypeRange, 'void');
+            fix.diagnostics = [diagnostic];
+            actions.push(fix);
+        }
+    }
+
+    private findOnewayReturnTypeRange(
+        document: vscode.TextDocument,
+        diagnosticRange: vscode.Range
+    ): vscode.Range | undefined {
+        const ast = this.getDocumentAst(document);
+        for (const node of ast.body) {
+            if (node.type !== nodes.ThriftNodeType.Service && node.type !== nodes.ThriftNodeType.Interaction) {
+                continue;
+            }
+            const fn = node.functions.find(candidate =>
+                diagnosticRange.start.line >= candidate.range.start.line &&
+                diagnosticRange.start.line <= candidate.range.end.line &&
+                candidate.oneway &&
+                candidate.returnType.trim() !== 'void'
+            );
+            if (fn === undefined) {
+                continue;
+            }
+            if (fn.returnTypeRange !== undefined) {
+                return this.trimRangeToText(document, new vscode.Range(
+                    fn.returnTypeRange.start.line,
+                    fn.returnTypeRange.start.character,
+                    fn.returnTypeRange.end.line,
+                    fn.returnTypeRange.end.character
+                ));
+            }
+            const line = document.lineAt(fn.range.start.line).text;
+            const match = /\boneway\s+([A-Za-z_][A-Za-z0-9_.]*(?:\s*<[^>]+>)?)/.exec(line);
+            if (match === null || match.index === undefined) {
+                return undefined;
+            }
+            const start = match.index + match[0].lastIndexOf(match[1]);
+            return new vscode.Range(fn.range.start.line, start, fn.range.start.line, start + match[1].length);
+        }
+        return undefined;
+    }
+
+    private trimRangeToText(document: vscode.TextDocument, range: vscode.Range): vscode.Range {
+        if (range.start.line !== range.end.line) {
+            return range;
+        }
+        const line = document.lineAt(range.start.line).text;
+        let start = range.start.character;
+        let end = Math.min(range.end.character, line.length);
+        while (start < end && /\s/.test(line[start])) {
+            start++;
+        }
+        while (end > start && /\s/.test(line[end - 1])) {
+            end--;
+        }
+        return new vscode.Range(range.start.line, start, range.end.line, end);
+    }
+
+    private getDiagnosticCode(diagnostic: vscode.Diagnostic): string {
+        return typeof diagnostic.code === 'object' && diagnostic.code !== null
+            ? String((diagnostic.code as {value: string | number}).value)
+            : String(diagnostic.code ?? '');
+    }
+
     /**
      * 从 context.diagnostics 中提取与请求范围重叠的「未知类型」名称，
      * 返回 类型名 → 触发诊断 的映射（用于把 Quick Fix 关联回问题）。
@@ -130,9 +279,7 @@ export class ThriftRefactorCodeActionProvider {
         const targets = new Map<string, vscode.Diagnostic>();
         const diagnostics = context?.diagnostics ?? [];
         for (const diagnostic of diagnostics) {
-            const code = typeof diagnostic.code === 'object' && diagnostic.code !== null
-                ? String((diagnostic.code as {value: string | number}).value)
-                : String(diagnostic.code ?? '');
+            const code = this.getDiagnosticCode(diagnostic);
             if (!ThriftRefactorCodeActionProvider.UNKNOWN_TYPE_CODES.has(code)) {
                 continue;
             }
@@ -248,6 +395,17 @@ export class ThriftRefactorCodeActionProvider {
         token?: vscode.CancellationToken
     ): Promise<Map<string, vscode.Uri[]>> {
         const typeMap = new Map<string, vscode.Uri[]>();
+        if (this.workspaceIndex !== undefined) {
+            for (const symbol of this.workspaceIndex.getAllSymbols()) {
+                if (typeof token !== 'undefined' && token.isCancellationRequested) {
+                    break;
+                }
+                const uris = typeMap.get(symbol.name) ?? [];
+                uris.push(symbol.uri);
+                typeMap.set(symbol.name, uris);
+            }
+            return typeMap;
+        }
         const files = await vscode.workspace.findFiles(
             config.filePatterns.thrift, undefined, undefined, token
         );

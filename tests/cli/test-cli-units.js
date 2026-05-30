@@ -185,6 +185,20 @@ describe('CLI unit tests', () => {
             }
         });
 
+        it('warns for unknown config keys without dropping known config', () => {
+            const d = tmpDir('cli-load-unknown-');
+            try {
+                const cfg = path.join(d, '.thriftrc.json');
+                fs.writeFileSync(cfg, '{"format":{"indentSize":2,"unknown":true},"mystery":1}');
+                const o = captureOutput(() => configMod.loadConfig(cfg));
+                assert.strictEqual(o.returned.format.indentSize, 2);
+                assert.ok(o.stderr.includes('Unknown config key "format.unknown"'));
+                assert.ok(o.stderr.includes('Unknown config key "mystery"'));
+            } finally {
+                fs.rmSync(d, {recursive: true});
+            }
+        });
+
         it('returns {} for invalid JSON and writes to stderr', () => {
             const d = tmpDir('cli-load-bad-');
             try {
@@ -749,6 +763,21 @@ describe('CLI unit tests', () => {
                 const o = captureOutput(() => lintMod.runLint([file],
                     makeArgs({command: 'lint'}), {lint: {severity: 'error'}}));
                 assert.strictEqual(o.returned, 1, 'should use config severity=error fallback');
+            } finally {
+                fs.rmSync(dir, {recursive: true});
+            }
+        });
+
+        it('applies config.diagnostics rule overrides', () => {
+            const {file, dir} = tmpThrift('cli-ulint-diag-rules-',
+                'struct Foo {\n  1: i32 a\n  1: i32 b\n}\n');
+            try {
+                const o = captureOutput(() => lintMod.runLint(
+                    [file],
+                    makeArgs({command: 'lint'}),
+                    {diagnostics: {rules: {'field.duplicateId': 'off'}}}
+                ));
+                assert.strictEqual(o.returned, 0, 'disabled duplicate field ID rule should not fail lint');
             } finally {
                 fs.rmSync(dir, {recursive: true});
             }

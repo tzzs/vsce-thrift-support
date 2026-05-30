@@ -11,6 +11,7 @@ import {checkService} from './service-check';
 import {checkStruct} from './struct-check';
 import {checkConst, checkEnum, checkTypedef} from './general-check';
 import {checkSyntax} from './syntax-check';
+import {applyDiagnosticRuleOptions, DiagnosticsRuleOptions} from './registry';
 
 /**
  * 执行 AST 级别诊断并返回问题列表。
@@ -26,7 +27,8 @@ export function analyzeThriftAst(
     lines: string[],
     includedTypes?: Map<string, string>,
     context?: AnalysisContext,
-    analysisScope?: LineRange
+    analysisScope?: LineRange,
+    options?: DiagnosticsRuleOptions
 ): ThriftIssue[] {
     const issues: ThriftIssue[] = [];
 
@@ -84,11 +86,14 @@ export function analyzeThriftAst(
     if (analysisScope) {
         const normalized = normalizeLineRange(analysisScope);
         if (normalized) {
-            return issues.filter(issue => rangeIntersectsLineRange(issue.range, normalized));
+            return applyDiagnosticRuleOptions(
+                issues.filter(issue => rangeIntersectsLineRange(issue.range, normalized)),
+                options
+            );
         }
     }
 
-    return issues;
+    return applyDiagnosticRuleOptions(issues, options);
 }
 
 /**
@@ -101,12 +106,13 @@ export function analyzeThriftAst(
 export function analyzeThriftText(
     text: string,
     uri?: Uri,
-    includedTypes?: Map<string, string>
+    includedTypes?: Map<string, string>,
+    options?: DiagnosticsRuleOptions
 ): ThriftIssue[] {
     const lines = text.split('\n');
     const ast = uri
         ? ThriftParser.parseContentWithCache(uri.toString(), text)
         : new ThriftParser(text).parse();
 
-    return analyzeThriftAst(ast, lines, includedTypes);
+    return analyzeThriftAst(ast, lines, includedTypes, undefined, undefined, options);
 }

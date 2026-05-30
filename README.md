@@ -131,14 +131,16 @@ thrift-support symbols --json src/my.thrift
 
 ## 🧭 项目结构
 
-- `src/`: 扩展主体（providers、formatter、diagnostics、extension 入口）
-- `src/formatter/`: 纯格式化引擎
-- `src/formatting-bridge/`: VS Code 格式化桥接（选区/配置/范围处理）
-- `src/references/`: 引用查找辅助（AST 缓存、遍历、符号类型）
-- `src/utils/`: 通用工具（缓存、文件读取、错误处理）
-- `tests/`: 单元与场景测试
+- `packages/core/src/`: 纯 Thrift 解析、格式化、诊断、缓存与通用工具
+- `packages/vscode/src/`: VS Code 扩展入口、providers、commands、配置桥接
+- `packages/cli/src/`: CLI 参数解析、配置读取、format/lint/symbols 命令
+- `syntaxes/`: TextMate 语法高亮 grammar
+- `tests/src/`: 规范 Mocha 测试
+- `tests/cli/`: CLI 集成与单元测试
+- `tests/perf/`: 性能基准测试
+- `tests/debug/`: 手动复现与调试脚本
 - `test-files/` / `tests/src/**/test-files/`: 测试夹具
-- `syntaxes/` / `language-configuration.json`: 语法高亮与语言配置
+- `language-configuration.json`: VS Code 语言括号、注释等配置
 
 ### 格式化代码
 

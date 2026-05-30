@@ -5,6 +5,7 @@ import {ErrorHandler} from '@tanzz/thrift-core';
 import {CoreDependencies} from '../utils/dependencies';
 import {
     addEnumValueCompletions,
+    addAnnotationCompletions,
     addTypeCompletions,
     COMMON_METHODS,
     KEYWORDS,
@@ -25,9 +26,11 @@ import {
 export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
     // 错误处理器
     private errorHandler: ErrorHandler;
+    private readonly workspaceIndex: CoreDependencies['workspaceIndex'];
 
     constructor(deps?: Partial<CoreDependencies>) {
         this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
+        this.workspaceIndex = deps?.workspaceIndex;
     }
 
     /**
@@ -78,6 +81,13 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
 
         // Collect available types and values from AST
         const {types, values} = collectTypesAndValues(thriftDoc);
+        const workspaceTypes = this.collectWorkspaceTypeNames();
+        const allTypes = Array.from(new Set([...types, ...workspaceTypes]));
+
+        if (isInAnnotationContext(beforeCursor)) {
+            addAnnotationCompletions(completions, /=[^,)]*$/.test(beforeCursor));
+            return completions;
+        }
 
         // 3. Inside a block (struct, enum, service)
         const blockNode = findBlockNode(thriftDoc, position.line);
@@ -97,7 +107,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
                     });
 
                     // Also types for return type
-                    addTypeCompletions(completions, types);
+                    addTypeCompletions(completions, allTypes);
                 }
                 // In Service, also suggest 'performs' keyword
                 if (nodes.isServiceNode(blockNode) && /^\s*\w*$/.test(beforeCursor)) {
@@ -111,7 +121,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
                     /^\s*\d+\s*:\s*$/.test(beforeCursor) ||
                     /^\s*\d+\s*:\s*(required|optional)\s+$/.test(beforeCursor)
                 ) {
-                    addTypeCompletions(completions, types);
+                    addTypeCompletions(completions, allTypes);
                 }
 
                 // If we are typing 'required'/'optional'
@@ -123,7 +133,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
                             );
                         });
                     }
-                    addTypeCompletions(completions, types);
+                    addTypeCompletions(completions, allTypes);
                 }
             }
         } else {
@@ -135,7 +145,7 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
 
         // General type completion if it looks like a type context
         if (looksLikeTypeContext(line, position.character)) {
-            addTypeCompletions(completions, types);
+            addTypeCompletions(completions, allTypes);
         }
 
         // Check for enum value assignment context
@@ -145,4 +155,24 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
 
         return completions;
     }
+
+    private collectWorkspaceTypeNames(): string[] {
+        if (this.workspaceIndex === undefined) {
+            return [];
+        }
+        const names: string[] = [];
+        for (const symbol of this.workspaceIndex.getAllSymbols()) {
+            names.push(symbol.name);
+            if (symbol.namespace !== undefined && symbol.namespace !== '') {
+                names.push(`${symbol.namespace}.${symbol.name}`);
+            }
+        }
+        return names;
+    }
+}
+
+function isInAnnotationContext(beforeCursor: string): boolean {
+    const openIndex = beforeCursor.lastIndexOf('(');
+    const closeIndex = beforeCursor.lastIndexOf(')');
+    return openIndex > closeIndex;
 }

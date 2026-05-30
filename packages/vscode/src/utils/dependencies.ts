@@ -5,6 +5,7 @@ import {ThriftFileWatcher} from './file-watcher';
 import {createPerformanceMonitor, PerformanceMonitor} from '../performance-monitor';
 import {IncrementalParserManager} from './incremental-parser';
 import {MemoryMonitor} from '@tanzz/thrift-core';
+import {WorkspaceIndex} from '../indexing/workspace-index';
 
 export interface CoreDependencies {
     cacheManager: CacheManager;
@@ -14,6 +15,7 @@ export interface CoreDependencies {
     performanceMonitor: PerformanceMonitor;
     incrementalParserManager: IncrementalParserManager;
     memoryMonitor: MemoryMonitor;
+    workspaceIndex?: WorkspaceIndex;
 }
 
 export function createCoreDependencies(): CoreDependencies {

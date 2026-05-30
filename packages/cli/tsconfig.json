@@ -3,6 +3,11 @@
         "target": "ES2022",
         "module": "Node16",
         "moduleResolution": "node16",
+        "baseUrl": "../..",
+        "paths": {
+            "@tanzz/thrift-core": ["packages/core/out/index.d.ts"],
+            "@tanzz/thrift-core/*": ["packages/core/out/*"]
+        },
         "outDir": "out",
         "rootDir": "src",
         "declaration": false,
