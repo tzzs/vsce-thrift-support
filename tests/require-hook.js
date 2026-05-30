@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 const Module = require('module');
 
 const originalResolveFilename = Module._resolveFilename;
@@ -9,26 +10,6 @@ const coreOutRoot = path.join(repoRoot, 'packages', 'core', 'out');
 const vsceOutRoot = path.join(repoRoot, 'out');
 const mockVscodePath = path.join(testsDir, 'mock_vscode.js');
 
-// Modules that live in packages/core/out/ after Phase 5 migration.
-// Everything else stays in out/ (vscode package).
-const CORE_PATH_PREFIXES = [
-    'ast/',
-    'formatter/',
-    'interfaces.types',
-    'config/index',
-    'config/cache-config',
-    'diagnostics/types',
-    'diagnostics/utils',
-    'diagnostics/rules/',
-    'utils/cache-manager',
-    'utils/cache-expiry',
-    'utils/cache-keys',
-    'utils/error-handler',
-    'utils/memory-monitor',
-    'utils/optimized-lru-cache',
-    'utils/report-builder',
-];
-
 function normalizeRequest(request) {
     if (typeof request !== 'string') {
         return request;
@@ -38,7 +19,8 @@ function normalizeRequest(request) {
 
 /**
  * Map out/ paths to either packages/core/out/ or out/ (vscode).
- * Uses an explicit list of core-only module prefixes.
+ * Prefer package/core when the compiled file exists there; otherwise fall back
+ * to the root VS Code extension out directory.
  */
 function mapOutPath(request) {
     const normalized = normalizeRequest(request);
@@ -48,9 +30,29 @@ function mapOutPath(request) {
     }
     const relativePath = match[1];
 
-    const isCore = CORE_PATH_PREFIXES.some(prefix => relativePath === prefix.replace(/\/$/, '') || relativePath.startsWith(prefix));
-    const rootDir = isCore ? coreOutRoot : vsceOutRoot;
-    return path.join(rootDir, relativePath);
+    return resolveCompiledOutPath(relativePath);
+}
+
+function resolveCompiledOutPath(relativePath) {
+    const coreCandidate = path.join(coreOutRoot, relativePath);
+    if (compiledFileExists(coreCandidate)) {
+        return coreCandidate;
+    }
+    return path.join(vsceOutRoot, relativePath);
+}
+
+function compiledFileExists(candidate) {
+    return fs.existsSync(candidate) || fs.existsSync(`${candidate}.js`);
+}
+
+function mapCorePackage(request) {
+    if (request === '@tanzz/thrift-core') {
+        return path.join(coreOutRoot, 'index.js');
+    }
+    if (request.startsWith('@tanzz/thrift-core/')) {
+        return resolveCompiledOutPath(request.slice('@tanzz/thrift-core/'.length));
+    }
+    return null;
 }
 
 function mapMockVscode(request) {
@@ -67,7 +69,7 @@ function mapMockVscode(request) {
 }
 
 Module._resolveFilename = function (request, parent, isMain, options) {
-    const mapped = mapOutPath(request) || mapMockVscode(request);
+    const mapped = mapCorePackage(request) || mapOutPath(request) || mapMockVscode(request);
     if (mapped) {
         return originalResolveFilename.call(this, mapped, parent, isMain, options);
     }
@@ -85,7 +87,7 @@ Module._load = function (request, parent, isMain) {
     if (request === 'vscode') {
         return vscodeMock;
     }
-    const mapped = mapOutPath(request) || mapMockVscode(request);
+    const mapped = mapCorePackage(request) || mapOutPath(request) || mapMockVscode(request);
     if (mapped) {
         return originalLoad.call(this, mapped, parent, isMain);
     }
