@@ -205,7 +205,9 @@ jobs:
           node packages/cli/dist/cli.js --version
           node packages/cli/dist/cli.js format --check test-files/example-enum.thrift
 
+      # Auth via npm OIDC trusted publishing (configured on npmjs.com for this
+      # repo + publish.yml + environment "npm"). pnpm >=10.17 uses id-token:write
+      # to fetch the OIDC token and ignores the placeholder authToken that
+      # setup-node writes to .npmrc, so no static secret is needed.
       - name: Publish CLI to npm
         run: cd packages/cli && pnpm publish --no-git-checks --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
