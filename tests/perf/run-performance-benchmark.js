@@ -1,5 +1,7 @@
 const {performance} = require('perf_hooks');
 
+require('../require-hook.js');
+
 const {createVscodeMock, installVscodeMock} = require('../mock_vscode.js');
 
 const vscode = createVscodeMock({
