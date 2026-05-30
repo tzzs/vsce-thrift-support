@@ -184,6 +184,10 @@ thrift-support symbols --json src/my.thrift
 - **命令面板**：
     - `Thrift: Extract type (typedef)`
     - `Thrift: Move type to file...`
+    - `Thrift: Show Performance Report`
+    - `Thrift: Clear Performance Data`
+    - `Thrift: Show Memory Report`
+    - `Thrift: Force Garbage Collection`
 - **灯泡菜单（Quick Fix/Refactor）**：在合适位置会出现与重构相关的 Code Action
 
 ### 配置选项
@@ -196,6 +200,7 @@ thrift-support symbols --json src/my.thrift
   "thrift.format.alignTypes": true,
   "thrift.format.alignNames": true,
   "thrift.format.alignAssignments": true,
+  "thrift.format.alignStructDefaults": false,
   "thrift.format.alignAnnotations": true,
   "thrift.format.alignComments": true,
   "thrift.format.indentSize": 4,
