@@ -4,26 +4,12 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import type {DiagnosticsRuleOptions, ThriftFormattingOptions} from '@tanzz/thrift-core';
+import {findUnknownConfigKeys} from '@tanzz/thrift-core';
+import type {DiagnosticsRuleOptions, SharedThriftConfig, ThriftFormattingOptions} from '@tanzz/thrift-core';
 
 const CONFIG_FILENAME = '.thriftrc.json';
-const TOP_LEVEL_KEYS = new Set(['format', 'lint', 'diagnostics']);
-const FORMAT_KEYS = new Set([
-    'indentSize',
-    'maxLineLength',
-    'trailingComma',
-    'collectionStyle',
-    'alignTypes',
-    'alignNames',
-    'alignAssignments',
-    'alignStructDefaults',
-    'alignAnnotations',
-    'alignComments'
-]);
-const LINT_KEYS = new Set(['severity']);
-const DIAGNOSTICS_KEYS = new Set(['rules']);
 
-export interface ThriftCliConfig {
+export interface ThriftCliConfig extends SharedThriftConfig {
     format?: Partial<ThriftFormattingOptions>;
     lint?: {
         severity?: 'error' | 'warning' | 'all';
@@ -67,19 +53,8 @@ export function loadConfig(configPath: string): ThriftCliConfig {
 }
 
 function warnUnknownConfigKeys(config: ThriftCliConfig, configPath: string): void {
-    warnUnknownKeys(Object.keys(config), TOP_LEVEL_KEYS, configPath);
-    warnUnknownKeys(Object.keys(config.format ?? {}), FORMAT_KEYS, configPath, 'format');
-    warnUnknownKeys(Object.keys(config.lint ?? {}), LINT_KEYS, configPath, 'lint');
-    warnUnknownKeys(Object.keys(config.diagnostics ?? {}), DIAGNOSTICS_KEYS, configPath, 'diagnostics');
-}
-
-function warnUnknownKeys(keys: string[], knownKeys: Set<string>, configPath: string, section?: string): void {
-    for (const key of keys) {
-        if (knownKeys.has(key)) {
-            continue;
-        }
-        const fullKey = section === undefined ? key : `${section}.${key}`;
-        process.stderr.write(`Warning: Unknown config key "${fullKey}" in ${configPath}\n`);
+    for (const key of findUnknownConfigKeys(config)) {
+        process.stderr.write(`Warning: Unknown config key "${key}" in ${configPath}\n`);
     }
 }
 

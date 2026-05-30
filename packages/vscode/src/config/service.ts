@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import {CacheConfig, CacheManagerConfig, config, MemoryConfig} from '@tanzz/thrift-core';
 import {getAllCacheConfigs, updateCacheConfig} from '@tanzz/thrift-core';
+import {validateSharedConfigValue} from '@tanzz/thrift-core';
 
 /**
  * 配置变更事件
@@ -177,56 +178,7 @@ export class ConfigService {
      * @returns 验证结果
      */
     validate(key: string, value: unknown): {valid: boolean; error?: string} {
-        if (key === 'format.indentSize') {
-            if (typeof value !== 'number') {
-                return {valid: false, error: 'Indent size must be a number'};
-            }
-            if (value < 1 || value > 8) {
-                return {valid: false, error: 'Indent size must be between 1 and 8'};
-            }
-            return {valid: true};
-        }
-        if (key === 'format.maxLineLength') {
-            if (typeof value !== 'number') {
-                return {valid: false, error: 'Max line length must be a number'};
-            }
-            if (value < 40 || value > 200) {
-                return {valid: false, error: 'Max line length must be between 40 and 200'};
-            }
-            return {valid: true};
-        }
-        if (key === 'format.trailingComma') {
-            if (typeof value !== 'string') {
-                return {valid: false, error: 'Trailing comma must be a string'};
-            }
-            const validValues = ['preserve', 'add', 'remove'];
-            if (!validValues.includes(value)) {
-                return {valid: false, error: `Trailing comma must be one of: ${validValues.join(', ')}`};
-            }
-            return {valid: true};
-        }
-        const booleanKeys = [
-            'format.alignTypes', 'format.alignNames', 'format.alignAssignments',
-            'format.alignStructDefaults', 'format.alignAnnotations', 'format.alignComments',
-            'diagnostics.debug'
-        ];
-        if (booleanKeys.includes(key)) {
-            if (typeof value !== 'boolean') {
-                return {valid: false, error: `${key} must be a boolean`};
-            }
-            return {valid: true};
-        }
-        if (key === 'format.collectionStyle') {
-            if (typeof value !== 'string') {
-                return {valid: false, error: 'Collection style must be a string'};
-            }
-            const validValues = ['preserve', 'multiline', 'auto'];
-            if (!validValues.includes(value)) {
-                return {valid: false, error: `Collection style must be one of: ${validValues.join(', ')}`};
-            }
-            return {valid: true};
-        }
-        return {valid: true};
+        return validateSharedConfigValue(key, value);
     }
 
     /**

@@ -40,6 +40,8 @@ export {
 // Config defaults
 export {config, config as defaultConfig, cacheConfig, memoryConfig} from './config/index';
 export type {CacheConfig, CacheEntry, MemoryConfig} from './config/index';
+export {DEFAULT_FORMAT_CONFIG, SHARED_CONFIG_SCHEMA, findUnknownConfigKeys, validateSharedConfigValue} from './config/schema';
+export type {SharedConfigSchema, SharedConfigValidationResult, SharedThriftConfig} from './config/schema';
 export {CACHE_CONFIGS, getAllCacheConfigs, updateCacheConfig, validateCacheConfig, registerAllCacheConfigs} from './config/cache-config';
 
 // Utils - line range
