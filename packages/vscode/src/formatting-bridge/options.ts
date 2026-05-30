@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import {ThriftFormattingOptions} from '@tanzz/thrift-core';
+import {DEFAULT_FORMAT_CONFIG, ThriftFormattingOptions} from '@tanzz/thrift-core';
 import {FormattingContext} from './context';
 
 interface FormattingOptionDeps {
@@ -40,7 +40,7 @@ export function resolveFormattingOptions(
     const cfgAlignNames = getOpt<boolean | undefined>('alignNames', undefined);
     const alignNames = (typeof cfgAlignNames !== 'undefined')
         ? cfgAlignNames
-        : (getOpt('alignFieldNames', undefined) ?? getOpt('alignEnumNames', undefined) ?? true);
+        : (getOpt('alignFieldNames', undefined) ?? getOpt('alignEnumNames', undefined) ?? DEFAULT_FORMAT_CONFIG.alignFieldNames);
     const alignAssignments = getOpt<boolean | undefined>('alignAssignments', undefined);
     const cfgAlignStructDefaults = getOpt<boolean | undefined>('alignStructDefaults', undefined);
     const cfgAlignEnumEquals = getOpt<boolean | undefined>('alignEnumEquals', undefined);
@@ -48,39 +48,39 @@ export function resolveFormattingOptions(
     const cfgAlignAnnotations = getOpt<boolean | undefined>('alignAnnotations', undefined);
     const resolvedAlignAnnotations = (typeof cfgAlignAnnotations !== 'undefined')
         ? cfgAlignAnnotations
-        : getOpt('alignStructAnnotations', true);
+        : getOpt('alignStructAnnotations', DEFAULT_FORMAT_CONFIG.alignAnnotations);
 
     const resolvedAlignStructDefaults = (typeof cfgAlignStructDefaults !== 'undefined')
         ? cfgAlignStructDefaults
-        : false;
+        : DEFAULT_FORMAT_CONFIG.alignStructDefaults;
     const resolvedAlignEnumEquals = (typeof cfgAlignEnumEquals !== 'undefined')
         ? cfgAlignEnumEquals
         : (typeof alignAssignments === 'boolean')
             ? alignAssignments
-            : true;
+            : DEFAULT_FORMAT_CONFIG.alignEnumEquals;
     const resolvedAlignEnumValues = (typeof cfgAlignEnumValues !== 'undefined')
         ? cfgAlignEnumValues
         : (typeof alignAssignments === 'boolean')
             ? alignAssignments
-            : true;
+            : DEFAULT_FORMAT_CONFIG.alignEnumValues;
 
     const indentSize = typeof options.indentSize === 'number'
         ? options.indentSize
-        : getOpt('indentSize', 4);
+        : getOpt('indentSize', DEFAULT_FORMAT_CONFIG.indentSize);
 
     return {
-        trailingComma: getOpt('trailingComma', 'preserve'),
-        alignTypes: getOpt('alignTypes', true),
+        trailingComma: getOpt('trailingComma', DEFAULT_FORMAT_CONFIG.trailingComma),
+        alignTypes: getOpt('alignTypes', DEFAULT_FORMAT_CONFIG.alignTypes),
         alignFieldNames: alignNames,
         alignStructDefaults: resolvedAlignStructDefaults,
         alignAnnotations: resolvedAlignAnnotations,
-        alignComments: getOpt('alignComments', true),
+        alignComments: getOpt('alignComments', DEFAULT_FORMAT_CONFIG.alignComments),
         alignEnumNames: alignNames,
         alignEnumEquals: resolvedAlignEnumEquals,
         alignEnumValues: resolvedAlignEnumValues,
         indentSize,
-        maxLineLength: getOpt('maxLineLength', 100),
-        collectionStyle: getOpt('collectionStyle', 'preserve'),
+        maxLineLength: getOpt('maxLineLength', DEFAULT_FORMAT_CONFIG.maxLineLength),
+        collectionStyle: getOpt('collectionStyle', DEFAULT_FORMAT_CONFIG.collectionStyle),
         insertSpaces: options.insertSpaces,
         tabSize: options.tabSize,
         initialContext

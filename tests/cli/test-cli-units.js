@@ -189,11 +189,13 @@ describe('CLI unit tests', () => {
             const d = tmpDir('cli-load-unknown-');
             try {
                 const cfg = path.join(d, '.thriftrc.json');
-                fs.writeFileSync(cfg, '{"format":{"indentSize":2,"unknown":true},"mystery":1}');
+                fs.writeFileSync(cfg, '{"format":{"indentSize":2,"alignFieldNames":true,"unknown":true},"mystery":1}');
                 const o = captureOutput(() => configMod.loadConfig(cfg));
                 assert.strictEqual(o.returned.format.indentSize, 2);
+                assert.strictEqual(o.returned.format.alignFieldNames, true);
                 assert.ok(o.stderr.includes('Unknown config key "format.unknown"'));
                 assert.ok(o.stderr.includes('Unknown config key "mystery"'));
+                assert.ok(!o.stderr.includes('Unknown config key "format.alignFieldNames"'));
             } finally {
                 fs.rmSync(d, {recursive: true});
             }

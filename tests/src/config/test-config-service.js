@@ -201,6 +201,18 @@ describe('ConfigService', () => {
             });
         });
 
+        describe('shared schema validation', () => {
+            it('should validate lint severity from the core schema', () => {
+                assert.strictEqual(svc.validate('lint.severity', 'warning').valid, true);
+                assert.strictEqual(svc.validate('lint.severity', 'debug').valid, false);
+            });
+
+            it('should validate diagnostics rules from the core schema', () => {
+                assert.strictEqual(svc.validate('diagnostics.rules', {}).valid, true);
+                assert.strictEqual(svc.validate('diagnostics.rules', false).valid, false);
+            });
+        });
+
         it('should return valid for unknown keys (loose validation)', () => {
             const result = svc.validate('some.unknown.key', 'anything');
             assert.strictEqual(result.valid, true);

@@ -41,25 +41,9 @@ import {normalizeGenericsInSignature, splitTopLevelParts} from './text-utils';
 import {createLineRange, LineRange} from '../utils/line-range';
 import {hashContent} from '../utils/cache-expiry';
 import {ErrorHandler} from '../utils/error-handler';
+import {DEFAULT_FORMAT_CONFIG} from '../config/schema';
 
 const formatErrorHandler = new ErrorHandler();
-
-const DEFAULT_FORMAT_OPTIONS: ThriftFormattingOptions = {
-    trailingComma: 'preserve',
-    alignTypes: true,
-    alignFieldNames: true,
-    alignStructDefaults: false,
-    alignAnnotations: true,
-    alignComments: true,
-    alignEnumNames: true,
-    alignEnumEquals: true,
-    alignEnumValues: true,
-    indentSize: 4,
-    maxLineLength: 100,
-    collectionStyle: 'preserve',
-    insertSpaces: true,
-    tabSize: 4
-};
 
 /**
  * Format Thrift source with unified rules.
@@ -70,7 +54,7 @@ const DEFAULT_FORMAT_OPTIONS: ThriftFormattingOptions = {
  */
 export function formatThriftContent(
     content: string,
-    options: ThriftFormattingOptions = DEFAULT_FORMAT_OPTIONS,
+    options: ThriftFormattingOptions = DEFAULT_FORMAT_CONFIG,
     dirtyRange?: LineRange
 ): string {
     const lines = content.split(/\r?\n/);
