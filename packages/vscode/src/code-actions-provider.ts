@@ -10,6 +10,7 @@ import {nodes} from '@tanzz/thrift-core';
 import {collectIncludes, collectTopLevelTypes, parseContainerTypeInfo} from '@tanzz/thrift-core';
 import {config} from '@tanzz/thrift-core';
 import {ErrorHandler} from '@tanzz/thrift-core';
+import {DIAGNOSTIC_CODES} from '@tanzz/thrift-core';
 import {UNKNOWN_TYPE_DIAGNOSTIC_CODES} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
 import {WorkspaceIndex} from './indexing/workspace-index';
@@ -58,6 +59,8 @@ export class ThriftRefactorCodeActionProvider {
             const move = new vscode.CodeAction('Move type to file...', 'refactor.move' as unknown as vscode.CodeActionKind);
             move.command = {command: 'thrift.refactor.moveType', title: 'Move type to file...'};
             actions.push(move);
+
+            this.addDuplicateFieldIdQuickFixes(document, range, context, actions);
 
             // QuickFix is gated on diagnostics: only offer "insert include" for types that
             // the diagnostics layer flagged as unknown (code 'type.unknown') and whose range
@@ -120,6 +123,67 @@ export class ThriftRefactorCodeActionProvider {
     ]);
 
     private static readonly UNKNOWN_TYPE_CODES = UNKNOWN_TYPE_DIAGNOSTIC_CODES;
+
+    private addDuplicateFieldIdQuickFixes(
+        document: vscode.TextDocument,
+        range: vscode.Range | vscode.Selection,
+        context: vscode.CodeActionContext,
+        actions: vscode.CodeAction[]
+    ): void {
+        for (const diagnostic of context?.diagnostics ?? []) {
+            const code = typeof diagnostic.code === 'object' && diagnostic.code !== null
+                ? String((diagnostic.code as {value: string | number}).value)
+                : String(diagnostic.code ?? '');
+            if (code !== DIAGNOSTIC_CODES.FIELD_DUPLICATE_ID ||
+                !this.rangesOverlap(diagnostic.range, range)) {
+                continue;
+            }
+            const replacement = this.findReplacementFieldId(document, diagnostic.range);
+            if (replacement === undefined) {
+                continue;
+            }
+            const fix = new vscode.CodeAction(
+                `Change duplicate field ID to ${replacement.nextId}`,
+                vscode.CodeActionKind.QuickFix
+            );
+            fix.edit = new vscode.WorkspaceEdit();
+            fix.edit.replace(document.uri, replacement.range, String(replacement.nextId));
+            fix.diagnostics = [diagnostic];
+            actions.push(fix);
+        }
+    }
+
+    private findReplacementFieldId(
+        document: vscode.TextDocument,
+        diagnosticRange: vscode.Range
+    ): {range: vscode.Range; nextId: number} | undefined {
+        const ast = this.getDocumentAst(document);
+        const structNode = ast.body.find((node): node is nodes.Struct =>
+            (node.type === nodes.ThriftNodeType.Struct ||
+                node.type === nodes.ThriftNodeType.Union ||
+                node.type === nodes.ThriftNodeType.Exception) &&
+            diagnosticRange.start.line >= node.range.start.line &&
+            diagnosticRange.start.line <= node.range.end.line
+        );
+        if (structNode === undefined) {
+            return undefined;
+        }
+        const usedIds = new Set(structNode.fields.map(field => field.id));
+        let nextId = 1;
+        while (usedIds.has(nextId)) {
+            nextId++;
+        }
+        const line = document.lineAt(diagnosticRange.start.line).text;
+        const match = /^(\s*)(-?\d+)/.exec(line);
+        if (match === null) {
+            return undefined;
+        }
+        const start = match[1].length;
+        return {
+            range: new vscode.Range(diagnosticRange.start.line, start, diagnosticRange.start.line, start + match[2].length),
+            nextId
+        };
+    }
 
     /**
      * 从 context.diagnostics 中提取与请求范围重叠的「未知类型」名称，
