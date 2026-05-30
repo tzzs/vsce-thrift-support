@@ -27,13 +27,17 @@ import {
 import {
     filterMeaningfulTokens,
     findFirstIdentifier,
-    findIdentifierIndex,
-    findLastIdentifier,
     findSymbolIndex,
-    findSymbolIndexFrom,
-    readQualifiedIdentifier
+    findSymbolIndexFrom
 } from './token-utils';
 import {ThriftTokenizer, Token, tokenizeLine} from './tokenizer';
+import {
+    parseIncludeDeclaration,
+    parseNamespaceDeclaration,
+    parseTypedefDeclaration,
+    readConstDeclarationHeader,
+    readServiceHeader
+} from './parser-top-level';
 
 export interface ParseRegion {
     startLine: number;
@@ -206,18 +210,8 @@ export class ThriftParser {
         }
 
         if (keywordToken.value === 'namespace') {
-            const scope = readQualifiedIdentifier(tokens, 1);
-            const namespace = scope ? readQualifiedIdentifier(tokens, scope.endIndex) : null;
-            if (scope && namespace) {
-                const node: nodes.Namespace = {
-                    type: nodes.ThriftNodeType.Namespace,
-                    range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
-                    nameRange: this.createRange(this.currentLine, namespace.startOffset, this.currentLine, namespace.endOffset),
-                    parent: parent,
-                    scope: scope.value,
-                    namespace: namespace.value,
-                    name: namespace.value
-                };
+            const node = parseNamespaceDeclaration(parent, line, this.currentLine, tokens);
+            if (node !== undefined) {
                 this.currentLine++;
                 return node;
             }
@@ -227,15 +221,8 @@ export class ThriftParser {
         }
 
         if (keywordToken.value === 'include') {
-            const pathToken = tokens[1];
-            if (pathToken !== undefined && pathToken.type === 'string') {
-                const node: nodes.Include = {
-                    type: nodes.ThriftNodeType.Include,
-                    range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
-                    parent: parent,
-                    path: pathToken.value,
-                    name: pathToken.value
-                };
+            const node = parseIncludeDeclaration(parent, line, this.currentLine, tokens);
+            if (node !== undefined) {
                 this.currentLine++;
                 return node;
             }
@@ -267,20 +254,8 @@ export class ThriftParser {
         if (keywordToken.value === 'service') {
             const nameToken = findFirstIdentifier(tokens, 1);
             if (nameToken) {
-                let extendsName: string | undefined;
-                let extendsRange: Range | undefined;
-                const extendsIndex = findIdentifierIndex(tokens, 'extends', nameToken.index + 1);
-                if (extendsIndex !== -1) {
-                    const parentName = readQualifiedIdentifier(tokens, extendsIndex + 1);
-                    if (parentName) {
-                        extendsName = parentName.value;
-                        extendsRange = this.createRange(
-                            this.currentLine, parentName.startOffset,
-                            this.currentLine, parentName.endOffset
-                        );
-                    }
-                }
-                return this.parseService(parent, nameToken.value, extendsName, extendsRange);
+                const serviceHeader = readServiceHeader(tokens, this.currentLine);
+                return this.parseService(parent, nameToken.value, serviceHeader.extendsName, serviceHeader.extendsRange);
             }
             const invalid = this.createInvalidNode(parent, line, 'Invalid service declaration');
             this.currentLine++;
@@ -298,15 +273,9 @@ export class ThriftParser {
         }
 
         if (keywordToken.value === 'const') {
-            const equalsIndex = findSymbolIndex(tokens, '=');
-            if (equalsIndex !== -1) {
-                const nameToken = findLastIdentifier(tokens, equalsIndex);
-                if (nameToken) {
-                    const typeText = line.slice(keywordToken.end, nameToken.start).trim();
-                    if (typeText) {
-                        return this.parseConst(parent, typeText, nameToken.value);
-                    }
-                }
+            const constHeader = readConstDeclarationHeader(line, tokens);
+            if (constHeader !== undefined) {
+                return this.parseConst(parent, constHeader.typeText, constHeader.name);
             }
             const invalid = this.createInvalidNode(parent, line, 'Invalid const declaration');
             this.currentLine++;
@@ -314,19 +283,8 @@ export class ThriftParser {
         }
 
         if (keywordToken.value === 'typedef') {
-            const nameToken = findLastIdentifier(tokens, tokens.length);
-            if (nameToken && nameToken.index > 0) {
-                const keywordIndex = keywordToken.end;
-                const aliasType = line.slice(keywordIndex, nameToken.start).trim();
-                const node: nodes.Typedef = {
-                    type: nodes.ThriftNodeType.Typedef,
-                    range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
-                    nameRange: this.createRange(this.currentLine, nameToken.start, this.currentLine, nameToken.end),
-                    parent: parent,
-                    aliasType: aliasType,
-                    aliasTypeRange: findTypeRangeInLine(line, this.currentLine, aliasType, keywordIndex),
-                    name: nameToken.value
-                };
+            const node = parseTypedefDeclaration(parent, line, this.currentLine, tokens);
+            if (node !== undefined) {
                 this.currentLine++;
                 return node;
             }
