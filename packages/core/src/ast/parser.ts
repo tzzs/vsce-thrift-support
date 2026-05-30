@@ -10,25 +10,16 @@ import {
     setCachedAstRange
 } from './cache';
 import {createLineRange, LineRange} from '../utils/line-range';
-import {QuoteTracker} from '../utils/quote-tracker';
-import {createField, createDocument, createStructBlock, createEnumBlock, createServiceBlock, createInteractionBlock} from './factory';
+import {createDocument, createStructBlock, createEnumBlock, createServiceBlock, createInteractionBlock} from './factory';
 import {isExpired, isFresh} from '../utils/cache-expiry';
 import {
-    buildConstValueRange,
-    findDefaultValueRange,
-    findInitializerRange,
-    findThrowsStartInRange,
-    findTypeRangeInLine,
     findWordRangeInLine,
     parseFieldList,
-    readParenthesizedText,
-    stripTrailingAnnotation
+    readParenthesizedText
 } from './parser-helpers';
 import {
     filterMeaningfulTokens,
-    findFirstIdentifier,
-    findSymbolIndex,
-    findSymbolIndexFrom
+    findFirstIdentifier
 } from './token-utils';
 import {ThriftTokenizer, Token, tokenizeLine} from './tokenizer';
 import {
@@ -38,6 +29,15 @@ import {
     readConstDeclarationHeader,
     readServiceHeader
 } from './parser-top-level';
+import {parseConstDeclarationNode} from './parser-const';
+import {computeStructFieldEndLine, parseEnumMemberLine, parseStructFieldLine} from './parser-members';
+import {
+    findFunctionEnd,
+    parseFunctionThrows,
+    parsePerforms,
+    parseServiceFunctionLine,
+    ParsedServiceFunction
+} from './parser-functions';
 
 export interface ParseRegion {
     startLine: number;
@@ -414,9 +414,9 @@ export class ThriftParser {
             }
 
             const startLine = this.currentLine;
-            const field = this.parseStructFieldLine(parent, line, scan.stripped, scan.tokens);
+            const field = parseStructFieldLine(parent, line, scan.stripped, scan.tokens, this.currentLine);
             if (field) {
-                const endLine = this.computeStructFieldEndLine(startLine);
+                const endLine = computeStructFieldEndLine(this.lines, startLine);
                 if (endLine > startLine) {
                     field.range = this.createRange(
                         startLine,
@@ -433,206 +433,6 @@ export class ThriftParser {
             }
         }
         return this.currentLine;
-    }
-
-    /**
-     * 给定字段起始行，计算其真实结束行（考虑跨行 default value 与尾部注解）。
-     * 字符级扫描 `[]`/`{}`/`()` 嵌套；遇到 struct body 自身的 `}`（所有 brace 深度归零时出现的 `}`）则停止。
-     * 内联处理字符串字面量与单行/块注释，避免依赖 tokenizer 的跨行 state。
-     */
-    private computeStructFieldEndLine(startLine: number): number {
-        let depthAngle = 0;
-        let depthBracket = 0;
-        let depthBrace = 0;
-        let depthParen = 0;
-        let inBlockComment = false;
-
-        for (let li = startLine; li < this.lines.length; li++) {
-            const stripped = this.stripCommentsAndStrings(this.lines[li], inBlockComment);
-            inBlockComment = stripped.endsInBlockComment;
-            const text = stripped.text;
-            for (let i = 0; i < text.length; i++) {
-                const ch = text[i];
-                if (ch === '<') { depthAngle++; continue; }
-                if (ch === '>') { depthAngle = Math.max(0, depthAngle - 1); continue; }
-                if (ch === '[') { depthBracket++; continue; }
-                if (ch === ']') { depthBracket = Math.max(0, depthBracket - 1); continue; }
-                if (ch === '{') { depthBrace++; continue; }
-                if (ch === '}') {
-                    if (depthBrace === 0) {
-                        return Math.max(startLine, li - 1);
-                    }
-                    depthBrace--;
-                    continue;
-                }
-                if (ch === '(') { depthParen++; continue; }
-                if (ch === ')') { depthParen = Math.max(0, depthParen - 1); continue; }
-                if (depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0
-                    && (ch === ',' || ch === ';')) {
-                    return li;
-                }
-            }
-            if (!inBlockComment) {
-                const next = this.findNextNonEmptyLineRaw(li + 1);
-                if (next === -1) { return li; }
-                const nextStripped = this.stripCommentsAndStrings(this.lines[next], false).text.trim();
-                // Recovery: if the next line opens a new field, treat the current field as ended
-                // here even when brackets are still unbalanced (malformed source).
-                if (/^\d+\s*:/.test(nextStripped)) {
-                    return li;
-                }
-                if (depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0
-                    && nextStripped.startsWith('}')) {
-                    return li;
-                }
-            }
-        }
-        return this.lines.length - 1;
-    }
-
-    private findNextNonEmptyLineRaw(startIdx: number): number {
-        for (let i = startIdx; i < this.lines.length; i++) {
-            if (this.stripCommentsAndStrings(this.lines[i], false).text.trim()) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    /**
-     * 去除字符串字面量内容与注释，仅保留结构性字符（括号、逗号、分号等）。
-     * 注意：字符串内容被**移除**（不保留占位符），因此返回的 text 不可用于
-     * 列位置计算——仅适用于结构性扫描。
-     * 不修改 this.tokenizer 的跨行 state。
-     */
-    private stripCommentsAndStrings(line: string, inBlockComment: boolean): {text: string; endsInBlockComment: boolean} {
-        let out = '';
-        let i = 0;
-        let block = inBlockComment;
-        let escaped = false;
-        while (i < line.length) {
-            if (block) {
-                const close = line.indexOf('*/', i);
-                if (close === -1) {
-                    return {text: out, endsInBlockComment: true};
-                }
-                i = close + 2;
-                block = false;
-                continue;
-            }
-            const ch = line[i];
-            const next = i + 1 < line.length ? line[i + 1] : '';
-            if (ch === '/' && next === '*') {
-                block = true;
-                i += 2;
-                continue;
-            }
-            if ((ch === '/' && next === '/') || ch === '#') {
-                break;
-            }
-            if (ch === '"' || ch === '\'') {
-                const quote = ch;
-                i++;
-                escaped = false;
-                while (i < line.length) {
-                    const c = line[i];
-                    if (escaped) { escaped = false; i++; continue; }
-                    if (c === '\\') { escaped = true; i++; continue; }
-                    if (c === quote) { i++; break; }
-                    i++;
-                }
-                continue;
-            }
-            out += ch;
-            i++;
-        }
-        return {text: out, endsInBlockComment: block};
-    }
-
-    private parseStructFieldLine(parent: nodes.Struct, line: string, cleanLine: string, tokens: Token[]): nodes.Field | null {
-        const trimmed = cleanLine.trim();
-        if (!trimmed) {
-            return null;
-        }
-        if (tokens.length === 0) {
-            return null;
-        }
-        const idIndex = tokens.findIndex(token => token.type === 'number');
-        if (idIndex === -1) {
-            return null;
-        }
-        const colonIndex = findSymbolIndexFrom(tokens, ':', idIndex + 1);
-        if (colonIndex === -1) {
-            return null;
-        }
-        let cursor = colonIndex + 1;
-        let requiredness: 'required' | 'optional' | undefined;
-        if (tokens[cursor]?.type === 'identifier' &&
-            (tokens[cursor].value === 'required' || tokens[cursor].value === 'optional')) {
-            requiredness = tokens[cursor].value as 'required' | 'optional';
-            cursor += 1;
-        }
-        const typeStartToken = tokens[cursor];
-        if (typeStartToken === undefined) {
-            return null;
-        }
-        let nameTokenIndex = -1;
-        let angleDepth = 0;
-        for (let i = cursor; i < tokens.length; i++) {
-            const token = tokens[i];
-            if (token.type === 'symbol') {
-                if (token.value === '<') {
-                    angleDepth += 1;
-                } else if (token.value === '>') {
-                    angleDepth = Math.max(0, angleDepth - 1);
-                }
-                if (angleDepth === 0 && (token.value === '(' || token.value === '=' || token.value === ',' || token.value === ';')) {
-                    break;
-                }
-                continue;
-            }
-            if (token.type === 'identifier') {
-                nameTokenIndex = i;
-            }
-        }
-        if (nameTokenIndex === -1) {
-            return null;
-        }
-        const nameToken = tokens[nameTokenIndex];
-        const fieldType = cleanLine.slice(typeStartToken.start, nameToken.start).trim();
-        if (!fieldType) {
-            return null;
-        }
-        const valueTarget = stripTrailingAnnotation(cleanLine.replace(/[,;]\s*$/, ''));
-        const nameRange = this.createRange(
-            this.currentLine,
-            nameToken.start,
-            this.currentLine,
-            nameToken.end
-        );
-        const typeRange = this.createRange(
-            this.currentLine,
-            typeStartToken.start,
-            this.currentLine,
-            nameToken.start
-        );
-        const defaultInfo = findDefaultValueRange(valueTarget);
-        const defaultStart = defaultInfo ? defaultInfo.start : null;
-        const defaultEnd = defaultInfo ? defaultInfo.end : null;
-        return createField({
-            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
-            nameRange,
-            typeRange,
-            parent,
-            id: parseInt(tokens[idIndex].value, 10),
-            requiredness,
-            fieldType,
-            name: nameToken.value,
-            defaultValue: defaultInfo?.value,
-            defaultValueRange: defaultStart !== null && defaultEnd !== null
-                ? this.createRange(this.currentLine, defaultStart, this.currentLine, defaultEnd)
-                : undefined
-        });
     }
 
     private parseEnum(parent: nodes.ThriftNode, name: string, isSenum: boolean): nodes.Enum {
@@ -656,94 +456,12 @@ export class ThriftParser {
 
     private parseEnumBody(parent: nodes.Enum): number {
         return this.parseBracedBlock((line, scan) => {
-            const member = this.parseEnumMemberLine(parent, line, scan.stripped, scan.tokens);
+            const member = parseEnumMemberLine(parent, line, scan.stripped, scan.tokens, this.currentLine);
             if (member) {
                 parent.members.push(member);
                 this.addChild(parent, member);
             }
         });
-    }
-
-    private parseEnumMemberLine(parent: nodes.Enum, line: string, cleanLine: string, tokens: Token[]): nodes.EnumMember | null {
-        const trimmed = cleanLine.trim();
-        if (!trimmed) {
-            return null;
-        }
-        if (tokens.length === 0) {
-            return null;
-        }
-        const nameToken = tokens.find(token => token.type === 'identifier');
-        if (!nameToken) {
-            return null;
-        }
-        const equalsIndex = findSymbolIndex(tokens, '=');
-        let initializer: string | undefined;
-        let initializerRange: Range | undefined;
-        if (equalsIndex !== -1) {
-            let startOffset: number | null = null;
-            let endOffset: number | null = null;
-            let angleDepth = 0;
-            let bracketDepth = 0;
-            let braceDepth = 0;
-            let parenDepth = 0;
-            for (let i = equalsIndex + 1; i < tokens.length; i++) {
-                const token = tokens[i];
-                if (token.type === 'symbol') {
-                    if (token.value === '<') {
-                        angleDepth += 1;
-                    } else if (token.value === '>') {
-                        angleDepth = Math.max(0, angleDepth - 1);
-                    } else if (token.value === '[') {
-                        bracketDepth += 1;
-                    } else if (token.value === ']') {
-                        bracketDepth = Math.max(0, bracketDepth - 1);
-                    } else if (token.value === '{') {
-                        braceDepth += 1;
-                    } else if (token.value === '}') {
-                        braceDepth = Math.max(0, braceDepth - 1);
-                    } else if (token.value === '(') {
-                        parenDepth += 1;
-                    } else if (token.value === ')') {
-                        parenDepth = Math.max(0, parenDepth - 1);
-                    }
-                    if (angleDepth === 0 && bracketDepth === 0 && braceDepth === 0 && parenDepth === 0 &&
-                        (token.value === ',' || token.value === ';' || token.value === '(')) {
-                        break;
-                    }
-                }
-                startOffset ??= token.start;
-                endOffset = token.end;
-            }
-            if (startOffset !== null && endOffset !== null) {
-                const rawInitializer = cleanLine.slice(startOffset, endOffset).trim();
-                const trimmed = stripTrailingAnnotation(rawInitializer.replace(/[,;]\s*$/, '')).trim();
-                initializer = trimmed || undefined;
-                if (initializer !== undefined && initializer !== '') {
-                    initializerRange = this.createRange(
-                        this.currentLine,
-                        startOffset,
-                        this.currentLine,
-                        endOffset
-                    );
-                }
-            }
-        }
-        initializerRange ??= findInitializerRange(cleanLine, cleanLine, initializer, this.currentLine);
-        const nameRange = this.createRange(
-            this.currentLine,
-            nameToken.start,
-            this.currentLine,
-            nameToken.end
-        );
-        return {
-            type: nodes.ThriftNodeType.EnumMember,
-            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
-            nameRange,
-            parent: parent,
-            name: nameToken.value,
-            initializer,
-            initializerRange
-        };
     }
 
     private parseService(parent: nodes.ThriftNode, name: string, extendsClass: string | undefined, extendsRange?: Range): nodes.Service {
@@ -785,7 +503,7 @@ export class ThriftParser {
 
     private parseInteractionBody(parent: nodes.Interaction): number {
         return this.parseBracedBlock((line, scan) => {
-            const funcParsed = this.parseServiceFunctionLine(line, scan.stripped, scan.tokens);
+            const funcParsed = parseServiceFunctionLine(line, scan.stripped, scan.tokens, this.currentLine);
             if (funcParsed) {
                 const funcNode = this.buildFunctionNode(parent, funcParsed, line);
                 if (funcNode) {
@@ -798,7 +516,7 @@ export class ThriftParser {
 
     private parseServiceBody(parent: nodes.Service): number {
         return this.parseBracedBlock((line, scan) => {
-            const funcParsed = this.parseServiceFunctionLine(line, scan.stripped, scan.tokens);
+            const funcParsed = parseServiceFunctionLine(line, scan.stripped, scan.tokens, this.currentLine);
             if (funcParsed) {
                 const funcNode = this.buildFunctionNode(parent, funcParsed, line);
                 if (funcNode) {
@@ -806,7 +524,7 @@ export class ThriftParser {
                     this.addChild(parent, funcNode);
                 }
             } else {
-                const perfNode = this.parsePerforms(parent, line, scan.stripped, scan.tokens);
+                const perfNode = parsePerforms(parent, line, scan.stripped, scan.tokens, this.currentLine);
                 if (perfNode) {
                     (parent.performs ??= []).push(perfNode);
                     this.addChild(parent, perfNode);
@@ -815,104 +533,9 @@ export class ThriftParser {
         });
     }
 
-    /**
-     * Scan a line for throws clause starting at `start`, return the index after the throws block.
-     */
-    private skipThrowsBlock(line: string, start: number): number {
-        if (line.substring(start, start + 6) !== 'throws') {
-            return start;
-        }
-        let throwsParenCount = 0;
-        let j = start + 6;
-        for (; j < line.length; j++) {
-            if (line[j] === '(') {
-                throwsParenCount++;
-            } else if (line[j] === ')') {
-                throwsParenCount--;
-                if (throwsParenCount === 0) {
-                    j++;
-                    break;
-                }
-            }
-        }
-        while (j < line.length && /\s/.test(line[j])) {
-            j++;
-        }
-        return j;
-    }
-
-    /**
-     * Find function signature end by scanning for the closing paren after args,
-     * then skipping any throws clause and trailing whitespace.
-     */
-    private findFunctionEnd(
-        startLine: number,
-        startChar: number,
-        initialParenCount: number
-    ): {endLine: number; endChar: number} | null {
-        let parenCount = initialParenCount;
-        for (let lineNum = startLine; lineNum < this.lines.length; lineNum++) {
-            const text = this.lines[lineNum];
-            const colStart = lineNum === startLine ? startChar : 0;
-            for (let i = colStart; i < text.length; i++) {
-                if (text[i] === '(') {
-                    parenCount++;
-                } else if (text[i] === ')') {
-                    parenCount--;
-                    if (parenCount === 0) {
-                        const j = this.skipThrowsBlock(text, i + 1);
-                        if (j < text.length && (text[j] === ',' || text[j] === ';' || text[j] === '{')) {
-                            return {endLine: lineNum, endChar: j + 1};
-                        }
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Parse throws clause if present between args end and function end.
-     */
-    private parseFunctionThrows(
-        argsEndLine: number,
-        argsEndChar: number,
-        funcEndLine: number,
-        funcEndChar: number
-    ): {fields: nodes.Field[]; endLine: number; endChar: number} {
-        const throwsFields: nodes.Field[] = [];
-        let resultEndLine = funcEndLine;
-        let resultEndChar = funcEndChar;
-
-        const throwsStart = findThrowsStartInRange(
-            this.lines, argsEndLine, argsEndChar, funcEndLine, funcEndChar
-        );
-        if (throwsStart) {
-            const throwsResult = readParenthesizedText(this.lines, throwsStart.line, throwsStart.char + 1);
-            if (throwsResult) {
-                throwsFields.push(...parseFieldList(throwsResult.text, throwsStart.line, throwsStart.char + 1));
-                resultEndLine = throwsResult.endLine;
-                resultEndChar = throwsResult.endChar;
-            }
-        }
-        return {fields: throwsFields, endLine: resultEndLine, endChar: resultEndChar};
-    }
-
     private buildFunctionNode(
         parent: nodes.ThriftNode,
-        funcParsed: {
-            name: string;
-            returnType: string;
-            nameRange: Range | undefined;
-            returnTypeRange: Range | undefined;
-            oneway: boolean;
-            isStream: boolean;
-            isSink: boolean;
-            funcStartLine: number;
-            funcStartChar: number;
-            funcEndLine: number;
-            funcEndChar: number;
-        },
+        funcParsed: ParsedServiceFunction,
         line: string
     ): nodes.ThriftFunction | null {
         const {
@@ -941,7 +564,7 @@ export class ThriftParser {
             }
         }
 
-        const end = this.findFunctionEnd(funcStartLine, funcStartChar, 0);
+        const end = findFunctionEnd(this.lines, funcStartLine, funcStartChar, 0);
         if (end) {
             funcEndLine = end.endLine;
             funcEndChar = end.endChar;
@@ -949,7 +572,7 @@ export class ThriftParser {
 
         const argsEndLine = argResult ? argResult.endLine : funcStartLine;
         const argsEndChar = argResult ? argResult.endChar + 1 : Math.max(parenStartPos + 1, funcStartChar);
-        const throws = this.parseFunctionThrows(argsEndLine, argsEndChar, funcEndLine, funcEndChar);
+        const throws = parseFunctionThrows(this.lines, argsEndLine, argsEndChar, funcEndLine, funcEndChar);
         funcEndLine = throws.endLine;
         funcEndChar = throws.endChar;
 
@@ -980,204 +603,10 @@ export class ThriftParser {
         return funcNode;
     }
 
-    /**
-     * 解析 service 或 interaction 中的 performs 声明。
-     */
-    private parsePerforms(parent: nodes.ThriftNode, line: string, cleanLine: string, tokens: Token[]): nodes.Performs | null {
-        const trimmed = cleanLine.trim();
-        if (!trimmed || tokens.length === 0) {
-            return null;
-        }
-        if (tokens[0].type !== 'identifier' || tokens[0].value !== 'performs') {
-            return null;
-        }
-        const nameToken = tokens[1];
-        if (nameToken === undefined || nameToken.type !== 'identifier') {
-            return null;
-        }
-        const nameRange = this.createRange(
-            this.currentLine,
-            nameToken.start,
-            this.currentLine,
-            nameToken.end
-        );
-        return {
-            type: nodes.ThriftNodeType.Performs,
-            range: this.createRange(this.currentLine, 0, this.currentLine, line.length),
-            nameRange,
-            parent: parent,
-            name: nameToken.value,
-            interactionName: nameToken.value,
-            interactionNameRange: nameRange
-        };
-    }
-
-    private parseServiceFunctionLine(line: string, cleanLine: string, tokens: Token[]): {
-        name: string;
-        returnType: string;
-        nameRange: Range | undefined;
-        returnTypeRange: Range | undefined;
-        oneway: boolean;
-        isStream: boolean;
-        isSink: boolean;
-        funcStartLine: number;
-        funcStartChar: number;
-        funcEndLine: number;
-        funcEndChar: number;
-    } | null {
-        const trimmed = cleanLine.trim();
-        if (!trimmed) {
-            return null;
-        }
-        if (tokens.length === 0) {
-            return null;
-        }
-        const parenIndex = findSymbolIndex(tokens, '(');
-        if (parenIndex === -1) {
-            return null;
-        }
-        let nameTokenIndex = -1;
-        for (let i = parenIndex - 1; i >= 0; i--) {
-            if (tokens[i].type === 'identifier') {
-                nameTokenIndex = i;
-                break;
-            }
-        }
-        if (nameTokenIndex === -1) {
-            return null;
-        }
-        const oneway = tokens[0].type === 'identifier' && tokens[0].value === 'oneway';
-        let returnTypeStartIndex = oneway ? 1 : 0;
-        let isStream = false;
-        let isSink = false;
-        // Check for stream/sink prefix after oneway
-        if (returnTypeStartIndex < tokens.length && tokens[returnTypeStartIndex].type === 'identifier') {
-            if (tokens[returnTypeStartIndex].value === 'stream') {
-                isStream = true;
-                returnTypeStartIndex += 1;
-            } else if (tokens[returnTypeStartIndex].value === 'sink') {
-                isSink = true;
-                returnTypeStartIndex += 1;
-            }
-        }
-        const returnTypeStartToken = tokens[returnTypeStartIndex];
-        if (returnTypeStartToken === undefined || returnTypeStartIndex >= nameTokenIndex) {
-            return null;
-        }
-        const nameToken = tokens[nameTokenIndex];
-        // Include stream/sink keyword in return type string
-        const typeStart = isStream ? returnTypeStartIndex - 1 : (isSink ? returnTypeStartIndex - 1 : returnTypeStartIndex);
-        const returnType = cleanLine.slice(tokens[typeStart].start, nameToken.start).trim();
-        if (!returnType) {
-            return null;
-        }
-        const funcStartLine = this.currentLine;
-        const funcStartChar = tokens[typeStart].start;
-        const nameRange = this.createRange(
-            funcStartLine,
-            nameToken.start,
-            funcStartLine,
-            nameToken.end
-        );
-        const returnTypeRange = this.createRange(
-            funcStartLine,
-            tokens[typeStart].start,
-            funcStartLine,
-            nameToken.start
-        );
-        return {
-            name: nameToken.value,
-            returnType,
-            nameRange,
-            returnTypeRange,
-            oneway,
-            isStream,
-            isSink,
-            funcStartLine,
-            funcStartChar,
-            funcEndLine: funcStartLine,
-            funcEndChar: line.length
-        };
-    }
-
     private parseConst(parent: nodes.ThriftNode, valueType: string, name: string): nodes.Const {
-        const startLine = this.currentLine;
-        const line = this.lines[startLine];
-        const keywordIndex = line.indexOf('const');
-        const searchStart = keywordIndex >= 0 ? keywordIndex + 'const'.length : 0;
-        let endLine = this.currentLine;
-        let depthBrace = 0;
-        let depthBracket = 0;
-        let depthParen = 0;
-        let seenEquals = false;
-        let eqLine = -1;
-        let eqChar = -1;
-        const qt = new QuoteTracker();
-
-        while (endLine < this.lines.length) {
-            const line = this.lines[endLine];
-            for (let i = 0; i < line.length; i++) {
-                const ch = line[i];
-                if (qt.inside()) {
-                    qt.feed(ch);
-                    continue;
-                }
-                if (ch === '\'' || ch === '"') {
-                    qt.feed(ch);
-                    continue;
-                }
-                if (ch === '=' && !seenEquals) {
-                    seenEquals = true;
-                    if (eqLine === -1) {
-                        eqLine = endLine;
-                        eqChar = i;
-                    }
-                    continue;
-                }
-                if (!seenEquals) {
-                    continue;
-                }
-                if (ch === '{') {
-                    depthBrace++;
-                }
-                if (ch === '}') {
-                    depthBrace = Math.max(0, depthBrace - 1);
-                }
-                if (ch === '[') {
-                    depthBracket++;
-                }
-                if (ch === ']') {
-                    depthBracket = Math.max(0, depthBracket - 1);
-                }
-                if (ch === '(') {
-                    depthParen++;
-                }
-                if (ch === ')') {
-                    depthParen = Math.max(0, depthParen - 1);
-                }
-            }
-
-            if (seenEquals && depthBrace === 0 && depthBracket === 0 && depthParen === 0) {
-                break;
-            }
-            endLine++;
-        }
-
-        const valueRangeInfo = buildConstValueRange(this.lines, startLine, endLine, eqLine, eqChar);
-        const constNode: nodes.Const = {
-            type: nodes.ThriftNodeType.Const,
-            range: this.createRange(startLine, 0, endLine, (this.lines[endLine] ?? '').length),
-            nameRange: findWordRangeInLine(line, startLine, name, searchStart),
-            parent: parent,
-            valueType: valueType,
-            valueTypeRange: findTypeRangeInLine(line, startLine, valueType, searchStart),
-            name: name,
-            value: valueRangeInfo.value,
-            valueRange: valueRangeInfo.range
-        };
-
-        this.currentLine = endLine + 1;
-        return constNode;
+        const result = parseConstDeclarationNode(parent, this.lines, this.currentLine, valueType, name);
+        this.currentLine = result.endLine + 1;
+        return result.node;
     }
 
     /**
