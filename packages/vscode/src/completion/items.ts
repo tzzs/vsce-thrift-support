@@ -49,17 +49,34 @@ export const ANNOTATION_VALUES = [
  * @param userTypes 用户定义的类型列表
  */
 export function addTypeCompletions(completions: vscode.CompletionItem[], userTypes: string[]) {
+    const existingLabels = new Set(completions.map(item => getCompletionLabel(item)));
     PRIMITIVES.forEach((p) => {
+        if (existingLabels.has(p)) {
+            return;
+        }
         completions.push(new vscode.CompletionItem(p, vscode.CompletionItemKind.Keyword));
+        existingLabels.add(p);
     });
     CONTAINERS.forEach((c) => {
+        if (existingLabels.has(c)) {
+            return;
+        }
         const item = new vscode.CompletionItem(c, vscode.CompletionItemKind.Keyword);
         item.insertText = new vscode.SnippetString(`${c}<\${1:T}>`);
         completions.push(item);
+        existingLabels.add(c);
     });
     userTypes.forEach((t) => {
+        if (existingLabels.has(t)) {
+            return;
+        }
         completions.push(new vscode.CompletionItem(t, vscode.CompletionItemKind.Class));
+        existingLabels.add(t);
     });
+}
+
+function getCompletionLabel(item: vscode.CompletionItem): string {
+    return typeof item.label === 'string' ? item.label : item.label.label;
 }
 
 /**

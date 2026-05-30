@@ -41,6 +41,37 @@ describe('completion provider editor UX', function () {
         assert.ok(labels.includes('shared.RemoteUser'));
     });
 
+    it('deduplicates workspace type completions by label', async function () {
+        const provider = new ThriftCompletionProvider({
+            workspaceIndex: {
+                getAllSymbols: () => [
+                    {
+                        name: 'RemoteUser',
+                        namespace: 'shared',
+                        uri: vscode.Uri.file('/tmp/shared-a.thrift')
+                    },
+                    {
+                        name: 'RemoteUser',
+                        namespace: 'shared',
+                        uri: vscode.Uri.file('/tmp/shared-b.thrift')
+                    }
+                ]
+            }
+        });
+        const document = createDocument('struct Local {\n  1: optional \n}\n');
+
+        const items = await provider.provideCompletionItems(
+            document,
+            new vscode.Position(1, '  1: optional '.length),
+            {isCancellationRequested: false},
+            {}
+        );
+        const labels = items.map(item => item.label);
+
+        assert.strictEqual(labels.filter(label => label === 'RemoteUser').length, 1);
+        assert.strictEqual(labels.filter(label => label === 'shared.RemoteUser').length, 1);
+    });
+
     it('suggests annotation keys and values inside annotation context', async function () {
         const provider = new ThriftCompletionProvider();
         const keyDocument = createDocument('struct Local {\n  1: string name (\n}\n');
