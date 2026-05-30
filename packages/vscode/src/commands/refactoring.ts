@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import {buildExtractTypeEdits, inferExtractTypeTarget, inferMoveTypeTarget, RangeLike} from '@tanzz/thrift-core';
 
 export function registerRefactoringCommands(context: vscode.ExtensionContext) {
     // Refactor: extract type definition
@@ -11,22 +12,9 @@ export function registerRefactoringCommands(context: vscode.ExtensionContext) {
             }
             const doc = editor.document;
             const sel = editor.selection;
-            const fullLine = doc.lineAt(sel.active.line).text;
-            const selectedText = doc.getText(sel) || undefined;
-
-            // Try to infer type from current line if no selection
-            let typeText =
-                selectedText !== undefined && selectedText.trim().length > 0 ? selectedText.trim() : undefined;
-            if (typeText === undefined) {
-                // match field: 1: required list<string> items,
-                const m = fullLine.match(
-                    /^(\s*)\d+\s*:\s*(?:required|optional)?\s*([^\s,;]+(?:\s*<[^>]+>)?)\s+([A-Za-z_][A-Za-z0-9_]*)/
-                );
-                if (m) {
-                    typeText = m[2];
-                }
-            }
-            if (typeText === undefined) {
+            const text = doc.getText();
+            const target = inferExtractTypeTarget(text, sel.active, sel.isEmpty ? undefined : sel);
+            if (target === undefined) {
                 return;
             }
 
@@ -38,30 +26,10 @@ export function registerRefactoringCommands(context: vscode.ExtensionContext) {
                 return;
             }
 
+            const extractEdits = buildExtractTypeEdits(target, newTypeName);
             const edit = new vscode.WorkspaceEdit();
-
-            // Insert typedef at a suitable location: after last include/namespace or at top
-            const text = doc.getText();
-            const lines = text.split('\n');
-            let insertLine = 0;
-            for (let i = 0; i < lines.length; i++) {
-                if (/^\s*(include\s+['"].+['"]|namespace\s+)/.test(lines[i])) {
-                    insertLine = i + 1;
-                }
-            }
-            const typedefLine = `typedef ${typeText} ${newTypeName}`;
-            edit.insert(doc.uri, new vscode.Position(insertLine, 0), typedefLine + '\n\n');
-
-            // Replace original type text at current line if present in the line
-            const typeIdx = fullLine.indexOf(typeText);
-            if (typeIdx >= 0) {
-                const lineNo = sel.active.line;
-                edit.replace(
-                    doc.uri,
-                    new vscode.Range(lineNo, typeIdx, lineNo, typeIdx + typeText.length),
-                    newTypeName
-                );
-            }
+            edit.insert(doc.uri, toVsPosition(extractEdits.insertPosition), extractEdits.insertText);
+            edit.replace(doc.uri, toVsRange(extractEdits.replaceRange), extractEdits.replaceText);
 
             await vscode.workspace.applyEdit(edit);
         })
@@ -76,74 +44,12 @@ export function registerRefactoringCommands(context: vscode.ExtensionContext) {
             }
             const doc = editor.document;
             const sel = editor.selection;
-            const pos = sel.active;
-
-            // Heuristic: find the enclosing type block (struct/enum/service/typedef)
-            let startLine = 0;
-            let endLine = doc.lineCount - 1;
-            for (let i = pos.line; i >= 0; i--) {
-                const t = doc.lineAt(i).text;
-                if (/^\s*(struct|enum|service|typedef)\s+[A-Za-z_][A-Za-z0-9_]*/.test(t)) {
-                    startLine = i;
-                    break;
-                }
-            }
-            for (let i = pos.line; i < doc.lineCount; i++) {
-                const t = doc.lineAt(i).text;
-                if (t.includes('{')) {
-                    startLine = Math.min(startLine, i);
-                    break;
-                }
-            }
-            for (let i = pos.line; i < doc.lineCount; i++) {
-                const t = doc.lineAt(i).text;
-                if (t.includes('}')) {
-                    endLine = i;
-                    break;
-                }
-            }
-
-            const typeDeclLine = doc.lineAt(startLine).text;
-            const m = typeDeclLine.match(
-                /^\s*(struct|enum|service|typedef)\s+([A-Za-z_][A-Za-z0-9_]*)/
-            );
-            if (!m) {
+            const target = inferMoveTypeTarget(doc.getText(), sel.active);
+            if (target === undefined) {
                 return;
             }
-            const typeKind = m[1];
-            const typeName = m[2];
 
-            // If it's a typedef, keep to the declaration line (typedef 无大括号，避免误删后续内容)
-            if (typeKind === 'typedef') {
-                endLine = startLine;
-            } else {
-                // Find matching closing brace if not found yet
-                if (endLine < startLine) {
-                    let depth = 0;
-                    for (let i = pos.line; i < doc.lineCount; i++) {
-                        const t = doc.lineAt(i).text;
-                        if (t.includes('{')) {
-                            if (depth === 0) {
-                                startLine = i;
-                            }
-                            depth++;
-                        }
-                        if (t.includes('}')) {
-                            depth--;
-                            if (depth === 0) {
-                                endLine = i;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            const typeBlock = doc.getText(
-                new vscode.Range(startLine, 0, endLine, doc.lineAt(endLine).text.length)
-            );
-
-            const defaultFileName = `${typeName}.thrift`;
+            const defaultFileName = `${target.typeName}.thrift`;
             const targetName = await vscode.window.showInputBox({
                 prompt: 'Target .thrift file name',
                 value: defaultFileName
@@ -169,16 +75,36 @@ export function registerRefactoringCommands(context: vscode.ExtensionContext) {
             // Ensure include line exists
             const includeLine = `include "${targetName}"`;
             const docText = doc.getText();
-            if (!new RegExp(`^\\s*include\\s+['"]${targetName}['"]`, 'm').test(docText)) {
+            if (!new RegExp(`^\\s*include\\s+['"]${escapeRegExp(targetName)}['"]`, 'm').test(docText)) {
                 edit.insert(doc.uri, new vscode.Position(0, 0), includeLine + '\n');
             }
             // Remove original block
-            edit.delete(doc.uri, new vscode.Range(startLine, 0, endLine + 1, 0));
+            edit.delete(doc.uri, deletionRangeForMove(doc, target.range));
             // Create new file and insert block
             edit.createFile(targetUri, {overwrite: true});
-            edit.insert(targetUri, new vscode.Position(0, 0), typeBlock + '\n');
+            edit.insert(targetUri, new vscode.Position(0, 0), target.typeText + '\n');
 
             await vscode.workspace.applyEdit(edit);
         })
     );
+}
+
+function toVsPosition(position: {line: number; character: number}): vscode.Position {
+    return new vscode.Position(position.line, position.character);
+}
+
+function toVsRange(range: RangeLike): vscode.Range {
+    return new vscode.Range(toVsPosition(range.start), toVsPosition(range.end));
+}
+
+function deletionRangeForMove(document: vscode.TextDocument, range: RangeLike): vscode.Range {
+    const nextLine = range.end.line + 1;
+    if (nextLine < document.lineCount) {
+        return new vscode.Range(range.start.line, 0, nextLine, 0);
+    }
+    return new vscode.Range(range.start.line, 0, range.end.line, range.end.character);
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

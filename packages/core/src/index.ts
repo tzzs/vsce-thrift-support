@@ -12,6 +12,10 @@ export {createField, createDocument, createStructBlock, createEnumBlock, createS
 export {sliceTextByRange} from './ast/text-utils';
 export {positionInRange, rangeSize, findSmallestNodeAtPosition, collectIncludes, collectTopLevelTypes, nodePathFromLeaf, walkNodes} from './ast/utils';
 
+// Refactor helpers
+export {inferExtractTypeTarget, buildExtractTypeEdits, inferMoveTypeTarget} from './refactor/type-refactor';
+export type {ExtractTypeEdits, ExtractTypeTarget, MoveTypeTarget, PositionLike, RangeLike} from './refactor/type-refactor';
+
 // Formatter
 export {ThriftFormatter} from './formatter/index';
 export {formatThriftContent} from './formatter/formatter-core';
