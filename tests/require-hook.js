@@ -9,6 +9,10 @@ const repoRoot = path.join(testsDir, '..');
 const coreOutRoot = path.join(repoRoot, 'packages', 'core', 'out');
 const vsceOutRoot = path.join(repoRoot, 'out');
 const mockVscodePath = path.join(testsDir, 'mock_vscode.js');
+const VSCE_OUT_PREFIXES = [
+    'diagnostics/include-resolver',
+    'utils/line-range',
+];
 
 function normalizeRequest(request) {
     if (typeof request !== 'string') {
@@ -34,6 +38,9 @@ function mapOutPath(request) {
 }
 
 function resolveCompiledOutPath(relativePath) {
+    if (VSCE_OUT_PREFIXES.some(prefix => relativePath === prefix || relativePath.startsWith(`${prefix}/`))) {
+        return path.join(vsceOutRoot, relativePath);
+    }
     const coreCandidate = path.join(coreOutRoot, relativePath);
     if (compiledFileExists(coreCandidate)) {
         return coreCandidate;
@@ -42,7 +49,13 @@ function resolveCompiledOutPath(relativePath) {
 }
 
 function compiledFileExists(candidate) {
-    return fs.existsSync(candidate) || fs.existsSync(`${candidate}.js`);
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+        return true;
+    }
+    if (fs.existsSync(`${candidate}.js`)) {
+        return true;
+    }
+    return fs.existsSync(path.join(candidate, 'index.js'));
 }
 
 function mapCorePackage(request) {
