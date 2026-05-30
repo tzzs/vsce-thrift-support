@@ -39,4 +39,29 @@ describe('duplicate field ID quick fix', function () {
         assert.deepStrictEqual(fix.edit.edits[0].range, new vscode.Range(2, 2, 2, 3));
         assert.strictEqual(fix.edit.edits[0].newText, '2');
     });
+
+    it('suggests changing invalid oneway return type to void', async function () {
+        const provider = new ThriftRefactorCodeActionProvider();
+        const document = createDocument('service Events {\n  oneway i32 notify(1: string message)\n}\n');
+        const diagnosticRange = new vscode.Range(1, 2, 1, 40);
+
+        const actions = await provider.provideCodeActions(
+            document,
+            diagnosticRange,
+            {
+                diagnostics: [{
+                    range: diagnosticRange,
+                    code: 'service.oneway.returnNotVoid',
+                    message: 'oneway method must return void'
+                }]
+            },
+            {isCancellationRequested: false}
+        );
+
+        const fix = actions.find(action => action.title === 'Change oneway return type to void');
+        assert.ok(fix);
+        assert.strictEqual(fix.edit.edits[0].type, 'replace');
+        assert.deepStrictEqual(fix.edit.edits[0].range, new vscode.Range(1, 9, 1, 12));
+        assert.strictEqual(fix.edit.edits[0].newText, 'void');
+    });
 });
