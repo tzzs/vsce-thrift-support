@@ -160,14 +160,14 @@ export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
         if (this.workspaceIndex === undefined) {
             return [];
         }
-        const names: string[] = [];
+        const names = new Set<string>();
         for (const symbol of this.workspaceIndex.getAllSymbols()) {
-            names.push(symbol.name);
+            names.add(symbol.name);
             if (symbol.namespace !== undefined && symbol.namespace !== '') {
-                names.push(`${symbol.namespace}.${symbol.name}`);
+                names.add(`${symbol.namespace}.${symbol.name}`);
             }
         }
-        return names;
+        return [...names].sort((a, b) => a.localeCompare(b));
     }
 }
 

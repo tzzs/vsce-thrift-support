@@ -67,7 +67,7 @@ export class ThriftRefactorCodeActionProvider {
             // the diagnostics layer flagged as unknown (code 'type.unknown') and whose range
             // overlaps the requested range. This keeps the lightbulb in sync with the squiggly.
             const unknownTypes = this.collectUnknownTypeTargets(document, range, context);
-            if (unknownTypes.size === 0 || (typeof token !== 'undefined' && token.isCancellationRequested)) {
+            if (unknownTypes.length === 0 || (typeof token !== 'undefined' && token.isCancellationRequested)) {
                 return actions;
             }
 
@@ -79,27 +79,33 @@ export class ThriftRefactorCodeActionProvider {
 
             const includeSet = this.collectExistingIncludes(document);
             const insertLine = this.computeIncludeInsertLine(document);
-            for (const [typeName, diagnostic] of unknownTypes) {
+            for (const target of unknownTypes) {
                 if (typeof token !== 'undefined' && token.isCancellationRequested) {
                     break;
                 }
-                const definitions = workspaceTypeMap.get(typeName) ?? [];
+                const allDefinitions = workspaceTypeMap.get(target.name) ?? [];
+                const definitions = target.namespace === undefined
+                    ? allDefinitions
+                    : allDefinitions.filter(definition => definition.namespace === target.namespace);
+                if (target.namespace !== undefined && definitions.length !== 1) {
+                    continue;
+                }
                 for (const defUri of definitions) {
                     if (typeof token !== 'undefined' && token.isCancellationRequested) {
                         break;
                     }
-                    if (defUri.toString() === document.uri.toString()) {
+                    if (defUri.uri.toString() === document.uri.toString()) {
                         continue;
                     }
-                    const includePath = this.computeRelativeIncludePath(document.uri, defUri);
+                    const includePath = this.computeRelativeIncludePath(document.uri, defUri.uri);
                     if (includePath === undefined || includePath === '' || includeSet.has(includePath)) {
                         continue;
                     }
                     const fix = new vscode.CodeAction(`Insert include "${includePath}"`, vscode.CodeActionKind.QuickFix);
                     fix.edit = new vscode.WorkspaceEdit();
                     fix.edit.insert(document.uri, new vscode.Position(insertLine, 0), `include "${includePath}"\n`);
-                    fix.diagnostics = [diagnostic];
-                    fix.isPreferred = unknownTypes.size === 1 && definitions.length === 1;
+                    fix.diagnostics = [target.diagnostic];
+                    fix.isPreferred = unknownTypes.length === 1 && definitions.length === 1;
                     actions.push(fix);
                     includeSet.add(includePath);
                 }
@@ -124,6 +130,8 @@ export class ThriftRefactorCodeActionProvider {
     ]);
 
     private static readonly UNKNOWN_TYPE_CODES = UNKNOWN_TYPE_DIAGNOSTIC_CODES;
+
+    private static readonly TYPE_REFERENCE_PATTERN = /^([A-Za-z_][A-Za-z0-9_]*\.)?([A-Za-z_][A-Za-z0-9_]*)$/;
 
     private addDuplicateFieldIdQuickFixes(
         document: vscode.TextDocument,
@@ -275,8 +283,9 @@ export class ThriftRefactorCodeActionProvider {
         document: vscode.TextDocument,
         range: vscode.Range | vscode.Selection,
         context: vscode.CodeActionContext
-    ): Map<string, vscode.Diagnostic> {
-        const targets = new Map<string, vscode.Diagnostic>();
+    ): Array<{name: string; namespace?: string; diagnostic: vscode.Diagnostic}> {
+        const targets: Array<{name: string; namespace?: string; diagnostic: vscode.Diagnostic}> = [];
+        const seen = new Set<string>();
         const diagnostics = context?.diagnostics ?? [];
         for (const diagnostic of diagnostics) {
             const code = this.getDiagnosticCode(diagnostic);
@@ -292,9 +301,11 @@ export class ThriftRefactorCodeActionProvider {
             } catch {
                 continue;
             }
-            for (const name of this.extractTypeNames(text)) {
-                if (!targets.has(name)) {
-                    targets.set(name, diagnostic);
+            for (const ref of this.extractTypeReferences(text)) {
+                const key = `${ref.namespace ?? ''}.${ref.name}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    targets.push({...ref, diagnostic});
                 }
             }
         }
@@ -306,8 +317,8 @@ export class ThriftRefactorCodeActionProvider {
      * 过滤掉容器关键字与基本类型，并跳过命名空间别名（紧跟 `.` 的标识符）。
      * 使用 angle-bracket 深度追踪替代正则处理嵌套泛型。
      */
-    private extractTypeNames(text: string): string[] {
-        const names: string[] = [];
+    private extractTypeReferences(text: string): Array<{name: string; namespace?: string}> {
+        const refs: Array<{name: string; namespace?: string}> = [];
         const seen = new Set<string>();
         const collectNames = (typeExpr: string): void => {
             const cleaned = typeExpr.trim();
@@ -319,18 +330,20 @@ export class ThriftRefactorCodeActionProvider {
                 }
                 return;
             }
-            // Plain type reference: extract the last dot-separated part
-            const parts = cleaned.split('.');
-            const name = parts[parts.length - 1].trim();
-            if (name.length > 0 &&
-                !ThriftRefactorCodeActionProvider.NON_TYPE_TOKENS.has(name) &&
-                !seen.has(name)) {
-                seen.add(name);
-                names.push(name);
+            const match = ThriftRefactorCodeActionProvider.TYPE_REFERENCE_PATTERN.exec(cleaned);
+            if (match === null) {
+                return;
+            }
+            const namespace = match[1]?.slice(0, -1);
+            const name = match[2];
+            const key = `${namespace ?? ''}.${name}`;
+            if (!ThriftRefactorCodeActionProvider.NON_TYPE_TOKENS.has(name) && !seen.has(key)) {
+                seen.add(key);
+                refs.push(namespace === undefined ? {name} : {name, namespace});
             }
         };
         collectNames(text);
-        return names;
+        return refs;
     }
 
     /**
@@ -393,15 +406,15 @@ export class ThriftRefactorCodeActionProvider {
      */
     private async buildWorkspaceTypeMap(
         token?: vscode.CancellationToken
-    ): Promise<Map<string, vscode.Uri[]>> {
-        const typeMap = new Map<string, vscode.Uri[]>();
+    ): Promise<Map<string, Array<{uri: vscode.Uri; namespace?: string}>>> {
+        const typeMap = new Map<string, Array<{uri: vscode.Uri; namespace?: string}>>();
         if (this.workspaceIndex !== undefined) {
             for (const symbol of this.workspaceIndex.getAllSymbols()) {
                 if (typeof token !== 'undefined' && token.isCancellationRequested) {
                     break;
                 }
                 const uris = typeMap.get(symbol.name) ?? [];
-                uris.push(symbol.uri);
+                uris.push({uri: symbol.uri, namespace: symbol.namespace});
                 typeMap.set(symbol.name, uris);
             }
             return typeMap;
@@ -416,6 +429,10 @@ export class ThriftRefactorCodeActionProvider {
             try {
                 const text = await readThriftFile(file);
                 const ast = ThriftParser.parseContentWithCache(file.toString(), text);
+                const namespaceNode = ast.body.find((node): node is nodes.Namespace =>
+                    node.type === nodes.ThriftNodeType.Namespace
+                );
+                const namespace = namespaceNode?.namespace;
                 for (const node of collectTopLevelTypes(ast)) {
                     if (node.name === undefined || node.name === '') { continue; }
                     if (node.type === nodes.ThriftNodeType.Struct ||
@@ -429,7 +446,7 @@ export class ThriftRefactorCodeActionProvider {
                             uris = [];
                             typeMap.set(node.name, uris);
                         }
-                        uris.push(file);
+                        uris.push({uri: file, namespace});
                     }
                 }
             } catch {
