@@ -5,6 +5,8 @@ import {ErrorHandler} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
 import {config} from '@tanzz/thrift-core';
 import {DefinitionLookup} from './definition/lookup';
+import {IndexedThriftSymbol} from './indexing/symbol-index';
+import {WorkspaceIndex} from './indexing/workspace-index';
 import {
     checkIncludeStatement,
     fileDeclaresNamespace,
@@ -25,10 +27,12 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
     private errorHandler: ErrorHandler;
 
     private definitionLookup: DefinitionLookup;
+    private readonly workspaceIndex: WorkspaceIndex | undefined;
 
     constructor(deps?: Partial<CoreDependencies>) {
         this.cacheManager = deps?.cacheManager ?? new CacheManager();
         this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
+        this.workspaceIndex = deps?.workspaceIndex;
 
         // 注册缓存配置
         this.cacheManager.registerCache('definition', {
@@ -128,7 +132,8 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
 
         // If clicked on the namespace itself, try to navigate to the include line for that namespace
         if (matchedNamespaced && isNamespaceClick && targetNamespace) {
-            const includeLoc = await findIncludeForNamespace(document, targetNamespace);
+            const includeLoc = this.workspaceIndex?.findIncludeForNamespace(document.uri, targetNamespace) ??
+                await findIncludeForNamespace(document, targetNamespace);
             if (includeLoc) {
                 return includeLoc;
             }
@@ -143,7 +148,8 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         }
 
         // Search in included files
-        const includedFiles = getIncludedFiles(document, this.errorHandler);
+        const includedFiles = this.workspaceIndex?.getIncludedUris(document.uri) ??
+            getIncludedFiles(document, this.errorHandler);
         const decoder = new TextDecoder('utf-8');
         for (const includedFile of includedFiles) {
             try {
@@ -152,6 +158,8 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
                 let text = '';
                 if (openDoc) {
                     text = openDoc.getText();
+                } else if (this.workspaceIndex !== undefined) {
+                    text = await this.workspaceIndex.getText(includedFile);
                 } else {
                     const content = await vscode.workspace.fs.readFile(includedFile);
                     text = decoder.decode(content);
@@ -183,18 +191,37 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
 
         // If namespaced type is used but corresponding include is missing, do NOT fallback to workspace
         if (targetNamespace) {
-            const includeLoc = await findIncludeForNamespace(document, targetNamespace);
+            const includeLoc = this.workspaceIndex?.findIncludeForNamespace(document.uri, targetNamespace) ??
+                await findIncludeForNamespace(document, targetNamespace);
             if (!includeLoc) {
                 return undefined;
             }
         }
 
         // Search in all thrift files in workspace, return multiple candidates if any
-        const workspaceDefinitions = await this.definitionLookup.findDefinitionInWorkspace(searchTypeName);
+        const workspaceDefinitions = this.findDefinitionInWorkspaceIndex(searchTypeName, targetNamespace) ??
+            await this.definitionLookup.findDefinitionInWorkspace(searchTypeName);
         if (workspaceDefinitions !== undefined && workspaceDefinitions.length > 0) {
             return workspaceDefinitions; // VS Code will present multiple results to the user
         }
 
         return undefined;
+    }
+
+    private findDefinitionInWorkspaceIndex(
+        typeName: string,
+        namespace: string
+    ): vscode.Location[] | undefined {
+        if (this.workspaceIndex === undefined) {
+            return undefined;
+        }
+        const symbols = namespace.length > 0
+            ? this.workspaceIndex.findSymbolsByNameAndNamespace(typeName, namespace)
+            : this.workspaceIndex.findSymbolsByName(typeName);
+        return symbols.map(symbol => this.symbolToLocation(symbol));
+    }
+
+    private symbolToLocation(symbol: IndexedThriftSymbol): vscode.Location {
+        return new vscode.Location(symbol.uri, symbol.nameRange);
     }
 }

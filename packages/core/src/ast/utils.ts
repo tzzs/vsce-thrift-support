@@ -18,6 +18,7 @@ export function collectTopLevelTypes(doc: nodes.ThriftDocument): nodes.ThriftNod
         node.type === nodes.ThriftNodeType.Exception ||
         node.type === nodes.ThriftNodeType.Enum ||
         node.type === nodes.ThriftNodeType.Service ||
+        node.type === nodes.ThriftNodeType.Interaction ||
         node.type === nodes.ThriftNodeType.Typedef ||
         node.type === nodes.ThriftNodeType.Const
     );

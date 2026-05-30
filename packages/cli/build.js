@@ -2,6 +2,19 @@ const esbuild = require('esbuild');
 const path = require('path');
 
 const pkg = require('./package.json');
+const coreOutRoot = path.join(__dirname, '..', 'core', 'out');
+
+const workspaceCoreAlias = {
+    name: 'workspace-core-alias',
+    setup(build) {
+        build.onResolve({filter: /^@tanzz\/thrift-core$/}, () => ({
+            path: path.join(coreOutRoot, 'index.js')
+        }));
+        build.onResolve({filter: /^@tanzz\/thrift-core\//}, args => ({
+            path: path.join(coreOutRoot, args.path.slice('@tanzz/thrift-core/'.length))
+        }));
+    }
+};
 
 async function main() {
     await esbuild.build({
@@ -18,6 +31,7 @@ async function main() {
         define: {
             'CLI_VERSION': JSON.stringify(pkg.version),
         },
+        plugins: [workspaceCoreAlias],
         // @tanzz/thrift-core is NOT external → bundled into cli.js (zero runtime deps)
     });
     console.log('[esbuild] CLI bundled to dist/cli.js');

@@ -8,6 +8,7 @@ import {toVscodeRange} from '../utils/vscode-utils';
 import {makeLineRangeKey} from '@tanzz/thrift-core';
 import {PerformanceMonitor, performanceMonitor} from '../performance-monitor';
 import {ThriftIssue} from '@tanzz/thrift-core';
+import type {DiagnosticsRuleOptions} from '@tanzz/thrift-core';
 import {logDiagnostics} from './logger';
 import {
     buildBlockCache,
@@ -262,7 +263,8 @@ export class DiagnosticManager {
                                             partialLines,
                                             includedTypes,
                                             state.lastAnalysisContext,
-                                            memberRange ?? undefined
+                                            memberRange ?? undefined,
+                                            getDiagnosticsRuleOptions()
                                         );
                                     }
                                     if (!memberCacheHit) {
@@ -297,7 +299,7 @@ export class DiagnosticManager {
 
                         if (!usedPartial) {
                             const ast = ThriftParser.parseContentWithCache(doc.uri.toString(), text);
-                            issues = analyzeThriftAst(ast, lines, includedTypes);
+                            issues = analyzeThriftAst(ast, lines, includedTypes, undefined, undefined, getDiagnosticsRuleOptions());
                             state.lastAst = ast;
                             state.lastAnalysisContext = buildAnalysisContext(ast);
                             state.lastBlockCache = buildBlockCache(ast, lines, issues);
@@ -401,4 +403,10 @@ export class DiagnosticManager {
             processing: this.scheduler.getProcessingCount()
         };
     }
+}
+
+function getDiagnosticsRuleOptions(): DiagnosticsRuleOptions {
+    return {
+        rules: vscode.workspace.getConfiguration('thrift.diagnostics').get('rules', {})
+    };
 }

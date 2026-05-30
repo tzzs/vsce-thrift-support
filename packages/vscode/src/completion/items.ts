@@ -27,6 +27,22 @@ export const COMMON_METHODS = [
     'get', 'set', 'create', 'update', 'delete', 'find', 'list'
 ];
 
+export const ANNOTATION_KEYS = [
+    'go.tag',
+    'java.swift.name',
+    'cpp.type',
+    'deprecated',
+    'doc'
+];
+
+export const ANNOTATION_VALUES = [
+    'true',
+    'false',
+    'required',
+    'optional',
+    'readonly'
+];
+
 /**
  * 添加类型补全（基本类型 + 容器 + 用户定义类型）。
  * @param completions 补全列表容器
@@ -55,6 +71,18 @@ export function addEnumValueCompletions(completions: vscode.CompletionItem[], va
     values.forEach((value) => {
         const item = new vscode.CompletionItem(value, vscode.CompletionItemKind.EnumMember);
         item.detail = 'Enum value';
+        completions.push(item);
+    });
+}
+
+export function addAnnotationCompletions(completions: vscode.CompletionItem[], suggestValues: boolean) {
+    const source = suggestValues ? ANNOTATION_VALUES : ANNOTATION_KEYS;
+    source.forEach((value) => {
+        const item = new vscode.CompletionItem(
+            value,
+            suggestValues ? vscode.CompletionItemKind.Value : vscode.CompletionItemKind.Property
+        );
+        item.detail = suggestValues ? 'Annotation value' : 'Annotation key';
         completions.push(item);
     });
 }

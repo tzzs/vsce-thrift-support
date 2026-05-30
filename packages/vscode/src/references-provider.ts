@@ -9,6 +9,7 @@ import {AstCache} from './references/ast-cache';
 import {ThriftFileList} from './references/file-list';
 import {findReferencesInDocument} from './references/reference-search';
 import {getSymbolType} from './references/symbol-type';
+import {WorkspaceIndex} from './indexing/workspace-index';
 
 /**
  * ThriftReferencesProvider：提供引用查找与跨文件扫描。
@@ -20,6 +21,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
     // 缓存管理器
     private cacheManager: CacheManager;
     private errorHandler: ErrorHandler;
+    private readonly workspaceIndex: WorkspaceIndex | undefined;
 
     // AST缓存，用于存储已解析的AST以避免重复解析
     private astCache: AstCache;
@@ -27,6 +29,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
     constructor(deps?: Partial<CoreDependencies>) {
         this.cacheManager = deps?.cacheManager ?? new CacheManager();
         this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
+        this.workspaceIndex = deps?.workspaceIndex;
         this.fileList = new ThriftFileList(config.references.fileListUpdateIntervalMs);
         this.astCache = new AstCache(config.references.astCacheTtlMs);
 
@@ -118,7 +121,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                 }
 
                 const text = await this.errorHandler.wrapAsync(
-                    () => readThriftFile(file),
+                    () => this.readIndexedOrWorkspaceFile(file),
                     {
                         component: 'ThriftReferencesProvider',
                         operation: 'readThriftFile',
@@ -188,7 +191,17 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
      * 获取工作区 Thrift 文件列表（带节流缓存）。
      */
     private async getThriftFiles(): Promise<vscode.Uri[]> {
+        if (this.workspaceIndex !== undefined) {
+            return this.workspaceIndex.getAllFiles();
+        }
         return this.fileList.getFiles();
+    }
+
+    private async readIndexedOrWorkspaceFile(uri: vscode.Uri): Promise<string> {
+        if (this.workspaceIndex !== undefined) {
+            return this.workspaceIndex.getText(uri);
+        }
+        return readThriftFile(uri);
     }
 }
 

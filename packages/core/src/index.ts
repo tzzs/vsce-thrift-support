@@ -12,6 +12,10 @@ export {createField, createDocument, createStructBlock, createEnumBlock, createS
 export {sliceTextByRange} from './ast/text-utils';
 export {positionInRange, rangeSize, findSmallestNodeAtPosition, collectIncludes, collectTopLevelTypes, nodePathFromLeaf, walkNodes} from './ast/utils';
 
+// Refactor helpers
+export {inferExtractTypeTarget, buildExtractTypeEdits, inferMoveTypeTarget} from './refactor/type-refactor';
+export type {ExtractTypeEdits, ExtractTypeTarget, MoveTypeTarget, PositionLike, RangeLike} from './refactor/type-refactor';
+
 // Formatter
 export {ThriftFormatter} from './formatter/index';
 export {formatThriftContent} from './formatter/formatter-core';
@@ -20,6 +24,8 @@ export {formatThriftContent} from './formatter/formatter-core';
 export {DIAGNOSTIC_CODES, UNKNOWN_TYPE_DIAGNOSTIC_CODES} from './diagnostics/diagnostic-codes';
 export type {DiagnosticCode} from './diagnostics/diagnostic-codes';
 export {analyzeThriftAst, analyzeThriftText} from './diagnostics/rules/analyzer';
+export {DIAGNOSTIC_RULES, getDiagnosticRule, applyDiagnosticRuleOptions} from './diagnostics/rules/registry';
+export type {DiagnosticRuleMetadata, DiagnosticRuleOverride, DiagnosticRuleSeverityName, DiagnosticsRuleOptions} from './diagnostics/rules/registry';
 export {collectTypesFromAst} from './diagnostics/include-resolver';
 export type {ThriftIssue, BlockCacheValue, MemberCacheValue, BlockAstCacheEntry, BlockCache, MemberCache, MemberCacheByBlock} from './diagnostics/types';
 export {AnalysisContext, collectIncludeAliasesFromAst, buildAnalysisContext} from './diagnostics/rules/analysis-context';

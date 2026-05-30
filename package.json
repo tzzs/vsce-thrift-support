@@ -219,6 +219,45 @@
           "type": "boolean",
           "default": false,
           "description": "Enable verbose diagnostics logging"
+        },
+        "thrift.diagnostics.rules": {
+          "type": "object",
+          "default": {},
+          "description": "Override diagnostics by rule id. Values may be false/off to disable, a severity string (error, warning, information, hint), or an object with enabled/severity.",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "off",
+                  "error",
+                  "warning",
+                  "information",
+                  "hint"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "severity": {
+                    "type": "string",
+                    "enum": [
+                      "error",
+                      "warning",
+                      "information",
+                      "hint"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
         }
       }
     }
