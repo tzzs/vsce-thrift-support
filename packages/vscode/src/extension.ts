@@ -4,7 +4,6 @@ import {createCoreDependencies} from './utils/dependencies';
 import {registerProviders} from './setup';
 import {registerCommands} from './commands';
 import {MemoryMonitor} from '@tanzz/thrift-core';
-import {performanceMonitor} from './performance-monitor';
 
 /**
  * 扩展入口，注册所有能力与命令。
@@ -21,29 +20,8 @@ export function activate(context: vscode.ExtensionContext) {
     // 初始化内存管理系统
     initializeMemoryManagement(context, errorHandler);
 
-    // 注册性能监控相关命令
-    registerPerformanceCommands(context, errorHandler);
-
     registerProviders(context, deps);
     registerCommands(context, deps);
-}
-
-/**
- * 注册性能相关的命令
- */
-function registerPerformanceCommands(context: vscode.ExtensionContext, errorHandler: ErrorHandler): void {
-    context.subscriptions.push(
-        vscode.commands.registerCommand('thrift.showPerformanceReport', async () => {
-            try {
-                await performanceMonitor.showPerformanceReport();
-            } catch (error) {
-                errorHandler.handleError(error, {
-                    component: 'Extension',
-                    operation: 'showPerformanceReport'
-                });
-            }
-        })
-    );
 }
 
 /**
@@ -58,27 +36,6 @@ function initializeMemoryManagement(context: vscode.ExtensionContext, errorHandl
         const memoryCheckInterval = setInterval(() => {
             memoryMonitor.recordMemoryUsage();
         }, 120000); // 每2分钟检查一次
-
-        // 注册内存相关的命令
-        context.subscriptions.push(
-            vscode.commands.registerCommand('thrift.showMemoryReport', () => {
-                try {
-                    const report = memoryMonitor.getMemoryReport();
-                    const panel = vscode.window.createWebviewPanel(
-                        'thriftMemoryReport',
-                        'Thrift Memory Report',
-                        vscode.ViewColumn.One,
-                        {}
-                    );
-                    panel.webview.html = `<pre>${report}</pre>`;
-                } catch (error) {
-                    errorHandler.handleError(error, {
-                        component: 'Extension',
-                        operation: 'showMemoryReport'
-                    });
-                }
-            })
-        );
 
         // 在扩展激活时立即记录一次内存使用情况
         memoryMonitor.recordMemoryUsage();

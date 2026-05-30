@@ -141,6 +141,12 @@ Create a `.thriftrc.json` in your project root; the CLI searches upward automati
 - Command Palette:
     - `Thrift: Format Document`
     - `Thrift: Format Selection`
+    - `Thrift: Extract Type (typedef)`
+    - `Thrift: Move Type to File...`
+    - `Thrift: Show Performance Report`
+    - `Thrift: Clear Performance Data`
+    - `Thrift: Show Memory Report`
+    - `Thrift: Force Garbage Collection`
 
 ### Code Navigation
 

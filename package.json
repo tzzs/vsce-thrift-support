@@ -10,7 +10,8 @@
     "url": "https://github.com/tzzs/vsce-thrift-support.git"
   },
   "engines": {
-    "vscode": "^1.75.0"
+    "vscode": "^1.75.0",
+    "node": ">=24 <25"
   },
   "packageManager": "pnpm@10.25.0",
   "categories": [
@@ -34,6 +35,17 @@
     "vscode extension"
   ],
   "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:thrift",
+    "onCommand:thrift.format.document",
+    "onCommand:thrift.format.selection",
+    "onCommand:thrift.refactor.extractType",
+    "onCommand:thrift.refactor.moveType",
+    "onCommand:thrift.showPerformanceReport",
+    "onCommand:thrift.clearPerformanceData",
+    "onCommand:thrift.showMemoryReport",
+    "onCommand:thrift.forceGarbageCollection"
+  ],
   "files": [
     "dist/**",
     "syntaxes/**",
@@ -75,8 +87,70 @@
         "command": "thrift.format.selection",
         "title": "Format Selection",
         "category": "Thrift"
+      },
+      {
+        "command": "thrift.refactor.extractType",
+        "title": "Extract Type (typedef)",
+        "category": "Thrift"
+      },
+      {
+        "command": "thrift.refactor.moveType",
+        "title": "Move Type to File...",
+        "category": "Thrift"
+      },
+      {
+        "command": "thrift.showPerformanceReport",
+        "title": "Show Performance Report",
+        "category": "Thrift"
+      },
+      {
+        "command": "thrift.clearPerformanceData",
+        "title": "Clear Performance Data",
+        "category": "Thrift"
+      },
+      {
+        "command": "thrift.showMemoryReport",
+        "title": "Show Memory Report",
+        "category": "Thrift"
+      },
+      {
+        "command": "thrift.forceGarbageCollection",
+        "title": "Force Garbage Collection",
+        "category": "Thrift"
       }
     ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "thrift.format.document",
+          "when": "editorLangId == thrift"
+        },
+        {
+          "command": "thrift.format.selection",
+          "when": "editorLangId == thrift"
+        },
+        {
+          "command": "thrift.refactor.extractType",
+          "when": "editorLangId == thrift"
+        },
+        {
+          "command": "thrift.refactor.moveType",
+          "when": "editorLangId == thrift"
+        },
+        {
+          "command": "thrift.showPerformanceReport"
+        },
+        {
+          "command": "thrift.clearPerformanceData"
+        },
+        {
+          "command": "thrift.showMemoryReport"
+        },
+        {
+          "command": "thrift.forceGarbageCollection"
+        }
+      ]
+    },
     "configuration": {
       "type": "object",
       "title": "Thrift Support Configuration",
