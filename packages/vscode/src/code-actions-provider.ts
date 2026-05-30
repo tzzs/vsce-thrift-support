@@ -12,6 +12,7 @@ import {config} from '@tanzz/thrift-core';
 import {ErrorHandler} from '@tanzz/thrift-core';
 import {UNKNOWN_TYPE_DIAGNOSTIC_CODES} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
+import {WorkspaceIndex} from './indexing/workspace-index';
 
 /**
  * ThriftRefactorCodeActionProvider：提供重构与 Quick Fix。
@@ -23,9 +24,11 @@ export class ThriftRefactorCodeActionProvider {
         vscode.CodeActionKind.QuickFix
     ];
     private errorHandler: ErrorHandler;
+    private readonly workspaceIndex: WorkspaceIndex | undefined;
 
     constructor(deps?: Partial<CoreDependencies>) {
         this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
+        this.workspaceIndex = deps?.workspaceIndex;
     }
 
     /**
@@ -248,6 +251,17 @@ export class ThriftRefactorCodeActionProvider {
         token?: vscode.CancellationToken
     ): Promise<Map<string, vscode.Uri[]>> {
         const typeMap = new Map<string, vscode.Uri[]>();
+        if (this.workspaceIndex !== undefined) {
+            for (const symbol of this.workspaceIndex.getAllSymbols()) {
+                if (typeof token !== 'undefined' && token.isCancellationRequested) {
+                    break;
+                }
+                const uris = typeMap.get(symbol.name) ?? [];
+                uris.push(symbol.uri);
+                typeMap.set(symbol.name, uris);
+            }
+            return typeMap;
+        }
         const files = await vscode.workspace.findFiles(
             config.filePatterns.thrift, undefined, undefined, token
         );
