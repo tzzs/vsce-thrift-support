@@ -4,23 +4,24 @@
 
 ## 版本要求（务必统一）
 
-- Node.js: 22.18.0（与 CI 一致）
+- Node.js: 24.x LTS（推荐 24.16.0，与 `.nvmrc` / `.node-version` 一致）
+- pnpm: 10.25.0（由 package.json 的 packageManager 固定）
 - VS Code 引擎: ^1.75.0（与 package.json engines.vscode 一致）
-- TypeScript: ^4.9.4（与 devDependencies 一致）
-- @vscode/vsce: ^3.6.0（用于本地打包/发布，已从旧版 vsce 升级）
+- TypeScript: ^5.6.0（与 devDependencies 一致）
+- @vscode/vsce: ^3.9.1（用于本地打包/发布）
 
 提示：如本地 Node 版本不同，可能导致安装或构建失败（如 undici 要求 Node >= 20.18.1）。建议使用 nvm-windows/Volta 等工具固定
-Node 版本。
+Node 版本。仓库提供 `.nvmrc` 和 `.node-version`，切换到 Node 24.16.0 后执行 `corepack enable`，再用 pnpm 安装依赖。
 
 ### vsce 升级说明
 
-项目已从旧版 `vsce` 升级到新版 `@vscode/vsce` 3.6.0，主要变化：
+项目已从旧版 `vsce` 升级到新版 `@vscode/vsce`，主要变化：
 
 - 包名从 `vsce` 更改为 `@vscode/vsce`
 - 新增安全性增强：打包时会扫描潜在的敏感信息（API 密钥等）
 - 改进标签处理：支持标签名包含点号
 - 更好的错误处理和依赖项更新
-- 要求 Node.js >= 20.x.x（本项目使用 22.18.0 满足要求）
+- 要求 Node.js >= 20.x.x（本项目使用 Node 24 LTS 满足要求）
 
 ## 项目架构与设计
 
@@ -382,7 +383,8 @@ npm run coverage
 
 ```bash
 # 安装依赖（首次或依赖变更后）
-npm install
+corepack enable
+pnpm install
 
 # 编译 TypeScript
 npm run compile
@@ -446,7 +448,9 @@ npm run test:const
 
 ### 发布流程 Checklist
 
-1) 确保本地环境一致（Node 22.18.0），安装依赖并通过所有检查：
+1) 确保本地环境一致（Node 24.x LTS，推荐 24.16.0），安装依赖并通过所有检查：
+    - corepack enable
+    - pnpm install
     - npm run lint
     - npm run build
     - npm test 或 npm run test:all
@@ -475,6 +479,7 @@ npm run package
 
 ## 常见问题排查
 
-- Node 版本不一致导致 npm ci/install 报错：请切换到 Node 22.18.0 再执行。
-- package-lock.json 与 package.json 不同步：在 Node 22.18.0 下执行 `npm install` 修复锁文件并提交。
+- Node 版本不一致导致 install/build 报错：请切换到 Node 24.x LTS 再执行。
+- pnpm shim 缺失或损坏：在 Node 24.x LTS 下执行 `corepack enable`，然后重新运行 `pnpm install`。
+- lockfile 与 package.json 不同步：在 Node 24.x LTS 下执行 `pnpm install` 修复锁文件并提交。
 - 市场命名空间：由 package.json 的 publisher（当前为 tanzz）与 name 决定，令牌需具备对应命名空间的发布权限。
