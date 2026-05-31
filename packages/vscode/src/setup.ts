@@ -19,6 +19,7 @@ import {registerCallHierarchyProvider} from './call-hierarchy-provider';
 import {registerTypeHierarchyProvider} from './type-hierarchy-provider';
 import {registerDocumentHighlightProvider} from './document-highlight-provider';
 import {setupIncrementalParsingTracking} from './utils/incremental-parser';
+import {registerIncludeDocumentLinkProvider} from './include-document-link-provider';
 
 /**
  * 注册所有语言特性提供者。
@@ -72,6 +73,9 @@ export function registerProviders(context: vscode.ExtensionContext, deps: CoreDe
 
     // Register completion provider
     registerCompletionProvider(context, deps);
+
+    // Register include document links
+    registerIncludeDocumentLinkProvider(context, deps);
 
     // Register document symbol provider
     registerDocumentSymbolProvider(context, deps);

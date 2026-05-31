@@ -33,7 +33,7 @@ export function runLint(files: string[], args: ParsedArgs, config: ThriftCliConf
             const lines = content.split('\n');
             const ast = ThriftParser.parseContentWithCache(filePath, content);
             const includedTypes = resolveIncludeTypes(ast, filePath, args.includePaths);
-            issues = analyzeThriftAst(ast, lines, includedTypes);
+            issues = analyzeThriftAst(ast, lines, includedTypes, undefined, undefined, config.diagnostics);
         } catch (error) {
             process.stderr.write(`Error: Analysis failed for "${filePath}": ${error instanceof Error ? error.message : String(error)}\n`);
             return 3;

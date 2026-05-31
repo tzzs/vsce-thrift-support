@@ -61,6 +61,42 @@ class CodeAction {
     }
 }
 
+const CompletionItemKind = {
+    Text: 0,
+    Method: 1,
+    Function: 2,
+    Constructor: 3,
+    Field: 4,
+    Variable: 5,
+    Class: 6,
+    Interface: 7,
+    Module: 8,
+    Property: 9,
+    Unit: 10,
+    Value: 11,
+    Enum: 12,
+    Keyword: 13,
+    Snippet: 14,
+    Color: 15,
+    File: 16,
+    Reference: 17,
+    Folder: 18,
+    EnumMember: 19
+};
+
+class CompletionItem {
+    constructor(label, kind) {
+        this.label = label;
+        this.kind = kind;
+    }
+}
+
+class SnippetString {
+    constructor(value) {
+        this.value = value;
+    }
+}
+
 // --- Phase 6A/6B/6C/6D mocks ---
 
 class SemanticTokensLegend {
@@ -259,6 +295,8 @@ const commonDefaults = {
     Selection,
     CodeActionKind,
     CodeAction,
+    CompletionItemKind,
+    CompletionItem,
     window: {
         activeTextEditor: null,
         showInformationMessage: () => Promise.resolve(),
@@ -285,6 +323,7 @@ const commonDefaults = {
             }
         }),
         registerDocumentSemanticTokensProvider: () => ({dispose: () => {}}),
+        registerDocumentLinkProvider: () => ({dispose: () => {}}),
         registerCallHierarchyProvider: () => ({dispose: () => {}}),
         registerTypeHierarchyProvider: () => ({dispose: () => {}}),
         registerDocumentHighlightProvider: () => ({dispose: () => {}})
@@ -472,6 +511,9 @@ Object.assign(vscode, {
     Selection,
     CodeActionKind,
     CodeAction,
+    CompletionItemKind,
+    CompletionItem,
+    SnippetString,
     reset: () => {
         // Restore core classes (in case they were overridden)
         vscode.Position = Position;
@@ -483,6 +525,8 @@ Object.assign(vscode, {
         vscode.Selection = Selection;
         vscode.CodeAction = CodeAction;
         vscode.CodeActionKind = CodeActionKind;
+        vscode.CompletionItem = CompletionItem;
+        vscode.CompletionItemKind = CompletionItemKind;
         vscode.languages = commonDefaults.languages;
 
         // Reset workspace to a fresh snapshot so tests always start from the same state.

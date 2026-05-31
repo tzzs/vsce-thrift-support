@@ -1,4 +1,19 @@
 const esbuild = require('esbuild');
+const path = require('path');
+
+const coreOutRoot = path.join(__dirname, 'packages/core/out');
+
+const workspaceCoreAlias = {
+    name: 'workspace-core-alias',
+    setup(build) {
+        build.onResolve({filter: /^@tanzz\/thrift-core$/}, () => ({
+            path: path.join(coreOutRoot, 'index.js')
+        }));
+        build.onResolve({filter: /^@tanzz\/thrift-core\//}, args => ({
+            path: path.join(coreOutRoot, args.path.slice('@tanzz/thrift-core/'.length))
+        }));
+    }
+};
 
 const sharedConfig = {
     entryPoints: ['packages/vscode/src/extension.ts'],
@@ -11,6 +26,7 @@ const sharedConfig = {
     sourcemap: true,
     keepNames: true,
     minify: false,
+    plugins: [workspaceCoreAlias],
 };
 
 async function main() {
