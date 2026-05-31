@@ -197,7 +197,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         return this.fileList.getFiles();
     }
 
-    private async readIndexedOrWorkspaceFile(uri: vscode.Uri): Promise<string> {
+    private async readIndexedOrWorkspaceFile(uri: vscode.Uri): Promise<string | undefined> {
         if (this.workspaceIndex !== undefined) {
             return this.workspaceIndex.getText(uri);
         }

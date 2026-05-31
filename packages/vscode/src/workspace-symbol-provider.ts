@@ -213,6 +213,9 @@ export class ThriftWorkspaceSymbolProvider {
         );
 
         const text = await readThriftFile(uri);
+        if (text === undefined) {
+            return [];
+        }
         const ast = ThriftParser.parseContentWithCache(uri.toString(), text);
         const symbols = this.parseSymbolsFromAst(ast, uri);
 

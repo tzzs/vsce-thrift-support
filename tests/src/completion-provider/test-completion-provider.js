@@ -58,6 +58,40 @@ describe('completion-provider', () => {
     it('should pass parsing functionality tests', async () => {
         await run();
     });
+
+    it('should suggest namespace-qualified workspace types', async () => {
+        const vscode = require('vscode');
+        const {ThriftCompletionProvider} = require('../../../out/completion/provider.js');
+        const text = [
+            'struct Local {',
+            '    1: required ',
+            '}'
+        ].join('\n');
+        const lines = text.split('\n');
+        const document = {
+            uri: vscode.Uri.file('/tmp/completion.thrift'),
+            languageId: 'thrift',
+            version: 1,
+            getText: () => text,
+            lineAt: (line) => ({text: lines[line] || ''})
+        };
+        const workspaceIndex = {
+            getAllSymbols: () => [
+                {name: 'RemoteUser', namespace: 'shared'}
+            ]
+        };
+        const provider = new ThriftCompletionProvider({workspaceIndex});
+
+        const completions = await provider.provideCompletionItems(
+            document,
+            new vscode.Position(1, '    1: required '.length),
+            {isCancellationRequested: false},
+            {}
+        );
+
+        const labels = completions.map(item => item.label);
+        assert.ok(labels.includes('shared.RemoteUser'), 'Expected namespace-qualified workspace type completion');
+    });
 });
 
 if (require.main === module) {

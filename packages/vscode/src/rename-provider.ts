@@ -8,8 +8,10 @@ import {CoreDependencies} from './utils/dependencies';
  */
 export class ThriftRenameProvider implements vscode.RenameProvider {
     private errorHandler: ErrorHandler;
+    private readonly deps?: Partial<CoreDependencies>;
 
     constructor(deps?: Partial<CoreDependencies>) {
+        this.deps = deps;
         this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
     }
 
@@ -51,7 +53,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
             }
 
             // Use the references provider to find all occurrences
-            const referencesProvider = new ThriftReferencesProvider();
+            const referencesProvider = new ThriftReferencesProvider(this.deps);
             const safeToken = token ?? ({isCancellationRequested: false} as vscode.CancellationToken);
             const references = await referencesProvider.provideReferences(
                 document,
