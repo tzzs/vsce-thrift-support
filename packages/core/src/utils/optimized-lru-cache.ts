@@ -21,7 +21,7 @@ interface CacheItem<V> {
 }
 
 export class AdvancedLruCache<K, V> {
-    private readonly maxSize: number;
+    private maxSize: number;
     private readonly ttlMs: number;
     private readonly lruK: number;
     private readonly evictionThreshold: number;
@@ -185,6 +185,28 @@ export class AdvancedLruCache<K, V> {
             return 0;
         }
         return this.entries.size / this.maxSize;
+    }
+
+    /**
+     * Adjust cache capacity without discarding all existing entries.
+     */
+    resize(maxSize: number): void {
+        this.maxSize = Math.max(0, maxSize);
+        if (this.maxSize === 0) {
+            this.clear();
+            return;
+        }
+        while (this.entries.size > this.maxSize) {
+            const keyToRemove = this.selectKeyForEviction();
+            if (keyToRemove === undefined) {
+                break;
+            }
+            const record = this.entries.get(keyToRemove);
+            if (record) {
+                this.totalEstimatedSize -= record.estimatedSize;
+            }
+            this.entries.delete(keyToRemove);
+        }
     }
 
     private evictOverflow(): void {

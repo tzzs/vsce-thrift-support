@@ -118,4 +118,26 @@ describe('Memory Aware Cache Manager', () => {
         cacheManager.clear('clear-test');
         assert.strictEqual(cacheManager.get('clear-test', 'key1'), undefined, 'Cache should be cleared');
     });
+
+    it('should preserve cache entries when adjusting capacity', () => {
+        const cacheManager = CacheManager.getInstance();
+
+        cacheManager.registerCache('resize-test', {
+            maxSize: 10,
+            ttl: 10000
+        });
+
+        cacheManager.set('resize-test', 'key1', 'value1');
+        cacheManager.set('resize-test', 'key2', 'value2');
+        const statsBefore = cacheManager.getCacheStats('resize-test');
+        assert.strictEqual(cacheManager.get('resize-test', 'key1'), 'value1');
+
+        cacheManager.adjustCacheCapacity(9000);
+
+        assert.strictEqual(cacheManager.get('resize-test', 'key1'), 'value1');
+        assert.strictEqual(cacheManager.get('resize-test', 'key2'), 'value2');
+        const statsAfter = cacheManager.getCacheStats('resize-test');
+        assert.ok(statsAfter.size > 0, 'Resized cache should retain existing entries');
+        assert.ok(statsAfter.hitRate >= statsBefore.hitRate, 'Resize should not reset cache hit statistics');
+    });
 });

@@ -241,62 +241,74 @@ export class DiagnosticManager {
                                 if (cachedBlock && cachedBlock.hash === blockHash) {
                                     issues = cachedBlock.issues;
                                     memberRange = findBestContainingMemberRangeForChanges(state.lastAst, changeRanges);
+                                    usedPartial = true;
                                 } else {
                                     let memberCacheHit = false;
                                     const partialLines = buildPartialLines(lines, blockRange.startLine, blockRange.endLine);
                                     const partialText = partialLines.join('\n');
                                     const partialKey = `${doc.uri.toString()}#partial:${blockRange.startLine}-${blockRange.endLine}`;
-                                    const partialAst = ThriftParser.parseContentWithCache(partialKey, partialText);
-                                    const blockNode = findContainingNode(partialAst, blockRange);
-                                    memberRange = findBestContainingMemberRangeForChanges(partialAst, changeRanges);
-                                    const memberKey = memberRange ? makeLineRangeKey(memberRange) : null;
-                                    const memberHash = memberRange
-                                        ? hashText(partialLines.slice(memberRange.startLine, memberRange.endLine + 1).join('\n'))
-                                        : null;
-                                    const cachedMember = memberKey !== null
-                                        ? state.lastMemberCache?.get(blockKey)?.get(memberKey)
-                                        : null;
+                                    try {
+                                        const partialAst = ThriftParser.parseContentWithCache(partialKey, partialText);
+                                        const blockNode = findContainingNode(partialAst, blockRange);
+                                        memberRange = findBestContainingMemberRangeForChanges(partialAst, changeRanges);
+                                        const memberKey = memberRange ? makeLineRangeKey(memberRange) : null;
+                                        const memberHash = memberRange
+                                            ? hashText(partialLines.slice(memberRange.startLine, memberRange.endLine + 1).join('\n'))
+                                            : null;
+                                        const cachedMember = memberKey !== null
+                                            ? state.lastMemberCache?.get(blockKey)?.get(memberKey)
+                                            : null;
 
-                                    if (cachedMember && cachedMember.hash === memberHash) {
-                                        issues = cachedMember.issues;
-                                        memberCacheHit = true;
-                                    } else {
-                                        issues = analyzeThriftAst(
-                                            partialAst,
-                                            partialLines,
-                                            includedTypes,
-                                            state.lastAnalysisContext,
-                                            memberRange ?? undefined,
-                                            getDiagnosticsRuleOptions()
-                                        );
-                                    }
-                                    if (!memberCacheHit) {
-                                        state.lastBlockCache ??= createBlockCache();
-                                        let blockIssues = issues;
-                                        if (blockRange !== null) {
-                                            const blockRangeValue = blockRange;
-                                            blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, blockRangeValue));
+                                        if (cachedMember && cachedMember.hash === memberHash) {
+                                            issues = cachedMember.issues;
+                                            memberCacheHit = true;
+                                        } else {
+                                            issues = analyzeThriftAst(
+                                                partialAst,
+                                                partialLines,
+                                                includedTypes,
+                                                state.lastAnalysisContext,
+                                                memberRange ?? undefined,
+                                                getDiagnosticsRuleOptions()
+                                            );
                                         }
-                                        state.lastBlockCache.set(blockKey, {hash: blockHash, issues: blockIssues});
-                                        state.lastMemberCache ??= createMemberCacheByBlock();
-                                        if (blockNode !== null) {
-                                            state.lastMemberCache.set(blockKey, buildMemberCacheForNode(blockNode, partialLines, issues));
+                                        if (!memberCacheHit) {
+                                            state.lastBlockCache ??= createBlockCache();
+                                            let blockIssues = issues;
+                                            if (blockRange !== null) {
+                                                const blockRangeValue = blockRange;
+                                                blockIssues = issues.filter(issue => rangeIntersectsLineRange(issue.range, blockRangeValue));
+                                            }
+                                            state.lastBlockCache.set(blockKey, {hash: blockHash, issues: blockIssues});
+                                            state.lastMemberCache ??= createMemberCacheByBlock();
+                                            if (blockNode !== null) {
+                                                state.lastMemberCache.set(blockKey, buildMemberCacheForNode(blockNode, partialLines, issues));
+                                            }
+                                        } else if (memberKey !== null && memberRange && memberHash !== null) {
+                                            state.lastMemberCache ??= createMemberCacheByBlock();
+                                            const blockMembers = state.lastMemberCache.get(blockKey) ?? createMemberCache();
+                                            blockMembers.set(memberKey, {range: memberRange, hash: memberHash, issues});
+                                            state.lastMemberCache.set(blockKey, blockMembers);
                                         }
-                                    } else if (memberKey !== null && memberRange && memberHash !== null) {
-                                        state.lastMemberCache ??= createMemberCacheByBlock();
-                                        const blockMembers = state.lastMemberCache.get(blockKey) ?? createMemberCache();
-                                        blockMembers.set(memberKey, {range: memberRange, hash: memberHash, issues});
-                                        state.lastMemberCache.set(blockKey, blockMembers);
-                                    }
 
-                                    if (blockNode !== null && state.lastAst !== undefined) {
-                                        mergeBlockIntoAst(state.lastAst, blockNode, blockRange);
-                                        state.blockAstCache = state.blockAstCache ?? new Map();
-                                        state.blockAstCache.set(blockKey, {hash: blockHash, node: blockNode});
-                                        state.lastAnalysisContext = buildAnalysisContext(state.lastAst);
+                                        if (blockNode !== null && state.lastAst !== undefined) {
+                                            mergeBlockIntoAst(state.lastAst, blockNode, blockRange);
+                                            state.blockAstCache = state.blockAstCache ?? new Map();
+                                            state.blockAstCache.set(blockKey, {hash: blockHash, node: blockNode});
+                                            state.lastAnalysisContext = buildAnalysisContext(state.lastAst);
+                                        }
+                                        usedPartial = true;
+                                    } catch (error) {
+                                        this.errorHandler.handleError(error, {
+                                            component: 'DiagnosticManager',
+                                            operation: 'parsePartialAst',
+                                            filePath: doc.uri.fsPath,
+                                            additionalInfo: {range: blockKey}
+                                        });
+                                        blockRange = null;
+                                        memberRange = null;
                                     }
                                 }
-                                usedPartial = true;
                             }
                         }
 

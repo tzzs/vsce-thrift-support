@@ -415,6 +415,9 @@ export class ThriftRefactorCodeActionProvider {
             }
             try {
                 const text = await readThriftFile(file);
+                if (text === undefined) {
+                    continue;
+                }
                 const ast = ThriftParser.parseContentWithCache(file.toString(), text);
                 for (const node of collectTopLevelTypes(ast)) {
                     if (node.name === undefined || node.name === '') { continue; }

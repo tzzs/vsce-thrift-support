@@ -17,6 +17,7 @@ import {logDiagnostics} from './logger';
  */
 export function registerDiagnostics(context: vscode.ExtensionContext, deps?: Partial<CoreDependencies>) {
     const diagnosticManager = new DiagnosticManager(deps?.errorHandler, deps?.performanceMonitor, deps?.workspaceIndex);
+    let activeEditorAnalysisTimeout: NodeJS.Timeout | undefined;
 
     const fileWatcher = deps?.fileWatcher ?? new ThriftFileWatcher();
 
@@ -85,11 +86,24 @@ export function registerDiagnostics(context: vscode.ExtensionContext, deps?: Par
         vscode.window.onDidChangeActiveTextEditor(editor => {
             if (editor && editor.document.languageId === 'thrift') {
                 logDiagnostics(`[Diagnostics] Active text editor changed to: ${path.basename(editor.document.uri.fsPath)}`);
-                setTimeout(() => {
+                if (activeEditorAnalysisTimeout !== undefined) {
+                    clearTimeout(activeEditorAnalysisTimeout);
+                }
+                activeEditorAnalysisTimeout = setTimeout(() => {
+                    activeEditorAnalysisTimeout = undefined;
                     diagnosticManager.scheduleAnalysis(editor.document, false, false, 'documentActivate');
                 }, 500);
             }
         }),
+
+        {
+            dispose: () => {
+                if (activeEditorAnalysisTimeout !== undefined) {
+                    clearTimeout(activeEditorAnalysisTimeout);
+                    activeEditorAnalysisTimeout = undefined;
+                }
+            }
+        },
 
         diagnosticManager
     );
