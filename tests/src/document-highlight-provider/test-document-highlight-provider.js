@@ -183,4 +183,31 @@ describe('document-highlight-provider', () => {
         assert.strictEqual(writes.length, 1);
         assert.ok(reads.length >= 1);
     });
+
+    it('service extends Read highlight lands on the extends name, not the child nameRange', () => {
+        // "service Child extends Base {" — Base starts at col 23
+        const text = [
+            'service Base {',
+            '  void ping()',
+            '}',
+            'service Child extends Base {',
+            '  void ping()',
+            '}'
+        ].join('\n');
+        const hl = highlightsFor(text, 'Base');
+        const reads = hl.filter(h => h.kind === vscode.DocumentHighlightKind.Read);
+        assert.ok(reads.length >= 1, 'expected at least one Read highlight for extends name');
+        // The Read highlight for the extends clause must NOT point to col 8 (where "Child" starts).
+        // "service Child extends Base {" → "Base" starts at character 22
+        const extendsRead = reads.find(h => h.range.start.line === 3);
+        assert.ok(extendsRead, 'expected a Read highlight on line 3 (the extends line)');
+        assert.notStrictEqual(
+            extendsRead.range.start.character, 8,
+            'Read highlight must not point to "Child" nameRange (col 8)'
+        );
+        assert.strictEqual(
+            extendsRead.range.start.character, 22,
+            'Read highlight must point to "Base" in extends clause (col 22)'
+        );
+    });
 });
