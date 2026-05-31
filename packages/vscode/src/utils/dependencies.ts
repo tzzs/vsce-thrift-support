@@ -1,4 +1,4 @@
-import {CacheManager} from '@tanzz/thrift-core';
+import {CacheManager, config} from '@tanzz/thrift-core';
 import {ErrorHandler} from '@tanzz/thrift-core';
 import {IncrementalTracker} from './incremental-tracker';
 import {ThriftFileWatcher} from './file-watcher';
@@ -15,18 +15,28 @@ export interface CoreDependencies {
     performanceMonitor: PerformanceMonitor;
     incrementalParserManager: IncrementalParserManager;
     memoryMonitor: MemoryMonitor;
-    workspaceIndex?: WorkspaceIndex;
+    workspaceIndex: WorkspaceIndex;
 }
 
 export function createCoreDependencies(): CoreDependencies {
     const errorHandler = new ErrorHandler();
+    const fileWatcher = new ThriftFileWatcher();
+    const workspaceIndex = new WorkspaceIndex({
+        createWatcher: (invalidate) => fileWatcher.createWatcherWithEvents(config.filePatterns.thrift, {
+            onCreate: invalidate,
+            onChange: invalidate,
+            onDelete: invalidate
+        })
+    });
+
     return {
         cacheManager: new CacheManager(),
         errorHandler,
-        fileWatcher: new ThriftFileWatcher(),
+        fileWatcher,
         incrementalTracker: IncrementalTracker.getInstance(),
         performanceMonitor: createPerformanceMonitor({errorHandler}),
         incrementalParserManager: new IncrementalParserManager(),
-        memoryMonitor: MemoryMonitor.getInstance()
+        memoryMonitor: MemoryMonitor.getInstance(),
+        workspaceIndex
     };
 }

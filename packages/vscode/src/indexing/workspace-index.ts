@@ -7,7 +7,7 @@ import {IndexedThriftSymbol, SymbolIndex} from './symbol-index';
 export interface WorkspaceIndexDeps {
     findFiles?: () => Thenable<vscode.Uri[]> | Promise<vscode.Uri[]>;
     readFile?: (uri: vscode.Uri) => Thenable<string> | Promise<string>;
-    createWatcher?: () => vscode.Disposable;
+    createWatcher?: (invalidate: (uri?: vscode.Uri) => void) => vscode.Disposable;
 }
 
 interface IndexedInclude {
@@ -30,7 +30,7 @@ export class WorkspaceIndex implements vscode.Disposable {
 
     constructor(private readonly deps: WorkspaceIndexDeps = {}) {
         if (deps.createWatcher) {
-            this.disposables.push(deps.createWatcher());
+            this.disposables.push(deps.createWatcher((uri?: vscode.Uri) => this.invalidate(uri)));
         }
     }
 
@@ -71,6 +71,16 @@ export class WorkspaceIndex implements vscode.Disposable {
 
     public getIncludedUris(uri: vscode.Uri): vscode.Uri[] {
         return [...(this.files.get(uri.toString())?.includes ?? [])].map(include => include.uri);
+    }
+
+    public getIncludedUrisForText(uri: vscode.Uri, text: string, version?: number): vscode.Uri[] {
+        const key = version === undefined
+            ? `${uri.toString()}#includes`
+            : `${uri.toString()}#includes:${version}`;
+        const ast = version === undefined
+            ? ThriftParser.parseContentWithCache(key, text)
+            : ThriftParser.parseWithCacheByVersion(key, text, version);
+        return this.collectIncludes(uri, ast).map(include => include.uri);
     }
 
     public findIncludeForNamespace(uri: vscode.Uri, namespace: string): vscode.Location | undefined {

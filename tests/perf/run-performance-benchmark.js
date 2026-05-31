@@ -1,4 +1,6 @@
 const {performance} = require('perf_hooks');
+const fs = require('fs');
+const path = require('path');
 
 require('../require-hook.js');
 
@@ -15,6 +17,10 @@ const {DiagnosticManager} = require('../../out/diagnostics');
 const {ThriftFormattingProvider} = require('../../out/formatting-bridge/index.js');
 const {IncrementalTracker} = require('../../out/utils/incremental-tracker.js');
 const {config} = require('../../out/config/index.js');
+
+const DEFAULT_THRESHOLDS = JSON.parse(
+    fs.readFileSync(path.join(__dirname, 'benchmark-thresholds.json'), 'utf8')
+).diagnosticsFormattingBenchmark;
 
 function parseArg(flag, fallback) {
     const idx = process.argv.indexOf(flag);
@@ -83,11 +89,14 @@ async function run() {
     globalThis.__PERF_JSON_OUTPUT__ = jsonOutput;
     logText('\nRunning performance benchmark (diagnostics + formatting)...');
 
-    const structCount = parseArg('--structs', 120);
-    const fieldCount = parseArg('--fields', 30);
-    const iterations = parseArg('--iterations', 10);
-    const thresholdFullMs = parseArg('--threshold-full-ms', 0);
-    const thresholdIncrementalMs = parseArg('--threshold-incremental-ms', 0);
+    const structCount = parseArg('--structs', DEFAULT_THRESHOLDS.structCount);
+    const fieldCount = parseArg('--fields', DEFAULT_THRESHOLDS.fieldCount);
+    const iterations = parseArg('--iterations', DEFAULT_THRESHOLDS.iterations);
+    const thresholdFullMs = parseArg('--threshold-full-ms', DEFAULT_THRESHOLDS.thresholdFullMs);
+    const thresholdIncrementalMs = parseArg(
+        '--threshold-incremental-ms',
+        DEFAULT_THRESHOLDS.thresholdIncrementalMs
+    );
 
     const text = generateLargeThrift(structCount, fieldCount);
     const doc = createDoc(text, 'perf-benchmark.thrift', 1);

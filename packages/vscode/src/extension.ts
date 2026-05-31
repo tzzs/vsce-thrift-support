@@ -9,19 +9,35 @@ import {MemoryMonitor} from '@tanzz/thrift-core';
  * 扩展入口，注册所有能力与命令。
  * @param context 扩展上下文
  */
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
     const deps = createCoreDependencies();
     const errorHandler = deps.errorHandler;
     errorHandler.handleInfo('Thrift Support extension is now active!', {
         component: 'Extension',
         operation: 'activate'
     });
+    context.subscriptions.push(deps.workspaceIndex);
+    await refreshWorkspaceIndex(deps.workspaceIndex, errorHandler);
 
     // 初始化内存管理系统
     initializeMemoryManagement(context, errorHandler);
 
     registerProviders(context, deps);
     registerCommands(context, deps);
+}
+
+async function refreshWorkspaceIndex(
+    workspaceIndex: {refresh(): Promise<void>},
+    errorHandler: ErrorHandler
+): Promise<void> {
+    try {
+        await workspaceIndex.refresh();
+    } catch (error) {
+        errorHandler.handleError(error, {
+            component: 'Extension',
+            operation: 'refreshWorkspaceIndex'
+        });
+    }
 }
 
 /**

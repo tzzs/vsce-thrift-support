@@ -3,6 +3,10 @@ const assert = require('assert');
 const { MemoryMonitor } = require('../../../out/utils/memory-monitor.js');
 
 describe('Memory Monitor', () => {
+    afterEach(() => {
+        MemoryMonitor.resetForTesting();
+    });
+
     it('should record memory usage correctly', () => {
         const monitor = MemoryMonitor.getInstance();
 
@@ -105,5 +109,26 @@ describe('Memory Monitor', () => {
 
         const report = monitor.getMemoryReport();
         assert.ok(report.includes('暂无内存使用数据') === false, 'Report should contain actual data after recording');
+    });
+
+    it('resetForTesting should replace singleton state between tests', () => {
+        const monitor = MemoryMonitor.getInstance();
+        monitor.updateCacheStats('test-cache-reset', {
+            name: 'test-cache-reset',
+            size: 1,
+            maxSize: 10,
+            hitRate: 1,
+            cleanupCount: 0,
+            lastCleanup: Date.now()
+        });
+        monitor.recordMemoryUsage();
+
+        MemoryMonitor.resetForTesting();
+
+        const resetMonitor = MemoryMonitor.getInstance();
+        assert.notStrictEqual(resetMonitor, monitor);
+        assert.strictEqual(resetMonitor.getAllCacheStats().size, 0);
+        assert.strictEqual(resetMonitor.getCurrentUsage(), 0);
+        assert.strictEqual(resetMonitor.getPeakUsage(), 0);
     });
 });

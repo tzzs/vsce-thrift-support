@@ -267,6 +267,13 @@ export class SmartMemoryMonitor {
     }
 
     /**
+     * 重置单例实例，仅供测试隔离使用。
+     */
+    static resetForTesting(): void {
+        SmartMemoryMonitor.instance = new SmartMemoryMonitor();
+    }
+
+    /**
      * 记录当前内存使用情况
      */
     public recordMemoryUsage(): void {

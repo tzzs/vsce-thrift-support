@@ -276,11 +276,15 @@
     "bump": "pnpm version patch --no-git-tag-version && pnpm run package",
     "package": "pnpm exec vsce package",
     "publish": "pnpm exec vsce publish",
+    "smoke:package": "node tests/package-smoke.js",
+    "smoke:package:vsix": "node tests/package-smoke.js --vsix-only",
+    "smoke:package:cli": "node tests/package-smoke.js --cli-only",
     "test": "pnpm run build && mocha",
     "test:single": "pnpm run build && mocha --config .mocharc.single.json",
     "coverage": "pnpm run build && c8 --reporter text-summary --reporter lcov mocha",
     "coverage:cli": "pnpm --filter @tanzz/thrift-core run build && node packages/cli/build.js && pnpm exec tsc -p packages/cli/tsconfig.json && c8 --exclude 'packages/core/**' --exclude-after-remap --reporter text-summary --reporter lcov mocha --no-config --timeout 30000 tests/cli/test-cli-integration.js tests/cli/test-cli-units.js",
-    "perf:benchmark": "node tests/perf/run-performance-benchmark.js"
+    "perf:benchmark": "node tests/perf/run-performance-benchmark.js",
+    "perf:benchmark:json": "node tests/perf/run-performance-benchmark.js --json"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

@@ -106,6 +106,7 @@ export class ThriftCallHierarchyProvider implements vscode.CallHierarchyProvider
     private readonly decoder = new TextDecoder('utf-8');
     private readonly cacheManager?: CacheManager;
     private readonly fileWatcher?: ThriftFileWatcher;
+    private readonly workspaceIndex?: CoreDependencies['workspaceIndex'];
 
     private static readonly CACHE_NAME = 'call-hierarchy-workspace-docs';
     private static readonly CACHE_KEY = 'all';
@@ -114,12 +115,17 @@ export class ThriftCallHierarchyProvider implements vscode.CallHierarchyProvider
         this.errorHandler = deps?.errorHandler ?? new ErrorHandler();
         this.cacheManager = deps?.cacheManager;
         this.fileWatcher = deps?.fileWatcher;
+        this.workspaceIndex = deps?.workspaceIndex;
+        this.cacheManager?.registerCache(ThriftCallHierarchyProvider.CACHE_NAME, {
+            maxSize: config.cache.workspaceSymbols.maxSize,
+            ttl: config.cache.workspaceSymbols.ttlMs
+        });
         this.setupCacheInvalidation();
     }
 
     /** Clear workspace-documents cache when any .thrift file changes. */
     private setupCacheInvalidation(): void {
-        if (!this.fileWatcher || !this.cacheManager) {
+        if (this.workspaceIndex || !this.fileWatcher || !this.cacheManager) {
             return;
         }
         const invalidate = () => this.cacheManager!.clear(ThriftCallHierarchyProvider.CACHE_NAME);
@@ -297,7 +303,7 @@ export class ThriftCallHierarchyProvider implements vscode.CallHierarchyProvider
     private async loadAst(uri: vscode.Uri): Promise<nodes.ThriftDocument | null> {
         try {
             const open = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString());
-            const text = open ? open.getText() : await this.readFile(uri);
+            const text = open ? open.getText() : await this.readText(uri);
             if (text === null) {
                 return null;
             }
@@ -305,6 +311,17 @@ export class ThriftCallHierarchyProvider implements vscode.CallHierarchyProvider
         } catch {
             return null;
         }
+    }
+
+    private async readText(uri: vscode.Uri): Promise<string | null> {
+        if (this.workspaceIndex) {
+            try {
+                return await this.workspaceIndex.getText(uri);
+            } catch {
+                return null;
+            }
+        }
+        return this.readFile(uri);
     }
 
     private async readFile(uri: vscode.Uri): Promise<string | null> {
@@ -317,6 +334,16 @@ export class ThriftCallHierarchyProvider implements vscode.CallHierarchyProvider
     }
 
     private async getWorkspaceDocuments(): Promise<Array<{uri: vscode.Uri; ast: nodes.ThriftDocument}>> {
+        if (this.workspaceIndex) {
+            const out: Array<{uri: vscode.Uri; ast: nodes.ThriftDocument}> = [];
+            for (const uri of this.workspaceIndex.getAllFiles()) {
+                const ast = await this.loadAst(uri);
+                if (ast) {
+                    out.push({uri, ast});
+                }
+            }
+            return out;
+        }
         const cached = this.cacheManager?.get<Array<{uri: vscode.Uri; ast: nodes.ThriftDocument}>>(
             ThriftCallHierarchyProvider.CACHE_NAME,
             ThriftCallHierarchyProvider.CACHE_KEY
