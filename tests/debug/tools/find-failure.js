@@ -1,7 +1,10 @@
 const { execSync } = require('child_process');
 
 try {
-    const output = execSync('node tests/test-format-core.js', { encoding: 'utf8' });
+    const output = execSync(
+        'npx mocha --config .mocharc.single.json tests/src/formatting-bridge/test-format-core.js --exit',
+        { encoding: 'utf8' }
+    );
     console.log('=== FULL OUTPUT ===');
     console.log(output);
     

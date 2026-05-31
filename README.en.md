@@ -36,6 +36,12 @@ formatting, and navigation.
 - Include resolution: follow `include` statements across files
 - Workspace search: find definitions across the workspace
 
+### Editor Semantic Features
+
+- Semantic Tokens: AST-based full-document VS Code Semantic Tokens for types, fields, enums, services, methods, constants, and related symbols. Incremental semantic token edits are not implemented.
+- Call Hierarchy: incoming/outgoing calls for service and interaction methods.
+- Type Hierarchy: full service `extends` chains, typedef alias chains, and top-level items for struct/union/enum/exception/interaction. Standard Thrift IDL does not support struct/exception inheritance, so non-standard `struct ... extends ...` input is not documented as an inheritance relationship.
+
 ### Code Refactoring
 
 - Identifier rename (F2): updates references across files with basic conflict checks
@@ -154,6 +160,13 @@ Create a `.thriftrc.json` in your project root; the CLI searches upward automati
 
 - Go to Definition: `F12` or `Ctrl+Click`
 - Peek Definition: `Alt+F12`
+
+### Semantic Tokens, Call Hierarchy, and Type Hierarchy
+
+- Semantic tokens are generated from the AST for the whole document. They cover struct/union/exception, enum/member, service/interaction, method, field, typedef, const, namespace, and type-reference tokens; `provideDocumentSemanticTokensEdits` is not implemented.
+- Call hierarchy shows service/interaction method calls and override relationships.
+- Type hierarchy shows complete service `extends` parent chains, direct child services, and typedef alias parent chains.
+- struct, union, exception, enum, and interaction appear as top-level type items, but no inheritance semantics are claimed beyond service `extends` and typedef aliasing.
 
 ### Diagnostics
 

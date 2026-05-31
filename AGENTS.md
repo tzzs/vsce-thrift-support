@@ -24,7 +24,7 @@ VS Code extension for Apache Thrift IDL: syntax highlighting, formatting, diagno
 
 ## Key Conventions & Gotchas
 
-- **Node 22.18.0** required (matches CI). Mismatched version breaks `undici`.
+- **Node 24.x required** (recommended 24.16.0, matching `.nvmrc`, `.node-version`, package `engines.node`, and CI). Mismatched versions can break dependency installs or builds, including `undici`-related failures.
 - **ESLint flat config**: `eslint.config.mjs`. The `--ext ts` flag in `lint:fix` is needed despite flat config (works with the typescript-eslint parser setup).
 - **`no-console` is `error`** — agents must not use `console.log` in `src/`. Use the `ErrorHandler` service instead.
 - **Diagnostics entrypoint**: `src/diagnostics/index.ts` (NOT `src/diagnostics.ts`).

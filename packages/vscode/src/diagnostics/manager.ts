@@ -30,6 +30,7 @@ import {
 } from '@tanzz/thrift-core';
 import {DependencyManager} from './dependency-manager';
 import {AnalysisScheduler} from './scheduler';
+import {WorkspaceIndex} from '../indexing/workspace-index';
 
 /**
  * DiagnosticManager：负责诊断调度、缓存与依赖跟踪。
@@ -44,10 +45,12 @@ export class DiagnosticManager {
     private scheduler: AnalysisScheduler;
     private errorHandler: ErrorHandler;
     private performanceMonitor: PerformanceMonitor;
+    private readonly workspaceIndex?: WorkspaceIndex;
 
-    constructor(errorHandler?: ErrorHandler, performanceMonitorInstance?: PerformanceMonitor) {
+    constructor(errorHandler?: ErrorHandler, performanceMonitorInstance?: PerformanceMonitor, workspaceIndex?: WorkspaceIndex) {
         this.errorHandler = errorHandler ?? new ErrorHandler();
         this.performanceMonitor = performanceMonitorInstance ?? performanceMonitor;
+        this.workspaceIndex = workspaceIndex;
         this.collection = vscode.languages.createDiagnosticCollection('thrift');
         this.dependencyManager = new DependencyManager();
         this.scheduler = new AnalysisScheduler();
@@ -207,12 +210,12 @@ export class DiagnosticManager {
                 'Thrift诊断分析',
                 async () => {
                     try {
-                        const includedFiles = getIncludedFiles(doc);
+                        const includedFiles = getIncludedFiles(doc, this.workspaceIndex);
                         const cachedIncludedTypes = state.useCachedIncludes === true
                             ? collectIncludedTypesFromCache(includedFiles)
                             : null;
                         const includedTypes = cachedIncludedTypes
-                            ?? await collectIncludedTypes(doc, this.errorHandler, logDiagnostics);
+                            ?? await collectIncludedTypes(doc, this.errorHandler, logDiagnostics, this.workspaceIndex);
 
                         if (!cachedIncludedTypes) {
                             this.dependencyManager.trackFileDependencies(doc, includedFiles);

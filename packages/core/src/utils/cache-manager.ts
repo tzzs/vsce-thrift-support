@@ -64,6 +64,13 @@ export class MemoryAwareCacheManager {
     }
 
     /**
+     * 重置单例实例，仅供测试隔离使用。
+     */
+    static resetForTesting(): void {
+        this.instance = new MemoryAwareCacheManager();
+    }
+
+    /**
      * 注册缓存配置。
      * @param name 缓存名称
      * @param config 缓存配置（最大大小、TTL、LRU-K参数等）

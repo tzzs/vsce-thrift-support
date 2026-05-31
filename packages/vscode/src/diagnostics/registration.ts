@@ -16,7 +16,7 @@ import {logDiagnostics} from './logger';
  * @returns void
  */
 export function registerDiagnostics(context: vscode.ExtensionContext, deps?: Partial<CoreDependencies>) {
-    const diagnosticManager = new DiagnosticManager(deps?.errorHandler, deps?.performanceMonitor);
+    const diagnosticManager = new DiagnosticManager(deps?.errorHandler, deps?.performanceMonitor, deps?.workspaceIndex);
 
     const fileWatcher = deps?.fileWatcher ?? new ThriftFileWatcher();
 

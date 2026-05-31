@@ -33,6 +33,12 @@
 - **包含文件解析**：支持跟踪 `include` 语句
 - **工作区搜索**：在整个工作区中查找定义
 
+### 编辑器语义能力
+
+- **语义令牌**：基于 AST 为类型、字段、枚举、服务、方法、常量等生成 VS Code Semantic Tokens；当前采用整文档生成，不实现增量 token edits。
+- **调用层级**：支持 service/interaction 方法的 incoming/outgoing calls。
+- **类型层级**：支持 service `extends` 全链路、typedef alias 链路，以及 struct/union/enum/exception/interaction 等顶层类型条目。Thrift 标准 IDL 不支持 struct/exception 继承，因此不会把非标准 `struct ... extends ...` 文档化为继承关系。
+
 ### 代码重构
 
 - **标识符重命名（F2）**：跨文件更新引用，内置冲突检测
@@ -156,6 +162,13 @@ thrift-support symbols --json src/my.thrift
 
 - **跳转到定义**：`F12` 或 `Ctrl+点击` 类型名
 - **查看定义**：`Alt+F12`
+
+### 语义令牌、调用层级与类型层级
+
+- 语义令牌由 AST 整文档生成，覆盖 struct/union/exception、enum/member、service/interaction、method、field、typedef、const、namespace 和类型引用；暂不实现 `provideDocumentSemanticTokensEdits`。
+- 调用层级展示 service/interaction 方法之间的调用与覆写关系。
+- 类型层级展示 service `extends` 的完整父链和直接子服务，以及 typedef alias 的父链。
+- struct、union、exception、enum、interaction 会作为可查看的顶层类型条目出现，但除 service `extends` 与 typedef alias 外，不声明额外继承语义。
 
 ### 代码诊断
 
