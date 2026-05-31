@@ -140,6 +140,10 @@ function run() {
 }
 
 describe('rename-provider', () => {
+    after(() => {
+        referencesProvider.ThriftReferencesProvider = originalThriftReferencesProvider;
+    });
+
     it('should pass all test assertions', async () => {
         await run();
     });

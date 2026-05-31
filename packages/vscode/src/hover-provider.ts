@@ -80,6 +80,9 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
 
             // 使用文件内容读取器获取内容
             const content = await readThriftFile(loc.uri);
+            if (content === undefined) {
+                return undefined;
+            }
             const defLineIndex = loc.range.start.line;
             const lines = content.split('\n');
 

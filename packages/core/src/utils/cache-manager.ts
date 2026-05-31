@@ -259,14 +259,16 @@ export class MemoryAwareCacheManager {
                         );
                     }
 
-                    // 创建新的缓存实例并迁移数据（简化处理，实际上我们可以通过内部方法调整）
-                    // 这里只是示意，实际中我们可能需要重新创建缓存
                     const newConfig: CacheConfig = {
                         ...config,
                         maxSize: Math.max(1, adjustedMaxSize) // 确保至少有1的大小
                     };
 
-                    this.registerCache(cacheName, newConfig);
+                    this.configs.set(cacheName, newConfig);
+                    const cache = this.caches.get(cacheName);
+                    if (cache) {
+                        cache.resize(newConfig.maxSize);
+                    }
                 }
             }
         }

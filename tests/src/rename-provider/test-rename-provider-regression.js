@@ -113,4 +113,88 @@ describe('rename-provider-regression', () => {
     it('should pass all test assertions', async () => {
         await run();
     });
+
+    it('passes injected dependencies into the references provider for cross-file rename edits', async () => {
+        const sourcePath = path.join(__dirname, 'test-files', 'source.thrift');
+        const targetPath = path.join(__dirname, 'test-files', 'target.thrift');
+        const sourceText = [
+            'struct User {',
+            '  1: string name,',
+            '}'
+        ].join('\n');
+        const targetText = [
+            'include "source.thrift"',
+            '',
+            'struct Profile {',
+            '  1: User owner,',
+            '}'
+        ].join('\n');
+        const sourceDoc = createMockDocument(sourceText, sourcePath);
+        const targetDoc = createMockDocument(targetText, targetPath);
+        sourceDoc.uri.toString = () => sourcePath;
+        targetDoc.uri.toString = () => targetPath;
+
+        mockVscode.workspace = {
+            findFiles: async () => [],
+            textDocuments: [sourceDoc, targetDoc],
+            openTextDocument: async (uri) => {
+                if (uri && uri.fsPath === sourcePath) {
+                    return sourceDoc;
+                }
+                if (uri && uri.fsPath === targetPath) {
+                    return targetDoc;
+                }
+                throw new Error('Unexpected document request');
+            }
+        };
+
+        const referencesModule = require('../../../out/references-provider.js');
+        const renameProviderPath = require.resolve('../../../out/rename-provider.js');
+        const originalProvider = referencesModule.ThriftReferencesProvider;
+        const originalRenameModule = require.cache[renameProviderPath];
+        const deps = {workspaceIndex: {marker: 'workspace-index'}};
+        let capturedDeps;
+        try {
+            referencesModule.ThriftReferencesProvider = class {
+                constructor(receivedDeps) {
+                    capturedDeps = receivedDeps;
+                }
+
+                async provideReferences() {
+                    return [
+                        {
+                            uri: sourceDoc.uri,
+                            range: new Range(new Position(0, 7), new Position(0, 11))
+                        },
+                        {
+                            uri: targetDoc.uri,
+                            range: new Range(new Position(3, 5), new Position(3, 9))
+                        }
+                    ];
+                }
+            };
+            delete require.cache[renameProviderPath];
+            const {ThriftRenameProvider: FreshRenameProvider} = require('../../../out/rename-provider.js');
+            const provider = new FreshRenameProvider(deps);
+            const pos = new Position(0, 'struct '.length + 1);
+
+            const edit = await provider.provideRenameEdits(
+                sourceDoc,
+                pos,
+                'Account',
+                {isCancellationRequested: false}
+            );
+
+            assert.strictEqual(capturedDeps, deps, 'Expected injected deps to reach ThriftReferencesProvider');
+            assert.ok(edit, 'Expected a WorkspaceEdit');
+            const targetEdits = (edit.edits || []).filter(e => e.uri.fsPath === targetPath);
+            assert.ok(targetEdits.length > 0, 'Expected edits in the referencing file');
+        } finally {
+            referencesModule.ThriftReferencesProvider = originalProvider;
+            delete require.cache[renameProviderPath];
+            if (originalRenameModule) {
+                require.cache[renameProviderPath] = originalRenameModule;
+            }
+        }
+    });
 });
