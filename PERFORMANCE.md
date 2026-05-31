@@ -128,12 +128,23 @@ CI 性能断言阈值（超过则 CI 失败）：
 若有性能敏感的大文件，可在 CI 中集成性能基准：
 
 ```bash
-node tests/perf/run-performance-benchmark.js \
-  --threshold-full-ms 500 \
-  --threshold-incremental-ms 50
+npm run perf:benchmark
 ```
 
-超过阈值时 exit 1。
+默认阈值保存在 `tests/perf/benchmark-thresholds.json`，超过阈值时 exit 1。需要机器可读结果时使用：
+
+```bash
+npm run perf:benchmark:json
+```
+
+也可以临时覆盖阈值：
+
+```bash
+node tests/perf/run-performance-benchmark.js \
+  --threshold-full-ms 500 \
+  --threshold-incremental-ms 50 \
+  --json
+```
 
 ---
 

@@ -1,18 +1,18 @@
-# Test Layout
+# 测试目录说明
 
-## Canonical Mocha Suite
+## 规范 Mocha 测试
 
-`tests/src/**/*.js` is the canonical extension/core test suite loaded by `.mocharc.json`.
+`tests/src/**/*.js` 是扩展与 core 的规范测试套件，由 `.mocharc.json` 加载。
 
-## CLI Tests
+## CLI 测试
 
-`tests/cli/**/*.js` covers the CLI package and should be run through `npm run coverage:cli` when CLI behavior changes.
+`tests/cli/**/*.js` 覆盖 CLI 包。修改 CLI 行为时，应运行 `npm run coverage:cli`。
 
-## Performance Tests
+## 性能测试
 
-`tests/perf/**` contains benchmark scripts. Run `npm run perf:benchmark` after parser, formatter, diagnostics, cache, or workspace indexing changes.
+`tests/perf/**` 保存性能基准和断言脚本。修改 parser、formatter、diagnostics、cache 或 workspace indexing 后，应运行 `npm run perf:benchmark`。
 
-## Debug And Manual Repro Scripts
+## 调试与手动复现脚本
 
-`tests/debug/**` and root-level historical `tests/test-*.js` files are not part of the default Mocha contract unless explicitly wired into `.mocharc.json`.
-When promoting a manual repro into a regression test, move it under `tests/src/**` and make it use top-level `require` statements.
+`tests/debug/**` 不属于默认 Mocha 契约，除非显式接入 `.mocharc.json`。历史根目录 `tests/test-*.js` 已归档到 `tests/debug/manual/**`。
+如果要把手动复现脚本提升为回归测试，请移动到 `tests/src/**`，并保持所有 `require` 位于文件顶层。

@@ -26,7 +26,7 @@ import {
 export class ThriftCompletionProvider implements vscode.CompletionItemProvider {
     // 错误处理器
     private errorHandler: ErrorHandler;
-    private readonly workspaceIndex: CoreDependencies['workspaceIndex'];
+    private readonly workspaceIndex: CoreDependencies['workspaceIndex'] | undefined;
 
     constructor(deps?: Partial<CoreDependencies>) {
         this.errorHandler = deps?.errorHandler ?? new ErrorHandler();

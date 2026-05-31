@@ -9,6 +9,7 @@
 - [整体结构](#整体结构)
 - [缓存系统](#缓存系统)
 - [增量解析与格式化](#增量解析与格式化)
+- [语义与层级 Provider](#语义与层级-provider)
 - [并发控制](#并发控制)
 - [依赖注入](#依赖注入)
 - [性能监控](#性能监控)
@@ -25,7 +26,8 @@ extension.ts
        ├─ FileWatcher              工作区文件变更监听
        ├─ IncrementalTracker       脏区跟踪（per-document）
        ├─ PerformanceMonitor       操作计时与慢操作告警
-       └─ MemoryMonitor            堆内存压力检测
+       ├─ MemoryMonitor            堆内存压力检测
+       └─ WorkspaceIndex           工作区文件、include graph 与符号索引
   └─ registerProviders(deps)       packages/vscode/src/setup.ts
        ├─ ThriftFormattingProvider
        ├─ DiagnosticsManager
@@ -138,6 +140,30 @@ rangeFormat 请求
 
 ---
 
+## 语义与层级 Provider
+
+### Semantic Tokens
+
+`SemanticTokensProvider` 基于 AST 生成 VS Code Semantic Tokens，覆盖 struct/union/exception、enum/member、service/interaction、method、field、typedef、const、namespace 与类型引用。
+
+当前实现是 `DocumentSemanticTokensProvider` 的整文档生成路径，不实现 `provideDocumentSemanticTokensEdits`。这样可以复用 AST 缓存并保持逻辑简单；如果后续性能基准显示语义令牌成为瓶颈，再引入基于 document version 与 dirty range 的增量 token edits。
+
+### Type Hierarchy
+
+`ThriftTypeHierarchyProvider` 的语义边界与标准 Thrift IDL 对齐：
+
+- service `extends`：展示完整父链，并支持查找直接子 service。
+- typedef alias：展示 alias 指向的基础类型或 alias 链；container typedef 没有单一父类型。
+- struct、union、exception、enum、interaction：作为顶层类型条目展示，但不声明继承语义。
+
+标准 Thrift IDL 不支持 struct/exception 继承，因此非标准 `struct ... extends ...` 输入不会被文档化或索引为继承关系。
+
+### WorkspaceIndex
+
+生产路径会创建共享 `WorkspaceIndex` 并注入 providers。Definition、references、completion、code actions、call hierarchy、type hierarchy 与 diagnostics include resolution 都可以复用该索引，避免各自重复扫描工作区和读取 include 文件。Provider-local cache 应仅保留 provider-specific projection，不再负责源文件发现。
+
+---
+
 ## 并发控制
 
 ### 诊断调度
@@ -170,6 +196,7 @@ export interface CoreDependencies {
     incrementalTracker: IncrementalTracker;
     performanceMonitor: PerformanceMonitor;
     memoryMonitor: MemoryMonitor;
+    workspaceIndex: WorkspaceIndex;
 }
 
 export function createCoreDependencies(): CoreDependencies { ... }

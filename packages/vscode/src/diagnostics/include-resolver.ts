@@ -4,6 +4,7 @@ import {nodes} from '@tanzz/thrift-core';
 import {ThriftParser} from '@tanzz/thrift-core';
 import {config} from '@tanzz/thrift-core';
 import {ErrorHandler, safeResolveIncludePath} from '@tanzz/thrift-core';
+import {WorkspaceIndex} from '../indexing/workspace-index';
 
 const includeTypesCache = new Map<string, Map<string, string>>();
 const includeFileTimestamps = new Map<string, number>();
@@ -71,7 +72,11 @@ function parseTypesFromContent(content: string, uri: string): Map<string, string
  * @param document 当前文档
  * @returns 解析得到的包含文件 URI 数组
  */
-export function getIncludedFiles(document: vscode.TextDocument): vscode.Uri[] {
+export function getIncludedFiles(document: vscode.TextDocument, workspaceIndex?: WorkspaceIndex): vscode.Uri[] {
+    if (workspaceIndex !== undefined) {
+        return workspaceIndex.getIncludedUrisForText(document.uri, document.getText(), document.version);
+    }
+
     const includedFiles: vscode.Uri[] = [];
     const documentDir = path.dirname(document.uri.fsPath);
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? documentDir;
@@ -105,11 +110,12 @@ export function getIncludedFiles(document: vscode.TextDocument): vscode.Uri[] {
 export async function collectIncludedTypes(
     document: vscode.TextDocument,
     errorHandler?: ErrorHandler,
-    log?: (message: string) => void
+    log?: (message: string) => void,
+    workspaceIndex?: WorkspaceIndex
 ): Promise<Map<string, string>> {
     const includedTypes = new Map<string, string>();
     const handler = errorHandler ?? ErrorHandler.getInstance();
-    const includedFiles = getIncludedFiles(document);
+    const includedFiles = getIncludedFiles(document, workspaceIndex);
     const now = Date.now();
     const decoder = new TextDecoder('utf-8');
 
@@ -117,15 +123,17 @@ export async function collectIncludedTypes(
         const result = await handler.wrapAsync(async () => {
             const includedFileKey = includedFile.toString();
 
-            const stat = await handler.wrapAsync(
-                () => Promise.resolve(vscode.workspace.fs.stat(includedFile)),
-                {
-                    component: 'DiagnosticManager',
-                    operation: 'statIncludedFile',
-                    filePath: includedFile.fsPath
-                },
-                null
-            );
+            const stat = workspaceIndex === undefined
+                ? await handler.wrapAsync(
+                    () => Promise.resolve(vscode.workspace.fs.stat(includedFile)),
+                    {
+                        component: 'DiagnosticManager',
+                        operation: 'statIncludedFile',
+                        filePath: includedFile.fsPath
+                    },
+                    null
+                )
+                : null;
             const fileStats = stat ? {mtime: stat.mtime, size: stat.size} : null;
 
             const cachedStats = includeFileStats.get(includedFileKey);
@@ -151,13 +159,16 @@ export async function collectIncludedTypes(
             }
 
             let text = '';
-            const openDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === includedFileKey);
-
-            if (openDoc) {
-                text = openDoc.getText();
+            if (workspaceIndex !== undefined) {
+                text = await workspaceIndex.getText(includedFile);
             } else {
-                const content = await vscode.workspace.fs.readFile(includedFile);
-                text = decoder.decode(content);
+                const openDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === includedFileKey);
+                if (openDoc) {
+                    text = openDoc.getText();
+                } else {
+                    const content = await vscode.workspace.fs.readFile(includedFile);
+                    text = decoder.decode(content);
+                }
             }
 
             const types = new Map(parseTypesFromContent(text, includedFileKey));

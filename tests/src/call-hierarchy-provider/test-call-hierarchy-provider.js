@@ -13,6 +13,7 @@ const {
 } = require('../../../out/call-hierarchy-provider.js');
 
 const {ThriftParser} = require('../../../packages/core/out/ast/parser.js');
+const {CacheManager} = require('../../../packages/core/out/utils/cache-manager.js');
 
 function createDoc(text, fsPath = '/tmp/t.thrift', version = 1) {
     return {
@@ -36,10 +37,36 @@ function setWorkspaceDocs(files) {
     return docs;
 }
 
+function createWorkspaceIndex(files) {
+    const docs = files.map(f => createDoc(f.text, f.path));
+    return {
+        getAllFiles: () => docs.map(d => d.uri),
+        getText: async (uri) => {
+            const doc = docs.find(d => d.uri.toString() === uri.toString());
+            if (!doc) {
+                throw new Error(`missing indexed text for ${uri.toString()}`);
+            }
+            return doc.getText();
+        }
+    };
+}
+
 describe('call-hierarchy-provider', () => {
+    let workspaceSnapshot;
+
+    beforeEach(() => {
+        workspaceSnapshot = {
+            textDocuments: vscode.workspace.textDocuments,
+            findFiles: vscode.workspace.findFiles,
+            readFile: vscode.workspace.fs.readFile
+        };
+    });
+
     afterEach(() => {
-        vscode.workspace.textDocuments = [];
-        vscode.workspace.findFiles = async () => [];
+        vscode.workspace.textDocuments = workspaceSnapshot.textDocuments;
+        vscode.workspace.findFiles = workspaceSnapshot.findFiles;
+        vscode.workspace.fs.readFile = workspaceSnapshot.readFile;
+        CacheManager.resetForTesting();
     });
 
     it('extractTypeReferences strips primitives and containers, keeps user types', () => {
@@ -189,6 +216,59 @@ describe('call-hierarchy-provider', () => {
         assert.ok(incoming[0].from.detail.includes('Child'));
     });
 
+    it('uses injected workspace index for incoming calls without scanning workspace files', async () => {
+        const text = [
+            'service Base {',
+            '  void hi()',
+            '}',
+            'service Child extends Base {',
+            '  void hi()',
+            '}'
+        ].join('\n');
+        const doc = createDoc(text, '/g.thrift');
+        vscode.workspace.textDocuments = [];
+        vscode.workspace.findFiles = async () => {
+            throw new Error('workspace scan should not be used when workspaceIndex is injected');
+        };
+        vscode.workspace.fs.readFile = async () => {
+            throw new Error('workspace fs should not be used when workspaceIndex is injected');
+        };
+
+        const provider = new ThriftCallHierarchyProvider({
+            workspaceIndex: createWorkspaceIndex([{path: '/g.thrift', text}])
+        });
+        const item = await provider.prepareCallHierarchy(doc, {line: 1, character: 7}, {isCancellationRequested: false});
+        assert.ok(item, 'expected prepare to succeed');
+
+        const incoming = await provider.provideCallHierarchyIncomingCalls(item, {isCancellationRequested: false});
+        assert.strictEqual(incoming.length, 1);
+        assert.ok(incoming[0].from.detail.includes('Child'));
+    });
+
+    it('does not populate workspace-doc cache when workspace index is injected', async () => {
+        const text = [
+            'service Base {',
+            '  void hi()',
+            '}',
+            'service Child extends Base {',
+            '  void hi()',
+            '}'
+        ].join('\n');
+        const doc = createDoc(text, '/g.thrift');
+        const cacheManager = CacheManager.getInstance();
+        cacheManager.registerCache('call-hierarchy-workspace-docs', {maxSize: 2, ttl: 100000});
+        const provider = new ThriftCallHierarchyProvider({
+            cacheManager,
+            workspaceIndex: createWorkspaceIndex([{path: '/g.thrift', text}])
+        });
+        const item = await provider.prepareCallHierarchy(doc, {line: 1, character: 7}, {isCancellationRequested: false});
+        assert.ok(item, 'expected prepare to succeed');
+
+        await provider.provideCallHierarchyIncomingCalls(item, {isCancellationRequested: false});
+
+        assert.strictEqual(cacheManager.getCacheStats('call-hierarchy-workspace-docs').size, 0);
+    });
+
     it('provideCallHierarchyOutgoingCalls finds parent override + referenced types', async () => {
         const text = [
             'struct UserInfo {',
@@ -212,6 +292,43 @@ describe('call-hierarchy-provider', () => {
         const item = await provider.prepareCallHierarchy(doc, {line: 9, character: 8}, {isCancellationRequested: false});
         assert.ok(item, 'expected prepare to find Child.foo');
         assert.ok(item.detail.includes('Child'), 'expected item to be Child.foo, got ' + item.detail);
+        const outgoing = await provider.provideCallHierarchyOutgoingCalls(item, {isCancellationRequested: false});
+        const names = outgoing.map(o => o.to.name).sort();
+        assert.ok(names.includes('foo'), 'expected parent foo as outgoing call: ' + JSON.stringify(names));
+        assert.ok(names.includes('UserInfo'), 'expected UserInfo type as outgoing call: ' + JSON.stringify(names));
+    });
+
+    it('uses injected workspace index for outgoing calls and item AST loading', async () => {
+        const text = [
+            'struct UserInfo {',
+            '  1: string name',
+            '}',
+            'service Base {',
+            '  void foo(',
+            '    1: UserInfo info',
+            '  )',
+            '}',
+            'service Child extends Base {',
+            '  void foo(',
+            '    1: UserInfo info',
+            '  )',
+            '}'
+        ].join('\n');
+        const doc = createDoc(text, '/g.thrift');
+        vscode.workspace.textDocuments = [];
+        vscode.workspace.findFiles = async () => {
+            throw new Error('workspace scan should not be used when workspaceIndex is injected');
+        };
+        vscode.workspace.fs.readFile = async () => {
+            throw new Error('workspace fs should not be used when workspaceIndex is injected');
+        };
+
+        const provider = new ThriftCallHierarchyProvider({
+            workspaceIndex: createWorkspaceIndex([{path: '/g.thrift', text}])
+        });
+        const item = await provider.prepareCallHierarchy(doc, {line: 9, character: 8}, {isCancellationRequested: false});
+        assert.ok(item, 'expected prepare to find Child.foo');
+
         const outgoing = await provider.provideCallHierarchyOutgoingCalls(item, {isCancellationRequested: false});
         const names = outgoing.map(o => o.to.name).sort();
         assert.ok(names.includes('foo'), 'expected parent foo as outgoing call: ' + JSON.stringify(names));

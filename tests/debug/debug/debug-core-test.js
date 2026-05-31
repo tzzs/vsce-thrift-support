@@ -1,6 +1,6 @@
 const { spawn } = require('child_process');
 
-const child = spawn('node', ['tests/test-format-core.js'], {
+const child = spawn('npx', ['mocha', '--config', '.mocharc.single.json', 'tests/src/formatting-bridge/test-format-core.js', '--exit'], {
     stdio: 'pipe',
     shell: true
 });

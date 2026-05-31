@@ -1,0 +1,9 @@
+{
+  "diagnosticsFormattingBenchmark": {
+    "structCount": 120,
+    "fieldCount": 30,
+    "iterations": 10,
+    "thresholdFullMs": 400,
+    "thresholdIncrementalMs": 100
+  }
+}

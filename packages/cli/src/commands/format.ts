@@ -2,33 +2,16 @@
  * format 命令：格式化 Thrift IDL 文件。
  */
 import * as fs from 'fs';
-import {ThriftFormatter} from '@tanzz/thrift-core';
-import type {ThriftFormattingOptions} from '@tanzz/thrift-core';
+import {normalizeFormattingOptions, ThriftFormatter} from '@tanzz/thrift-core';
+import type {ThriftFormattingConfigInput, ThriftFormattingOptions} from '@tanzz/thrift-core';
 import type {ParsedArgs} from '../args';
-
-const DEFAULT_OPTIONS: ThriftFormattingOptions = {
-    trailingComma: 'preserve',
-    alignTypes: true,
-    alignFieldNames: true,
-    alignStructDefaults: false,
-    alignAnnotations: true,
-    alignComments: true,
-    alignEnumNames: true,
-    alignEnumEquals: true,
-    alignEnumValues: true,
-    indentSize: 4,
-    maxLineLength: 100,
-    collectionStyle: 'preserve',
-    insertSpaces: true,
-    tabSize: 4,
-};
 
 export function runFormat(
     files: string[],
     args: ParsedArgs,
-    formatOverrides: Partial<ThriftFormattingOptions>
+    formatOverrides: ThriftFormattingConfigInput
 ): number {
-    const options: ThriftFormattingOptions = {...DEFAULT_OPTIONS, ...formatOverrides};
+    const options = normalizeFormattingOptions(formatOverrides);
     const formatter = new ThriftFormatter();
 
     // --stdin mode
