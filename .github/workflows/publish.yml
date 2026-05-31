@@ -186,7 +186,6 @@ jobs:
         with:
           node-version: 24.x
           cache: pnpm
-          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -205,7 +204,14 @@ jobs:
           node packages/cli/dist/cli.js --version
           node packages/cli/dist/cli.js format --check test-files/example-enum.thrift
 
+      # Auth via npm OIDC trusted publishing (configured on npmjs.com for this
+      # repo + publish.yml + environment "npm"). id-token:write lets pnpm fetch
+      # the OIDC token; --provenance is signed automatically.
+      #
+      # The Setup Node.js step deliberately omits registry-url. OIDC does not
+      # need an auth line in .npmrc, and not writing one keeps the auth path
+      # independent of pnpm version (pnpm <11.1.3 would have treated the
+      # unresolved ${NODE_AUTH_TOKEN} placeholder as a literal bearer token,
+      # silently skipping the OIDC fallback and failing with an npm 404).
       - name: Publish CLI to npm
         run: cd packages/cli && pnpm publish --no-git-checks --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

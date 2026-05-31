@@ -1,7 +1,20 @@
 packages:
   - 'packages/*'
 
-onlyBuiltDependencies:
-  - '@vscode/vsce-sign'
-  - esbuild
-  - keytar
+# pnpm 11 replaces onlyBuiltDependencies/neverBuiltDependencies with a single
+# `allowBuilds` map. Same 3 native build scripts as before are explicitly trusted.
+allowBuilds:
+  '@vscode/vsce-sign': true
+  esbuild: true
+  keytar: true
+
+# CVE remediations on transitive deps. pnpm 11 no longer reads
+# package.json#pnpm.overrides (silently — see pnpm/pnpm#11536), so these
+# MUST live here to keep the supply-chain fixes effective.
+overrides:
+  glob: '>=10.5.0'
+  serialize-javascript: '>=7.0.5'
+  diff: '>=8.0.3'
+  qs: '>=6.15.2'
+  uuid: '>=11.1.1'
+  tmp: '>=0.2.6'
