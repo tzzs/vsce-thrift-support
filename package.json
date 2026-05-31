@@ -13,7 +13,7 @@
     "vscode": "^1.75.0",
     "node": ">=24 <25"
   },
-  "packageManager": "pnpm@10.25.0",
+  "packageManager": "pnpm@11.5.0",
   "categories": [
     "Programming Languages",
     "Linters",
@@ -262,15 +262,5 @@
     "vscode-oniguruma": "^2.0.1",
     "vscode-textmate": "^9.3.2",
     "@tanzz/thrift-core": "workspace:*"
-  },
-  "pnpm": {
-    "overrides": {
-      "glob": ">=10.5.0",
-      "serialize-javascript": ">=7.0.5",
-      "diff": ">=8.0.3",
-      "qs": ">=6.15.2",
-      "uuid": ">=11.1.1",
-      "tmp": ">=0.2.6"
-    }
   }
 }
