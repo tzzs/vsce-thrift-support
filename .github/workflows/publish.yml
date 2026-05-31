@@ -4,27 +4,25 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 on:
-  workflow_run:
-    workflows: [ "release-please" ]
-    types: [ completed ]
-  workflow_dispatch:
+  release:
+    types: [ published ]
 
 permissions:
   contents: write
 
 jobs:
   package:
-    # Only run for successful release-please runs on master when triggered by workflow_run;
-    # always run for manual dispatch
-    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'master') }}
+    # Publish only for the root VS Code extension release. release-please also
+    # creates component releases for packages/core and packages/cli.
+    if: ${{ startsWith(github.event.release.tag_name, 'thrift-support-v') }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.pkg.outputs.version }}
-      should_publish: ${{ steps.chk.outputs.should_publish }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
 
       - name: Setup pnpm
@@ -45,11 +43,25 @@ jobs:
       - name: Build
         run: pnpm run build --if-present
 
-      - name: Read version from package.json
+      - name: Read version from release tag
         id: pkg
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          VERSION=$(node -p "require('./package.json').version")
+          VERSION="${RELEASE_TAG#thrift-support-v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Verify package version matches release tag
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ steps.pkg.outputs.version }}
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          if [ "$PACKAGE_VERSION" != "$RELEASE_VERSION" ]; then
+            echo "package.json version ${PACKAGE_VERSION} does not match release tag version ${RELEASE_VERSION}." >&2
+            exit 1
+          fi
 
       - name: Package VSIX
         run: npx @vscode/vsce package -o thrift-support-${{ steps.pkg.outputs.version }}.vsix
@@ -61,32 +73,9 @@ jobs:
           path: thrift-support-${{ steps.pkg.outputs.version }}.vsix
           if-no-files-found: error
 
-      - name: Check tag exists for workflow_run
-        id: chk
-        shell: bash
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PKG_VERSION: ${{ steps.pkg.outputs.version }}
-        run: |
-          if [ "$EVENT_NAME" = "workflow_run" ]; then
-            # release-please runs in monorepo mode; the root package's tag is
-            # prefixed with the package name (see release-please-config.json).
-            V="thrift-support-v${PKG_VERSION}"
-            if git ls-remote --tags origin | grep -q "refs/tags/${V}$"; then
-              echo "Tag ${V} exists on origin." >&2
-              echo "should_publish=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "Tag ${V} does not exist on origin. Skipping publish." >&2
-              echo "should_publish=false" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "Manual dispatch, proceed to publish." >&2
-            echo "should_publish=true" >> "$GITHUB_OUTPUT"
-          fi
-
   github_release:
     needs: package
-    if: ${{ needs.package.outputs.should_publish == 'true' }}
+    if: ${{ startsWith(github.event.release.tag_name, 'thrift-support-v') }}
     runs-on: ubuntu-latest
     steps:
       - name: Download VSIX artifact
@@ -95,30 +84,17 @@ jobs:
           name: vsix-artifact
           path: .
 
-      - name: Upload VSIX to GitHub Release (workflow_run)
-        if: ${{ github.event_name == 'workflow_run' }}
+      - name: Upload VSIX to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: thrift-support-${{ needs.package.outputs.version }}.vsix
-          tag_name: thrift-support-v${{ needs.package.outputs.version }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload/Create GitHub Release (manual)
-        if: ${{ github.event_name == 'workflow_dispatch' }}
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: thrift-support-v${{ needs.package.outputs.version }}
-          name: thrift-support-v${{ needs.package.outputs.version }}
-          target_commitish: ${{ github.sha }}
-          generate_release_notes: true
-          files: thrift-support-${{ needs.package.outputs.version }}.vsix
+          tag_name: ${{ github.event.release.tag_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   vsce_publish:
     needs: [ package, github_release ]
-    if: ${{ needs.package.outputs.should_publish == 'true' }}
+    if: ${{ startsWith(github.event.release.tag_name, 'thrift-support-v') }}
     runs-on: ubuntu-latest
     environment: vsce
     env:
@@ -142,7 +118,7 @@ jobs:
 
   openvsx_publish:
     needs: [ package, github_release ]
-    if: ${{ needs.package.outputs.should_publish == 'true' }}
+    if: ${{ startsWith(github.event.release.tag_name, 'thrift-support-v') }}
     runs-on: ubuntu-latest
     environment: vsce
     env:
@@ -166,7 +142,7 @@ jobs:
 
   npm_publish:
     needs: [ package, github_release ]
-    if: ${{ needs.package.outputs.should_publish == 'true' }}
+    if: ${{ startsWith(github.event.release.tag_name, 'thrift-support-v') }}
     runs-on: ubuntu-latest
     environment: npm
     permissions:
@@ -176,6 +152,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
 
       - name: Setup pnpm
