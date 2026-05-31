@@ -355,8 +355,7 @@ npm run coverage
 
 格式化相关的组合测试集中在 `tests/src/formatting-bridge/test-struct-annotations-combinations.js`。
 
-主要测试脚本位于 <mcfile name="tests" path="tests/"></mcfile>
-目录，格式化相关的组合测试集中在 <mcfile name="test-struct-annotations-combinations.js" path="tests/test-struct-annotations-combinations.js"></mcfile>。
+主要测试脚本位于 `tests/src/**`。格式化相关的组合测试集中在 `tests/src/formatting-bridge/test-struct-annotations-combinations.js`。
 
 新增/强化的用例（便于回归理解）：
 
@@ -367,7 +366,7 @@ npm run coverage
 如何运行单个测试文件（便于开发调试）：
 
 ```bash
-node tests/test-struct-annotations-combinations.js
+npm run test:single -- tests/src/formatting-bridge/test-struct-annotations-combinations.js --exit
 ```
 
 或使用覆盖率脚本一次性查看总体效果：
@@ -403,16 +402,30 @@ npm run coverage:cli
 
 # 性能基准
 npm run perf:benchmark
+
+# 机器可读性能结果（JSON）
+npm run perf:benchmark:json
+
+# 打包冒烟：检查 VSIX 与 CLI tarball 内容
+npm run smoke:package
 ```
 
 ## 本地打包与发布（可选）
 
-- 仅验证产物：执行 `npm run package`，生成 `.vsix` 文件，可在 VS Code 中手动安装测试。
+- 仅验证产物内容：执行 `npm run smoke:package`，自动打包 VSIX 与 CLI tarball，并检查关键文件和 CLI `--version`。
+- 仅生成 `.vsix`：执行 `npm run package`，生成 `.vsix` 文件，可在 VS Code 中手动安装测试。
 - 本地直发 Marketplace：执行 `npm run publish`，需在环境变量或 CI Secrets 中配置 VSCE_PAT；Open VSX 需使用 ovsx CLI 或交由
   CI 发布（推荐）。
 
-注意：项目已升级到 `@vscode/vsce` 3.6.0，脚本命令已更新为使用 `npx @vscode/vsce`。如果遇到打包时的安全扫描警告，可以使用
+注意：项目使用 `@vscode/vsce` 3.x，并通过 `pnpm exec vsce` 打包。如果遇到打包时的安全扫描警告，应优先清理对应文件；只有确认风险可接受时，才使用
 `--allow-package-secrets` 或 `--allow-package-env-file` 标志绕过检查。
+
+## 手动测试与历史脚本
+
+- 默认测试契约是 `npm test -- --exit`、`npm run coverage:cli`、`npm run perf:benchmark` 和 `npm run smoke:package`。
+- `tests/src/**/*.js` 是规范 Mocha 测试；`tests/cli/**/*.js` 覆盖 CLI；`tests/perf/**/*.js` 覆盖性能门槛。
+- `tests/debug/**` 下的脚本只用于手动复现、排障或一次性分析，不是 release gate；历史根目录手动脚本已归档到 `tests/debug/manual/**`。
+- 如果某个历史脚本仍在验证长期行为，应先迁移为 `tests/src/**` 下的 Mocha 测试，再删除或归档原脚本。
 
 ## CI/CD 工作流（精简说明）
 

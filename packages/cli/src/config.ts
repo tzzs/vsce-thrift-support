@@ -4,27 +4,17 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
-import type {DiagnosticsRuleOptions, ThriftFormattingOptions} from '@tanzz/thrift-core';
+import {THRIFT_FORMATTING_CONFIG_KEYS} from '@tanzz/thrift-core';
+import type {DiagnosticsRuleOptions, ThriftFormattingConfigInput} from '@tanzz/thrift-core';
 
 const CONFIG_FILENAME = '.thriftrc.json';
 const TOP_LEVEL_KEYS = new Set(['format', 'lint', 'diagnostics']);
-const FORMAT_KEYS = new Set([
-    'indentSize',
-    'maxLineLength',
-    'trailingComma',
-    'collectionStyle',
-    'alignTypes',
-    'alignNames',
-    'alignAssignments',
-    'alignStructDefaults',
-    'alignAnnotations',
-    'alignComments'
-]);
+const FORMAT_KEYS = new Set<string>(THRIFT_FORMATTING_CONFIG_KEYS);
 const LINT_KEYS = new Set(['severity']);
 const DIAGNOSTICS_KEYS = new Set(['rules']);
 
 export interface ThriftCliConfig {
-    format?: Partial<ThriftFormattingOptions>;
+    format?: ThriftFormattingConfigInput;
     lint?: {
         severity?: 'error' | 'warning' | 'all';
     };
@@ -94,9 +84,9 @@ export function resolveFormatOptions(
         trailingComma?: 'preserve' | 'add' | 'remove';
         collectionStyle?: 'preserve' | 'multiline' | 'auto';
     }
-): Partial<ThriftFormattingOptions> {
+): ThriftFormattingConfigInput {
     const base = config.format ?? {};
-    const result: Partial<ThriftFormattingOptions> = {...base};
+    const result: ThriftFormattingConfigInput = {...base};
 
     // CLI flags override config file
     if (overrides.indentSize !== undefined) {result.indentSize = overrides.indentSize;}

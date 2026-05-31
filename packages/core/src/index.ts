@@ -40,6 +40,18 @@ export {
 // Config defaults
 export {config, config as defaultConfig, cacheConfig, memoryConfig} from './config/index';
 export type {CacheConfig, CacheEntry, MemoryConfig} from './config/index';
+export {
+    DEFAULT_THRIFT_FORMATTING_OPTIONS,
+    THRIFT_FORMATTING_CONFIG_KEYS,
+    THRIFT_FORMATTING_SETTING_DEFINITIONS,
+    createFormattingConfigurationProperties,
+    normalizeFormattingOptions
+} from './config/formatting-options';
+export type {
+    FormattingConfigurationProperty,
+    FormattingSettingDefinition,
+    ThriftFormattingConfigInput
+} from './config/formatting-options';
 export {CACHE_CONFIGS, getAllCacheConfigs, updateCacheConfig, validateCacheConfig, registerAllCacheConfigs} from './config/cache-config';
 
 // Utils - line range

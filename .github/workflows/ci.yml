@@ -66,8 +66,11 @@ jobs:
           node packages/cli/dist/cli.js lint test-files/example-enum.thrift
           node packages/cli/dist/cli.js symbols test-files/example-enum.thrift
 
+      - name: Package smoke
+        run: pnpm run smoke:package
+
       - name: Performance benchmark
-        run: node -e "require('./tests/require-hook.js'); require('./tests/perf/run-performance-benchmark.js')" -- --structs 120 --fields 30 --iterations 5 --threshold-full-ms 400 --threshold-incremental-ms 100
+        run: pnpm run perf:benchmark -- --iterations 5
 
       - name: Performance assertions (multi-size)
         run: pnpm exec mocha --require tests/require-hook.js --timeout 120000 tests/perf/perf-assertions.js
