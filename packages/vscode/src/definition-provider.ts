@@ -189,13 +189,10 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
             }
         }
 
-        // If namespaced type is used but corresponding include is missing, do NOT fallback to workspace
+        // For namespaced references, the type must be in the matched include file.
+        // If it wasn't found there, do not fall back to workspace-wide search.
         if (targetNamespace) {
-            const includeLoc = this.workspaceIndex?.findIncludeForNamespace(document.uri, targetNamespace) ??
-                await findIncludeForNamespace(document, targetNamespace);
-            if (!includeLoc) {
-                return undefined;
-            }
+            return undefined;
         }
 
         // Search in all thrift files in workspace, return multiple candidates if any

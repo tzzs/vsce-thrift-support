@@ -7,11 +7,9 @@ import * as vscode from 'vscode';
 import {readThriftFile} from './utils/file-reader';
 import {ThriftParser} from '@tanzz/thrift-core';
 import {nodes} from '@tanzz/thrift-core';
-import {collectIncludes, collectTopLevelTypes, parseContainerTypeInfo} from '@tanzz/thrift-core';
+import {collectIncludes, collectTopLevelTypes, parseContainerTypeInfo, UNKNOWN_TYPE_DIAGNOSTIC_CODES, DIAGNOSTIC_CODES} from '@tanzz/thrift-core';
 import {config} from '@tanzz/thrift-core';
 import {ErrorHandler} from '@tanzz/thrift-core';
-import {DIAGNOSTIC_CODES} from '@tanzz/thrift-core';
-import {UNKNOWN_TYPE_DIAGNOSTIC_CODES} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
 import {WorkspaceIndex} from './indexing/workspace-index';
 
