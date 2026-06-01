@@ -195,16 +195,22 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             return results;
         }
 
-        // Handle block comments ending right above the definition (possibly after one blank line)
-        if (/\*\//.test(lines[i])) {
+        // Handle block comments ending right above the definition (possibly after one blank line).
+        // Inline block comments on code lines are not documentation for the next declaration.
+        if (this.isBlockCommentEndLine(lines[i] ?? '')) {
             const block: string[] = [];
+            let foundStart = false;
             while (i >= 0) {
                 const t = lines[i];
                 block.push(t);
-                if (/\/\*/.test(t)) {
+                if (/^\s*\/\*/.test(t)) {
+                    foundStart = true;
                     break;
                 }
                 i--;
+            }
+            if (!foundStart) {
+                return results;
             }
             block.reverse();
             const cleaned = this.cleanBlockComment(block);
@@ -212,20 +218,35 @@ export class ThriftHoverProvider implements vscode.HoverProvider {
             return results;
         }
 
-        // Handle consecutive line comments (// ...)
-        if (/^\s*\/\//.test(lines[i])) {
+        // Handle consecutive line comments (// ..., /// ..., # ...)
+        if (this.isLineDocComment(lines[i] ?? '')) {
             const group: string[] = [];
-            while (i >= 0 && /^\s*\/\//.test(lines[i])) {
+            while (i >= 0 && this.isLineDocComment(lines[i] ?? '')) {
                 group.push(lines[i]);
                 i--;
             }
             group.reverse();
-            const cleaned = group.map(s => s.replace(/^\s*\/\/\s?/, ''));
+            const cleaned = group.map(s => this.cleanLineDocComment(s));
             results.push(...cleaned);
             return results;
         }
 
         return results;
+    }
+
+    private isBlockCommentEndLine(line: string): boolean {
+        const trimmed = line.trim();
+        return trimmed.endsWith('*/') && (trimmed.startsWith('/*') || trimmed.startsWith('*'));
+    }
+
+    private isLineDocComment(line: string): boolean {
+        return /^\s*(?:\/\/\/?|#)/.test(line);
+    }
+
+    private cleanLineDocComment(line: string): string {
+        return line
+            .replace(/^\s*\/\/\/?\s?/, '')
+            .replace(/^\s*#\s?/, '');
     }
 
     private cleanBlockComment(blockLines: string[]): string[] {
