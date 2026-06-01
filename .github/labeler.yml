@@ -1,0 +1,71 @@
+area:formatter:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/formatter/**
+          - src/formatting-bridge/**
+          - src/config/formatting-options.ts
+          - packages/*/src/**/format*
+          - tests/src/formatter/**
+          - tests/fixtures/golden/**
+
+area:diagnostics:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/diagnostics/**
+          - packages/core/src/diagnostics/**
+          - tests/src/diagnostics/**
+
+area:navigation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/definition-provider.ts
+          - src/reference-provider.ts
+          - src/rename-provider.ts
+          - src/selection-range-provider.ts
+          - src/symbol-provider.ts
+          - src/workspace-index.ts
+          - tests/src/*provider*/**
+          - tests/src/rename-provider/**
+
+area:syntax:
+  - changed-files:
+      - any-glob-to-any-file:
+          - syntaxes/**
+          - src/thrift-parser.ts
+          - packages/core/src/parser/**
+          - tests/src/thrift-parser/**
+
+area:cli:
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/cli/**
+          - tests/cli/**
+
+area:extension:
+  - changed-files:
+      - any-glob-to-any-file:
+          - src/extension.ts
+          - src/commands/**
+          - src/providers.ts
+          - src/utils/dependencies.ts
+          - package.json
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - docs/**
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - tests/**
+          - test-files/**
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+          - eslint.config.mjs
+          - build.js
+          - tsconfig*.json
