@@ -112,6 +112,23 @@ describe('diagnostics-include-resolver', () => {
         await run();
     });
 
+    it('preserves source include order when resolving included files', async () => {
+        const orderedMainPath = path.resolve('/tmp/ordered-main.thrift');
+        const orderedMainContent = [
+            'include "z.thrift"',
+            'include "a.thrift"',
+            '',
+            'struct Main {}'
+        ].join('\n');
+        const doc = createDoc(orderedMainContent, orderedMainPath);
+
+        const includedFiles = getIncludedFiles(doc);
+
+        assert.strictEqual(includedFiles.length, 2);
+        assert.strictEqual(includedFiles[0].fsPath, path.resolve('/tmp/z.thrift'));
+        assert.strictEqual(includedFiles[1].fsPath, path.resolve('/tmp/a.thrift'));
+    });
+
     it('uses injected workspace index for included types without workspace fs reads', async () => {
         clearIncludeCaches();
         const indexedIncludePath = path.resolve('/tmp/indexed-inc.thrift');
