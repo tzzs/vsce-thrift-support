@@ -262,6 +262,25 @@ describe('CLI unit tests', () => {
             }
         });
 
+        it('skips direct symlink file arguments', function () {
+            if (process.platform === 'win32') {
+                this.skip();
+            }
+
+            const d = tmpDir('cli-glob-symlink-');
+            try {
+                const real = path.join(d, 'real.thrift');
+                const link = path.join(d, 'link.thrift');
+                fs.writeFileSync(real, 'struct A {}');
+                fs.symlinkSync(real, link);
+
+                const result = globMod.expandFiles([link]);
+                assert.deepStrictEqual(result, []);
+            } finally {
+                fs.rmSync(d, {recursive: true, force: true});
+            }
+        });
+
         it('expands a directory to all .thrift files', () => {
             const d = tmpDir('cli-glob-dir-');
             try {

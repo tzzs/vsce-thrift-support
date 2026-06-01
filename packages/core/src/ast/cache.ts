@@ -33,6 +33,8 @@ interface ASTRegionCacheEntry {
 const astCache = new Map<string, ASTCacheEntry>();
 const astRegionCache = new Map<string, ASTRegionCacheEntry[]>(); // Keyed by URI
 const CACHE_MAX_AGE = config.cache.astMaxAgeMs;
+const AST_FULL_MAX_SIZE = CACHE_CONFIGS['ast-full'].maxSize;
+const AST_REGION_MAX_URIS = CACHE_CONFIGS['ast-region'].maxSize;
 
 /**
  * 获取缓存中的 AST（若命中且未过期）。
@@ -143,6 +145,7 @@ export function setCachedAstRange(uri: string, range: LineRange, content: string
     if (uriCache.length > 50) { // Use a reasonable constant instead of config value
         uriCache.shift(); // Remove oldest entry
     }
+    pruneRegionCacheUris();
 
     // Notify the cache manager about the set operation for memory awareness
     cacheManager.set('ast-region', makeUriRangeKey(uri, range), ast);
@@ -183,6 +186,7 @@ export function setCachedAst(uri: string, content: string, ast: nodes.ThriftDocu
     const cacheKey = makeUriContentKey(uri, content, version);
 
     astCache.set(cacheKey, entry);
+    pruneFullAstCache();
 
     // Notify the cache manager about the set operation for memory awareness
     cacheManager.set('ast-full', cacheKey, entry);
@@ -252,4 +256,61 @@ export function parseWithAstCache(
     const ast = parse();
     setCachedAst(uri, content, ast, version);
     return ast;
+}
+
+function pruneFullAstCache(): void {
+    pruneOldestEntries(astCache, AST_FULL_MAX_SIZE, (key) => cacheManager.delete('ast-full', key));
+}
+
+function pruneRegionCacheUris(): void {
+    while (astRegionCache.size > AST_REGION_MAX_URIS) {
+        let oldestUri: string | undefined;
+        let oldestTimestamp = Number.POSITIVE_INFINITY;
+        for (const [uri, entries] of astRegionCache.entries()) {
+            const timestamp = entries.reduce(
+                (oldest, entry) => Math.min(oldest, entry.timestamp),
+                Number.POSITIVE_INFINITY
+            );
+            if (timestamp < oldestTimestamp) {
+                oldestTimestamp = timestamp;
+                oldestUri = uri;
+            }
+        }
+        if (oldestUri === undefined) {
+            return;
+        }
+        clearAstRegionCacheForDocument(oldestUri);
+    }
+}
+
+function pruneOldestEntries<T extends {timestamp: number}>(
+    cache: Map<string, T>,
+    maxSize: number,
+    onDelete: (key: string) => void
+): void {
+    while (cache.size > maxSize) {
+        let oldestKey: string | undefined;
+        let oldestTimestamp = Number.POSITIVE_INFINITY;
+        for (const [key, entry] of cache.entries()) {
+            if (entry.timestamp < oldestTimestamp) {
+                oldestTimestamp = entry.timestamp;
+                oldestKey = key;
+            }
+        }
+        if (oldestKey === undefined) {
+            return;
+        }
+        cache.delete(oldestKey);
+        onDelete(oldestKey);
+    }
+}
+
+/**
+ * Test-only cache statistics. Do not use for production behavior.
+ */
+export function getAstCacheStatsForTesting(): {fullSize: number; regionUriSize: number} {
+    return {
+        fullSize: astCache.size,
+        regionUriSize: astRegionCache.size
+    };
 }
