@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import {collectTopLevelTypes, nodes, ThriftParser} from '@tanzz/thrift-core';
+import {collectTopLevelTypes, config, nodes, safeResolveIncludePath, ThriftParser} from '@tanzz/thrift-core';
 import {createLocation, toVscodeRange} from '../utils/vscode-utils';
 import {IndexedThriftSymbol, SymbolIndex} from './symbol-index';
 
@@ -8,6 +8,7 @@ export interface WorkspaceIndexDeps {
     findFiles?: () => Thenable<vscode.Uri[]> | Promise<vscode.Uri[]>;
     readFile?: (uri: vscode.Uri) => Thenable<string> | Promise<string>;
     createWatcher?: (invalidate: (uri?: vscode.Uri) => void) => vscode.Disposable;
+    workspaceFolders?: vscode.Uri[];
 }
 
 interface IndexedInclude {
@@ -123,7 +124,11 @@ export class WorkspaceIndex implements vscode.Disposable {
         if (this.deps.findFiles) {
             return this.deps.findFiles();
         }
-        return vscode.workspace.findFiles('**/*.thrift', '**/node_modules/**');
+        return vscode.workspace.findFiles(
+            config.filePatterns.thrift,
+            config.filePatterns.excludeNodeModules,
+            config.search.workspaceFileLimit
+        );
     }
 
     private async readFile(uri: vscode.Uri): Promise<string> {
@@ -159,9 +164,13 @@ export class WorkspaceIndex implements vscode.Disposable {
             if (node.type !== nodes.ThriftNodeType.Include) {
                 continue;
             }
+            const includeUri = this.resolveIncludeUri(uri, node.path);
+            if (includeUri === undefined) {
+                continue;
+            }
             includes.push({
                 path: node.path,
-                uri: this.resolveIncludeUri(uri, node.path),
+                uri: includeUri,
                 range: toVscodeRange(node.range)
             });
         }
@@ -178,11 +187,27 @@ export class WorkspaceIndex implements vscode.Disposable {
         return namespaces;
     }
 
-    private resolveIncludeUri(sourceUri: vscode.Uri, includePath: string): vscode.Uri {
-        if (path.isAbsolute(includePath)) {
-            return vscode.Uri.file(path.normalize(includePath));
+    private resolveIncludeUri(sourceUri: vscode.Uri, includePath: string): vscode.Uri | undefined {
+        const sourceDir = path.dirname(sourceUri.fsPath);
+        const boundaryDir = this.getBoundaryDir(sourceUri) ?? sourceDir;
+        const resolved = safeResolveIncludePath(includePath, sourceDir, boundaryDir);
+        if (resolved === undefined) {
+            return undefined;
         }
-        return vscode.Uri.file(path.normalize(path.resolve(path.dirname(sourceUri.fsPath), includePath)));
+        return vscode.Uri.file(resolved);
+    }
+
+    private getBoundaryDir(sourceUri: vscode.Uri): string | undefined {
+        const folders = this.deps.workspaceFolders ??
+            vscode.workspace.workspaceFolders?.map(folder => folder.uri) ??
+            [];
+        for (const folder of folders) {
+            const relative = path.relative(folder.fsPath, sourceUri.fsPath);
+            if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+                return folder.fsPath;
+            }
+        }
+        return undefined;
     }
 
     private rebuildSymbols(): void {

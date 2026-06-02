@@ -140,4 +140,19 @@ describe('AST caching', () => {
     it('should pass testCacheStatistics', () => {
         testCacheStatistics();
     });
+    it('bounds full AST cache entries by configured capacity', () => {
+        const cache = require('../../../../out/ast/cache.js');
+        assert.strictEqual(typeof cache.getAstCacheStatsForTesting, 'function');
+
+        cache.clearExpiredAstCache();
+        for (let i = 0; i < 130; i++) {
+            ThriftParser.parseContentWithCache(
+                `bounded-cache-${i}.thrift`,
+                `struct Bounded${i} { 1: string field${i} }`
+            );
+        }
+
+        const stats = cache.getAstCacheStatsForTesting();
+        assert.ok(stats.fullSize <= 100, `expected full cache size <= 100, got ${stats.fullSize}`);
+    });
 });

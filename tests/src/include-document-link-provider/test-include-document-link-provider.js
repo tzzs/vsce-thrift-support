@@ -45,4 +45,24 @@ describe('ThriftIncludeDocumentLinkProvider', function () {
         assert.deepStrictEqual(await provider.provideDocumentLinks(textDocument, {isCancellationRequested: false}), []);
         assert.deepStrictEqual(await provider.provideDocumentLinks(thriftDocument, {isCancellationRequested: true}), []);
     });
+
+    it('does not create links for include paths outside the workspace root', async function () {
+        const provider = new ThriftIncludeDocumentLinkProvider();
+        const document = createDocument(
+            '/tmp/thrift-links/main.thrift',
+            'include "../outside.thrift"\ninclude "/etc/passwd"\ninclude "shared.thrift"\n'
+        );
+
+        const originalWorkspaceFolders = vscode.workspace.workspaceFolders;
+        vscode.workspace.workspaceFolders = [{uri: vscode.Uri.file('/tmp/thrift-links')}];
+
+        try {
+            const links = await provider.provideDocumentLinks(document, {isCancellationRequested: false});
+            assert.deepStrictEqual(links.map(link => link.target.fsPath), [
+                path.join('/tmp', 'thrift-links', 'shared.thrift')
+            ]);
+        } finally {
+            vscode.workspace.workspaceFolders = originalWorkspaceFolders;
+        }
+    });
 });

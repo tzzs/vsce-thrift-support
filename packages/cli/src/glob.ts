@@ -28,7 +28,11 @@ export function expandFiles(patterns: string[]): string[] {
                 continue;
             }
 
-            const stat = fs.statSync(resolved);
+            const stat = fs.lstatSync(resolved);
+            if (stat.isSymbolicLink()) {
+                process.stderr.write(`Warning: "${pattern}" is a symlink, skipping.\n`);
+                continue;
+            }
             if (stat.isFile()) {
                 files.push(resolved);
             } else if (stat.isDirectory()) {
