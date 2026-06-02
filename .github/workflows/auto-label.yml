@@ -5,94 +5,151 @@ env:
 
 on:
   issues:
-    types: [opened]
-  pull_request:
-    types: [opened]
+    types: [opened, edited, reopened]
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
 
 permissions:
+  contents: read
   issues: write
   pull-requests: write
 
 jobs:
-  label:
+  content-labels:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Auto-label issues
+      - name: Auto-label issues by content
         if: github.event_name == 'issues'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const title = context.payload.issue.title.toLowerCase();
             const body = (context.payload.issue.body || '').toLowerCase();
+            const text = `${title}\n${body}`;
+            const labels = new Set();
 
-            const labels = [];
+            const bugSignals = [
+              /\bbug\b/,
+              /\bcrash(?:es|ed|ing)?\b/,
+              /\berror\b/,
+              /\bfail(?:s|ed|ing|ure)?\b/,
+              /\bbroken\b/,
+              /\bincorrect\b/,
+              /\bregression\b/,
+              /\bsteps to reproduce\b/,
+              /\bexpected behavior\b/,
+              /\bactual behavior\b/,
+              /^fix(?::|\()/,
+              /^bug(?::|\()/
+            ];
 
-            // Bug detection: title or body contains bug-related keywords
-            if (title.startsWith('bug') || title.startsWith('fix:') || title.startsWith('fix(') ||
-                title.includes('broken') || title.includes('error') || title.includes('crash') ||
-                title.includes('incorrect') || title.includes('fail') || title.includes('bug')) {
-              labels.push('bug');
+            const enhancementSignals = [
+              /\bfeature request\b/,
+              /\benhancement\b/,
+              /\brequest\b/,
+              /\bproposal\b/,
+              /\badd support\b/,
+              /^feat(?::|\()/,
+              /^feature(?::|\()/
+            ];
+
+            if (bugSignals.some(pattern => pattern.test(text))) {
+              labels.add('bug');
             }
 
-            // Enhancement detection: title contains feature-related keywords
-            if (title.startsWith('feat:') || title.startsWith('feat(') ||
-                title.startsWith('feature:') || title.startsWith('enhancement:') ||
-                title.includes('feature request') || title.includes('request') ||
-                body.includes('feature request')) {
-              labels.push('enhancement');
+            if (enhancementSignals.some(pattern => pattern.test(text))) {
+              labels.add('enhancement');
             }
 
-            // Heuristic: if body contains typical bug report patterns
-            if (!labels.includes('bug') && !labels.includes('enhancement')) {
-              if (body.includes('steps to reproduce') || body.includes('expected behavior') ||
-                  body.includes('actual behavior') || body.includes('reproduction steps')) {
-                labels.push('bug');
-              }
-            }
-
-            if (labels.length > 0) {
+            const labelList = [...labels];
+            if (labelList.length > 0) {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.payload.issue.number,
-                labels: labels
+                labels: labelList
               });
-              console.log(`Added labels: ${labels.join(', ')}`);
+              core.info(`Added labels: ${labelList.join(', ')}`);
             } else {
-              console.log('No matching labels found');
+              core.info('No matching labels found');
             }
 
-      - name: Auto-label PRs
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+      - name: Auto-label PRs by content
+        if: github.event_name == 'pull_request_target'
+        uses: actions/github-script@v8
         with:
           script: |
             const title = context.payload.pull_request.title.toLowerCase();
-            const labels = [];
+            const body = (context.payload.pull_request.body || '').toLowerCase();
+            const text = `${title}\n${body}`;
+            const labels = new Set();
 
-            // PR with fix: or fix( prefix → bug
-            if (title.startsWith('fix:') || title.startsWith('fix(') ||
-                title.startsWith('bug:') || title.startsWith('bug(') ||
-                title.startsWith('hotfix:') || title.startsWith('hotfix(')) {
-              labels.push('bug');
+            if (/^(fix|bug|hotfix)(:|\()/.test(title) || /\bregression\b/.test(text)) {
+              labels.add('bug');
             }
 
-            // PR with feat: or feat( prefix → enhancement
-            if (title.startsWith('feat:') || title.startsWith('feat(') ||
-                title.startsWith('feature:') || title.startsWith('feature(') ||
-                title.startsWith('enhancement:') || title.startsWith('enhancement(')) {
-              labels.push('enhancement');
+            if (/^(feat|feature|enhancement)(:|\()/.test(title)) {
+              labels.add('enhancement');
             }
 
-            if (labels.length > 0) {
+            const labelList = [...labels];
+            if (labelList.length > 0) {
               await github.rest.issues.addLabels({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: context.payload.pull_request.number,
-                labels: labels
+                labels: labelList
               });
-              console.log(`Added labels: ${labels.join(', ')}`);
+              core.info(`Added labels: ${labelList.join(', ')}`);
             } else {
-              console.log('No matching labels found');
+              core.info('No matching labels found');
             }
+
+  path-labels:
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ensure PR path labels exist
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const labels = [
+              ['area:formatter', '5319e7', 'Changes to formatting behavior'],
+              ['area:diagnostics', 'd93f0b', 'Changes to diagnostics and validation'],
+              ['area:navigation', '1d76db', 'Changes to navigation, symbols, rename, or workspace indexing'],
+              ['area:syntax', 'fbca04', 'Changes to syntax highlighting or parsing'],
+              ['area:cli', '0e8a16', 'Changes to command-line tooling'],
+              ['area:extension', '006b75', 'Changes to extension wiring, commands, or packaging metadata'],
+              ['tests', 'c2e0c6', 'Changes to tests or fixtures'],
+              ['ci', 'bfd4f2', 'Changes to CI, build, or repository automation']
+            ];
+
+            for (const [name, color, description] of labels) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name
+                });
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name,
+                  color,
+                  description
+                });
+                core.info(`Created label: ${name}`);
+              }
+            }
+
+      - name: Auto-label PRs by changed files
+        uses: actions/labeler@v6
+        with:
+          sync-labels: true
