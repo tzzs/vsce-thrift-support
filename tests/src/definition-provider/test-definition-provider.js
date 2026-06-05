@@ -148,6 +148,77 @@ struct Profile {
         assert(structDefinition.range.end.line === 3, 'Definition should end at line 3');
     });
 
+    it('should ignore previous field names when resolving a later struct type reference', async () => {
+        const structText = `struct Earlier {
+    1: required User User
+}
+
+struct Later {
+    1: required User User
+}
+
+struct User {
+    1: required string name
+}`;
+        const structDocument = createMockDocument(structText);
+        const structPosition = createMockPosition(5, 18); // On "User" type in Later
+
+        const structDefinition = await provider.provideDefinition(
+            structDocument,
+            structPosition,
+            createMockCancellationToken()
+        );
+
+        assert(structDefinition, 'Should find definition for struct type');
+        assert.strictEqual(structDefinition.range.start.line, 8, 'Struct definition should be at line 8');
+    });
+
+    it('should ignore previous field names when resolving a later enum type reference', async () => {
+        const enumText = `struct Earlier {
+    1: required Status Status
+}
+
+struct Later {
+    1: required Status Status
+}
+
+enum Status {
+    ACTIVE = 1
+}`;
+        const enumDocument = createMockDocument(enumText);
+        const enumPosition = createMockPosition(5, 18); // On "Status" type in Later
+
+        const enumDefinition = await provider.provideDefinition(
+            enumDocument,
+            enumPosition,
+            createMockCancellationToken()
+        );
+
+        assert(enumDefinition, 'Should find definition for enum type');
+        assert.strictEqual(enumDefinition.range.start.line, 8, 'Enum definition should be at line 8');
+    });
+
+    it('should resolve a later service method occurrence to its own declaration', async () => {
+        const serviceText = `service LegacyUserService {
+    void getUser(1: i32 id)
+}
+
+service UserService {
+    void getUser(1: i32 id)
+}`;
+        const serviceDocument = createMockDocument(serviceText);
+        const methodPosition = createMockPosition(5, 10); // On "getUser" method in UserService
+
+        const methodDefinition = await provider.provideDefinition(
+            serviceDocument,
+            methodPosition,
+            createMockCancellationToken()
+        );
+
+        assert(methodDefinition, 'Should find definition for service method');
+        assert.strictEqual(methodDefinition.range.start.line, 5, 'Method definition should be the later declaration');
+    });
+
     it('should find definition of enum type', async () => {
         const enumText = `enum Status {
     ACTIVE = 1,
