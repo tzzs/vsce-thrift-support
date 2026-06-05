@@ -219,6 +219,35 @@ service UserService {
         assert.strictEqual(methodDefinition.range.start.line, 5, 'Method definition should be the later declaration');
     });
 
+    it('should ignore previous method and enum member names when resolving a type reference', async () => {
+        const text = `service Earlier {
+    void Status()
+}
+
+enum Other {
+    Status = 1
+}
+
+struct Later {
+    1: required Status status
+}
+
+enum Status {
+    ACTIVE = 1
+}`;
+        const document = createMockDocument(text);
+        const position = createMockPosition(9, 18); // On "Status" type in Later
+
+        const definition = await provider.provideDefinition(
+            document,
+            position,
+            createMockCancellationToken()
+        );
+
+        assert(definition, 'Should find definition for Status enum type');
+        assert.strictEqual(definition.range.start.line, 12, 'Enum definition should be at line 12');
+    });
+
     it('should find definition of enum type', async () => {
         const enumText = `enum Status {
     ACTIVE = 1,
