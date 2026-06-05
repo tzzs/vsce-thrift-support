@@ -31,13 +31,15 @@ export class DefinitionLookup {
 
         let foundLocation: vscode.Location | undefined;
         this.traverseAST(ast, (node) => {
-            if (isDefinitionNode(node) && node.name === typeName) {
+            if (isCurrentDeclarationCandidate(node) && node.name === typeName) {
                 const location = createLocation(uri, node.range);
                 if (sourceRange !== undefined && rangeContainsNodeName(node, sourceRange)) {
                     foundLocation = location;
                     return false;
                 }
-                foundLocation ??= location;
+                if (isLookupTargetNode(node)) {
+                    foundLocation ??= location;
+                }
             }
             return true;
         });
@@ -162,7 +164,7 @@ function rangeContainsNodeName(node: nodes.ThriftNode, sourceRange: vscode.Range
         sourceRange.end.character <= node.nameRange.end.character;
 }
 
-function isDefinitionNode(node: nodes.ThriftNode): boolean {
+function isCurrentDeclarationCandidate(node: nodes.ThriftNode): boolean {
     return node.type === nodes.ThriftNodeType.Const ||
         node.type === nodes.ThriftNodeType.Typedef ||
         node.type === nodes.ThriftNodeType.Enum ||
@@ -173,6 +175,17 @@ function isDefinitionNode(node: nodes.ThriftNode): boolean {
         node.type === nodes.ThriftNodeType.Service ||
         node.type === nodes.ThriftNodeType.Interaction ||
         node.type === nodes.ThriftNodeType.Function;
+}
+
+function isLookupTargetNode(node: nodes.ThriftNode): boolean {
+    return node.type === nodes.ThriftNodeType.Const ||
+        node.type === nodes.ThriftNodeType.Typedef ||
+        node.type === nodes.ThriftNodeType.Enum ||
+        node.type === nodes.ThriftNodeType.Struct ||
+        node.type === nodes.ThriftNodeType.Union ||
+        node.type === nodes.ThriftNodeType.Exception ||
+        node.type === nodes.ThriftNodeType.Service ||
+        node.type === nodes.ThriftNodeType.Interaction;
 }
 
 function hashText(text: string): string {

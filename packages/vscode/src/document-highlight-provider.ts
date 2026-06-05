@@ -3,6 +3,7 @@ import {ThriftParser, nodes, ErrorHandler, parseContainerTypeInfo} from '@tanzz/
 import {CoreDependencies} from './utils/dependencies';
 import {toVscodeRange} from './utils/vscode-utils';
 import {PRIMITIVE_TYPES, CONTAINER_KEYWORDS} from './utils/thrift-constants';
+import {getSymbolType} from './references/symbol-type';
 
 interface SimpleRange {
     start: {line: number; character: number};
@@ -24,7 +25,8 @@ export interface HighlightOccurrence {
  */
 export function collectHighlights(
     ast: nodes.ThriftDocument,
-    target: string
+    target: string,
+    symbolType = 'any'
 ): HighlightOccurrence[] {
     if (!target) {
         return [];
@@ -61,27 +63,31 @@ export function collectHighlights(
     const visit = (node: nodes.ThriftNode): void => {
         switch (node.type) {
             case nodes.ThriftNodeType.Namespace: {
-                if (node.name === target) {
+                if (shouldIncludeNameHighlight(node, symbolType) && node.name === target) {
                     pushIfRange(node.nameRange, vscode.DocumentHighlightKind.Write);
                 }
                 break;
             }
             case nodes.ThriftNodeType.Const: {
-                if (node.name === target) {
+                if (shouldIncludeNameHighlight(node, symbolType) && node.name === target) {
                     pushIfRange(node.nameRange, vscode.DocumentHighlightKind.Write);
                 }
-                matchTypeText(node.valueType, node.valueTypeRange);
+                if (shouldIncludeTypeReferences(symbolType)) {
+                    matchTypeText(node.valueType, node.valueTypeRange);
+                }
                 break;
             }
             case nodes.ThriftNodeType.Typedef: {
-                if (node.name === target) {
+                if (shouldIncludeNameHighlight(node, symbolType) && node.name === target) {
                     pushIfRange(node.nameRange, vscode.DocumentHighlightKind.Write);
                 }
-                matchTypeText(node.aliasType, node.aliasTypeRange);
+                if (shouldIncludeTypeReferences(symbolType)) {
+                    matchTypeText(node.aliasType, node.aliasTypeRange);
+                }
                 break;
             }
             case nodes.ThriftNodeType.Enum: {
-                if (node.name === target) {
+                if (shouldIncludeNameHighlight(node, symbolType) && node.name === target) {
                     pushIfRange(node.nameRange, vscode.DocumentHighlightKind.Write);
                 }
                 for (const member of node.members) {
@@ -90,7 +96,7 @@ export function collectHighlights(
                 break;
             }
             case nodes.ThriftNodeType.EnumMember: {
-                if (node.name === target) {
+                if (shouldIncludeNameHighlight(node, symbolType) && node.name === target) {
                     pushIfRange(node.nameRange, vscode.DocumentHighlightKind.Write);
                 }
                 break;
@@ -98,7 +104,7 @@ export function collectHighlights(
             case nodes.ThriftNodeType.Struct:
             case nodes.ThriftNodeType.Union:
             case nodes.ThriftNodeType.Exception: {
-                if (node.name === target) {
+                if (shouldIncludeNameHighlight(node, symbolType) && node.name === target) {
                     pushIfRange(node.nameRange, vscode.DocumentHighlightKind.Write);
                 }
                 for (const field of node.fields) {
@@ -107,11 +113,11 @@ export function collectHighlights(
                 break;
             }
             case nodes.ThriftNodeType.Service: {
-                if (node.name === target) {
+                if (shouldIncludeNameHighlight(node, symbolType) && node.name === target) {
                     pushIfRange(node.nameRange, vscode.DocumentHighlightKind.Write);
                 }
                 // service extends target → Read
-                if (node.extends === target) {
+                if (shouldIncludeTypeReferences(symbolType) && node.extends === target) {
                     pushIfRange(node.extendsRange ?? node.nameRange, vscode.DocumentHighlightKind.Read);
                 }
                 for (const func of node.functions) {
@@ -125,7 +131,7 @@ export function collectHighlights(
                 break;
             }
             case nodes.ThriftNodeType.Interaction: {
-                if (node.name === target) {
+                if (shouldIncludeNameHighlight(node, symbolType) && node.name === target) {
                     pushIfRange(node.nameRange, vscode.DocumentHighlightKind.Write);
                 }
                 for (const func of node.functions) {
@@ -134,16 +140,18 @@ export function collectHighlights(
                 break;
             }
             case nodes.ThriftNodeType.Performs: {
-                if (node.interactionName === target) {
+                if (shouldIncludeTypeReferences(symbolType) && node.interactionName === target) {
                     pushIfRange(node.interactionNameRange, vscode.DocumentHighlightKind.Read);
                 }
                 break;
             }
             case nodes.ThriftNodeType.Function: {
-                if (node.name === target) {
+                if (shouldIncludeNameHighlight(node, symbolType) && node.name === target) {
                     pushIfRange(node.nameRange, vscode.DocumentHighlightKind.Write);
                 }
-                matchTypeText(node.returnType, node.returnTypeRange);
+                if (shouldIncludeTypeReferences(symbolType)) {
+                    matchTypeText(node.returnType, node.returnTypeRange);
+                }
                 for (const arg of node.arguments) {
                     visit(arg);
                 }
@@ -153,10 +161,12 @@ export function collectHighlights(
                 break;
             }
             case nodes.ThriftNodeType.Field: {
-                if (node.name === target) {
+                if (shouldIncludeNameHighlight(node, symbolType) && node.name === target) {
                     pushIfRange(node.nameRange, vscode.DocumentHighlightKind.Write);
                 }
-                matchTypeText(node.fieldType, node.typeRange);
+                if (shouldIncludeTypeReferences(symbolType)) {
+                    matchTypeText(node.fieldType, node.typeRange);
+                }
                 break;
             }
             default:
@@ -169,6 +179,57 @@ export function collectHighlights(
     }
 
     return dedupe(out);
+}
+
+function shouldIncludeTypeReferences(symbolType: string): boolean {
+    return symbolType === 'any' ||
+        symbolType === 'type' ||
+        symbolType === 'struct' ||
+        symbolType === 'union' ||
+        symbolType === 'exception' ||
+        symbolType === 'enum' ||
+        symbolType === 'service' ||
+        symbolType === 'interaction' ||
+        symbolType === 'typedef' ||
+        symbolType === 'namespace';
+}
+
+function shouldIncludeNameHighlight(node: nodes.ThriftNode, symbolType: string): boolean {
+    if (symbolType === 'any') {
+        return true;
+    }
+    switch (symbolType) {
+        case 'field':
+            return node.type === nodes.ThriftNodeType.Field;
+        case 'method':
+            return node.type === nodes.ThriftNodeType.Function;
+        case 'enumValue':
+            return node.type === nodes.ThriftNodeType.EnumMember;
+        case 'struct':
+        case 'union':
+        case 'exception':
+        case 'enum':
+        case 'service':
+        case 'interaction':
+        case 'typedef':
+        case 'type':
+        case 'namespace':
+            return shouldIncludeTypeName(node);
+        default:
+            return false;
+    }
+}
+
+function shouldIncludeTypeName(node: nodes.ThriftNode): boolean {
+    return node.type === nodes.ThriftNodeType.Namespace ||
+        node.type === nodes.ThriftNodeType.Const ||
+        node.type === nodes.ThriftNodeType.Typedef ||
+        node.type === nodes.ThriftNodeType.Enum ||
+        node.type === nodes.ThriftNodeType.Struct ||
+        node.type === nodes.ThriftNodeType.Union ||
+        node.type === nodes.ThriftNodeType.Exception ||
+        node.type === nodes.ThriftNodeType.Service ||
+        node.type === nodes.ThriftNodeType.Interaction;
 }
 
 function dedupe(occurrences: HighlightOccurrence[]): HighlightOccurrence[] {
@@ -253,7 +314,13 @@ export class ThriftDocumentHighlightProvider implements vscode.DocumentHighlight
                 document.getText(),
                 document.version
             );
-            const occurrences = collectHighlights(ast, target);
+            const symbolType = getSymbolType(document, position, target, {
+                getCachedAst: () => ast
+            });
+            if (symbolType === null) {
+                return [];
+            }
+            const occurrences = collectHighlights(ast, target, symbolType);
             return occurrences.map(o => new vscode.DocumentHighlight(toVscodeRange(o.range), o.kind));
         } catch (error) {
             this.errorHandler.handleError(error, {

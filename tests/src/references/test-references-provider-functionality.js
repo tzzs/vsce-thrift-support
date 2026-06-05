@@ -61,6 +61,21 @@ function createMockDocument(text, fileName = 'test.thrift') {
 }
 
 describe('references-provider-functionality', () => {
+    let originalFindFiles;
+
+    before(() => {
+        originalFindFiles = vscode.workspace.findFiles;
+        vscode.workspace.findFiles = async () => [];
+    });
+
+    after(() => {
+        vscode.workspace.findFiles = originalFindFiles;
+    });
+
+    function getRangeText(document, range) {
+        return document.getText(range);
+    }
+
     it('should find references correctly', async () => {
         const provider = new ThriftReferencesProvider();
 
@@ -91,5 +106,71 @@ service UserService {
         );
 
         assert(Array.isArray(excludeReferences), 'References should be an array');
+    });
+
+    it('keeps includeDeclaration-specific reference cache entries separate', async () => {
+        const provider = new ThriftReferencesProvider();
+
+        const testDocument = createMockDocument(`struct User {
+  1: required i32 id
+}
+
+service UserService {
+  User getUser()
+}`);
+
+        const userPosition = new vscode.Position(0, 7);
+        const excludeReferences = await provider.provideReferences(
+            testDocument,
+            userPosition,
+            {includeDeclaration: false},
+            {isCancellationRequested: false}
+        );
+        const includeReferences = await provider.provideReferences(
+            testDocument,
+            userPosition,
+            {includeDeclaration: true},
+            {isCancellationRequested: false}
+        );
+
+        assert.strictEqual(
+            excludeReferences.some(ref => ref.range.start.line === 0),
+            false,
+            'includeDeclaration=false should omit the struct declaration'
+        );
+        assert.strictEqual(
+            includeReferences.some(ref => ref.range.start.line === 0),
+            true,
+            'includeDeclaration=true should include the struct declaration even after an exclude lookup'
+        );
+    });
+
+    it('does not treat type definitions or type references as field-name references', async () => {
+        const provider = new ThriftReferencesProvider();
+
+        const testDocument = createMockDocument(`struct User {
+  1: required string name
+}
+
+struct Container {
+  1: required User User
+}`);
+
+        const fieldNamePosition = new vscode.Position(5, 20); // On the field name "User"
+        const references = await provider.provideReferences(
+            testDocument,
+            fieldNamePosition,
+            {includeDeclaration: true},
+            {isCancellationRequested: false}
+        );
+
+        assert.deepStrictEqual(
+            references.map(ref => ({
+                line: ref.range.start.line,
+                text: getRangeText(testDocument, ref.range)
+            })),
+            [{line: 5, text: 'User'}],
+            'field references should only include the field name declaration'
+        );
     });
 });
