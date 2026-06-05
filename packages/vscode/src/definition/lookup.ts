@@ -15,12 +15,15 @@ export class DefinitionLookup {
     public findDefinitionInDocument(
         uri: vscode.Uri,
         text: string,
-        typeName: string
+        typeName: string,
+        sourceRange?: vscode.Range
     ): vscode.Location | undefined {
-        const cacheKey = `document_${uri.toString()}_${typeName}`;
-        const cached = this.cacheManager.get<vscode.Location[]>('document', cacheKey);
-        if (cached && cached.length > 0) {
-            return cached[0];
+        const cacheKey = sourceRange === undefined ? `document_${uri.toString()}_${typeName}_${hashText(text)}` : undefined;
+        if (cacheKey !== undefined) {
+            const cached = this.cacheManager.get<vscode.Location[]>('document', cacheKey);
+            if (cached && cached.length > 0) {
+                return cached[0];
+            }
         }
 
         const parser = new ThriftParser(text);
@@ -28,15 +31,21 @@ export class DefinitionLookup {
 
         let foundLocation: vscode.Location | undefined;
         this.traverseAST(ast, (node) => {
-            if (node.name === typeName) {
-                foundLocation = createLocation(uri, node.range);
-                return false;
+            if (isDefinitionNode(node) && node.name === typeName) {
+                const location = createLocation(uri, node.range);
+                if (sourceRange !== undefined && rangeContainsNodeName(node, sourceRange)) {
+                    foundLocation = location;
+                    return false;
+                }
+                foundLocation ??= location;
             }
             return true;
         });
 
         const locations = foundLocation ? [foundLocation] : [];
-        this.cacheManager.set('document', cacheKey, locations);
+        if (cacheKey !== undefined) {
+            this.cacheManager.set('document', cacheKey, locations);
+        }
         return foundLocation;
     }
 
@@ -142,4 +151,34 @@ export class DefinitionLookup {
 
         return true;
     }
+}
+
+function rangeContainsNodeName(node: nodes.ThriftNode, sourceRange: vscode.Range): boolean {
+    if (node.nameRange === undefined) {
+        return false;
+    }
+    return node.nameRange.start.line === sourceRange.start.line &&
+        sourceRange.start.character >= node.nameRange.start.character &&
+        sourceRange.end.character <= node.nameRange.end.character;
+}
+
+function isDefinitionNode(node: nodes.ThriftNode): boolean {
+    return node.type === nodes.ThriftNodeType.Const ||
+        node.type === nodes.ThriftNodeType.Typedef ||
+        node.type === nodes.ThriftNodeType.Enum ||
+        node.type === nodes.ThriftNodeType.EnumMember ||
+        node.type === nodes.ThriftNodeType.Struct ||
+        node.type === nodes.ThriftNodeType.Union ||
+        node.type === nodes.ThriftNodeType.Exception ||
+        node.type === nodes.ThriftNodeType.Service ||
+        node.type === nodes.ThriftNodeType.Interaction ||
+        node.type === nodes.ThriftNodeType.Function;
+}
+
+function hashText(text: string): string {
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+        hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+    }
+    return hash.toString(36);
 }
