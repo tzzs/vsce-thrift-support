@@ -33,7 +33,7 @@
    - 风险：命名空间类型补全、include-aware 补全和高质量 Quick Fix 能力受限。
 
 6. **文档仍保留旧的单包结构描述。**
-   - 证据：`README.md`、`README.en.md`、`DEVELOPMENT.md` 仍描述 `src/` 为主项目结构；`DEVELOPMENT.md` 引用了 `package.json` 中不存在的 `npm run test:all`、`npm run test:const`。
+   - 证据：`README.md`、`README.zh-CN.md`、`DEVELOPMENT.md` 仍描述 `src/` 为主项目结构；`DEVELOPMENT.md` 引用了 `package.json` 中不存在的 `npm run test:all`、`npm run test:const`。
    - 风险：新贡献者和 agent 可能按错误路径或无效命令工作。
 
 7. **测试基础设施中存在默认 Mocha 契约之外的历史脚本和 debug runner。**
@@ -55,7 +55,7 @@
 
 ## Phase 0：仓库整理与文档校准
 
-**文件：** `README.md`、`README.en.md`、`DEVELOPMENT.md`、`package.json`、`tests/README.md`、根目录历史测试/debug 文件。
+**文件：** `README.md`、`README.zh-CN.md`、`DEVELOPMENT.md`、`package.json`、`tests/README.md`、根目录历史测试/debug 文件。
 
 - [ ] 将旧的 `src/` 结构描述替换为 `packages/core/src`、`packages/vscode/src`、`packages/cli/src`、`syntaxes`、`tests/src`。
 - [ ] 删除或修正不存在的脚本引用：`npm run test:all`、`npm run test:const`。

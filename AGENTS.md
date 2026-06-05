@@ -1,64 +1,71 @@
 # Repository Guidelines
 
-## Project Overview
+## Agent Entry Map
 
-VS Code extension for Apache Thrift IDL: syntax highlighting, formatting, diagnostics, navigation, completion, rename, and refactoring. Uses VS Code's built-in language provider APIs (no language server).
+This repository is a pnpm monorepo for a VS Code extension and companion CLI for Apache Thrift IDL. Start with the short maps below, then follow the linked source of truth instead of guessing from old paths.
 
-## Build Pipeline (Two-Stage)
+| Need | Read / run |
+| --- | --- |
+| Directory ownership and generated outputs | [docs/PROJECT_MAP.md](docs/PROJECT_MAP.md) |
+| Architecture and provider/data-flow boundaries | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| Local setup, build, test, release details | [DEVELOPMENT.md](DEVELOPMENT.md) |
+| Test taxonomy and mock rules | [tests/README.md](tests/README.md), [tests/TESTING.md](tests/TESTING.md) |
+| Manual/debug scripts | [tests/debug/README.md](tests/debug/README.md) |
+| Diagnostics rule behavior | [docs/diagnostics-rules.md](docs/diagnostics-rules.md) |
+| Formatter/annotation policy | [docs/annotation-policy.md](docs/annotation-policy.md) |
 
-1. `tsc -p ./` compiles `src/**/*.ts` → `out/src/` (via tsconfig.json)
-2. `esbuild` (via `build.js`) bundles `src/extension.ts` → `dist/extension.js`
-3. The extension entrypoint is `dist/extension.js` (`package.json` `main`)
-4. Tests import from `out/src/...` (compiled, not bundled); the require-hook remaps these paths
+When possible, use subagents for independent scans or validation so the main thread can keep implementation moving.
+
+## Project Shape
+
+- `packages/core/src/`: parser, formatter, diagnostics rules, refactor primitives, cache/memory/error utilities. This package must not depend on VS Code APIs.
+- `packages/vscode/src/`: VS Code extension entrypoint, providers, commands, indexing, formatting bridge, and dependency injection.
+- `packages/cli/src/`: standalone `thrift-support` CLI commands and config loading.
+- `syntaxes/` and `language-configuration.json`: TextMate grammar and VS Code language metadata.
+- `tests/src/`: canonical Mocha tests for core and extension behavior.
+- `tests/cli/`: CLI tests.
+- `tests/perf/`: performance benchmark and threshold scripts.
+- `tests/debug/`: manual reproduction, analysis, and migration helper scripts. These are not default release gates.
+- `out/`, `dist/`, package-local `out/` / `dist/`, `coverage/`, and `tmp/` are generated outputs.
+
+## Commands
 
 | Command | What it does |
-|---------|-------------|
-| `npm run compile` | TypeScript → `out/` |
-| `npm run build` | `clean` → `compile` → `bundle` |
-| `npm test` | `build` → `mocha` (spec: `tests/src/**/*.js`) |
-| `npm run test:single` | `build` → single test file (via `.mocharc.single.json`) |
-| `npm run lint` | ESLint flat config (`eslint.config.mjs`), `src/` only |
-| `npm run lint:fix` | ESLint with `--fix` |
-| `npm run coverage` | `build` → `nyc` + `mocha` |
-| `npm run package` | Create `.vsix` |
+| --- | --- |
+| `npm run lint:fix` | ESLint autofix for `packages/*/src/**/*.ts`; required after code changes |
+| `npm run lint` | ESLint flat config over package source |
+| `npm run build` | clean, build core, compile VS Code package, bundle extension |
+| `npm run build:cli` | bundle and compile CLI package |
+| `npm test` | build extension + CLI, then run Mocha |
+| `npm run test:single -- <file>` | build extension + CLI, then run one Mocha file |
+| `npm run coverage:cli` | CLI-focused coverage |
+| `npm run perf:benchmark` | parser/formatter/diagnostics/cache/indexing performance benchmark |
+| `npm run smoke:package` | VSIX and CLI tarball smoke checks |
 
-## Key Conventions & Gotchas
+## Conventions And Gotchas
 
-- **Node 24.x required** (recommended 24.16.0, matching `.nvmrc`, `.node-version`, package `engines.node`, and CI). Mismatched versions can break dependency installs or builds, including `undici`-related failures.
-- **ESLint flat config**: `eslint.config.mjs`. The `--ext ts` flag in `lint:fix` is needed despite flat config (works with the typescript-eslint parser setup).
-- **`no-console` is `error`** — agents must not use `console.log` in `src/`. Use the `ErrorHandler` service instead.
-- **Diagnostics entrypoint**: `src/diagnostics/index.ts` (NOT `src/diagnostics.ts`).
-- **Dependency injection**: `createCoreDependencies()` in `src/utils/dependencies.ts` creates a `CoreDependencies` object injected into all providers and commands. `extension.ts` → `createCoreDependencies()` → `registerProviders(deps)` + `registerCommands(deps)`.
-- **UUID is a built-in primitive** (Thrift IDL 0.23+). All providers must include `uuid` in primitive type sets.
-- **Semicolons are never replaced with commas**. `trailingComma: "preserve"` uses suffix-string inspection; `"remove"` strips commas; `"add"` appends them.
-- **Alignment config quirks**:
-  - `alignAssignments` is a master switch for struct field `=` and enum `=`/values
-  - `alignStructDefaults` is **independent** from `alignAssignments`
-  - `alignAnnotations` falls back to deprecated `alignStructAnnotations` if not explicitly set
-  - When `alignComments` is off, comments may coincidentally align — this is NOT forced
-- **Config key namespace**: `thrift.format.*` (primary), legacy `thrift-support.formatting.*` as fallback (see `src/formatting-bridge/options.ts`).
+- Node 24.x is required. Keep `.nvmrc`, `.node-version`, `package.json` engines, and CI aligned.
+- Use VS Code provider APIs directly; this project has no language server.
+- Use `createCoreDependencies()` in `packages/vscode/src/utils/dependencies.ts` for provider/command infrastructure injection.
+- Do not use `console.log` in package source. Use the `ErrorHandler` service.
+- Diagnostics entrypoint is `packages/vscode/src/diagnostics/index.ts`.
+- `uuid` is a built-in primitive for Thrift IDL 0.23+ and must stay recognized across parser, diagnostics, navigation, highlighting, and completion.
+- Formatting must never replace semicolons with commas. `trailingComma: "preserve"` preserves suffixes, `"remove"` strips commas, and `"add"` appends commas where appropriate.
+- Config namespace is `thrift.format.*`; legacy `thrift-support.formatting.*` is fallback only.
+- `alignAssignments` controls struct field `=` and enum `=` / values; `alignStructDefaults` is independent.
+- `alignAnnotations` falls back to deprecated `alignStructAnnotations` only when unset.
 
-## Testing
+## Testing Rules
 
-- **Framework**: Mocha with `describe`/`it` blocks, timeout 30s
-- **Test files**: `tests/src/**/*.js`, organized by module mirroring `src/`
-- **Fixture files**: `test-files/` and `tests/test-files/`
-- **VSCode mock is automatic**: `.mocharc.json` loads `tests/require-hook.js` which intercepts all `require('vscode')` calls and returns `tests/mock_vscode.js`. Never manually mock `vscode` or override `Module.prototype.require`.
-- **Test requires**: Import from `../../../out/...` (compiled output). The require-hook remaps `../out/src/` → actual compiled files.
-- **Run a single test file**: `npx mocha --config .mocharc.single.json tests/src/formatter/test-struct-formatting.js`
-- **CI pipeline**: `npm ci` → `lint` → `build` → `test`
-- **All requires at file top-level** — never inside `describe`/`it` blocks.
+- Tests use Mocha `describe` / `it`, timeout 30s.
+- Import compiled output from `../../../out/...`; `tests/require-hook.js` remaps package paths.
+- Do not manually mock `vscode` or override `Module.prototype.require`; `.mocharc.json` loads the shared require hook.
+- Keep all `require` calls at file top level.
+- Promote long-lived manual reproductions from `tests/debug/**` or `tests/scenarios/**` into `tests/src/**` before treating them as CI guarantees.
 
-## Performance & Memory
+## Commits And PRs
 
-- `PerformanceMonitor` (`src/performance-monitor.ts`): instruments operations, generates Markdown reports
-- `MemoryMonitor` (`src/utils/memory-monitor.ts`): heap tracking, memory pressure detection, adjusts cache sizes
-- `MemoryAwareCacheManager` (`src/utils/cache-manager.ts`): LRU-K with TTL and memory-pressure-based eviction
-
-## Commits & CI
-
-- **Conventional Commits**: `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `perf:`
-- **Default branch**: `master`
-- **release-please** generates release PRs from conventional commits; `publish.yml` publishes to VS Marketplace + Open VSX on GitHub Release
-- **Before PR**: `npm run lint && npm run build && npm test`
-- **代码修改后必须执行 `npm run lint:fix` 并解决所有代码规范问题。**
+- Default branch: `master`.
+- Conventional commits are required, for example `fix(formatter): prevent enum indent drift` or `docs(harness): add project map`.
+- Before PRs that change code, run `npm run lint:fix`, `npm run build`, and `npm test`.
+- For docs-only harness changes, run the smallest relevant validation and report exactly what was run.

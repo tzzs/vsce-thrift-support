@@ -33,7 +33,7 @@
 
 **Files:**
 - Modify: `README.md`
-- Modify: `README.en.md`
+- Modify: `README.zh-CN.md`
 - Modify: `DEVELOPMENT.md`
 - Create: `tests/README.md`
 
@@ -101,7 +101,7 @@ When promoting a manual repro into a regression test, move it under `tests/src/*
 运行：
 
 ```bash
-rg -n "npm run test:all|npm run test:const|`src/`|path=\"src/" README.md README.en.md DEVELOPMENT.md tests/README.md
+rg -n "npm run test:all|npm run test:const|`src/`|path=\"src/" README.md README.zh-CN.md DEVELOPMENT.md tests/README.md
 ```
 
 预期：
@@ -129,7 +129,7 @@ lint 通过，build 通过。
 - [ ] **Step 6：提交**
 
 ```bash
-git add README.md README.en.md DEVELOPMENT.md tests/README.md
+git add README.md README.zh-CN.md DEVELOPMENT.md tests/README.md
 git commit -m "docs: align monorepo docs and test taxonomy"
 ```
 
