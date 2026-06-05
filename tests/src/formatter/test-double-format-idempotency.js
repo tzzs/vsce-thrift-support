@@ -141,4 +141,31 @@ describe('double-format-idempotency', () => {
 
         assert.strictEqual(p1, p2, 'Simple struct idempotent');
     });
+
+    it('enum with tab indentation - format twice', () => {
+        const input = [
+            "enum Status {",
+            "\tOK = 0,",
+            "\tERROR = 1",
+            "}"
+        ].join("\n");
+
+        const provider = new ThriftFormattingProvider();
+        const tabFmtOpts = { insertSpaces: false, tabSize: 4 };
+
+        const doc1 = makeDoc(input, '/test/enum-tabs.thrift');
+        const p1 = provider.provideDocumentFormattingEdits(doc1, tabFmtOpts, token)[0].newText;
+
+        const doc2 = makeDoc(p1, '/test/enum-tabs.thrift');
+        const p2 = provider.provideDocumentFormattingEdits(doc2, tabFmtOpts, token)[0].newText;
+
+        const doc3 = makeDoc(p2, '/test/enum-tabs.thrift');
+        const p3 = provider.provideDocumentFormattingEdits(doc3, tabFmtOpts, token)[0].newText;
+
+        const lines = p1.split('\n');
+        assert.strictEqual(lines[1].match(/^(\t*)/)[1].length, 1, 'First enum member should have one tab indent');
+        assert.strictEqual(lines[2].match(/^(\t*)/)[1].length, 1, 'Second enum member should have one tab indent');
+        assert.strictEqual(p1, p2, 'Enum pass 1 == pass 2');
+        assert.strictEqual(p2, p3, 'Enum pass 2 == pass 3');
+    });
 });
