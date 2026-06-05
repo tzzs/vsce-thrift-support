@@ -146,12 +146,13 @@ export class ThriftFormattingProvider implements vscode.DocumentFormattingEditPr
     ): vscode.TextEdit[] {
         try {
             void token;
-            return this.formatRange(document, range, options);
+            const targetRange = normalizeFormattingRange(document, range);
+            return this.formatRange(document, targetRange, options);
         } catch (error) {
             this.errorHandler.handleError(error, {
                 component: 'ThriftFormattingProvider',
                 operation: 'provideDocumentRangeFormattingEdits',
-                filePath: document.uri.fsPath,
+                filePath: document.uri?.fsPath,
                 additionalInfo: {range: `${range.start.line}:${range.start.character}-${range.end.line}:${range.end.character}`}
             });
             return [];

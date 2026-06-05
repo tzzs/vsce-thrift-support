@@ -45,6 +45,10 @@ describe('range-context', () => {
             const character = lines[lines.length - 1].length;
             return {line, character};
         }
+
+        lineAt(line) {
+            return {text: this._text.split('\n')[line] || ''};
+        }
     }
 
     function makeRange(startLine, startChar, endLine, endChar) {
@@ -64,6 +68,32 @@ describe('range-context', () => {
         });
         const out = edits[0].newText;
         return out;
+    }
+
+    function applyEdit(input, edit) {
+        const lines = input.split('\n');
+        const offsetAt = (position) => {
+            const lineOffset = lines
+                .slice(0, position.line)
+                .reduce((sum, line) => sum + line.length + 1, 0);
+            return lineOffset + position.character;
+        };
+        const start = offsetAt(edit.range.start);
+        const end = offsetAt(edit.range.end);
+        return input.slice(0, start) + edit.newText + input.slice(end);
+    }
+
+    function formatRangeAndApply(input, range, options = {insertSpaces: true, tabSize: 4}) {
+        const doc = new MockDocument(input);
+        const provider = new ThriftFormattingProvider();
+        const edits = provider.provideDocumentRangeFormattingEdits(doc, range, options);
+        return edits.reduce((content, edit) => applyEdit(content, edit), input);
+    }
+
+    function getRangeFormattingEdits(input, range, options = {insertSpaces: true, tabSize: 4}) {
+        const doc = new MockDocument(input);
+        const provider = new ThriftFormattingProvider();
+        return provider.provideDocumentRangeFormattingEdits(doc, range, options);
     }
 
     it('should align type/name/annotations when enabled', () => {
@@ -209,5 +239,26 @@ describe('range-context', () => {
         const lines = out.split('\n');
         assert.strictEqual(lines[0], '/*', 'Block comment should remain at column 0');
         assert.strictEqual(lines[3], 'struct User {', 'Struct header should not be indented');
+    });
+
+    it('should not preserve stale tab outside enum member range formatting', () => {
+        const input = [
+            'enum Status {',
+            '\tA = 1 // active',
+            '\tLONG = 2 // inactive',
+            '}'
+        ].join('\n');
+        const options = {insertSpaces: false, tabSize: 4};
+        const range = makeRange(1, 1, 2, input.split('\n')[2].length);
+        const edits = getRangeFormattingEdits(input, range, options);
+
+        const once = formatRangeAndApply(input, range, options);
+        const twice = formatRangeAndApply(once, range, options);
+
+        assert.strictEqual(edits[0].range.start.character, 0, 'Range edit should cover stale leading tab');
+        const lines = once.split('\n');
+        assert.strictEqual(lines[1].match(/^(\t*)/)[1].length, 1, 'First enum member should have one tab indent');
+        assert.strictEqual(lines[2].match(/^(\t*)/)[1].length, 1, 'Second enum member should have one tab indent');
+        assert.strictEqual(once, twice, 'Repeated range formatting should not add another tab');
     });
 });
