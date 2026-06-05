@@ -23,6 +23,7 @@ export function findReferencesInDocument(
     uri: vscode.Uri,
     text: string,
     symbolName: string,
+    symbolType: string,
     includeDeclaration: boolean,
     deps: ReferenceSearchDeps,
     token?: vscode.CancellationToken
@@ -101,6 +102,13 @@ export function findReferencesInDocument(
             return definitionTypes.includes(n.type);
         };
 
+        if (!isTypeSymbol(symbolType)) {
+            if (includeDeclaration && node.name === symbolName && isSymbolTypeDeclaration(node, symbolType)) {
+                references.push(createLocation(uri, node.nameRange ?? node.range));
+            }
+            return;
+        }
+
         if (includeDeclaration && node.name === symbolName && isDefinitionNode(node)) {
             references.push(createLocation(uri, node.nameRange ?? node.range));
             return;
@@ -145,4 +153,29 @@ export function findReferencesInDocument(
     }, contextCallback);
 
     return references;
+}
+
+function isTypeSymbol(symbolType: string): boolean {
+    return symbolType === 'type' ||
+        symbolType === 'struct' ||
+        symbolType === 'union' ||
+        symbolType === 'exception' ||
+        symbolType === 'enum' ||
+        symbolType === 'service' ||
+        symbolType === 'interaction' ||
+        symbolType === 'typedef' ||
+        symbolType === 'namespace';
+}
+
+function isSymbolTypeDeclaration(node: nodes.ThriftNode, symbolType: string): boolean {
+    switch (symbolType) {
+        case 'field':
+            return node.type === nodes.ThriftNodeType.Field;
+        case 'method':
+            return node.type === nodes.ThriftNodeType.Function;
+        case 'enumValue':
+            return node.type === nodes.ThriftNodeType.EnumMember;
+        default:
+            return false;
+    }
 }

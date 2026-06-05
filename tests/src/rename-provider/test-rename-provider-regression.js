@@ -114,6 +114,47 @@ describe('rename-provider-regression', () => {
         await run();
     });
 
+    it('does not rename a type when renaming a same-named field', async () => {
+        const filePath = path.join(__dirname, 'test-files', 'field-type-collision.thrift');
+        const content = [
+            'struct User {',
+            '  1: string name,',
+            '}',
+            '',
+            'struct Container {',
+            '  1: User User,',
+            '}'
+        ].join('\n');
+        const doc = createMockDocument(content, filePath);
+        doc.uri.toString = () => filePath;
+
+        mockVscode.workspace = {
+            findFiles: async () => [],
+            textDocuments: [doc],
+            openTextDocument: async (uri) => {
+                if (uri && uri.fsPath === filePath) {
+                    return doc;
+                }
+                throw new Error('Unexpected document request');
+            }
+        };
+
+        const provider = new ThriftRenameProvider();
+        const edit = await provider.provideRenameEdits(
+            doc,
+            new Position(5, 12), // On the field name "User", not the field type
+            'owner',
+            {isCancellationRequested: false}
+        );
+
+        assert.ok(edit, 'Expected a WorkspaceEdit');
+        const newText = applyEditsToContent(content, edit.edits || []);
+
+        assert.ok(newText.includes('struct User {'), 'Type declaration should remain unchanged');
+        assert.ok(newText.includes('  1: User owner,'), 'Only the field name should be renamed');
+        assert.strictEqual((newText.match(/\bowner\b/g) || []).length, 1, 'Only one field-name edit is expected');
+    });
+
     it('passes injected dependencies into the references provider for cross-file rename edits', async () => {
         const sourcePath = path.join(__dirname, 'test-files', 'source.thrift');
         const targetPath = path.join(__dirname, 'test-files', 'target.thrift');
