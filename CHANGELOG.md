@@ -1,5 +1,37 @@
 # Changelog | 更新日志
 
+## [3.1.0](https://github.com/tzzs/vsce-thrift-support/compare/thrift-support-v3.0.0...thrift-support-v3.1.0) (2026-06-10)
+
+
+### Features
+
+* add configurable diagnostics rule registry ([f5f93d4](https://github.com/tzzs/vsce-thrift-support/commit/f5f93d45f31209d7c985ff5bd49874837b1d818c))
+* add include links and richer editor completions ([33d9133](https://github.com/tzzs/vsce-thrift-support/commit/33d9133ef5a74ce558ba6b6e9a2628d7d4aca96f))
+* continue optimization roadmap ([325ae2f](https://github.com/tzzs/vsce-thrift-support/commit/325ae2f2eb898239567e70cab18576207dc11e45))
+
+
+### Bug Fixes
+
+* add oneway return type quick fix ([fe0ef12](https://github.com/tzzs/vsce-thrift-support/commit/fe0ef12bffe778c60c2b67b45b3bf9e1c2cf6171))
+* **ci:** publish only from release events ([f67d38b](https://github.com/tzzs/vsce-thrift-support/commit/f67d38bf0d1601989e0c1ad292adf08fff27f47d))
+* correct cancellation token logic, remove redundant include lookup, sort included files ([f2f2528](https://github.com/tzzs/vsce-thrift-support/commit/f2f2528c0457c087743d8809cf6eb3b6928c7309))
+* **definition:** avoid resolving references as definitions ([f0dbad9](https://github.com/tzzs/vsce-thrift-support/commit/f0dbad98568e31a507b6c6618bea5dbf76a45c13))
+* **definition:** avoid resolving references as definitions ([4c594b4](https://github.com/tzzs/vsce-thrift-support/commit/4c594b49c4d52ea9d1b9f10ad3e26ba71f24002a))
+* **formatter:** prevent enum range indent drift ([2f3561d](https://github.com/tzzs/vsce-thrift-support/commit/2f3561d27ed536313e593f0772ea26b44737ff8a))
+* harden comment-aware hover and folding ([dfb9652](https://github.com/tzzs/vsce-thrift-support/commit/dfb9652d4e53020b3941f4f348755d9c21fe4df1))
+* ignore comments in folding scans ([42cb354](https://github.com/tzzs/vsce-thrift-support/commit/42cb354dc2d25d8d8a2ba6320301dff8ca8c12b8))
+* **navigation:** avoid symbol kind collisions ([992c934](https://github.com/tzzs/vsce-thrift-support/commit/992c934983050ba68b760fc573d795e16e25d284))
+* **navigation:** avoid symbol kind collisions ([c5959e3](https://github.com/tzzs/vsce-thrift-support/commit/c5959e34b76f1ce8daad4c99bb89112cb9f9325d))
+* normalize hover doc comments ([be007d0](https://github.com/tzzs/vsce-thrift-support/commit/be007d0333e6f5f01a764c40c96f6eecd0a27b67))
+* **providers:** harden rename diagnostics and cache handling ([1bded8c](https://github.com/tzzs/vsce-thrift-support/commit/1bded8c2378d69e0992442b017ff76330529c3c3))
+* **providers:** harden rename diagnostics and cache handling ([ea14925](https://github.com/tzzs/vsce-thrift-support/commit/ea14925631e7fa6b304609edd5a737ff8dc6b209))
+* revert include sort and tighten namespaced definition fallback ([1d648c6](https://github.com/tzzs/vsce-thrift-support/commit/1d648c6876f6ae42b3a7986f74eea4362fff9d0f))
+* **security:** harden include and cache boundaries ([d5b2f25](https://github.com/tzzs/vsce-thrift-support/commit/d5b2f259f5ceaadca79739ffb01e9a3ead32c926))
+* **security:** harden include and cache boundaries ([82f7b98](https://github.com/tzzs/vsce-thrift-support/commit/82f7b988ca4c06d7dd9e3339c5002b1b34a3a159))
+* **security:** patch tmp path traversal and harden publish workflow ([9a87fe2](https://github.com/tzzs/vsce-thrift-support/commit/9a87fe277add11bcdd041b2a34b1987c8ff457b5))
+* **security:** patch tmp path traversal and harden publish workflow ([7dea99f](https://github.com/tzzs/vsce-thrift-support/commit/7dea99f18738594024672be7a180fb1e1ff65123))
+* service extendsRange, hierarchy caching, diagnostic code constants, and code quality ([c7df04f](https://github.com/tzzs/vsce-thrift-support/commit/c7df04f857365cc99d1eb4959ea53aa2dc4ee682))
+
 ## [3.0.0](https://github.com/tzzs/vsce-thrift-support/compare/thrift-support-v2.2.0...thrift-support-v3.0.0) (2026-05-28)
 
 
