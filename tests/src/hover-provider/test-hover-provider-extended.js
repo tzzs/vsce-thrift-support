@@ -46,6 +46,12 @@ function createMockDocument(text, fileName = 'test.thrift') {
     return document;
 }
 
+function hoverText(hover) {
+    return Array.isArray(hover.contents)
+        ? hover.contents.map(c => typeof c === 'string' ? c : c.value).join('\n')
+        : (hover.contents.value || '');
+}
+
 describe('HoverProvider extended', () => {
     beforeEach(() => {
         vscode.workspace.textDocuments = [];
@@ -235,6 +241,47 @@ struct Sensor {
         const hover = await provider.provideHover(doc, pos, createCancellationToken());
         assert.ok(hover, 'Expected hover for typedef with /// doc');
         assert.ok(hover.contents, 'Should have hover contents');
+    });
+
+    it('should normalize triple-slash method doc comments without a leading slash', async () => {
+        const provider = new ThriftHoverProvider();
+        const text = `service UserService {
+    /// Get user by ID
+    User getUser(1: i32 id)
+}`;
+        const doc = createMockDocument(text);
+        const pos = new Position(2, 10); // on "getUser"
+        const hover = await provider.provideHover(doc, pos, createCancellationToken());
+        assert.ok(hover, 'Expected hover result for method with /// doc');
+        const contentStr = hoverText(hover);
+        assert.ok(contentStr.includes('Get user by ID'), 'Hover should include normalized method documentation');
+        assert.ok(!contentStr.includes('/ Get user by ID'), 'Hover should not leave an extra slash from /// comments');
+    });
+
+    it('should extract hash method doc comments', async () => {
+        const provider = new ThriftHoverProvider();
+        const text = `service UserService {
+    # Fetches the user record
+    User getUser(1: i32 id)
+}`;
+        const doc = createMockDocument(text);
+        const pos = new Position(2, 10); // on "getUser"
+        const hover = await provider.provideHover(doc, pos, createCancellationToken());
+        assert.ok(hover, 'Expected hover result for method with # doc');
+        assert.ok(hoverText(hover).includes('Fetches the user record'), 'Hover should include hash comment documentation');
+    });
+
+    it('should not treat inline block comments on previous code as method docs', async () => {
+        const provider = new ThriftHoverProvider();
+        const text = `service UserService {
+    void ping() /* not a doc for getUser */
+    User getUser(1: i32 id)
+}`;
+        const doc = createMockDocument(text);
+        const pos = new Position(2, 10); // on "getUser"
+        const hover = await provider.provideHover(doc, pos, createCancellationToken());
+        assert.ok(hover, 'Expected hover result for method');
+        assert.ok(!hoverText(hover).includes('not a doc for getUser'), 'Hover should ignore inline block comments on code lines');
     });
 
     it('should return undefined when workspace.workspaceFolders is not set', async () => {
