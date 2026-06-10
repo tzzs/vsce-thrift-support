@@ -1,191 +1,978 @@
-# Thrift 语言支持 - 计划与优化清单
+# Thrift Support Market And Platform Optimization Implementation Plan
 
-**当前版本**: 3.0.0
-**最后更新**: 2026-05-31
-**分支状态**: `origin/master` 位于 `325ae2f`（`Merge pull request #61 from tzzs/codex-remaining-optimization`）
-**当前状态**: `master` 已包含单体仓库拆分、命令行包、格式化器稳定性加固、`WorkspaceIndex` 基础、诊断规则配置以及多个编辑器体验 provider。剩余工作主要集中在生产路径接入、一致性收敛和发布信心。
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-本文档用于记录当前实现状态和下一步优化计划。它替代旧的 2.x 发布线计划；旧计划生成时还没有 `packages/core`、`packages/vscode`、`packages/cli` 的 monorepo 结构。
+**Goal:** Turn the 2026-06-11 market and VS Code ecosystem analysis into an actionable roadmap that improves Thrift Support's public trust, language UX, platform reach, security posture, and future agent readiness.
 
----
+**Architecture:** Keep the current direct VS Code provider architecture and shared `packages/core` domain model. Add user-facing trust/product improvements first, then extend editor capabilities through focused providers, and only introduce Web, MCP, or AI surfaces behind explicit compatibility and security boundaries.
 
-## 1. 当前架构
-
-- `packages/core/src/`: Thrift parser、AST helpers、formatter、diagnostics rules、配置默认值、缓存与内存工具；不依赖 VS Code 运行时。
-- `packages/vscode/src/`: VS Code 扩展入口、providers、commands、配置桥接、workspace indexing、诊断调度和编辑器 UX 功能。
-- `packages/cli/src/`: 独立 `thrift-support` CLI，支持 `format`、`lint`、`parse`、`symbols`。
-- `tests/src/`: core 与扩展行为的规范 Mocha 测试套件。
-- `tests/cli/`: CLI 单元测试与集成测试。
-- `tests/perf/`: benchmark 与性能断言脚本。
-- `tests/debug/`: 手动复现或历史脚本，除非显式接入 Mocha，否则不属于默认测试契约；历史根目录手动脚本已归档到 `tests/debug/manual/`。
+**Tech Stack:** TypeScript, VS Code Extension API, Node 24.x, pnpm 11.5.0, Mocha, GitHub Actions, `@vscode/vsce`, Open VSX, npm CLI package, future-gated VS Code AI/MCP APIs.
 
 ---
 
-## 2. master 已完成工作
+## Snapshot
 
-### 2.1 单体仓库、命令行工具与发布
+- **Snapshot date:** 2026-06-11
+- **Local worktree version:** `package.json` currently reports `3.0.0`.
+- **Marketplace state observed:** Visual Studio Marketplace search for `thrift` still favors older syntax-only or formatter-only extensions by install count.
+- **Open VSX state observed:** Open VSX API returned `tanzz.thrift-support` version `3.1.0`, so implementation branches should first sync or verify the local worktree against current `master`.
+- **Current position:** Thrift Support already has parser, formatter, diagnostics, navigation, completion, rename/refactor, semantic tokens, hierarchy providers, CLI, performance gates, and package smoke checks. Remaining work is mostly product trust, discoverability, modern editor affordances, platform compatibility, and agent ecosystem alignment.
 
-- [x] 核心逻辑迁移到 `packages/core`，无直接 VS Code 依赖。
-- [x] VS Code 扩展代码迁移到 `packages/vscode`。
-- [x] CLI 包迁移到 `packages/cli`，支持格式化、诊断、解析和符号输出。
-- [x] 构建流程更新为 core build、TypeScript compile、esbuild bundle。
-- [x] 发布流程支持 VSIX 与 npm package。
-- [x] 增加版本同步脚本。
+## External Signals Used
 
-### 2.2 格式化器与解析器稳定性
+- Visual Studio Marketplace Gallery API search for `thrift`, observed 2026-06-11:
+  - `cduruk.thrift`: about 82k installs, basic syntax coloring, last updated 2016.
+  - `mrkou47.thrift-syntax-support`: about 26k installs, syntax/definition/completion/hover, last updated 2023.
+  - `alingse.thirft-formatter`: formatter-focused, about 4k installs, last updated 2023.
+  - `jiangpengfei.thrift-language-server`: LSP-based, under 1k installs, feature list includes highlight/completion/definition/references/hover/diagnostics/rename/format.
+  - `ocfbnj.thrift-ls`: recent language-server entry with low install count.
+- VS Code 1.124 release notes, dated 2026-06-10, emphasize Agents, Autopilot, background sessions, and more autonomous agent workflows.
+- VS Code official docs confirm current extension focus areas: Programmatic Language Features, Web Extensions, Workspace Trust, Publishing pre-release/platform-specific packages, Language Model API, Chat Participant API, and MCP developer support.
+- Apache Thrift IDL docs currently describe Thrift IDL for version `0.24.0`, with `uuid` listed in `BaseType`.
+- Recent extension ecosystem security reporting highlights malicious VS Code/Open VSX extensions, invisible Unicode attacks, file exfiltration risks, and the need for explicit security posture.
 
-- [x] 增加 formatter 幂等性、AST 往返、注释保留、fixture 回归、恶意输入测试。
-- [x] 大文件格式化接入分块处理。
-- [x] parser 顶层声明解析拆分到 helper 模块。
-- [x] 增加 golden AST parser fixtures。
-- [x] Thrift 0.23+ 能力覆盖 `uuid`、`stream`、`sink`、`interaction`、`performs`、`reference`。
+## Roadmap Summary
 
-### 2.3 WorkspaceIndex 基础
-
-- [x] 新增 `WorkspaceIndex` 与 `SymbolIndex`。
-- [x] Workspace symbols 在注入共享 index 时可直接读取 index。
-- [x] Definition、references、completion、code actions 都已有可使用 `workspaceIndex` 的集成路径。
-- [x] 模块解析测试覆盖 core/vscode 编译产物 remapping，避免关键模块被重复加载。
-
-### 2.4 诊断与快速修复
-
-- [x] 增加 diagnostics rule registry 与 rule metadata。
-- [x] VS Code 暴露 `thrift.diagnostics.rules` 配置。
-- [x] CLI 配置校验会提示未知配置键。
-- [x] 增加 include document links。
-- [x] Completion 在注入 workspace index 时支持 workspace types。
-- [x] 增加 annotation key/value completion。
-- [x] 增加部分 missing include、unknown namespace alias、invalid `oneway` return type 的 Quick Fix。
-
-### 2.5 高级编辑器能力
-
-- [x] Semantic tokens provider 已注册。
-- [x] Call hierarchy provider 已注册。
-- [x] Type hierarchy provider 已注册。
-- [x] Document highlight provider 已注册。
-- [x] 上述 provider 已有对应测试文件。
+| Priority | Area | Outcome |
+| --- | --- | --- |
+| P0 | Product trust and public docs | Higher Marketplace conversion and clearer enterprise adoption path |
+| P0 | Apache Thrift 0.24 alignment | Prevent language drift across parser, diagnostics, grammar, docs, and CLI |
+| P1 | Core language UX gaps | Add expected language-extension affordances beyond current providers |
+| P1 | Workspace-scale diagnostics parity | Make Problems and CLI behavior easier to trust in large workspaces |
+| P1 | Web and remote compatibility | Support a safe subset in `vscode.dev`, `github.dev`, and Codespaces |
+| P2 | AI and MCP readiness | Provide read-only, domain-specific context tools for agents |
+| P2 | Security and enterprise hardening | Make trust boundaries and supply-chain posture explicit |
+| P3 | LSP decision record | Avoid premature rewrite while preserving future reuse options |
 
 ---
 
-## 3. 2026-05-31 巡检发现
+## Task 1: Product Trust And Marketplace Conversion
 
-### P0: WorkspaceIndex 已存在，但生产依赖未创建
+**Files:**
+- Modify: `package.json`
+- Modify: `README.md`
+- Modify: `README.zh-CN.md`
+- Modify: `DEVELOPMENT.md`
+- Modify: `PERFORMANCE.md`
+- Modify: `TROUBLESHOOTING.md`
+- Create: `SECURITY.md`
+- Create: `docs/settings-reference.md`
+- Create: `docs/release-verification.md`
+- Create: `docs/assets/marketplace/format-diagnostics.png`
 
-`CoreDependencies` 声明了 `workspaceIndex?: WorkspaceIndex`，多个 provider 也会在注入后使用它。但 `createCoreDependencies()` 当前没有实例化或刷新 `WorkspaceIndex`，因此真实扩展激活路径下，多个能力仍会退回 provider-local 扫描；completion 也拿不到来自共享 index 的 workspace-wide types。
+- [ ] **Step 1: Confirm current package and release metadata**
 
-- [x] 在 `createCoreDependencies()` 中实例化 `WorkspaceIndex`。
-- [x] 在扩展激活阶段 refresh index。
-- [x] 将文件 watcher invalidation 接入共享 index。
-- [x] 通过 `context.subscriptions` 释放 index 资源。
-- [x] 增加 activation/integration 测试，证明正常扩展 setup 下 provider 能拿到 live index。
+Run:
 
-### P0: WorkspaceIndex 迁移仍不完整
+```bash
+node -e "const p=require('./package.json'); console.log({version:p.version, packageManager:p.packageManager, engines:p.engines, publisher:p.publisher})"
+rg -n "Node 22|Node 24|pnpm 10|pnpm 11|2\\.2\\.0|workflow_dispatch|publish.yml|ci.yml|IDL 0\\.23|IDL 0\\.24" README.md README.zh-CN.md DEVELOPMENT.md PERFORMANCE.md TROUBLESHOOTING.md package.json .github
+```
 
-部分 provider 已能使用 index，但还有 provider 自己维护 workspace document cache 或 include scanner。
+Expected:
 
-- [x] 将 call hierarchy 的 workspace document loading 迁移到 `WorkspaceIndex`。
-- [x] 将 type hierarchy 的 workspace document loading 迁移到 `WorkspaceIndex`。
-- [x] 在行为一致的前提下，将 diagnostics include resolution 与 index include graph 收敛。
-- [x] provider-local cache 只保留 provider-specific projection；生产路径下源文件发现与解析由共享 `WorkspaceIndex` 负责，fallback cache 已注册为受限 workspace-doc projection。
+- Version, package manager, and engine values are visible before editing.
+- Drift locations are listed explicitly before edits begin.
 
-### P1: 语义令牌目前仍是整文档生成
+- [ ] **Step 2: Add Marketplace trust metadata**
 
-当前 provider 实现了 `DocumentSemanticTokensProvider`，但未实现语义令牌编辑增量。正确性上可以接受，但旧 Phase 6 目标曾要求脏区增量更新。
+Update `package.json` with explicit metadata:
 
-- [x] 决定是否仍值得实现语义令牌增量编辑。
-- [x] 本轮不实现 `provideDocumentSemanticTokensEdits`；保留整文档生成，后续以性能预算数据决定是否重启增量实现。
-- [x] 如果不需要，更新 README/ARCHITECTURE，明确语义令牌是基于 AST 的整文档生成。
-- [x] 为 500 行和 1000 行 fixture 增加语义令牌生成性能预算。
+```json
+{
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tzzs/vsce-thrift-support/issues"
+  },
+  "homepage": "https://github.com/tzzs/vsce-thrift-support#readme",
+  "qna": "https://github.com/tzzs/vsce-thrift-support/discussions",
+  "galleryBanner": {
+    "color": "#1E1E1E",
+    "theme": "dark"
+  },
+  "pricing": "Free"
+}
+```
 
-### P1: 类型层级语义需要与文档对齐
+Keep existing publisher, repository, categories, and keywords unless Marketplace search data shows a specific keyword gap.
 
-当前实现支持 service `extends`、typedef alias supertypes，以及退化的 top-level type items。旧计划中提到 struct/exception 继承，但这不是标准 Thrift IDL 语义。
+- [ ] **Step 3: Fix public badges and first-screen README messaging**
 
-- [x] 更新功能文档，准确描述当前 hierarchy 语义。
-- [x] 增加 service extends chain、typedef alias chain、interaction item、unsupported struct `extends` 输入的测试。
-- [x] 除非 parser 明确支持某个扩展语法，否则不要文档化非 Thrift 标准继承语义。
+Update `README.md` and `README.zh-CN.md` so the first screen separates:
 
-### P1: 配置面仍然分裂
+- Marketplace version/install badges.
+- Open VSX version/download badges.
+- CI quality gate badge pointing to `.github/workflows/ci.yml`.
+- Publish/release badge pointing to `.github/workflows/publish.yml`.
+- A concise capability statement: language intelligence, formatter, diagnostics, refactor, CLI, performance gates.
 
-当前存在三套相关配置面：core defaults、VS Code settings、CLI `.thriftrc.json`。它们已有改进，但还没有完全统一。
+Capture one visual proof asset at `docs/assets/marketplace/format-diagnostics.png`. The screenshot should show at least two of these in one editor view: diagnostics squiggles, formatter output, definition/reference navigation, completion, or Quick Fix.
 
-- [x] 将共享 config schema/default metadata 移入 `packages/core`。
-- [x] 在可行范围内从共享 schema 派生 VS Code setting contribution metadata，并用测试对比 `package.json` 防止漂移。
-- [x] 确保 CLI 与 VS Code 对等价输入解析出相同的 formatting 和 diagnostics options。
-- [x] 增加 `.thriftrc.json`、VS Code settings、defaults 对共享 key 的对比测试。
-- [x] 决定并发数、缓存大小、TTL、内存阈值等性能参数暂不暴露给用户；当前作为内部策略与测试边界维护，后续只有在真实工作区反馈需要调参时再公开。
+- [ ] **Step 4: Publish a settings reference**
 
-### P1: 运行时与文档需要统一
+Create `docs/settings-reference.md` from `package.json#contributes.configuration`. Include:
 
-仓库说明与 package metadata 必须对支持的 Node 运行时保持一致。当前 package metadata 指向 Node 24，但部分本地说明可能仍提到 Node 22.18.0。
+- `thrift.format.*` keys with defaults and examples.
+- `thrift.diagnostics.rules` examples for disabling a rule and changing severity.
+- Legacy fallback behavior for deprecated settings where still supported.
+- A link to `docs/diagnostics-rules.md`.
 
-- [x] 确认目标 CI/运行时基线。
-- [x] 对齐 `package.json`、`.nvmrc`、`.node-version`、README、DEVELOPMENT、AGENTS、CI matrices。
-- [x] 将运行时决策与 `undici` 及依赖约束一起说明。
+Verification command:
 
-### P2: 手动测试脚本需要整理
+```bash
+node -e "const p=require('./package.json'); const keys=Object.keys(p.contributes.configuration.properties); console.log(keys.join('\n'))"
+```
 
-规范 Mocha 测试位于 `tests/src/**/*.js`，但根目录历史脚本和 debug runners 仍有旧假设与大量 console 输出。
+Expected:
 
-- [x] 将仍有价值的根目录 `tests/test-*.js` 脚本对应的长期行为保留在现有 `tests/src/**` Mocha 测试中，历史入口统一归档。
-- [x] 将剩余手动复现脚本移动到 `tests/debug/**` 或 `tools/debug/**`。
-- [x] 文档明确根目录历史脚本不是 release gate。
-- [x] 当行为已被规范测试覆盖后，删除根目录过期入口；保留的手动脚本位于 `tests/debug/manual/**` 作为复现材料。
+- Every emitted key appears in `docs/settings-reference.md`.
 
-### P2: 性能与缓存边界需要更强可观测性
+- [ ] **Step 5: Add a release and verification document**
 
-仓库已有较完整的 cache 与 performance 工具，但状态归属仍分布在 core utilities、provider caches、hierarchy provider caches、workspace indexing 之间。
+Create `docs/release-verification.md` explaining the real release chain:
 
-- [x] 定义 parser、formatter、diagnostics、semantic tokens 的性能预算。
-- [x] 补充 workspace index 与 hierarchy provider 的性能预算。
-- [x] 让 `npm run perf:benchmark` 使用已提交阈值比较，并提供稳定的机器可读 JSON 输出。
-- [x] 为共享 singleton state 增加 cache reset/test hooks。
-- [x] 增加围绕 WorkspaceIndex 与 hierarchy provider cache 的内存压力测试。
+- release-please creates version changes.
+- GitHub Release publication triggers `publish.yml`.
+- `publish.yml` packages VSIX and publishes to Visual Studio Marketplace, Open VSX, and npm.
+- CI gates include lint, build, tests, coverage, CLI dogfood, package smoke, and performance assertions.
 
-### P2: 发布信心与打包检查
+Do not describe `workflow_dispatch` for publish unless the workflow actually supports it.
 
-发布流水线已配置，但 package 级 smoke check 仍可增强发布信心。
+- [ ] **Step 6: Add security disclosure and support scope**
 
-- [x] 增加 VSIX 包冒烟测试，验证 `dist/extension.js`、syntax grammar、language configuration、README、CHANGELOG、LICENSE 均存在。
-- [x] 增加 CLI 打包产物冒烟测试，验证 bin 执行与 bundle dependency 边界。
-- [x] 确保 release-please component versions 与 root/core/cli package metadata 保持一致。
-- [x] 将 package smoke 接入 CI，作为发布前的自动化信心检查。
+Create `SECURITY.md` with:
+
+- Supported versions policy.
+- Vulnerability reporting path through GitHub Security Advisories or private maintainer contact if configured.
+- No telemetry claim only if verified in source.
+- Dependency, VSIX, npm, and Open VSX supply-chain posture.
+- Workspace Trust and untrusted workspace behavior, even if the first version is only a documented current-state statement.
+
+- [ ] **Step 7: Validate docs-only change**
+
+Run:
+
+```bash
+git diff --check
+node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json ok')"
+npm run smoke:package
+```
+
+Expected:
+
+- No whitespace errors.
+- `package.json ok`.
+- Package smoke passes.
 
 ---
 
-## 4. 建议执行顺序
+## Task 2: Apache Thrift 0.24 Specification Alignment
 
-1. **WorkspaceIndex 生产路径接入**: 实例化、refresh、dispose，并证明 provider 能拿到 index。
-2. **Provider cache/index 收敛**: 迁移 hierarchy providers，并评估 diagnostics include graph 收敛。
-3. **配置 schema 统一**: 让 CLI 与 VS Code 对等价设置给出一致解析结果。
-4. **文档与运行时对齐**: 修正 Node 基线、hierarchy 文档、semantic-token 文档。
-5. **测试整理与性能门禁**: 整理历史脚本，增加性能预算与 package smoke checks。
+**Files:**
+- Modify: `README.md`
+- Modify: `README.zh-CN.md`
+- Modify: `docs/advanced-features.md`
+- Modify: `docs/diagnostics-rules.md`
+- Modify: `docs/annotation-policy.md`
+- Modify: `syntaxes/thrift.tmLanguage.json`
+- Review: `language-configuration.json`
+- Modify: `packages/core/src/**`
+- Modify: `packages/vscode/src/**`
+- Review: `packages/cli/src/**`
+- Add tests under: `tests/src/**`
+
+- [ ] **Step 1: Create an IDL 0.24 comparison note**
+
+Create a short section in `docs/advanced-features.md` named `Apache Thrift IDL 0.24 Alignment` with links to:
+
+- `https://thrift.apache.org/docs/idl`
+- `https://thrift.apache.org/docs/types`
+
+Record the local support status for:
+
+- `uuid`
+- `stream`
+- `sink`
+- `interaction`
+- `performs`
+- `reference`
+- `cpp_include`
+- `cpp_type`
+- list separators `,` and `;`
+- reserved keywords
+
+- [ ] **Step 2: Replace stale IDL 0.23 wording**
+
+Run:
+
+```bash
+rg -n "IDL 0\\.23|Thrift 0\\.23|0\\.23" README.md README.zh-CN.md docs packages syntaxes tests
+```
+
+Expected:
+
+- Every stale reference is either updated to `IDL 0.24` or explicitly described as historical context.
+
+- [ ] **Step 3: Add conformance fixtures**
+
+Add or refresh fixtures under `tests/src/parser/test-files/` and related diagnostics/highlighting tests to cover:
+
+```thrift
+namespace * example
+cpp_include "custom/header.h"
+
+typedef uuid UserId
+typedef map<string, list<UserId>> UserMap
+
+struct User {
+    1: required UserId id;
+    2: optional string name = "anonymous";
+}
+
+service UserService {
+    User getUser(1: UserId id) throws (1: UserNotFound error);
+}
+
+exception UserNotFound {
+    1: string message;
+}
+```
+
+Also include one fixture with intentionally invalid `enum` values and one with both comma and semicolon separators.
+
+- [ ] **Step 4: Fix README and rule catalog drift**
+
+Audit these known drift points:
+
+- README says enum values must be non-negative, but current rule catalog may only expose `enum.valueNotInteger`.
+- `docs/advanced-features.md` references `thrift.tmLanguage-enhanced.json`, while `package.json` contributes `syntaxes/thrift.tmLanguage.json`.
+- `reference` appears in docs more strongly than completion currently supports.
+
+For each drift point, choose one of two actions in the same PR:
+
+- Implement the claimed behavior and add tests.
+- Narrow the documentation to the behavior that exists.
+
+- [ ] **Step 5: Add a spec drift guard**
+
+Add a small test or script that verifies core primitive keywords and grammar primitive scopes stay aligned for at least:
+
+```text
+bool byte i8 i16 i32 i64 double string binary uuid void
+```
+
+Run:
+
+```bash
+npm run lint:fix
+npm run build
+npm run test:single -- tests/src/test-grammar-tokenization.js
+npm test
+```
+
+Expected:
+
+- Grammar tokenization and full test suite pass.
 
 ---
 
-## 5. 验证门槛
+## Task 3: High-Frequency Language UX Gaps
 
-任何代码变更开 PR 前必须运行：
+**Files:**
+- Modify: `package.json`
+- Modify: `packages/vscode/src/setup.ts`
+- Review: `packages/vscode/src/utils/dependencies.ts`
+- Create: `packages/vscode/src/signature-help-provider.ts`
+- Create: `packages/vscode/src/inlay-hints-provider.ts`
+- Create: `packages/vscode/src/code-lens-provider.ts`
+- Create: `packages/vscode/src/include-organizer.ts`
+- Modify: `packages/vscode/src/code-actions-provider.ts`
+- Modify: `packages/vscode/src/rename-provider.ts`
+- Add tests under: `tests/src/signature-help-provider/`, `tests/src/inlay-hints-provider/`, `tests/src/code-lens-provider/`, `tests/src/code-actions-provider/`, `tests/src/rename-provider/`
+
+- [ ] **Step 1: Implement service method signature help**
+
+Register `vscode.languages.registerSignatureHelpProvider('thrift', provider, '(', ',')`.
+
+Expected behavior:
+
+- Inside service and interaction methods, show parameter field IDs, requiredness, type, name, and throws signature.
+- Use AST from `packages/core` and `WorkspaceIndex` when available.
+- Return no result outside service or interaction method argument lists.
+
+Minimum tests:
+
+- Signature help after `getUser(`.
+- Active parameter changes after comma.
+- Throws list does not confuse parameter index.
+- Cancellation returns no stale result.
+
+- [ ] **Step 2: Add focused inlay hints**
+
+Register an inlay hints provider with low-noise defaults.
+
+Recommended first hints:
+
+- Field requiredness where omitted: `default`.
+- Resolved include alias for cross-file type references.
+- Service override source for methods inherited through `extends`.
+
+Configuration keys:
+
+```json
+{
+  "thrift.inlayHints.requiredness": false,
+  "thrift.inlayHints.includeAliases": false,
+  "thrift.inlayHints.serviceOverrides": true
+}
+```
+
+Expected behavior:
+
+- Hints never change document text.
+- Hints are not shown in comments or string literals.
+- Large files respect cancellation.
+
+- [ ] **Step 3: Add high-signal CodeLens**
+
+Register CodeLens only for signals that help navigation:
+
+- Type reference count above top-level `struct`, `union`, `exception`, `enum`, `typedef`, `service`, and `interaction`.
+- Service method override count for `extends` chains.
+
+Avoid always-on low-value CodeLens for every field.
+
+Expected behavior:
+
+- Lens commands open existing VS Code reference or hierarchy views.
+- Counts reuse `WorkspaceIndex`.
+- CodeLens is configurable:
+
+```json
+{
+  "thrift.codeLens.references": true,
+  "thrift.codeLens.serviceOverrides": true
+}
+```
+
+- [ ] **Step 4: Add include organization actions**
+
+Add Quick Fix or Source Action support for:
+
+- Insert missing include for unknown type when a unique workspace definition exists.
+- Remove unused include.
+- Sort include blocks while preserving comments and header grouping.
+
+Expected command names:
+
+```text
+Thrift: Organize Includes
+Thrift: Remove Unused Includes
+```
+
+Expected tests:
+
+- Included alias used only in comments is considered unused.
+- Included alias used in a qualified type is considered used.
+- Sorting keeps `namespace` declarations after includes unless current file order requires preserving a leading comment block.
+
+- [ ] **Step 5: Harden rename validation**
+
+Extend `ThriftRenameProvider` so `prepareRename` rejects:
+
+- Primitive types.
+- Reserved keywords.
+- Invalid identifiers.
+- New names that collide with same-scope top-level symbols.
+- New names that collide with fields in the same struct/union/exception or enum members in the same enum.
+
+Expected tests:
+
+- Rename `uuid` is rejected.
+- Rename to `service` is rejected.
+- Rename top-level type to an existing top-level type is rejected.
+- Valid cross-file rename still updates references.
+
+- [ ] **Step 6: Expand Quick Fix coverage**
+
+Add Quick Fixes for rules that can be repaired deterministically:
+
+- `service.oneway.hasThrows`: remove throws clause.
+- `service.throws.notException`: offer conversion only if the target type is a local struct with safe range, otherwise no fix.
+- `syntax.unclosed`: insert missing closer only when the opener and insertion point are unambiguous.
+- `enum.negativeValue`: change to the next non-negative value after Task 2 creates or confirms this rule.
+
+Run:
+
+```bash
+npm run lint:fix
+npm run build
+npm test
+```
+
+Expected:
+
+- Full suite passes.
+- New provider tests run through the shared VS Code mock hook.
+
+---
+
+## Task 4: Workspace Diagnostics And CLI Parity
+
+**Files:**
+- Modify: `packages/vscode/src/diagnostics/**`
+- Modify: `packages/vscode/src/indexing/workspace-index.ts`
+- Modify: `packages/cli/src/**`
+- Modify: `packages/core/src/diagnostics/**`
+- Add tests under: `tests/src/diagnostics/`
+- Add CLI tests under: `tests/cli/`
+
+- [ ] **Step 1: Define workspace diagnostics behavior**
+
+Document and implement one clear mode:
+
+```json
+{
+  "thrift.diagnostics.workspaceMode": "openFiles"
+}
+```
+
+Supported values:
+
+- `openFiles`: current behavior, fast and conservative.
+- `workspace`: scan workspace `.thrift` files within the existing workspace file limit.
+- `off`: disable diagnostics from the extension while leaving CLI available.
+
+- [ ] **Step 2: Reuse CLI diagnostics engine**
+
+Ensure VS Code workspace diagnostics and `thrift-support lint` share:
+
+- Rule IDs.
+- Severity mapping.
+- Include resolution.
+- Config normalization.
+- Default value checking.
+
+Add a parity fixture where VS Code diagnostics and CLI JSON output produce the same rule IDs for the same files.
+
+- [ ] **Step 3: Make workspace scans cancellable and bounded**
+
+Requirements:
+
+- Respect existing workspace file limit.
+- Respect cancellation token on edits and workspace close.
+- Avoid duplicate diagnostics for open documents already analyzed with unsaved content.
+- Debounce broad scans after include graph changes.
+
+- [ ] **Step 4: Add user-facing diagnostics status**
+
+Add a status report command:
+
+```text
+Thrift: Show Diagnostics Status
+```
+
+Report:
+
+- Workspace mode.
+- Number of indexed `.thrift` files.
+- Number of files with diagnostics.
+- Last scan duration.
+- Top rule IDs by count.
+
+Run:
+
+```bash
+npm run lint:fix
+npm run build
+npm run coverage:cli
+npm test
+```
+
+Expected:
+
+- CLI coverage remains healthy.
+- VS Code diagnostics tests cover open-file and workspace modes.
+
+---
+
+## Task 5: Web, Remote, And Codespaces Compatibility
+
+**Files:**
+- Modify: `package.json`
+- Modify: `build.js`
+- Modify: `packages/vscode/src/extension.ts`
+- Create: `packages/vscode/src/web/extension.ts`
+- Create: `packages/vscode/src/platform/fs.ts`
+- Create: `packages/vscode/src/platform/node-fs.ts`
+- Create: `packages/vscode/src/platform/web-fs.ts`
+- Create: `tests/package-web-smoke.js`
+
+- [ ] **Step 1: Define web-supported feature subset**
+
+Web mode should initially support:
+
+- Syntax grammar and language configuration.
+- Formatter using bundled core code.
+- Parser-backed diagnostics for open files.
+- Document symbols.
+- Hover and completion for local document symbols.
+
+Web mode should not initially claim:
+
+- Node filesystem scanning.
+- Full workspace include graph across unavailable file systems.
+- CLI execution.
+- Garbage collection command.
+- Any shell-dependent behavior.
+
+- [ ] **Step 2: Add platform abstraction**
+
+Create a thin file-system abstraction that wraps:
+
+- `vscode.workspace.fs` for web and remote-safe reads.
+- Node filesystem APIs only in the desktop Node extension host.
+
+Provider code should not import Node `fs` directly after the abstraction is introduced, except in the Node platform adapter.
+
+- [ ] **Step 3: Add browser entry point**
+
+Add `browser` to `package.json`:
+
+```json
+{
+  "browser": "./dist/web/extension.js"
+}
+```
+
+Update build scripts so desktop and web bundles are separate outputs.
+
+- [ ] **Step 4: Gate unsupported commands**
+
+Use `when` clauses and runtime checks so web mode hides or disables:
+
+- `thrift.showMemoryReport`
+- `thrift.forceGarbageCollection`
+- full workspace scans if unsupported by the active workspace file system
+
+- [ ] **Step 5: Validate web packaging**
+
+Add a script:
+
+```json
+{
+  "scripts": {
+    "build:web": "node build.js --web",
+    "smoke:package:web": "pnpm run build:web && pnpm exec vsce package --target web"
+  }
+}
+```
+
+Run:
+
+```bash
+npm run build
+npm run build:web
+npm run smoke:package
+npm run smoke:package:web
+```
+
+Expected:
+
+- Desktop package still includes `dist/extension.js`.
+- Web package includes `dist/web/extension.js`.
+- Unsupported Node-only commands are not advertised as web-ready.
+
+---
+
+## Task 6: AI And MCP Readiness
+
+**Files:**
+- Modify: `package.json`
+- Modify: `pnpm-workspace.yaml`
+- Modify: `packages/core/src/**`
+- Create: `packages/vscode/src/ai/chat-participant.ts`
+- Create: `packages/vscode/src/ai/language-model-tools.ts`
+- Create: `packages/mcp/package.json`
+- Create: `packages/mcp/src/server.ts`
+- Create: `docs/ai-and-agent-integration.md`
+- Add tests under: `tests/src/ai/`
+- Add tests under: `packages/mcp/test/`
+
+- [ ] **Step 1: Start with read-only domain tools**
+
+Expose only read-only capabilities in the first AI/MCP release:
+
+- Parse current document and summarize top-level symbols.
+- Explain a diagnostic rule by ID.
+- Return include graph for a file.
+- Find symbol definitions by name.
+- Run format check in memory without writing files.
+- Return CLI command suggestions for CI integration.
+
+Do not expose write tools in the first release.
+
+- [ ] **Step 2: Choose VS Code AI API path deliberately**
+
+If using VS Code Chat Participant or Language Model APIs:
+
+- Verify the minimum stable VS Code API version.
+- Update `engines.vscode` only in the PR that actually requires the newer API.
+- Keep all AI activation user-initiated.
+- Handle missing model access and user consent errors.
+
+Use the separate `packages/mcp` server as the first deliverable so the main extension engine can stay stable while AI APIs are evaluated.
+
+- [ ] **Step 3: Add MCP server definition only after trust review**
+
+If registering an MCP server from the extension, use:
+
+- `contributes.mcpServerDefinitionProviders`
+- `vscode.lm.registerMcpServerDefinitionProvider`
+
+Tool annotations:
+
+```json
+{
+  "readOnlyHint": true
+}
+```
+
+Expected behavior:
+
+- Read-only tools do not request confirmation when VS Code accepts the annotation.
+- Tools never read outside workspace roots.
+- No tool writes files or runs shell commands in the first version.
+
+- [ ] **Step 4: Document agent workflows**
+
+Create `docs/ai-and-agent-integration.md` with:
+
+- What context the extension can provide to agents.
+- What the extension does not send to a model automatically.
+- How user consent works.
+- How to disable AI/MCP features.
+- Security boundaries for workspace roots and untrusted workspaces.
+
+- [ ] **Step 5: Add deterministic tests**
+
+Mock the model and MCP layers. Do not call real language models in tests.
+
+Run:
+
+```bash
+npm run lint:fix
+npm run build
+npm test
+```
+
+Expected:
+
+- Tests are deterministic.
+- No test depends on network, Copilot access, or model quota.
+
+---
+
+## Task 7: Security, Workspace Trust, And Supply Chain
+
+**Files:**
+- Modify: `package.json`
+- Modify: `.github/workflows/ci.yml`
+- Modify: `.github/workflows/publish.yml`
+- Create: `SECURITY.md` if Task 1 has not created it
+- Create: `docs/security-model.md`
+- Create: `scripts/check-invisible-unicode.js`
+- Add tests under: `tests/src/security/` if script behavior is testable with fixtures
+
+- [ ] **Step 1: Add Workspace Trust capabilities**
+
+Add `capabilities.untrustedWorkspaces` to `package.json`.
+
+Recommended initial state:
+
+```json
+{
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Thrift syntax, formatting, and open-file analysis are available in Restricted Mode. Workspace-wide indexing, include traversal, and generated reports may be limited until the workspace is trusted.",
+      "restrictedConfigurations": [
+        "thrift.diagnostics.workspaceMode"
+      ]
+    }
+  }
+}
+```
+
+Update provider activation so trust-sensitive workspace scans are disabled or downgraded in Restricted Mode.
+
+- [ ] **Step 2: Add invisible Unicode scan**
+
+Create `scripts/check-invisible-unicode.js` that fails on invisible Unicode ranges used in recent supply-chain attacks unless the file is an explicit fixture.
+
+Scan:
+
+- `packages/**`
+- `syntaxes/**`
+- `language-configuration.json`
+- `package.json`
+- `.github/**`
+- `scripts/**`
+
+Allowed fixture path:
+
+- `tests/fixtures/security/invisible-unicode/**`
+
+- [ ] **Step 3: Add CI security checks**
+
+Add CI steps:
+
+```bash
+node scripts/check-invisible-unicode.js
+pnpm audit --audit-level high
+```
+
+If `pnpm audit` has known transient false positives, document each exception in `pnpm-workspace.yaml` with a link to the issue or CVE note.
+
+- [ ] **Step 4: Document extension security model**
+
+Create `docs/security-model.md` covering:
+
+- No language server subprocess in current architecture.
+- Workspace file reads and include traversal.
+- CLI behavior and write operations.
+- Workspace Trust behavior.
+- MCP/AI behavior if Task 6 is implemented.
+- Release provenance and package smoke gates.
+
+- [ ] **Step 5: Validate package contents**
+
+Extend `tests/package-smoke.js` to assert that packaged VSIX includes only intended runtime files and excludes:
+
+- source TypeScript files not needed at runtime
+- test fixtures
+- debug scripts
+- local temp directories
+
+Run:
+
+```bash
+npm run lint:fix
+npm run build
+npm run smoke:package
+npm test
+```
+
+Expected:
+
+- Package smoke verifies security-relevant package boundaries.
+
+---
+
+## Task 8: Release Channels And Adoption Feedback
+
+**Files:**
+- Modify: `package.json`
+- Modify: `.github/workflows/publish.yml`
+- Create: `.github/workflows/pre-release.yml`
+- Create: `docs/release-channels.md`
+- Create: `scripts/marketplace-metrics.js`
+
+- [ ] **Step 1: Add a pre-release channel decision**
+
+Document release versioning:
+
+- Stable releases use even minor versions when possible.
+- Pre-release builds use odd minor versions when possible.
+- Pre-release publishing uses `vsce publish --pre-release`.
+- Open VSX and npm behavior must be explicitly described before enabling automated pre-release publishing.
+
+- [ ] **Step 2: Add adoption metric script**
+
+Create `scripts/marketplace-metrics.js` that queries:
+
+- Visual Studio Marketplace Gallery API for `tanzz.thrift-support`.
+- Open VSX API for `tanzz/thrift-support`.
+
+Output:
+
+```json
+{
+  "visualStudioMarketplace": {
+    "version": "x.y.z",
+    "installs": 0,
+    "ratingCount": 0
+  },
+  "openVsx": {
+    "version": "x.y.z",
+    "downloads": 0
+  }
+}
+```
+
+The script must tolerate network failure with a non-zero exit code and a clear error message.
+
+- [ ] **Step 3: Add release notes quality checklist**
+
+Create `docs/release-channels.md` with a release checklist:
+
+- User-facing feature summary.
+- Migration notes.
+- Screenshots or GIFs for visible features.
+- CLI compatibility notes.
+- Security notes.
+- Verification commands.
+
+- [ ] **Step 4: Validate release metadata**
+
+Run:
+
+```bash
+node scripts/marketplace-metrics.js
+npm run smoke:package
+```
+
+Expected:
+
+- Metrics script prints current Marketplace/Open VSX data.
+- Package smoke passes.
+
+---
+
+## Task 9: LSP Strategy Decision Record
+
+**Files:**
+- Create: `docs/adr/0001-lsp-strategy.md`
+- Modify: `ARCHITECTURE.md`
+- Modify: `docs/PROJECT_MAP.md`
+
+- [ ] **Step 1: Document the current decision**
+
+Create `docs/adr/0001-lsp-strategy.md` with this decision:
+
+- Keep the direct VS Code provider architecture for the main extension.
+- Do not rewrite to LSP solely for trend alignment.
+- Continue extracting reusable language logic into `packages/core`.
+- Revisit LSP only if there is a clear target outside VS Code, such as Zed, Neovim, JetBrains, a remote analysis service, or a shared MCP server requiring editor-independent protocol support.
+
+- [ ] **Step 2: Define LSP readiness boundaries**
+
+Document which core APIs need to be stable before LSP is practical:
+
+- Parse document.
+- Format document and range.
+- Compute diagnostics.
+- Resolve include graph.
+- Query symbols.
+- Find definition and references.
+- Rename planning without VS Code-specific types.
+
+- [ ] **Step 3: Add architecture link**
+
+Update `ARCHITECTURE.md` and `docs/PROJECT_MAP.md` to link the ADR.
+
+Run:
+
+```bash
+git diff --check
+npm run build
+```
+
+Expected:
+
+- Docs link cleanly.
+- Build still passes after any exported core API adjustments.
+
+---
+
+## Suggested PR Boundaries
+
+1. **PR A: Product trust and docs sync**
+   - Task 1 only.
+   - Lowest risk, highest Marketplace impact.
+
+2. **PR B: IDL 0.24 alignment**
+   - Task 2 only.
+   - Requires parser/diagnostics/grammar tests.
+
+3. **PR C: Language UX provider pack**
+   - Task 3 split into smaller PRs if review size grows:
+     - Signature help.
+     - Inlay hints and CodeLens.
+     - Include organization and rename validation.
+
+4. **PR D: Workspace diagnostics parity**
+   - Task 4 only.
+   - Requires CLI and VS Code diagnostics parity fixtures.
+
+5. **PR E: Web extension subset**
+   - Task 5 only.
+   - Should not include AI/MCP work.
+
+6. **PR F: Security and Workspace Trust**
+   - Task 7 only, or Task 7 plus Task 1 `SECURITY.md` if not already done.
+
+7. **PR G: AI/MCP read-only context**
+   - Task 6 only after Workspace Trust and security docs are merged.
+
+8. **PR H: Release channels and metrics**
+   - Task 8 only.
+
+9. **PR I: LSP strategy ADR**
+   - Task 9 only.
+
+## Validation Policy
+
+For documentation-only PRs:
+
+```bash
+git diff --check
+node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json ok')"
+```
+
+For package metadata or Marketplace changes:
+
+```bash
+npm run smoke:package
+```
+
+For provider, parser, diagnostics, formatter, CLI, or security-script changes:
 
 ```bash
 npm run lint:fix
 npm run lint
 npm run build
-npm test -- --exit
+npm test
 ```
 
-额外门槛：
+For CLI-visible changes:
 
-- CLI 行为变更：`npm run coverage:cli`
-- 解析器、格式化器、诊断、缓存、索引变更：`npm run perf:benchmark`
-- Packaging 变更：`npm run smoke:package`
+```bash
+npm run coverage:cli
+```
 
----
+For parser, formatter, diagnostics, cache, indexing, semantic tokens, hierarchy, or workspace scan changes:
 
-## 6. 建议 PR 边界
+```bash
+npm run perf:benchmark
+```
 
-- PR 1: 将 live `WorkspaceIndex` 接入 extension dependencies 与 activation。
-- PR 2: 将 hierarchy providers 和剩余 provider scanning 迁移到共享 index。
-- PR 3: 统一 core、VS Code、CLI 的共享 config schema。
-- PR 4: 对齐 runtime 文档和功能文档。
-- PR 5: 清理手动测试脚本，增加性能预算和 package smoke checks。
+For web extension work:
+
+```bash
+npm run build:web
+npm run smoke:package:web
+```
+
+## First Recommended Implementation Order
+
+1. Task 1: product trust and documentation sync.
+2. Task 2: IDL 0.24 alignment.
+3. Task 7: Workspace Trust and security model.
+4. Task 3 Step 1: signature help.
+5. Task 3 Step 4 and Step 5: include organization and rename validation.
+6. Task 4: workspace diagnostics parity.
+7. Task 5: web extension subset.
+8. Task 6: read-only AI/MCP context.
+9. Task 8: release channels and metrics.
+10. Task 9: LSP strategy ADR.
