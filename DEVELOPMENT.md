@@ -5,9 +5,9 @@
 ## 版本要求（务必统一）
 
 - Node.js: 24.x LTS（推荐 24.16.0，与 `.nvmrc` / `.node-version` 一致）
-- pnpm: 10.25.0（由 package.json 的 packageManager 固定）
+- pnpm: 11.5.0（由 package.json 的 packageManager 固定）
 - VS Code 引擎: ^1.75.0（与 package.json engines.vscode 一致）
-- TypeScript: ^5.6.0（与 devDependencies 一致）
+- TypeScript: ^5.9.3（与 devDependencies 一致）
 - @vscode/vsce: ^3.9.1（用于本地打包/发布）
 
 提示：如本地 Node 版本不同，可能导致安装或构建失败（如 undici 要求 Node >= 20.18.1）。建议使用 nvm-windows/Volta 等工具固定
@@ -330,8 +330,8 @@ tests/src/
 # 运行所有测试
 npm test
 
-# 运行特定测试文件
-node tests/src/formatter/test-text-utils.js
+# 运行特定测试文件（会先构建 extension + CLI）
+npm run test:single -- tests/src/formatter/test-text-utils.js --exit
 
 # 生成覆盖率报告
 npm run coverage
@@ -391,6 +391,9 @@ npm run watch
 # 运行主要测试
 npm test -- --exit
 
+# 校验 agent/harness 入口文档、版本锚点和本地链接
+npm run harness:check
+
 # 运行单个测试文件
 npm run test:single
 
@@ -402,6 +405,9 @@ npm run coverage:cli
 
 # 性能基准
 npm run perf:benchmark
+
+# 性能门槛断言（与 CI 对齐）
+npm run perf:assertions
 
 # 机器可读性能结果（JSON）
 npm run perf:benchmark:json
@@ -422,7 +428,8 @@ npm run smoke:package
 
 ## 手动测试与历史脚本
 
-- 默认测试契约是 `npm test -- --exit`、`npm run coverage:cli`、`npm run perf:benchmark` 和 `npm run smoke:package`。
+- 默认测试契约是 `npm test -- --exit`、`npm run coverage`、`npm run coverage:cli`、`npm run perf:benchmark`、`npm run perf:assertions` 和 `npm run smoke:package`。
+- CI 还包含 CLI dogfood：`node packages/cli/dist/cli.js --version`、`format --check`、`lint`、`symbols`，目标文件为 `test-files/example-enum.thrift`。
 - `tests/src/**/*.js` 是规范 Mocha 测试；`tests/cli/**/*.js` 覆盖 CLI；`tests/perf/**/*.js` 覆盖性能门槛。
 - `tests/debug/**` 下的脚本只用于手动复现、排障或一次性分析，不是 release gate；历史根目录手动脚本已归档到 `tests/debug/manual/**`。
 - 如果某个历史脚本仍在验证长期行为，应先迁移为 `tests/src/**` 下的 Mocha 测试，再删除或归档原脚本。
@@ -436,9 +443,9 @@ npm run smoke:package
     - 作用：根据 Conventional Commits 生成/更新 Release PR；合并后创建 Git Tag + GitHub Release
 
 - publish（.github/workflows/publish.yml）
-    - 触发：GitHub Release 发布（released: published）、或手动触发（workflow_dispatch）
-    - 作用：安装依赖 → 构建 → 打包 VSIX →（可选）上传到 GitHub Release → 发布到 VS Code Marketplace 与 Open VSX
-    - 凭据：VSCE_PAT（Marketplace）、OVSX_PAT（Open VSX），以及内置 GITHUB_TOKEN（上传 Release 附件）
+    - 触发：GitHub Release 发布（release: published）；仅处理 `thrift-support-v*` 根扩展 release
+    - 作用：安装依赖 → 构建 → 打包 VSIX → 上传到 GitHub Release → 发布到 VS Code Marketplace、Open VSX 与 npm CLI 包
+    - 凭据：VSCE_PAT（Marketplace）、OVSX_PAT（Open VSX）、npm OIDC trusted publishing，以及内置 GITHUB_TOKEN（上传 Release 附件）
 
 建议流程：功能分支开发 → 合并到 master → 等待/审阅 release-please 生成的 Release PR → 合并 Release PR → 触发 publish
 自动发布。
@@ -464,6 +471,7 @@ npm run smoke:package
 1) 确保本地环境一致（Node 24.x LTS，推荐 24.16.0），安装依赖并通过所有检查：
     - corepack enable
     - pnpm install
+    - npm run harness:check
     - npm run lint
     - npm run build
     - npm test -- --exit
@@ -475,7 +483,7 @@ npm run smoke:package
 4) 等待 release-please 生成/更新 Release PR：
     - 在该 PR 中再次审阅 CHANGELOG（可继续微调用语/结构）
     - 合并 Release PR 后将自动创建 Tag 与 GitHub Release
-5) 发布流水线（publish.yml）将自动构建并发布到 VS Marketplace 与 Open VSX。
+5) 发布流水线（publish.yml）将自动构建并发布到 VS Marketplace、Open VSX 与 npm CLI 包。
 
 ### 快速命令（本地辅助）
 

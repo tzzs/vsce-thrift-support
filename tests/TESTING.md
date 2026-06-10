@@ -468,11 +468,11 @@ describe('workspace-symbol-provider', () => {
 ### 运行单个测试文件
 
 ```bash
-# 直接运行
-node tests/src/formatter/test-text-utils.js
+# 推荐：使用仓库脚本，保持 build 和 Mocha 配置一致
+npm run test:single -- tests/src/formatter/test-text-utils.js --exit
 
-# 或使用 Mocha
-npx mocha tests/src/formatter/test-text-utils.js
+# 已手动构建且只需重跑 Mocha 时
+pnpm exec mocha --config .mocharc.single.json tests/src/formatter/test-text-utils.js --exit
 ```
 
 ### 使用调试器

@@ -60,14 +60,15 @@ Rules:
 | VS Code provider/command/formatting bridge | `npm run lint:fix`, `npm run build`, relevant `tests/src/<provider-or-bridge>`, usually `npm test` |
 | CLI behavior | `npm run build:cli`, relevant `tests/cli/**`, `npm run coverage:cli` for user-visible CLI changes |
 | TextMate grammar | grammar tokenization tests in `tests/src/test-grammar-tokenization.js` |
-| Performance-sensitive paths | `npm run perf:benchmark` |
-| Packaging/release files | `npm run smoke:package` or the narrower smoke command |
-| Docs-only maps and README links | JSON/link/name scans plus relevant package smoke configuration test when package files change |
+| Performance-sensitive paths | `npm run perf:benchmark`, `npm run perf:assertions` for CI threshold parity |
+| Packaging/release files | `npm run smoke:package`, or `npm run smoke:package:vsix` / `npm run smoke:package:cli` for narrower package checks |
+| Docs-only maps, README links, and version anchors | `npm run harness:check` |
 
 ## Harness Maintenance
 
 - Keep `AGENTS.md` as a short map, not an encyclopedia.
 - Link durable knowledge from [docs/README.md](README.md).
+- Run `npm run harness:check` after changing agent entry docs, local Markdown links, Node/pnpm version anchors, or workflow Node setup.
 - Move repeated review comments into docs, tests, lints, or scripts.
 - Promote stable manual reproductions from `tests/debug/**` into canonical Mocha tests under `tests/src/**`.
 - Re-check this map when adding a new top-level directory, package, test class, generated output, or delivery gate.

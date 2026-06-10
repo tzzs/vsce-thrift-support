@@ -270,6 +270,7 @@
     "watch:bundle": "node build.js --watch",
     "lint": "eslint --cache 'packages/*/src/**/*.ts'",
     "lint:fix": "eslint --cache 'packages/*/src/**/*.ts' --fix",
+    "harness:check": "node scripts/check-harness-docs.js",
     "build:core": "pnpm --filter @tanzz/thrift-core run build",
     "build:cli": "node packages/cli/build.js && tsc -p packages/cli/tsconfig.json",
     "clean": "rimraf out dist",
@@ -285,6 +286,7 @@
     "coverage": "pnpm run build && pnpm run build:cli && c8 --reporter text-summary --reporter lcov mocha",
     "coverage:cli": "pnpm --filter @tanzz/thrift-core run build && node packages/cli/build.js && pnpm exec tsc -p packages/cli/tsconfig.json && c8 --exclude 'packages/core/**' --exclude-after-remap --reporter text-summary --reporter lcov mocha --no-config --timeout 30000 tests/cli/test-cli-integration.js tests/cli/test-cli-units.js",
     "perf:benchmark": "node tests/perf/run-performance-benchmark.js",
+    "perf:assertions": "pnpm exec mocha --require tests/require-hook.js --timeout 120000 tests/perf/perf-assertions.js",
     "perf:benchmark:json": "node tests/perf/run-performance-benchmark.js --json"
   },
   "devDependencies": {
