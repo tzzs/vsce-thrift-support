@@ -1,5 +1,23 @@
 # Changelog
 
+## [3.1.0](https://github.com/tzzs/vsce-thrift-support/compare/core-v3.0.0...core-v3.1.0) (2026-06-10)
+
+
+### Features
+
+* add configurable diagnostics rule registry ([f5f93d4](https://github.com/tzzs/vsce-thrift-support/commit/f5f93d45f31209d7c985ff5bd49874837b1d818c))
+* continue optimization roadmap ([325ae2f](https://github.com/tzzs/vsce-thrift-support/commit/325ae2f2eb898239567e70cab18576207dc11e45))
+
+
+### Bug Fixes
+
+* harden comment-aware hover and folding ([dfb9652](https://github.com/tzzs/vsce-thrift-support/commit/dfb9652d4e53020b3941f4f348755d9c21fe4df1))
+* ignore comments in folding scans ([42cb354](https://github.com/tzzs/vsce-thrift-support/commit/42cb354dc2d25d8d8a2ba6320301dff8ca8c12b8))
+* **providers:** harden rename diagnostics and cache handling ([1bded8c](https://github.com/tzzs/vsce-thrift-support/commit/1bded8c2378d69e0992442b017ff76330529c3c3))
+* **providers:** harden rename diagnostics and cache handling ([ea14925](https://github.com/tzzs/vsce-thrift-support/commit/ea14925631e7fa6b304609edd5a737ff8dc6b209))
+* **security:** harden include and cache boundaries ([d5b2f25](https://github.com/tzzs/vsce-thrift-support/commit/d5b2f259f5ceaadca79739ffb01e9a3ead32c926))
+* **security:** harden include and cache boundaries ([82f7b98](https://github.com/tzzs/vsce-thrift-support/commit/82f7b988ca4c06d7dd9e3339c5002b1b34a3a159))
+
 ## [3.0.0](https://github.com/tzzs/vsce-thrift-support/compare/core-v2.2.0...core-v3.0.0) (2026-05-28)
 
 
