@@ -142,7 +142,12 @@ export class ThriftDefinitionProvider implements vscode.DefinitionProvider {
         }
 
         // Search in current document
-        const currentDocDefinition = this.definitionLookup.findDefinitionInDocument(document.uri, document.getText(), searchTypeName);
+        const currentDocDefinition = this.definitionLookup.findDefinitionInDocument(
+            document.uri,
+            document.getText(),
+            searchTypeName,
+            wordRange
+        );
         if (currentDocDefinition) {
             return currentDocDefinition;
         }

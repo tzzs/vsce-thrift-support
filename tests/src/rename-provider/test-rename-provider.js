@@ -1,11 +1,13 @@
 // RenameProvider unit tests with a minimal VSCode mock
 const assert = require('assert');
 const vscode = require('vscode');
-const {ThriftRenameProvider} = require('../../../out/rename-provider.js');
 
 // Mock the references provider to return simple results
 const referencesProvider = require('../../../out/references-provider.js');
 const originalThriftReferencesProvider = referencesProvider.ThriftReferencesProvider;
+const renameProviderPath = require.resolve('../../../out/rename-provider.js');
+const originalRenameProviderModule = require.cache[renameProviderPath];
+let ThriftRenameProvider;
 
 // Create a simple mock that doesn't require full AST parsing
 class MockThriftReferencesProvider {
@@ -38,9 +40,6 @@ class MockThriftReferencesProvider {
         return references;
     }
 }
-
-// Replace the references provider with our mock
-referencesProvider.ThriftReferencesProvider = MockThriftReferencesProvider;
 
 function createMockDocument(content) {
     const lines = content.split('\n');
@@ -140,8 +139,18 @@ function run() {
 }
 
 describe('rename-provider', () => {
+    before(() => {
+        referencesProvider.ThriftReferencesProvider = MockThriftReferencesProvider;
+        delete require.cache[renameProviderPath];
+        ({ThriftRenameProvider} = require('../../../out/rename-provider.js'));
+    });
+
     after(() => {
         referencesProvider.ThriftReferencesProvider = originalThriftReferencesProvider;
+        delete require.cache[renameProviderPath];
+        if (originalRenameProviderModule) {
+            require.cache[renameProviderPath] = originalRenameProviderModule;
+        }
     });
 
     it('should pass all test assertions', async () => {

@@ -98,7 +98,12 @@ function runTest() {
 
 
     const mockDoc2 = createMockDocument(originalContent, examplePath);
-    const range = new vscode.Range(24, 0, 37, originalLines[37]?.length || 0);
+    const range = new vscode.Range(
+        origRange.start,
+        0,
+        origRange.end,
+        originalLines[origRange.end]?.length || 0
+    );
 
     const edits2 = formatter.provideDocumentRangeFormattingEdits(mockDoc2, range, options);
     if (!edits2 || edits2.length === 0) {

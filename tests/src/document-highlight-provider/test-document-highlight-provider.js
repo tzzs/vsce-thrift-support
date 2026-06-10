@@ -144,6 +144,37 @@ describe('document-highlight-provider', () => {
         assert.ok(reads.length >= 1);
     });
 
+    it('provider does not mix type highlights when cursor is on a same-named field', () => {
+        const text = [
+            'struct User {',
+            '  1: string name',
+            '}',
+            '',
+            'struct Container {',
+            '  1: User User',
+            '}'
+        ].join('\n');
+        const doc = createDoc(text);
+        const provider = new ThriftDocumentHighlightProvider();
+        const result = provider.provideDocumentHighlights(doc, {line: 5, character: 12}, {isCancellationRequested: false});
+        const arr = Array.isArray(result) ? result : [];
+
+        assert.deepStrictEqual(
+            arr.map(h => ({
+                line: h.range.start.line,
+                character: h.range.start.character,
+                text: doc.getText(h.range),
+                kind: h.kind
+            })),
+            [{
+                line: 5,
+                character: 10,
+                text: 'User',
+                kind: vscode.DocumentHighlightKind.Write
+            }]
+        );
+    });
+
     it('provider returns empty array on cancellation', () => {
         const provider = new ThriftDocumentHighlightProvider();
         const doc = createDoc('struct A {\n  1: i32 id\n}');

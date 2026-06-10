@@ -171,6 +171,74 @@ describe('incremental-formatting', () => {
         assert.ok(structLine, 'Should contain struct header');
         assert.strictEqual(structLine.indexOf('struct User {'), 0, 'Struct header should not be indented');
     });
+
+    it('should not add extra tab indent when formatting enum repeatedly', () => {
+        config.incremental.formattingEnabled = true;
+        config.incremental.maxDirtyLines = 2;
+
+        const tracker = IncrementalTracker.getInstance();
+        const provider = new ThriftFormattingProvider({incrementalTracker: tracker});
+
+        const text = ['// header', 'enum Status {', 'OK=0,', 'ERROR=1', '}', ''].join('\n');
+        const fmtOpts = {insertSpaces: false, tabSize: 4};
+
+        const formatAfterDirtyEnumMember = (content) => {
+            const lines = content.split('\n');
+            const rangeText = (range) => {
+                if (!range) {
+                    return content;
+                }
+                const startOffset = lines
+                    .slice(0, range.start.line)
+                    .reduce((sum, line) => sum + line.length + 1, 0) + range.start.character;
+                const endOffset = lines
+                    .slice(0, range.end.line)
+                    .reduce((sum, line) => sum + line.length + 1, 0) + range.end.character;
+                return content.slice(startOffset, endOffset);
+            };
+            const doc = {
+                uri: vscode.Uri.file('/tmp/incremental-format-enum-start.thrift'),
+                languageId: 'thrift',
+                version: 1,
+                getText: rangeText,
+                lineCount: lines.length,
+                lineAt: (i) => ({text: lines[i] || ''}),
+                positionAt: (offset) => {
+                    let currentOffset = 0;
+                    for (let i = 0; i < lines.length; i++) {
+                        const lineLength = lines[i].length + 1;
+                        if (currentOffset + lineLength > offset) {
+                            return new vscode.Position(i, offset - currentOffset);
+                        }
+                        currentOffset += lineLength;
+                    }
+                    return new vscode.Position(lines.length - 1, lines[lines.length - 1].length);
+                }
+            };
+
+            tracker.markChanges({
+                document: doc,
+                contentChanges: [
+                    {
+                        range: {start: {line: 2, character: 0}, end: {line: 2, character: 0}},
+                        text: lines[2]
+                    }
+                ]
+            });
+
+            const edits = provider.provideDocumentFormattingEdits(doc, fmtOpts);
+            return applyEditsToContent(content, edits);
+        };
+
+        const once = formatAfterDirtyEnumMember(text);
+        const twice = formatAfterDirtyEnumMember(once);
+
+        const lines = once.split('\n');
+        assert.strictEqual(lines[1], 'enum Status {', 'Enum header should not be indented');
+        assert.strictEqual(lines[2].match(/^(\t*)/)[1].length, 1, 'First enum member should have one tab indent');
+        assert.strictEqual(lines[3].match(/^(\t*)/)[1].length, 1, 'Second enum member should have one tab indent');
+        assert.strictEqual(once, twice, 'Repeated enum formatting should be idempotent');
+    });
 });
 
 function toOffsetsIndex(lines) {

@@ -17,9 +17,17 @@ export function normalizeFormattingRange(
     const startLine = Math.min(Math.max(range.start.line, 0), lastLine);
     const endLine = Math.min(Math.max(range.end.line, startLine), lastLine);
     const start = new vscode.Position(startLine, 0);
-    const endLineText = document.lineAt(endLine).text;
+    const endLineText = getDocumentLineText(document, endLine);
     const end = new vscode.Position(endLine, endLineText.length);
     return new vscode.Range(start, end);
+}
+
+function getDocumentLineText(document: vscode.TextDocument, line: number): string {
+    const docAny = document as vscode.TextDocument & {lineAt?: (line: number) => {text: string}};
+    if (typeof docAny.lineAt === 'function') {
+        return docAny.lineAt(line).text;
+    }
+    return (document.getText().split(/\r?\n/)[line]) ?? '';
 }
 
 /**

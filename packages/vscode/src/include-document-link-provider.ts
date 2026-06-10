@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import {collectIncludes, ThriftParser} from '@tanzz/thrift-core';
+import {collectIncludes, safeResolveIncludePath, ThriftParser} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
 import {ErrorHandler} from '@tanzz/thrift-core';
 
@@ -29,7 +29,13 @@ export class ThriftIncludeDocumentLinkProvider implements vscode.DocumentLinkPro
                 if (range === undefined) {
                     continue;
                 }
-                const target = vscode.Uri.file(path.resolve(path.dirname(document.uri.fsPath), includeNode.path));
+                const documentDir = path.dirname(document.uri.fsPath);
+                const workspaceRoot = getWorkspaceRootForDocument(document.uri) ?? documentDir;
+                const targetPath = safeResolveIncludePath(includeNode.path, documentDir, workspaceRoot);
+                if (targetPath === undefined) {
+                    continue;
+                }
+                const target = vscode.Uri.file(targetPath);
                 links.push({range, target});
             }
             return links;
@@ -49,6 +55,16 @@ export function registerIncludeDocumentLinkProvider(context: vscode.ExtensionCon
     context.subscriptions.push(
         vscode.languages.registerDocumentLinkProvider('thrift', new ThriftIncludeDocumentLinkProvider(deps))
     );
+}
+
+function getWorkspaceRootForDocument(uri: vscode.Uri): string | undefined {
+    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+        const relative = path.relative(folder.uri.fsPath, uri.fsPath);
+        if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
+            return folder.uri.fsPath;
+        }
+    }
+    return undefined;
 }
 
 function findIncludePathRange(line: string, lineNumber: number, includePath: string): vscode.Range | undefined {

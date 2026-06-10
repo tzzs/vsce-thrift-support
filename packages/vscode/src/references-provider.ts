@@ -63,6 +63,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         }
 
         const symbolName = document.getText(wordRange);
+        const documentText = document.getText();
         const symbolType = getSymbolType(document, position, symbolName, {
             getCachedAst: (doc) => this.astCache.get(doc)
         });
@@ -78,7 +79,8 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         }
 
         // 创建缓存键
-        const cacheKey = `${document.uri.fsPath}:${symbolName}:${symbolType}`;
+        const includeDeclaration = context?.includeDeclaration === true;
+        const cacheKey = `${document.uri.fsPath}:${symbolName}:${symbolType}:${includeDeclaration}:${hashText(documentText)}`;
 
         // 使用缓存管理器检查缓存
         const cacheName = 'references';
@@ -87,13 +89,12 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
             return cachedReferences;
         }
 
-        const includeDeclaration = context?.includeDeclaration;
-
         // Search in current document
         const currentDocRefs = findReferencesInDocument(
             document.uri,
-            document.getText(),
+            documentText,
             symbolName,
+            symbolType,
             includeDeclaration,
             {errorHandler: this.errorHandler},
             token
@@ -139,6 +140,7 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
                         file,
                         text,
                         symbolName,
+                        symbolType,
                         includeDeclaration,
                         {errorHandler: this.errorHandler},
                         token
@@ -203,6 +205,14 @@ export class ThriftReferencesProvider implements vscode.ReferenceProvider {
         }
         return readThriftFile(uri);
     }
+}
+
+function hashText(text: string): string {
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+        hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+    }
+    return hash.toString(36);
 }
 
 /**
