@@ -25,6 +25,7 @@ When possible, use subagents for independent scans or validation so the main thr
 - `tests/src/`: canonical Mocha tests for core and extension behavior.
 - `tests/cli/`: CLI tests.
 - `tests/perf/`: performance benchmark and threshold scripts.
+- `tests/scenarios/`: scenario-oriented multi-file or user-journey checks before or alongside canonical tests.
 - `tests/debug/`: manual reproduction, analysis, and migration helper scripts. These are not default release gates.
 - `out/`, `dist/`, package-local `out/` / `dist/`, `coverage/`, and `tmp/` are generated outputs.
 
@@ -34,12 +35,14 @@ When possible, use subagents for independent scans or validation so the main thr
 | --- | --- |
 | `npm run lint:fix` | ESLint autofix for `packages/*/src/**/*.ts`; required after code changes |
 | `npm run lint` | ESLint flat config over package source |
+| `npm run harness:check` | Verifies required agent docs, version anchors, workflow Node version, and local Markdown links |
 | `npm run build` | clean, build core, compile VS Code package, bundle extension |
 | `npm run build:cli` | bundle and compile CLI package |
 | `npm test` | build extension + CLI, then run Mocha |
 | `npm run test:single -- <file>` | build extension + CLI, then run one Mocha file |
 | `npm run coverage:cli` | CLI-focused coverage |
 | `npm run perf:benchmark` | parser/formatter/diagnostics/cache/indexing performance benchmark |
+| `npm run perf:assertions` | CI-aligned multi-size parser/formatter performance assertions |
 | `npm run smoke:package` | VSIX and CLI tarball smoke checks |
 
 ## Conventions And Gotchas
@@ -59,7 +62,7 @@ When possible, use subagents for independent scans or validation so the main thr
 
 - Tests use Mocha `describe` / `it`, timeout 30s.
 - Import compiled output from `../../../out/...`; `tests/require-hook.js` remaps package paths.
-- Do not manually mock `vscode` or override `Module.prototype.require`; `.mocharc.json` loads the shared require hook.
+- Use the shared `vscode` require hook by default. Only use `createVscodeMock()` / `installVscodeMock()` for the documented custom mock cases in [tests/TESTING.md](tests/TESTING.md); never override `Module.prototype.require`.
 - Keep all `require` calls at file top level.
 - Promote long-lived manual reproductions from `tests/debug/**` or `tests/scenarios/**` into `tests/src/**` before treating them as CI guarantees.
 
