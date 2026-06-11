@@ -6,11 +6,15 @@
 [![Installs](https://img.shields.io/visual-studio-marketplace/i/tanzz.thrift-support?label=Installs)](https://marketplace.visualstudio.com/items?itemName=tanzz.thrift-support)
 [![Open VSX](https://img.shields.io/open-vsx/v/tanzz/thrift-support?label=Open%20VSX)](https://open-vsx.org/extension/tanzz/thrift-support)
 [![OVSX Downloads](https://img.shields.io/open-vsx/dt/tanzz/thrift-support?label=OVSX%20Downloads)](https://open-vsx.org/extension/tanzz/thrift-support)
-[![CI](https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml/badge.svg?branch=master)](https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml)
+[![CI](https://github.com/tzzs/vsce-thrift-support/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/tzzs/vsce-thrift-support/actions/workflows/ci.yml)
+[![Publish](https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml/badge.svg)](https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml)
 
-一个为 VSCode 提供 Apache Thrift 文件完整支持的扩展，包含语法高亮、代码格式化和导航功能。
+一个面向 Apache Thrift IDL 的 VS Code 语言智能扩展，覆盖语法高亮、格式化、诊断、导航、补全、重命名/重构、CI 可用 CLI 与性能门禁。
+
+![Thrift 诊断与格式化预览](docs/assets/marketplace/format-diagnostics.png)
 
 > 开发者请阅读开发指南：见仓库根目录的 [DEVELOPMENT.md](DEVELOPMENT.md)。
+> 配置项详见 [docs/settings-reference.md](docs/settings-reference.md)，安全支持范围与漏洞报告详见 [SECURITY.md](SECURITY.md)。
 
 ## 🚀 功能特性
 
@@ -63,6 +67,14 @@
 ## 📖 高级特性文档
 
 查看[高级特性文档](docs/advanced-features.md)了解流式传输、交互模式等实验性语法的使用方法。
+
+## 🔐 信任面与发布说明
+
+- MIT 许可证，免费扩展，通过 `tanzz` 命名空间发布到 Visual Studio Marketplace 与 Open VSX。
+- 当前源码未实现 telemetry 或 analytics 采集。
+- release-please 负责版本生成；GitHub Release published 事件触发 VSIX 打包、Visual Studio Marketplace 发布、Open VSX 发布与 npm CLI 发布。
+- CI 门禁覆盖 lint、build、test、coverage、CLI dogfood、package smoke 和 performance assertions。
+- 当前验证链路见 [docs/release-verification.md](docs/release-verification.md)，安全模型见 [SECURITY.md](SECURITY.md)。
 
 ## 🖥️ CLI 工具
 
@@ -231,7 +243,7 @@ thrift-support symbols --json src/my.thrift
 
 ## 规范对齐
 
-- 与 Apache Thrift IDL 0.23 对齐：将 uuid 视为内建基础类型，并在语法高亮、诊断与定义跳转中生效。
+- 与 Apache Thrift IDL 0.24 对齐：官方 IDL 文档将 `uuid` 列为内建基础类型，本扩展在语法高亮、诊断与定义跳转中都按 primitive 处理。
 - 参考文档：Apache Thrift — IDL（Interface Definition Language）：https://thrift.apache.org/docs/idl
 
 ## 📝 格式化示例
@@ -322,7 +334,8 @@ struct User {
 - **GitHub 仓库**：[https://github.com/tzzs/vsce-thrift-support](https://github.com/tzzs/vsce-thrift-support)
 - **问题反馈**：[GitHub Issues](https://github.com/tzzs/vsce-thrift-support/issues)
 - **功能请求**：[GitHub Discussions](https://github.com/tzzs/vsce-thrift-support/discussions)
-- **CI 状态**：[Publish Workflow](https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml)
+- **CI 状态**：[CI Workflow](https://github.com/tzzs/vsce-thrift-support/actions/workflows/ci.yml)
+- **发布状态**：[Publish Workflow](https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml)
 
 ---
 

@@ -10,7 +10,10 @@ Use this page as the repository-local map for agent and contributor documentatio
 | [diagnostics-rules.md](diagnostics-rules.md) | Diagnostics rule names and behavior | Update when diagnostic codes or semantics change |
 | [annotation-policy.md](annotation-policy.md) | Formatter annotation and alignment policy | Update when formatter alignment semantics change |
 | [advanced-features.md](advanced-features.md) | Stream, sink, interaction, and experimental syntax examples | Update when grammar/parser support changes |
+| [settings-reference.md](settings-reference.md) | VS Code settings keys, defaults, examples, and legacy fallback notes | Update when `package.json#contributes.configuration` changes |
+| [release-verification.md](release-verification.md) | Release automation chain and local/package verification commands | Update when GitHub Actions release gates change |
 | [performance-benchmark.md](performance-benchmark.md) | Performance benchmark usage | Update when benchmark thresholds or scripts change |
+| [../SECURITY.md](../SECURITY.md) | Supported versions, vulnerability reporting, telemetry statement, and trust boundaries | Update when security posture or Workspace Trust behavior changes |
 | [../tests/README.md](../tests/README.md) | Test directory taxonomy | Update when test directories or default test contracts change |
 | [../tests/TESTING.md](../tests/TESTING.md) | Mocha and VS Code mock rules | Update when test harness behavior changes |
 | [../tests/debug/README.md](../tests/debug/README.md) | Manual/debug script taxonomy | Update when debug scripts move or become canonical tests |

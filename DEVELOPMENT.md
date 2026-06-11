@@ -5,9 +5,9 @@
 ## 版本要求（务必统一）
 
 - Node.js: 24.x LTS（推荐 24.16.0，与 `.nvmrc` / `.node-version` 一致）
-- pnpm: 10.25.0（由 package.json 的 packageManager 固定）
+- pnpm: 11.5.0（由 package.json 的 packageManager 固定）
 - VS Code 引擎: ^1.75.0（与 package.json engines.vscode 一致）
-- TypeScript: ^5.6.0（与 devDependencies 一致）
+- TypeScript: ^5.9.3（与 devDependencies 一致）
 - @vscode/vsce: ^3.9.1（用于本地打包/发布）
 
 提示：如本地 Node 版本不同，可能导致安装或构建失败（如 undici 要求 Node >= 20.18.1）。建议使用 nvm-windows/Volta 等工具固定
@@ -110,9 +110,9 @@ thrift-support/
 
 以上选项共同决定“最大内容宽度”和各列的目标对齐位置，详细实现与宽度计算请参考 `packages/core/src/formatter/`。
 
-### 语言规范同步（IDL 0.23）与实现更新
+### 语言规范同步（IDL 0.24）与实现更新
 
-- 背景：自 Apache Thrift IDL 0.23 起，uuid 被纳入内建基础类型（BaseType）。
+- 背景：Apache Thrift IDL 0.24 官方文档将 uuid 列为内建基础类型（BaseType）。
 - 代码同步点：
     - `packages/vscode/src/diagnostics/index.ts`
         - 基本类型集合包含 `uuid`
@@ -436,9 +436,9 @@ npm run smoke:package
     - 作用：根据 Conventional Commits 生成/更新 Release PR；合并后创建 Git Tag + GitHub Release
 
 - publish（.github/workflows/publish.yml）
-    - 触发：GitHub Release 发布（released: published）、或手动触发（workflow_dispatch）
-    - 作用：安装依赖 → 构建 → 打包 VSIX →（可选）上传到 GitHub Release → 发布到 VS Code Marketplace 与 Open VSX
-    - 凭据：VSCE_PAT（Marketplace）、OVSX_PAT（Open VSX），以及内置 GITHUB_TOKEN（上传 Release 附件）
+    - 触发：GitHub Release 发布（release.published）
+    - 作用：安装依赖 → 构建 → 打包 VSIX → 上传到 GitHub Release → 发布到 VS Code Marketplace、Open VSX 与 npm
+    - 凭据：VSCE_PAT/VSCE_TOKEN（Marketplace）、OVSX_PAT/OPENVSX_TOKEN（Open VSX）、npm OIDC trusted publishing，以及内置 GITHUB_TOKEN（上传 Release 附件）
 
 建议流程：功能分支开发 → 合并到 master → 等待/审阅 release-please 生成的 Release PR → 合并 Release PR → 触发 publish
 自动发布。
@@ -475,7 +475,7 @@ npm run smoke:package
 4) 等待 release-please 生成/更新 Release PR：
     - 在该 PR 中再次审阅 CHANGELOG（可继续微调用语/结构）
     - 合并 Release PR 后将自动创建 Tag 与 GitHub Release
-5) 发布流水线（publish.yml）将自动构建并发布到 VS Marketplace 与 Open VSX。
+5) 发布流水线（publish.yml）将自动构建并发布到 VS Marketplace、Open VSX 与 npm。
 
 ### 快速命令（本地辅助）
 

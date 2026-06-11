@@ -183,18 +183,19 @@ cat .thriftrc.json | node -e "process.stdin.resume(); let d=''; process.stdin.on
 
 ### `pnpm install` 失败
 
-确认 Node.js 版本与 CI 一致（22.18.0）：
+确认 Node.js 版本与 CI 一致（Node 24.x，仓库推荐 24.16.0）：
 
 ```bash
-node --version   # 应为 v22.18.0
-pnpm --version   # 应为 10.25.0
+node --version   # 应为 v24.16.0 或兼容的 24.x
+pnpm --version   # 应为 11.5.0
 ```
 
 使用 `nvm` 切换版本：
 
 ```bash
-nvm install 22.18.0
-nvm use 22.18.0
+nvm install 24.16.0
+nvm use 24.16.0
+corepack enable
 ```
 
 ### `pnpm test` 在干净 checkout 失败

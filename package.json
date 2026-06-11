@@ -5,6 +5,17 @@
   "version": "3.0.0",
   "publisher": "tanzz",
   "icon": "icon.png",
+  "license": "MIT",
+  "homepage": "https://github.com/tzzs/vsce-thrift-support#readme",
+  "bugs": {
+    "url": "https://github.com/tzzs/vsce-thrift-support/issues"
+  },
+  "galleryBanner": {
+    "color": "#0F172A",
+    "theme": "dark"
+  },
+  "qna": "https://github.com/tzzs/vsce-thrift-support/discussions",
+  "pricing": "Free",
   "repository": {
     "type": "git",
     "url": "https://github.com/tzzs/vsce-thrift-support.git"
@@ -54,7 +65,14 @@
     "README.md",
     "README.zh-CN.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "SECURITY.md",
+    "docs/advanced-features.md",
+    "docs/annotation-policy.md",
+    "docs/diagnostics-rules.md",
+    "docs/settings-reference.md",
+    "docs/release-verification.md",
+    "docs/assets/**"
   ],
   "contributes": {
     "languages": [

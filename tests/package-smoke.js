@@ -8,6 +8,7 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 const CLI_PACKAGE_DIR = path.join(REPO_ROOT, 'packages', 'cli');
 
 const REQUIRED_VSIX_FILES = [
+    'extension/package.json',
     'extension/dist/extension.js',
     'extension/syntaxes/thrift.tmLanguage.json',
     'extension/language-configuration.json',
@@ -23,6 +24,13 @@ const REQUIRED_CLI_TARBALL_FILES = [
     'package/LICENSE',
     'package/package.json'
 ];
+
+const REQUIRED_ROOT_METADATA = {
+    license: 'MIT',
+    homepage: 'https://github.com/tzzs/vsce-thrift-support#readme',
+    qna: 'https://github.com/tzzs/vsce-thrift-support/discussions',
+    pricing: 'Free'
+};
 
 function execFile(command, args, options = {}) {
     return childProcess.execFileSync(command, args, {
@@ -52,6 +60,27 @@ function listVsixEntries(vsixPath) {
     return execFile('unzip', ['-Z1', vsixPath]).trim().split(/\r?\n/).filter(Boolean);
 }
 
+function readVsixJson(vsixPath, entryPath) {
+    return JSON.parse(execFile('unzip', ['-p', vsixPath, entryPath]));
+}
+
+function assertTrustMetadata(manifest, label) {
+    for (const [key, expected] of Object.entries(REQUIRED_ROOT_METADATA)) {
+        assert.strictEqual(manifest[key], expected, `${label} must declare ${key}`);
+    }
+
+    assert.deepStrictEqual(
+        manifest.bugs,
+        {url: 'https://github.com/tzzs/vsce-thrift-support/issues'},
+        `${label} must declare the issue tracker`
+    );
+    assert.deepStrictEqual(
+        manifest.galleryBanner,
+        {color: '#0F172A', theme: 'dark'},
+        `${label} must declare a Marketplace gallery banner`
+    );
+}
+
 function runVsixSmoke() {
     const tmpDir = makeTempDir('thrift-support-vsix-smoke');
     const vsixPath = path.join(tmpDir, 'thrift-support-smoke.vsix');
@@ -62,6 +91,7 @@ function runVsixSmoke() {
 
     assert.ok(fs.existsSync(vsixPath), `VSIX was not created at ${vsixPath}`);
     assertContainsAll(listVsixEntries(vsixPath), REQUIRED_VSIX_FILES, 'VSIX package');
+    assertTrustMetadata(readVsixJson(vsixPath, 'extension/package.json'), 'VSIX manifest');
 }
 
 function packCli(tmpDir) {
@@ -125,6 +155,7 @@ function assertReleaseMetadata() {
     assert.strictEqual(manifest['.'], rootPackage.version);
     assert.strictEqual(manifest['packages/core'], corePackage.version);
     assert.strictEqual(manifest['packages/cli'], cliPackage.version);
+    assertTrustMetadata(rootPackage, 'root package.json');
 }
 
 function runFromCli(args = process.argv.slice(2)) {

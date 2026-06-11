@@ -60,7 +60,7 @@
 - 新增：`docs/release-verification.md`
 - 新增：`docs/assets/marketplace/format-diagnostics.png`
 
-- [ ] **步骤 1：确认当前 package 与 release 元数据**
+- [x] **步骤 1：确认当前 package 与 release 元数据**
 
 运行：
 
@@ -74,7 +74,7 @@ rg -n "Node 22|Node 24|pnpm 10|pnpm 11|2\\.2\\.0|workflow_dispatch|publish.yml|c
 - 先记录当前版本、package manager、engine 和 publisher。
 - 在改动前列出所有版本漂移和发布文档漂移位置。
 
-- [ ] **步骤 2：补齐 Marketplace 信任元数据**
+- [x] **步骤 2：补齐 Marketplace 信任元数据**
 
 在 `package.json` 中补充显式元数据：
 
@@ -96,7 +96,7 @@ rg -n "Node 22|Node 24|pnpm 10|pnpm 11|2\\.2\\.0|workflow_dispatch|publish.yml|c
 
 保持现有 publisher、repository、categories 和 keywords，除非新的 Marketplace 查询证明存在明确关键词缺口。
 
-- [ ] **步骤 3：修正 README 首屏和 badge**
+- [x] **步骤 3：修正 README 首屏和 badge**
 
 更新 `README.md` 与 `README.zh-CN.md`，首屏需要清晰分离：
 
@@ -108,7 +108,7 @@ rg -n "Node 22|Node 24|pnpm 10|pnpm 11|2\\.2\\.0|workflow_dispatch|publish.yml|c
 
 在 `docs/assets/marketplace/format-diagnostics.png` 添加一张可用于 README/Marketplace 的视觉证明图。图片应至少展示两个能力：diagnostics squiggles、formatter output、definition/reference navigation、completion、Quick Fix。
 
-- [ ] **步骤 4：发布设置参考文档**
+- [x] **步骤 4：发布设置参考文档**
 
 从 `package.json#contributes.configuration` 创建 `docs/settings-reference.md`，内容包含：
 
@@ -127,7 +127,7 @@ node -e "const p=require('./package.json'); const keys=Object.keys(p.contributes
 
 - 命令输出的每个配置 key 都能在 `docs/settings-reference.md` 中找到。
 
-- [ ] **步骤 5：新增发布与验证说明**
+- [x] **步骤 5：新增发布与验证说明**
 
 创建 `docs/release-verification.md`，说明真实发布链路：
 
@@ -138,7 +138,7 @@ node -e "const p=require('./package.json'); const keys=Object.keys(p.contributes
 
 不要写 `workflow_dispatch` 发布能力，除非 workflow 实际支持。
 
-- [ ] **步骤 6：新增安全披露入口**
+- [x] **步骤 6：新增安全披露入口**
 
 创建 `SECURITY.md`，内容包含：
 
@@ -148,7 +148,7 @@ node -e "const p=require('./package.json'); const keys=Object.keys(p.contributes
 - dependency、VSIX、npm、Open VSX 供应链姿态。
 - Workspace Trust 和 untrusted workspace 当前行为。
 
-- [ ] **步骤 7：产品化变更验证**
+- [x] **步骤 7：产品化变更验证**
 
 运行：
 
