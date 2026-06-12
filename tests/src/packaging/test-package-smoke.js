@@ -14,6 +14,7 @@ describe('package smoke configuration', () => {
         const smoke = require('../../package-smoke.js');
 
         assert.deepStrictEqual(smoke.REQUIRED_VSIX_FILES, [
+            'extension/package.json',
             'extension/dist/extension.js',
             'extension/syntaxes/thrift.tmLanguage.json',
             'extension/language-configuration.json',
