@@ -7,7 +7,7 @@ describe('marketplace metrics script', () => {
         const calls = [];
         const fetchImpl = async (url, options = {}) => {
             calls.push({url, options});
-            if (url.includes('marketplace.visualstudio.com')) {
+            if (new URL(url).hostname === 'marketplace.visualstudio.com') {
                 return jsonResponse({
                     results: [{
                         extensions: [{
