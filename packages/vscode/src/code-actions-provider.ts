@@ -60,6 +60,7 @@ export class ThriftRefactorCodeActionProvider {
 
             this.addDuplicateFieldIdQuickFixes(document, range, context, actions);
             this.addOnewayReturnTypeQuickFixes(document, range, context, actions);
+            this.addEnumNegativeValueQuickFixes(document, range, context, actions);
 
             // QuickFix is gated on diagnostics: only offer "insert include" for types that
             // the diagnostics layer flagged as unknown (code 'type.unknown') and whose range
@@ -204,6 +205,83 @@ export class ThriftRefactorCodeActionProvider {
             fix.diagnostics = [diagnostic];
             actions.push(fix);
         }
+    }
+
+    private addEnumNegativeValueQuickFixes(
+        document: vscode.TextDocument,
+        range: vscode.Range | vscode.Selection,
+        context: vscode.CodeActionContext,
+        actions: vscode.CodeAction[]
+    ): void {
+        for (const diagnostic of context?.diagnostics ?? []) {
+            const code = this.getDiagnosticCode(diagnostic);
+            if (code !== DIAGNOSTIC_CODES.ENUM_NEGATIVE_VALUE ||
+                !this.rangesOverlap(diagnostic.range, range)) {
+                continue;
+            }
+            const replacement = this.findReplacementEnumValue(document, diagnostic.range);
+            if (replacement === undefined) {
+                continue;
+            }
+            const fix = new vscode.CodeAction(
+                `Change enum value to ${replacement.nextValue}`,
+                vscode.CodeActionKind.QuickFix
+            );
+            fix.edit = new vscode.WorkspaceEdit();
+            fix.edit.replace(document.uri, replacement.range, String(replacement.nextValue));
+            fix.diagnostics = [diagnostic];
+            actions.push(fix);
+        }
+    }
+
+    private findReplacementEnumValue(
+        document: vscode.TextDocument,
+        diagnosticRange: vscode.Range
+    ): {range: vscode.Range; nextValue: number} | undefined {
+        const ast = this.getDocumentAst(document);
+        const enumNode = ast.body.find((node): node is nodes.Enum =>
+            node.type === nodes.ThriftNodeType.Enum &&
+            diagnosticRange.start.line >= node.range.start.line &&
+            diagnosticRange.start.line <= node.range.end.line
+        );
+        if (enumNode === undefined) {
+            return undefined;
+        }
+        let maxValue = -1;
+        for (const member of enumNode.members) {
+            if (typeof member.initializer !== 'string') {
+                continue;
+            }
+            const value = Number.parseInt(member.initializer, 10);
+            if (Number.isInteger(value) && value >= 0) {
+                maxValue = Math.max(maxValue, value);
+            }
+        }
+        const member = enumNode.members.find(candidate =>
+            diagnosticRange.start.line >= candidate.range.start.line &&
+            diagnosticRange.start.line <= candidate.range.end.line
+        );
+        if (member?.initializerRange !== undefined) {
+            return {
+                range: new vscode.Range(
+                    member.initializerRange.start.line,
+                    member.initializerRange.start.character,
+                    member.initializerRange.end.line,
+                    member.initializerRange.end.character
+                ),
+                nextValue: maxValue + 1
+            };
+        }
+        const line = document.lineAt(diagnosticRange.start.line).text;
+        const match = /=\s*(-\d+)/.exec(line);
+        if (match === null || match.index === undefined) {
+            return undefined;
+        }
+        const start = match.index + match[0].lastIndexOf(match[1]);
+        return {
+            range: new vscode.Range(diagnosticRange.start.line, start, diagnosticRange.start.line, start + match[1].length),
+            nextValue: maxValue + 1
+        };
     }
 
     private findOnewayReturnTypeRange(

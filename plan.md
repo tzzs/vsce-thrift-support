@@ -294,7 +294,7 @@ npm test
 - 修改：`packages/vscode/src/rename-provider.ts`
 - 新增测试：`tests/src/signature-help-provider/`、`tests/src/inlay-hints-provider/`、`tests/src/code-lens-provider/`、`tests/src/code-actions-provider/`、`tests/src/rename-provider/`
 
-- [ ] **步骤 1：实现 service method signature help**
+- [x] **步骤 1：实现 service method signature help**
 
 注册：
 
@@ -380,7 +380,7 @@ Thrift: Remove Unused Includes
 - `service.oneway.hasThrows`：删除 throws clause。
 - `service.throws.notException`：仅在目标类型为本地 struct 且 range 安全时提供转换。
 - `syntax.unclosed`：仅在 opener 和 insertion point 明确时插入 closer。
-- `enum.negativeValue`：在任务 2 创建或确认该规则后，改为下一个非负值。
+- [x] `enum.negativeValue`：在任务 2 创建或确认该规则后，改为下一个非负值。
 
 ---
 

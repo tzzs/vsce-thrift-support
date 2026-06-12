@@ -324,6 +324,7 @@ const commonDefaults = {
         }),
         registerDocumentSemanticTokensProvider: () => ({dispose: () => {}}),
         registerDocumentLinkProvider: () => ({dispose: () => {}}),
+        registerSignatureHelpProvider: () => ({dispose: () => {}}),
         registerCallHierarchyProvider: () => ({dispose: () => {}}),
         registerTypeHierarchyProvider: () => ({dispose: () => {}}),
         registerDocumentHighlightProvider: () => ({dispose: () => {}})
