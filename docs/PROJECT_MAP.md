@@ -12,6 +12,7 @@ This map describes directory ownership and validation signals for agents and con
 | `syntaxes/` | TextMate grammar for syntax highlighting | Changing token scopes or grammar patterns |
 | `language-configuration.json` | VS Code brackets, comments, auto-closing pairs | Changing language-level editor metadata |
 | `docs/` | Repository-local decisions and maps | Making architecture, diagnostics, formatter policy, performance, or harness knowledge durable |
+| `docs/adr/` | Architecture decision records | Recording durable architecture choices such as LSP strategy |
 | `tests/src/` | Canonical Mocha regression tests for core and VS Code extension behavior | Adding long-lived behavior coverage |
 | `tests/cli/` | CLI integration and unit tests | Changing CLI behavior |
 | `tests/perf/` | Performance benchmark and threshold scripts | Changing parser, formatter, diagnostics, cache, or indexing performance characteristics |
@@ -19,7 +20,7 @@ This map describes directory ownership and validation signals for agents and con
 | `tests/debug/` | Manual reproduction, analysis, migration, and helper scripts | Keeping non-gated local investigation tooling |
 | `test-files/`, `tests/test-files/`, `tests/fixtures/` | Shared thrift fixtures and golden outputs | Adding reusable examples or expected formatter/parser outputs |
 | `.github/workflows/` | CI, release, publish, stale, and label automation | Changing delivery gates or GitHub automation |
-| `scripts/` | Repository maintenance scripts | Updating cross-package version or release maintenance logic |
+| `scripts/` | Repository maintenance scripts | Updating cross-package version, security scanning, release metrics, or release maintenance logic |
 | `openspec/` | OpenSpec change artifacts | Proposing or tracking spec-driven changes |
 
 ## Generated Outputs

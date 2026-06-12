@@ -84,6 +84,9 @@
     "docs/diagnostics-rules.md",
     "docs/settings-reference.md",
     "docs/release-verification.md",
+    "docs/security-model.md",
+    "docs/release-channels.md",
+    "docs/adr/**",
     "docs/assets/**"
   ],
   "contributes": {

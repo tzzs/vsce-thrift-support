@@ -14,7 +14,11 @@ const REQUIRED_VSIX_FILES = [
     'extension/language-configuration.json',
     'extension/readme.md',
     'extension/changelog.md',
-    'extension/LICENSE.txt'
+    'extension/LICENSE.txt',
+    'extension/SECURITY.md',
+    'extension/docs/security-model.md',
+    'extension/docs/release-channels.md',
+    'extension/docs/adr/0001-lsp-strategy.md'
 ];
 
 const REQUIRED_CLI_TARBALL_FILES = [
