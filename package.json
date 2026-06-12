@@ -54,6 +54,7 @@
     "onCommand:thrift.removeUnusedIncludes",
     "onCommand:thrift.refactor.extractType",
     "onCommand:thrift.refactor.moveType",
+    "onCommand:thrift.showDiagnosticsStatus",
     "onCommand:thrift.showPerformanceReport",
     "onCommand:thrift.clearPerformanceData",
     "onCommand:thrift.showMemoryReport",
@@ -129,6 +130,11 @@
         "category": "Thrift"
       },
       {
+        "command": "thrift.showDiagnosticsStatus",
+        "title": "Show Diagnostics Status",
+        "category": "Thrift"
+      },
+      {
         "command": "thrift.showPerformanceReport",
         "title": "Show Performance Report",
         "category": "Thrift"
@@ -174,6 +180,9 @@
         {
           "command": "thrift.refactor.moveType",
           "when": "editorLangId == thrift"
+        },
+        {
+          "command": "thrift.showDiagnosticsStatus"
         },
         {
           "command": "thrift.showPerformanceReport"
@@ -267,6 +276,21 @@
           "type": "boolean",
           "default": true,
           "description": "Show an inlay hint when a service method overrides an inherited method."
+        },
+        "thrift.diagnostics.workspaceMode": {
+          "type": "string",
+          "enum": [
+            "openFiles",
+            "workspace",
+            "off"
+          ],
+          "default": "openFiles",
+          "description": "Control extension diagnostics scope: openFiles checks open Thrift documents, workspace scans indexed workspace files, and off disables extension diagnostics while leaving CLI lint available."
+        },
+        "thrift.diagnostics.workspaceFileLimit": {
+          "type": "number",
+          "default": 500,
+          "description": "Maximum number of workspace .thrift files scanned when thrift.diagnostics.workspaceMode is workspace."
         },
         "thrift.diagnostics.debug": {
           "type": "boolean",

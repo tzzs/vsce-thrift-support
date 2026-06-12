@@ -333,6 +333,10 @@ const commonDefaults = {
             }
         })
     },
+    commands: {
+        registerCommand: () => ({dispose: () => {}}),
+        executeCommand: () => Promise.resolve()
+    },
     languages: {
         createDiagnosticCollection: () => ({
             set: () => {
@@ -562,6 +566,7 @@ Object.assign(vscode, {
         vscode.InlayHintKind = InlayHintKind;
         vscode.CodeLens = CodeLens;
         vscode.languages = commonDefaults.languages;
+        vscode.commands = commonDefaults.commands;
 
         // Reset workspace to a fresh snapshot so tests always start from the same state.
         currentWorkspace = createWorkspaceInstance();

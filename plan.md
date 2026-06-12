@@ -394,7 +394,7 @@ Thrift: Remove Unused Includes
 - 新增测试：`tests/src/diagnostics/`
 - 新增 CLI 测试：`tests/cli/`
 
-- [ ] **步骤 1：定义 workspace diagnostics 模式**
+- [x] **步骤 1：定义 workspace diagnostics 模式**
 
 新增配置：
 
@@ -410,7 +410,7 @@ Thrift: Remove Unused Includes
 - `workspace`：在 workspace file limit 内扫描 `.thrift` 文件。
 - `off`：禁用 extension diagnostics，但保留 CLI lint。
 
-- [ ] **步骤 2：复用 CLI diagnostics engine**
+- [x] **步骤 2：复用 CLI diagnostics engine**
 
 VS Code workspace diagnostics 与 `thrift-support lint` 必须共享：
 
@@ -420,7 +420,7 @@ VS Code workspace diagnostics 与 `thrift-support lint` 必须共享：
 - Config normalization。
 - Default value checking。
 
-- [ ] **步骤 3：让 workspace scan 可取消且有边界**
+- [x] **步骤 3：让 workspace scan 可取消且有边界**
 
 要求：
 
@@ -429,7 +429,7 @@ VS Code workspace diagnostics 与 `thrift-support lint` 必须共享：
 - 避免对有 unsaved content 的 open document 重复发布过期 diagnostics。
 - include graph 变化后 debounce broad scan。
 
-- [ ] **步骤 4：增加 diagnostics 状态命令**
+- [x] **步骤 4：增加 diagnostics 状态命令**
 
 新增命令：
 

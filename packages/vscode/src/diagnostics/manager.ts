@@ -32,6 +32,17 @@ import {DependencyManager} from './dependency-manager';
 import {AnalysisScheduler} from './scheduler';
 import {WorkspaceIndex} from '../indexing/workspace-index';
 
+export type WorkspaceDiagnosticsMode = 'openFiles' | 'workspace' | 'off';
+
+export interface DiagnosticsStatus {
+    workspaceMode: WorkspaceDiagnosticsMode;
+    indexedFileCount: number;
+    filesWithDiagnostics: number;
+    lastScanDurationMs: number;
+    topRuleIds: Array<{ruleId: string; count: number}>;
+    isScanning: boolean;
+}
+
 /**
  * DiagnosticManager：负责诊断调度、缓存与依赖跟踪。
  */
@@ -46,6 +57,16 @@ export class DiagnosticManager {
     private errorHandler: ErrorHandler;
     private performanceMonitor: PerformanceMonitor;
     private readonly workspaceIndex?: WorkspaceIndex;
+    private workspaceScanTimeout: NodeJS.Timeout | undefined;
+    private workspaceScanGeneration = 0;
+    private status: DiagnosticsStatus = {
+        workspaceMode: 'openFiles',
+        indexedFileCount: 0,
+        filesWithDiagnostics: 0,
+        lastScanDurationMs: 0,
+        topRuleIds: [],
+        isScanning: false
+    };
 
     constructor(errorHandler?: ErrorHandler, performanceMonitorInstance?: PerformanceMonitor, workspaceIndex?: WorkspaceIndex) {
         this.errorHandler = errorHandler ?? new ErrorHandler();
@@ -80,6 +101,11 @@ export class DiagnosticManager {
         dirtyRanges?: LineRange[]
     ) {
         if (doc.languageId !== 'thrift') {
+            return;
+        }
+        if (this.getWorkspaceMode() === 'off') {
+            this.collection.clear();
+            this.status.workspaceMode = 'off';
             return;
         }
 
@@ -163,10 +189,109 @@ export class DiagnosticManager {
      * 释放所有资源。
      */
     public dispose() {
+        if (this.workspaceScanTimeout !== undefined) {
+            clearTimeout(this.workspaceScanTimeout);
+            this.workspaceScanTimeout = undefined;
+        }
+        this.workspaceScanGeneration++;
         this.scheduler.dispose();
         this.dependencyManager.dispose();
         this.documentStates.clear();
         this.collection.dispose();
+    }
+
+    public scheduleWorkspaceScan(triggerSource = 'workspace', delayMs = 250): void {
+        if (this.getWorkspaceMode() !== 'workspace') {
+            return;
+        }
+        if (this.workspaceScanTimeout !== undefined) {
+            clearTimeout(this.workspaceScanTimeout);
+        }
+        this.workspaceScanTimeout = setTimeout(() => {
+            this.workspaceScanTimeout = undefined;
+            void this.scanWorkspace(triggerSource);
+        }, delayMs);
+    }
+
+    public async scanWorkspace(triggerSource = 'workspace'): Promise<void> {
+        const mode = this.getWorkspaceMode();
+        this.status.workspaceMode = mode;
+        if (mode === 'off') {
+            this.workspaceScanGeneration++;
+            this.collection.clear();
+            this.status = {
+                ...this.status,
+                indexedFileCount: 0,
+                filesWithDiagnostics: 0,
+                lastScanDurationMs: 0,
+                topRuleIds: [],
+                isScanning: false
+            };
+            return;
+        }
+        if (mode !== 'workspace') {
+            return;
+        }
+
+        const generation = ++this.workspaceScanGeneration;
+        const started = Date.now();
+        this.status = {
+            ...this.status,
+            workspaceMode: mode,
+            isScanning: true
+        };
+
+        const ruleCounts = new Map<string, number>();
+        let filesWithDiagnostics = 0;
+        let indexedFileCount = 0;
+
+        try {
+            const files = (await this.getWorkspaceFiles()).slice(0, this.getWorkspaceFileLimit());
+            indexedFileCount = files.length;
+            logDiagnostics(`[Diagnostics] Workspace scan started (${triggerSource}), files=${files.length}`);
+            for (const uri of files) {
+                if (generation !== this.workspaceScanGeneration) {
+                    break;
+                }
+                const doc = await this.getDocumentForWorkspaceUri(uri);
+                if (doc === undefined) {
+                    continue;
+                }
+                const diagnostics = await this.performAnalysis(doc);
+                if (diagnostics.length > 0) {
+                    filesWithDiagnostics++;
+                    for (const diagnostic of diagnostics) {
+                        const code = this.getDiagnosticCode(diagnostic);
+                        if (code !== undefined) {
+                            ruleCounts.set(code, (ruleCounts.get(code) ?? 0) + 1);
+                        }
+                    }
+                }
+            }
+        } finally {
+            if (generation === this.workspaceScanGeneration) {
+                this.status = {
+                    workspaceMode: mode,
+                    indexedFileCount,
+                    filesWithDiagnostics,
+                    lastScanDurationMs: Date.now() - started,
+                    topRuleIds: [...ruleCounts.entries()]
+                        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+                        .slice(0, 10)
+                        .map(([ruleId, count]) => ({ruleId, count})),
+                    isScanning: false
+                };
+                logDiagnostics(`[Diagnostics] Workspace scan completed (${triggerSource}), files=${indexedFileCount}, filesWithDiagnostics=${filesWithDiagnostics}`);
+            }
+        }
+    }
+
+    public getStatus(): DiagnosticsStatus {
+        return {
+            ...this.status,
+            workspaceMode: this.getWorkspaceMode(),
+            topRuleIds: this.status.topRuleIds.map(item => ({...item}))
+        };
     }
 
     /**
@@ -196,7 +321,7 @@ export class DiagnosticManager {
     /**
      * 执行单个文档的诊断分析。
      */
-    private async performAnalysis(doc: vscode.TextDocument) {
+    private async performAnalysis(doc: vscode.TextDocument): Promise<vscode.Diagnostic[]> {
         const key = this.getDocumentKey(doc);
         logDiagnostics(`[Diagnostics] Starting analysis for ${path.basename(doc.uri.fsPath)}`);
 
@@ -205,8 +330,9 @@ export class DiagnosticManager {
         state.version = doc.version;
         this.documentStates.set(key, state);
 
+        let analysisResult: vscode.Diagnostic[] = [];
         try {
-            await this.performanceMonitor.measureAsync(
+            analysisResult = await this.performanceMonitor.measureAsync(
                 'Thrift诊断分析',
                 async () => {
                     try {
@@ -344,6 +470,7 @@ export class DiagnosticManager {
                         state.lastDiagnostics = diagnostics;
 
                         logDiagnostics(`文档 ${path.basename(doc.uri.fsPath)} 分析完成: ${diagnostics.length} 个问题`);
+                        return diagnostics;
                     } catch (error) {
                         this.errorHandler.handleError(error, {
                             component: 'DiagnosticManager',
@@ -352,15 +479,17 @@ export class DiagnosticManager {
                             additionalInfo: {documentVersion: doc.version}
                         });
                         this.collection.set(doc.uri, []);
+                        return [];
                     }
                 },
                 doc
-            );
+            ) ?? [];
         } finally {
             state.isAnalyzing = false;
             state.lastAnalysis = Date.now();
             this.documentStates.set(key, state);
         }
+        return analysisResult;
     }
 
     /**
@@ -418,10 +547,114 @@ export class DiagnosticManager {
             processing: this.scheduler.getProcessingCount()
         };
     }
+
+    private async getWorkspaceFiles(): Promise<vscode.Uri[]> {
+        if (this.workspaceIndex !== undefined) {
+            return this.workspaceIndex.getAllFiles();
+        }
+        return vscode.workspace.findFiles(config.filePatterns.thrift, undefined, this.getWorkspaceFileLimit());
+    }
+
+    private async getDocumentForWorkspaceUri(uri: vscode.Uri): Promise<vscode.TextDocument | undefined> {
+        const openDoc = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === uri.toString());
+        if (openDoc !== undefined) {
+            return openDoc;
+        }
+        try {
+            const text = this.workspaceIndex !== undefined
+                ? await this.workspaceIndex.getText(uri)
+                : new TextDecoder('utf-8').decode(await vscode.workspace.fs.readFile(uri));
+            return createWorkspaceTextDocument(uri, text);
+        } catch (error) {
+            this.errorHandler.handleWarning('Workspace diagnostics file read failed', {
+                component: 'DiagnosticManager',
+                operation: 'getDocumentForWorkspaceUri',
+                filePath: uri.fsPath,
+                additionalInfo: {error: error instanceof Error ? error.message : String(error)}
+            });
+            return undefined;
+        }
+    }
+
+    private getWorkspaceMode(): WorkspaceDiagnosticsMode {
+        const value = vscode.workspace.getConfiguration('thrift.diagnostics')
+            .get<string>('workspaceMode', 'openFiles');
+        return value === 'workspace' || value === 'off' ? value : 'openFiles';
+    }
+
+    private getWorkspaceFileLimit(): number {
+        const value = vscode.workspace.getConfiguration('thrift.diagnostics')
+            .get<number>('workspaceFileLimit', 500);
+        return Number.isInteger(value) && value > 0 ? value : 500;
+    }
+
+    private getDiagnosticCode(diagnostic: vscode.Diagnostic): string | undefined {
+        if (diagnostic.code === undefined || diagnostic.code === null) {
+            return undefined;
+        }
+        if (typeof diagnostic.code === 'object') {
+            return String((diagnostic.code as {value: string | number}).value);
+        }
+        return String(diagnostic.code);
+    }
 }
 
 function getDiagnosticsRuleOptions(): DiagnosticsRuleOptions {
     return {
         rules: vscode.workspace.getConfiguration('thrift.diagnostics').get('rules', {})
+    };
+}
+
+function createWorkspaceTextDocument(uri: vscode.Uri, text: string): vscode.TextDocument {
+    const lines = text.split('\n');
+    return {
+        uri,
+        languageId: 'thrift',
+        version: 0,
+        getText: (range?: vscode.Range) => {
+            if (range === undefined) {
+                return text;
+            }
+            if (range.start.line === range.end.line) {
+                return (lines[range.start.line] ?? '').slice(range.start.character, range.end.character);
+            }
+            const selected = lines.slice(range.start.line, range.end.line + 1);
+            selected[0] = (selected[0] ?? '').slice(range.start.character);
+            selected[selected.length - 1] = (selected[selected.length - 1] ?? '').slice(0, range.end.character);
+            return selected.join('\n');
+        },
+        lineAt: (lineOrPosition: number | vscode.Position) => {
+            const line = typeof lineOrPosition === 'number' ? lineOrPosition : lineOrPosition.line;
+            return {text: lines[line] ?? ''} as vscode.TextLine;
+        },
+        lineCount: lines.length,
+        fileName: uri.fsPath,
+        isUntitled: false,
+        isDirty: false,
+        isClosed: false,
+        eol: vscode.EndOfLine?.LF ?? 1,
+        save: () => Promise.resolve(false),
+        offsetAt: (position: vscode.Position) => {
+            let offset = 0;
+            for (let i = 0; i < position.line; i++) {
+                offset += (lines[i] ?? '').length + 1;
+            }
+            return offset + position.character;
+        },
+        positionAt: (offset: number) => {
+            let remaining = offset;
+            for (let line = 0; line < lines.length; line++) {
+                const length = (lines[line] ?? '').length;
+                if (remaining <= length) {
+                    return new vscode.Position(line, remaining);
+                }
+                remaining -= length + 1;
+            }
+            const lastLine = Math.max(0, lines.length - 1);
+            return new vscode.Position(lastLine, (lines[lastLine] ?? '').length);
+        },
+        getWordRangeAtPosition: () => undefined,
+        validateRange: (range: vscode.Range) => range,
+        validatePosition: (position: vscode.Position) => position
     };
 }

@@ -21,6 +21,8 @@ The primary settings namespace is `thrift.*`.
 | `thrift.inlayHints.requiredness` | `false` | boolean | Shows `default` for fields that rely on Thrift's implicit requiredness semantics. |
 | `thrift.inlayHints.includeAliases` | `false` | boolean | Shows the inferred include alias for direct cross-file type references. |
 | `thrift.inlayHints.serviceOverrides` | `true` | boolean | Shows when a service method overrides an inherited method. |
+| `thrift.diagnostics.workspaceMode` | `"openFiles"` | `"openFiles"`, `"workspace"`, `"off"` | Controls extension diagnostics scope. CLI lint remains available when set to `off`. |
+| `thrift.diagnostics.workspaceFileLimit` | `500` | number | Maximum number of workspace `.thrift` files scanned in `workspace` mode. |
 | `thrift.diagnostics.debug` | `false` | boolean | Enables verbose diagnostics logging. |
 | `thrift.diagnostics.rules` | `{}` | object | Per-rule enablement and severity overrides. See [diagnostics-rules.md](diagnostics-rules.md). |
 
@@ -40,7 +42,9 @@ The primary settings namespace is `thrift.*`.
   "thrift.format.collectionStyle": "auto",
   "thrift.inlayHints.requiredness": false,
   "thrift.inlayHints.includeAliases": false,
-  "thrift.inlayHints.serviceOverrides": true
+  "thrift.inlayHints.serviceOverrides": true,
+  "thrift.diagnostics.workspaceMode": "openFiles",
+  "thrift.diagnostics.workspaceFileLimit": 500
 }
 ```
 
