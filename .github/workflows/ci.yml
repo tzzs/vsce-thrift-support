@@ -41,6 +41,12 @@ jobs:
       - name: Lint
         run: pnpm run lint
 
+      - name: Invisible Unicode scan
+        run: pnpm run security:unicode
+
+      - name: Dependency audit
+        run: pnpm run security:audit
+
       - name: Build
         run: pnpm run build
 

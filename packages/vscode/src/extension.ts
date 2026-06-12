@@ -17,7 +17,19 @@ export async function activate(context: vscode.ExtensionContext) {
         operation: 'activate'
     });
     context.subscriptions.push(deps.workspaceIndex);
-    await refreshWorkspaceIndex(deps.workspaceIndex, errorHandler);
+    if (vscode.workspace.isTrusted === false) {
+        errorHandler.handleInfo('Workspace index refresh skipped in Restricted Mode', {
+            component: 'Extension',
+            operation: 'refreshWorkspaceIndex'
+        });
+    } else {
+        await refreshWorkspaceIndex(deps.workspaceIndex, errorHandler);
+    }
+    if (typeof vscode.workspace.onDidGrantWorkspaceTrust === 'function') {
+        context.subscriptions.push(vscode.workspace.onDidGrantWorkspaceTrust(() => {
+            void refreshWorkspaceIndex(deps.workspaceIndex, errorHandler);
+        }));
+    }
 
     // 初始化内存管理系统
     initializeMemoryManagement(context, errorHandler);

@@ -26,7 +26,11 @@ The CLI reads local files passed on the command line. It writes files only for e
 
 ## Workspace Trust
 
-The extension currently documents its Restricted Mode behavior but does not yet declare a dedicated `capabilities.untrustedWorkspaces` manifest entry. Until that is implemented, use trusted workspaces for repositories where include traversal, diagnostics, refactors, or CLI write operations should be restricted by policy.
+The extension declares `capabilities.untrustedWorkspaces.supported` as `limited`.
+
+Restricted Mode keeps syntax highlighting, formatting, and open-file analysis available. Workspace-wide indexing, include traversal, generated reports, and diagnostics modes that require broad workspace reads may be limited until the workspace is trusted.
+
+The restricted configuration is `thrift.diagnostics.workspaceMode`. See [docs/security-model.md](docs/security-model.md) for the current trust boundary.
 
 ## Supply Chain
 
@@ -34,6 +38,6 @@ Release packaging is automated through GitHub Actions:
 
 - Visual Studio Marketplace and Open VSX receive the packaged VSIX from `publish.yml`.
 - The npm CLI package is published with OIDC trusted publishing and provenance.
-- CI gates include lint, build, tests, coverage, CLI dogfood, package smoke, and performance assertions.
+- CI gates include lint, invisible Unicode scanning, dependency audit, build, tests, coverage, CLI dogfood, package smoke, and performance assertions.
 
 See [docs/release-verification.md](docs/release-verification.md) for the current release verification chain.

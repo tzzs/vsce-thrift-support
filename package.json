@@ -30,6 +30,15 @@
     "Linters",
     "Formatters"
   ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Thrift syntax, formatting, and open-file analysis are available in Restricted Mode. Workspace-wide indexing, include traversal, and generated reports may be limited until the workspace is trusted.",
+      "restrictedConfigurations": [
+        "thrift.diagnostics.workspaceMode"
+      ]
+    }
+  },
   "keywords": [
     "thrift",
     "apache thrift",
@@ -357,6 +366,9 @@
     "smoke:package": "node tests/package-smoke.js",
     "smoke:package:vsix": "node tests/package-smoke.js --vsix-only",
     "smoke:package:cli": "node tests/package-smoke.js --cli-only",
+    "security:unicode": "node scripts/check-invisible-unicode.js",
+    "security:audit": "pnpm audit --audit-level high --registry=https://registry.npmjs.org",
+    "metrics:marketplace": "node scripts/marketplace-metrics.js",
     "test": "pnpm run build && pnpm run build:cli && mocha",
     "test:single": "pnpm run build && pnpm run build:cli && mocha --config .mocharc.single.json",
     "coverage": "pnpm run build && pnpm run build:cli && c8 --reporter text-summary --reporter lcov mocha",

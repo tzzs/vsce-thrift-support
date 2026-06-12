@@ -9,6 +9,7 @@ export interface WorkspaceIndexDeps {
     readFile?: (uri: vscode.Uri) => Thenable<string> | Promise<string>;
     createWatcher?: (invalidate: (uri?: vscode.Uri) => void) => vscode.Disposable;
     workspaceFolders?: vscode.Uri[];
+    isTrusted?: () => boolean;
 }
 
 interface IndexedInclude {
@@ -38,6 +39,9 @@ export class WorkspaceIndex implements vscode.Disposable {
     public async refresh(): Promise<void> {
         this.symbols.clear();
         this.files.clear();
+        if (!this.isWorkspaceTrusted()) {
+            return;
+        }
         const files = await this.findFiles();
         for (const uri of files) {
             await this.indexFile(uri);
@@ -61,6 +65,9 @@ export class WorkspaceIndex implements vscode.Disposable {
     }
 
     public async getText(uri: vscode.Uri): Promise<string> {
+        if (!this.isWorkspaceTrusted()) {
+            throw new Error('Workspace index is disabled in Restricted Mode');
+        }
         const key = uri.toString();
         const cached = this.files.get(key);
         if (cached !== undefined) {
@@ -75,6 +82,9 @@ export class WorkspaceIndex implements vscode.Disposable {
     }
 
     public getIncludedUrisForText(uri: vscode.Uri, text: string, version?: number): vscode.Uri[] {
+        if (!this.isWorkspaceTrusted()) {
+            return [];
+        }
         const key = version === undefined
             ? `${uri.toString()}#includes`
             : `${uri.toString()}#includes:${version}`;
@@ -238,5 +248,12 @@ export class WorkspaceIndex implements vscode.Disposable {
             nameRange: toVscodeRange(node.nameRange ?? node.range),
             namespace
         };
+    }
+
+    private isWorkspaceTrusted(): boolean {
+        if (this.deps.isTrusted) {
+            return this.deps.isTrusted();
+        }
+        return vscode.workspace.isTrusted !== false;
     }
 }
