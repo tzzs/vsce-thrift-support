@@ -12,6 +12,8 @@ Use this page as the repository-local map for agent and contributor documentatio
 | [advanced-features.md](advanced-features.md) | Stream, sink, interaction, and experimental syntax examples | Update when grammar/parser support changes |
 | [settings-reference.md](settings-reference.md) | VS Code settings keys, defaults, examples, and legacy fallback notes | Update when `package.json#contributes.configuration` changes |
 | [release-verification.md](release-verification.md) | Release automation chain and local/package verification commands | Update when GitHub Actions release gates change |
+| [release-channels.md](release-channels.md) | Stable/pre-release channel policy and adoption metrics workflow | Update when Marketplace, Open VSX, or npm release strategy changes |
+| [security-model.md](security-model.md) | Workspace Trust, file access, CLI write, package, and future AI/MCP security boundaries | Update when security posture or workspace access changes |
 | [performance-benchmark.md](performance-benchmark.md) | Performance benchmark usage | Update when benchmark thresholds or scripts change |
 | [../SECURITY.md](../SECURITY.md) | Supported versions, vulnerability reporting, telemetry statement, and trust boundaries | Update when security posture or Workspace Trust behavior changes |
 | [../tests/README.md](../tests/README.md) | Test directory taxonomy | Update when test directories or default test contracts change |
