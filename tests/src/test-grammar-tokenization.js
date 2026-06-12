@@ -242,17 +242,40 @@ describe('TextMate Grammar Tokenization', () => {
             assert.ok(commaToken.scopes.includes('punctuation.separator.comma.thrift'),
                 'comma should be punctuation.separator.comma');
         });
+
+        it('should assign punctuation.separator.semicolon to enum semicolon separators', () => {
+            const lines = ['enum E {', '  A = 1;', '  B = 2;', '}'];
+            const tokens = tokenizeLines(lines);
+
+            assert.ok(tokens.some(t => t.text === ';' && t.scopes.includes('punctuation.separator.semicolon.thrift')),
+                'semicolon should be punctuation.separator.semicolon');
+        });
     });
 
     describe('Type scopes', () => {
         it('should assign storage.type.primitive.thrift to primitive types', () => {
-            const lines = ['struct S {', '  1: i32 num,', '  2: string text,', '}'];
+            const lines = ['struct S {', '  1: i32 num,', '  2: string text,', '  3: uuid id,', '}'];
             const tokens = tokenizeLines(lines);
 
             assert.ok(hasScopes(tokens, 'i32', ['storage.type.primitive.thrift']),
                 'i32 should have storage.type.primitive scope');
             assert.ok(hasScopes(tokens, 'string', ['storage.type.primitive.thrift']),
                 'string should have storage.type.primitive scope');
+            assert.ok(hasScopes(tokens, 'uuid', ['storage.type.primitive.thrift']),
+                'uuid should have storage.type.primitive scope');
+        });
+
+        it('should tokenize IDL 0.24 cpp_include and cpp_type keywords', () => {
+            const lines = [
+                'cpp_include "gen-cpp/custom.h"',
+                'typedef map cpp_type "std::unordered_map"<string, i32> StringIntMap'
+            ];
+            const tokens = tokenizeLines(lines);
+
+            assert.ok(hasScopes(tokens, 'cpp_include', ['keyword.other.thrift']),
+                'cpp_include should have keyword.other scope');
+            assert.ok(hasScopes(tokens, 'cpp_type', ['keyword.other.thrift']),
+                'cpp_type should have keyword.other scope');
         });
 
         it('should assign entity.name.type to user-defined types', () => {

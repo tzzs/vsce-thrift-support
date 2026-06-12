@@ -25,13 +25,20 @@ export interface ContainerTypeInfo {
     typeArgs: string[];
 }
 
+function normalizeCppTypeContainer(typeText: string): string {
+    return typeText.replace(
+        /^(map|list|set)\s+cpp_type\s+(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')\s*</,
+        '$1<'
+    );
+}
+
 /**
  * Parse a container type using angle-bracket depth tracking instead of regex.
  * Handles nested generics like list<map<string, i32>> correctly.
  * @returns Container info or null if the type is not a valid container.
  */
 export function parseContainerTypeInfo(typeText: string): ContainerTypeInfo | null {
-    const cleaned = typeText.trim();
+    const cleaned = normalizeCppTypeContainer(typeText.trim());
     // Find the keyword before the first '<'
     let keywordEnd = -1;
     for (let i = 0; i < cleaned.length; i++) {
@@ -78,7 +85,8 @@ export function parseContainerTypeInfo(typeText: string): ContainerTypeInfo | nu
 
     const typeArgs = splitTopLevelAngles(inner);
     if (keyword === 'map' && typeArgs.length !== 2) { return null; }
-    if (keyword !== 'map' && typeArgs.length !== 1) { return null; }
+    if (keyword === 'sink' && typeArgs.length !== 1 && typeArgs.length !== 2) { return null; }
+    if (keyword !== 'map' && keyword !== 'sink' && typeArgs.length !== 1) { return null; }
 
     return {keyword, typeArgs};
 }
@@ -402,7 +410,7 @@ export function resolveNamespacedBase(typeName: string, includeAliases: Set<stri
  */
 export function isIntegerLiteral(text: string): boolean {
     const t = text.trim();
-    return /^-?\d+$/.test(t) && !/^-?\d+\.\d+$/.test(t);
+    return /^[+-]?\d+$/.test(t) && !/^[+-]?\d+\.\d+$/.test(t);
 }
 
 /**

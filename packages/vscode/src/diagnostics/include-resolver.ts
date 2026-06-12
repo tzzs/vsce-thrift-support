@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import {nodes} from '@tanzz/thrift-core';
+import {isThriftInclude, nodes} from '@tanzz/thrift-core';
 import {ThriftParser} from '@tanzz/thrift-core';
 import {config} from '@tanzz/thrift-core';
 import {ErrorHandler, safeResolveIncludePath} from '@tanzz/thrift-core';
@@ -84,7 +84,7 @@ export function getIncludedFiles(document: vscode.TextDocument, workspaceIndex?:
     const handler = ErrorHandler.getInstance();
 
     for (const node of ast.body) {
-        if (node.type !== nodes.ThriftNodeType.Include) {
+        if (!isThriftInclude(node)) {
             continue;
         }
         const includePath = node.path;

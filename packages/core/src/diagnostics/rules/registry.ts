@@ -108,6 +108,13 @@ export const DIAGNOSTIC_RULES: readonly DiagnosticRuleMetadata[] = [
         hasFix: false
     },
     {
+        id: DIAGNOSTIC_CODES.ENUM_NEGATIVE_VALUE,
+        defaultSeverity: DiagnosticSeverity.Error,
+        category: 'enum',
+        description: 'Reports enum member initializers that are negative.',
+        hasFix: false
+    },
+    {
         id: DIAGNOSTIC_CODES.SYNTAX_UNMATCHED_CLOSER,
         defaultSeverity: DiagnosticSeverity.Error,
         category: 'syntax',

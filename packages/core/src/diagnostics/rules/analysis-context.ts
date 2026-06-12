@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as nodes from '../../ast/nodes.types';
+import {isThriftInclude} from '../../ast/utils';
 import {collectTypesFromAst} from '../include-resolver';
 
 export interface AnalysisContext {
@@ -15,7 +16,7 @@ export interface AnalysisContext {
 export function collectIncludeAliasesFromAst(ast: nodes.ThriftDocument): Set<string> {
     const includeAliases = new Set<string>();
     for (const node of ast.body) {
-        if (node.type === nodes.ThriftNodeType.Include) {
+        if (isThriftInclude(node)) {
             const includePath = (node ).path;
             const alias = path.basename(includePath, '.thrift');
             if (alias) {

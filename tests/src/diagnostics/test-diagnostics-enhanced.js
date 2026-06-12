@@ -95,30 +95,33 @@ function run() {
     issues = analyzeThriftText(setBracketDefault);
     assert.ok(findByCode(issues, 'value.typeMismatch').length === 0, 'Set defaults with [] should be accepted (lenient)');
 
-    // Test 11: Enhanced enum value validation - now supports negative values
+    // Test 11: Enhanced enum value validation follows Apache Thrift IDL 0.24:
+    // explicit enum values must be integer literals and must be non-negative.
     const enumValidation = `enum Status {
     ACTIVE = 0,
     INACTIVE = 1,
     PENDING = 2,
-    VALID_NEG = -1,
-    VALID_NEG2 = -100,
+    VALID_PLUS = +1,
+    INVALID_NEG = -1,
+    INVALID_NEG2 = -100,
     INVALID_FLOAT = 1.5,
     INVALID_HEX = 0xFF
   }`;
     issues = analyzeThriftText(enumValidation);
-    assert.ok(findByCode(issues, 'enum.negativeValue').length === 0, 'Negative enum values should now be allowed');
+    assert.ok(findByCode(issues, 'enum.negativeValue').length === 2, 'Negative enum values should be flagged');
     assert.ok(findByCode(issues, 'enum.valueNotInteger').length === 2, 'Float and hex enum values should be flagged');
 
     // Test 11b: Enum values with inline comments should parse as integers
     const enumInlineComments = `enum Status {
     ACTIVE = 1, // ok
     INACTIVE = 2 # ok
-    PENDING = -3 # ok
+    PENDING = +3 # ok
   }`;
     issues = analyzeThriftText(enumInlineComments);
     assert.ok(findByCode(issues, 'enum.valueNotInteger').length === 0, 'Inline comments should not break enum value parsing');
+    assert.ok(findByCode(issues, 'enum.negativeValue').length === 0, 'Positive enum values should be accepted');
 
-    // Test 11b: Additional enum tests with various negative values
+    // Test 11c: Additional enum tests with various negative values
     const enumWithNegatives = `enum ErrorCode {
     SUCCESS = 0,
     ERROR_GENERAL = -1,
@@ -129,7 +132,7 @@ function run() {
     MAX_INT32 = 2147483647
   }`;
     issues = analyzeThriftText(enumWithNegatives);
-    assert.ok(findByCode(issues, 'enum.negativeValue').length === 0, 'All negative enum values should be allowed');
+    assert.ok(findByCode(issues, 'enum.negativeValue').length === 5, 'All negative enum values should be flagged');
     assert.ok(findByCode(issues, 'enum.valueNotInteger').length === 0, 'All values should be valid integers');
 
     // Test 12: Service method validation - oneway restrictions

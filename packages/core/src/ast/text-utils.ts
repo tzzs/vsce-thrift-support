@@ -116,7 +116,7 @@ export function stripTrailingAnnotation(line: string): string {
 }
 
 /**
- * 分割顶层逗号并保留偏移量。
+ * 分割顶层逗号/分号并保留偏移量。
  * @param text 输入文本
  * @returns 分割后的文本片段及其起始偏移量数组
  */
@@ -195,7 +195,7 @@ export function splitTopLevelCommasWithOffsets(text: string): Array<{text: strin
             continue;
         }
 
-        if (ch === ',' && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
+        if ((ch === ',' || ch === ';') && depthAngle === 0 && depthBracket === 0 && depthBrace === 0 && depthParen === 0) {
             const segment = text.slice(start, i);
             const leading = segment.match(/^\s*/)?.[0].length ?? 0;
             const trimmed = segment.trim();

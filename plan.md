@@ -181,7 +181,7 @@ npm run smoke:package
 - 检查：`packages/cli/src/**`
 - 新增或修改测试：`tests/src/**`
 
-- [ ] **步骤 1：创建 IDL 0.24 对齐说明**
+- [x] **步骤 1：创建 IDL 0.24 对齐说明**
 
 在 `docs/advanced-features.md` 中新增 `Apache Thrift IDL 0.24 Alignment` 小节，并链接：
 
@@ -201,7 +201,7 @@ npm run smoke:package
 - list separators `,` 和 `;`
 - reserved keywords
 
-- [ ] **步骤 2：替换陈旧 IDL 0.23 描述**
+- [x] **步骤 2：替换陈旧 IDL 0.23 描述**
 
 运行：
 
@@ -213,7 +213,7 @@ rg -n "IDL 0\\.23|Thrift 0\\.23|0\\.23" README.md README.zh-CN.md docs packages 
 
 - 所有过时引用都更新为 `IDL 0.24`，或明确标为历史背景。
 
-- [ ] **步骤 3：增加规范对齐 fixtures**
+- [x] **步骤 3：增加规范对齐 fixtures**
 
 在 `tests/src/parser/test-files/` 及相关 diagnostics/highlighting 测试中新增或刷新 fixture，覆盖：
 
@@ -243,7 +243,7 @@ exception UserNotFound {
 - 一个包含非法 enum 值的 fixture。
 - 一个同时使用逗号和分号 list separator 的 fixture。
 
-- [ ] **步骤 4：修正 README 与规则目录漂移**
+- [x] **步骤 4：修正 README 与规则目录漂移**
 
 重点审计这些已知漂移：
 
@@ -256,7 +256,7 @@ exception UserNotFound {
 - 实现文档声称的行为并补测试。
 - 或收窄文档，只描述当前真实行为。
 
-- [ ] **步骤 5：增加规范漂移防护**
+- [x] **步骤 5：增加规范漂移防护**
 
 增加一个小测试或脚本，至少验证 core primitive keywords 与 grammar primitive scopes 对齐：
 

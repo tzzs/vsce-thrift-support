@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import {collectTopLevelTypes, config, nodes, safeResolveIncludePath, ThriftParser} from '@tanzz/thrift-core';
+import {collectTopLevelTypes, config, isThriftInclude, nodes, safeResolveIncludePath, ThriftParser} from '@tanzz/thrift-core';
 import {createLocation, toVscodeRange} from '../utils/vscode-utils';
 import {IndexedThriftSymbol, SymbolIndex} from './symbol-index';
 
@@ -161,7 +161,7 @@ export class WorkspaceIndex implements vscode.Disposable {
     private collectIncludes(uri: vscode.Uri, ast: nodes.ThriftDocument): IndexedInclude[] {
         const includes: IndexedInclude[] = [];
         for (const node of ast.body) {
-            if (node.type !== nodes.ThriftNodeType.Include) {
+            if (!isThriftInclude(node)) {
                 continue;
             }
             const includeUri = this.resolveIncludeUri(uri, node.path);

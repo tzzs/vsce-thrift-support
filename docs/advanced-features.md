@@ -2,7 +2,27 @@
 
 ## 概述
 
-本扩展为Apache Thrift IDL提供了高级语法特性的支持，包括流式传输(stream)、数据收集(sink)、交互模式(interaction)和服务依赖(performs)等实验性语法。
+本扩展跟进 Apache Thrift IDL 0.24 标准语法，并保留若干面向 fbthrift / 实验语法的编辑器支持。
+
+## Apache Thrift IDL 0.24 Alignment
+
+参考：
+
+- https://thrift.apache.org/docs/idl
+- https://thrift.apache.org/docs/types
+
+当前支持状态：
+
+| 语法/语义 | 状态 |
+| --- | --- |
+| `uuid` | 作为内建 BaseType 支持，覆盖 parser、diagnostics、formatter、completion、definition 排除和 grammar primitive 高亮 |
+| `cpp_include` | parser 与 grammar 支持；不会进入普通 thrift include graph |
+| `cpp_type` | `map/list/set cpp_type "..."<...>` 在 parser 中保留原类型文本，diagnostics 按容器内层类型校验 |
+| list separators `,` 和 `;` | struct/enum/service argument/throws 等字段列表均按顶层逗号或分号拆分 |
+| explicit enum values | 必须是整数 literal，且按 IDL 0.24 要求必须非负 |
+| reserved keywords | grammar 覆盖主要保留字；identifier 诊断限制仍待后续安全推进 |
+
+`stream`、`sink`、`interaction`、`performs`、`reference` 不属于 Apache Thrift IDL 0.24 标准页的核心语法。本扩展对它们的支持是实验扩展，主要用于兼容 fbthrift 风格或前瞻性 IDL。
 
 ## 新增特性
 
@@ -74,10 +94,9 @@ struct ServiceReference {
 在输入时，扩展会自动补全这些高级特性关键字：
 
 - 输入 `str` → 自动补全 `stream`
-- 输入 `sin` → 自动补全 `sink` 
+- 输入 `sin` → 自动补全 `sink`
 - 输入 `int` → 自动补全 `interaction`
 - 输入 `per` → 自动补全 `performs`
-- 输入 `ref` → 自动补全 `reference`
 
 ## 示例文件
 
@@ -96,11 +115,6 @@ struct ServiceReference {
 - 进行充分的测试验证
 - 考虑向后兼容性
 
-## 配置选项
+## 语法配置
 
-扩展提供了两个语法配置文件：
-
-- `thrift.tmLanguage.json` - 标准Thrift语法（默认）
-- `thrift.tmLanguage-enhanced.json` - 增强版语法（包含高级特性）
-
-您可以通过VS Code的设置切换不同的语法高亮模式。
+扩展通过 `syntaxes/thrift.tmLanguage.json` 贡献单一 TextMate grammar。当前没有单独的 enhanced grammar 切换项。

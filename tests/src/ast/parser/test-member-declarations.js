@@ -15,7 +15,7 @@ describe('member-declarations', () => {
             '}',
             '',
             'service S {',
-            '  oneway void ping(1: i32 id) throws (1: Error err)',
+            '  oneway void ping(1: i32 id; 2: string name) throws (1: Error err; 2: Other other)',
             '}'
         ].join('\n');
 
@@ -52,7 +52,11 @@ describe('member-declarations', () => {
         assert.strictEqual(func?.name, 'ping');
         assert.strictEqual(func?.returnType, 'void');
         assert.strictEqual(func?.oneway, true);
-        assert.strictEqual(func?.arguments?.length, 1);
-        assert.strictEqual(func?.throws?.length, 1);
+        assert.strictEqual(func?.arguments?.length, 2);
+        assert.strictEqual(func?.arguments?.[1]?.fieldType, 'string');
+        assert.strictEqual(func?.arguments?.[1]?.name, 'name');
+        assert.strictEqual(func?.throws?.length, 2);
+        assert.strictEqual(func?.throws?.[1]?.fieldType, 'Other');
+        assert.strictEqual(func?.throws?.[1]?.name, 'other');
     });
 });

@@ -40,7 +40,8 @@ export function parseIncludeDeclaration(
     parent: nodes.ThriftNode,
     line: string,
     lineNumber: number,
-    tokens: Token[]
+    tokens: Token[],
+    includeKind: 'include' | 'cpp_include' = 'include'
 ): nodes.Include | undefined {
     const pathToken = tokens[1];
     if (pathToken === undefined || pathToken.type !== 'string') {
@@ -51,6 +52,7 @@ export function parseIncludeDeclaration(
         range: createLineRange(line, lineNumber),
         parent,
         path: pathToken.value,
+        includeKind,
         name: pathToken.value
     };
 }

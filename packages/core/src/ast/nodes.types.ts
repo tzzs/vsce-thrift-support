@@ -83,6 +83,7 @@ export interface Namespace extends ThriftNodeBase {
 export interface Include extends ThriftNodeBase {
     type: ThriftNodeType.Include;
     path: string;
+    includeKind?: 'include' | 'cpp_include';
 }
 
 /**

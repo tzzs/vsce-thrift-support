@@ -84,8 +84,15 @@ describe('type-utils', () => {
         it('should recognize parameterized stream/sink/interaction types', () => {
             assert.strictEqual(isKnownType('stream<i32>', definedTypes, includeAliases), true);
             assert.strictEqual(isKnownType('sink<string>', definedTypes, includeAliases), true);
+            assert.strictEqual(isKnownType('sink<string, MyStruct>', definedTypes, includeAliases), true);
             assert.strictEqual(isKnownType('interaction<MyStruct>', definedTypes, includeAliases), true);
             assert.strictEqual(isKnownType('reference<MyStruct>', definedTypes, includeAliases), true);
+        });
+
+        it('should recognize IDL 0.24 cpp_type annotations on containers', () => {
+            assert.strictEqual(isKnownType('map cpp_type "std::unordered_map"<string, i32>', definedTypes, includeAliases), true);
+            assert.strictEqual(isKnownType('list cpp_type "std::vector"<uuid>', definedTypes, includeAliases), true);
+            assert.strictEqual(isKnownType('set cpp_type "std::unordered_set"<MyStruct>', definedTypes, includeAliases), true);
         });
 
         it('should return false for completely unknown type', () => {
@@ -120,6 +127,7 @@ describe('type-utils', () => {
     describe('isIntegerLiteral()', () => {
         it('should recognize positive integers', () => {
             assert.strictEqual(isIntegerLiteral('42'), true);
+            assert.strictEqual(isIntegerLiteral('+42'), true);
         });
 
         it('should recognize negative integers', () => {
