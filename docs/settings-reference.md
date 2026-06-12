@@ -18,6 +18,9 @@ The primary settings namespace is `thrift.*`.
 | `thrift.format.indentSize` | `4` | number | Number of spaces for indentation. VS Code formatter options can override this for a formatting request. |
 | `thrift.format.maxLineLength` | `100` | number | Preferred maximum line length for formatting decisions. |
 | `thrift.format.collectionStyle` | `"preserve"` | `"preserve"`, `"multiline"`, `"auto"` | Controls const collection formatting. |
+| `thrift.inlayHints.requiredness` | `false` | boolean | Shows `default` for fields that rely on Thrift's implicit requiredness semantics. |
+| `thrift.inlayHints.includeAliases` | `false` | boolean | Shows the inferred include alias for direct cross-file type references. |
+| `thrift.inlayHints.serviceOverrides` | `true` | boolean | Shows when a service method overrides an inherited method. |
 | `thrift.diagnostics.debug` | `false` | boolean | Enables verbose diagnostics logging. |
 | `thrift.diagnostics.rules` | `{}` | object | Per-rule enablement and severity overrides. See [diagnostics-rules.md](diagnostics-rules.md). |
 
@@ -34,7 +37,10 @@ The primary settings namespace is `thrift.*`.
   "thrift.format.alignComments": true,
   "thrift.format.indentSize": 4,
   "thrift.format.maxLineLength": 100,
-  "thrift.format.collectionStyle": "auto"
+  "thrift.format.collectionStyle": "auto",
+  "thrift.inlayHints.requiredness": false,
+  "thrift.inlayHints.includeAliases": false,
+  "thrift.inlayHints.serviceOverrides": true
 }
 ```
 

@@ -21,6 +21,8 @@ import {registerDocumentHighlightProvider} from './document-highlight-provider';
 import {setupIncrementalParsingTracking} from './utils/incremental-parser';
 import {registerIncludeDocumentLinkProvider} from './include-document-link-provider';
 import {registerSignatureHelpProvider} from './signature-help-provider';
+import {registerInlayHintsProvider} from './inlay-hints-provider';
+import {registerCodeLensProvider} from './codelens-provider';
 
 /**
  * 注册所有语言特性提供者。
@@ -80,6 +82,10 @@ export function registerProviders(context: vscode.ExtensionContext, deps: CoreDe
 
     // Register signature help for service and interaction method declarations
     registerSignatureHelpProvider(context, deps);
+
+    // Register high-frequency editor affordances
+    registerInlayHintsProvider(context, deps);
+    registerCodeLensProvider(context, deps);
 
     // Register document symbol provider
     registerDocumentSymbolProvider(context, deps);

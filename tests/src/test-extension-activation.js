@@ -120,6 +120,8 @@ function installActivationStubs(onCommand) {
         registerFoldingRangeProvider: () => ({dispose: () => {}}),
         registerSelectionRangeProvider: () => ({dispose: () => {}}),
         registerRenameProvider: () => ({dispose: () => {}}),
+        registerInlayHintsProvider: () => ({dispose: () => {}}),
+        registerCodeLensProvider: () => ({dispose: () => {}}),
         registerCodeActionsProvider: () => ({dispose: () => {}})
     });
 

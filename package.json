@@ -50,6 +50,8 @@
     "onLanguage:thrift",
     "onCommand:thrift.format.document",
     "onCommand:thrift.format.selection",
+    "onCommand:thrift.organizeIncludes",
+    "onCommand:thrift.removeUnusedIncludes",
     "onCommand:thrift.refactor.extractType",
     "onCommand:thrift.refactor.moveType",
     "onCommand:thrift.showPerformanceReport",
@@ -107,6 +109,16 @@
         "category": "Thrift"
       },
       {
+        "command": "thrift.organizeIncludes",
+        "title": "Organize Includes",
+        "category": "Thrift"
+      },
+      {
+        "command": "thrift.removeUnusedIncludes",
+        "title": "Remove Unused Includes",
+        "category": "Thrift"
+      },
+      {
         "command": "thrift.refactor.extractType",
         "title": "Extract Type (typedef)",
         "category": "Thrift"
@@ -145,6 +157,14 @@
         },
         {
           "command": "thrift.format.selection",
+          "when": "editorLangId == thrift"
+        },
+        {
+          "command": "thrift.organizeIncludes",
+          "when": "editorLangId == thrift"
+        },
+        {
+          "command": "thrift.removeUnusedIncludes",
           "when": "editorLangId == thrift"
         },
         {
@@ -232,6 +252,21 @@
           ],
           "default": "preserve",
           "description": "How to format collection values in const declarations: preserve (keep inline), multiline (always expand), auto (expand if line exceeds maxLineLength)"
+        },
+        "thrift.inlayHints.requiredness": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show an inlay hint for fields that rely on Thrift's default requiredness semantics."
+        },
+        "thrift.inlayHints.includeAliases": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show an inlay hint for the namespace alias inferred from an include path."
+        },
+        "thrift.inlayHints.serviceOverrides": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show an inlay hint when a service method overrides an inherited method."
         },
         "thrift.diagnostics.debug": {
           "type": "boolean",

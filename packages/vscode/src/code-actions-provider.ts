@@ -60,6 +60,9 @@ export class ThriftRefactorCodeActionProvider {
 
             this.addDuplicateFieldIdQuickFixes(document, range, context, actions);
             this.addOnewayReturnTypeQuickFixes(document, range, context, actions);
+            this.addOnewayThrowsQuickFixes(document, range, context, actions);
+            this.addThrowsNotExceptionQuickFixes(document, range, context, actions);
+            this.addSyntaxUnclosedQuickFixes(document, range, context, actions);
             this.addEnumNegativeValueQuickFixes(document, range, context, actions);
 
             // QuickFix is gated on diagnostics: only offer "insert include" for types that
@@ -234,6 +237,78 @@ export class ThriftRefactorCodeActionProvider {
         }
     }
 
+    private addOnewayThrowsQuickFixes(
+        document: vscode.TextDocument,
+        range: vscode.Range | vscode.Selection,
+        context: vscode.CodeActionContext,
+        actions: vscode.CodeAction[]
+    ): void {
+        for (const diagnostic of context?.diagnostics ?? []) {
+            const code = this.getDiagnosticCode(diagnostic);
+            if (code !== DIAGNOSTIC_CODES.SERVICE_ONEWAY_HAS_THROWS ||
+                !this.rangesOverlap(diagnostic.range, range)) {
+                continue;
+            }
+            const throwsRange = this.findOnewayThrowsClauseRange(document, diagnostic.range);
+            if (throwsRange === undefined) {
+                continue;
+            }
+            const fix = new vscode.CodeAction('Remove throws clause from oneway method', vscode.CodeActionKind.QuickFix);
+            fix.edit = new vscode.WorkspaceEdit();
+            fix.edit.replace(document.uri, throwsRange, '');
+            fix.diagnostics = [diagnostic];
+            actions.push(fix);
+        }
+    }
+
+    private addThrowsNotExceptionQuickFixes(
+        document: vscode.TextDocument,
+        range: vscode.Range | vscode.Selection,
+        context: vscode.CodeActionContext,
+        actions: vscode.CodeAction[]
+    ): void {
+        for (const diagnostic of context?.diagnostics ?? []) {
+            const code = this.getDiagnosticCode(diagnostic);
+            if (code !== DIAGNOSTIC_CODES.SERVICE_THROWS_NOT_EXCEPTION ||
+                !this.rangesOverlap(diagnostic.range, range)) {
+                continue;
+            }
+            const conversion = this.findLocalThrowsStructConversion(document, diagnostic.range);
+            if (conversion === undefined) {
+                continue;
+            }
+            const fix = new vscode.CodeAction(`Convert struct "${conversion.typeName}" to exception`, vscode.CodeActionKind.QuickFix);
+            fix.edit = new vscode.WorkspaceEdit();
+            fix.edit.replace(document.uri, conversion.range, 'exception');
+            fix.diagnostics = [diagnostic];
+            actions.push(fix);
+        }
+    }
+
+    private addSyntaxUnclosedQuickFixes(
+        document: vscode.TextDocument,
+        range: vscode.Range | vscode.Selection,
+        context: vscode.CodeActionContext,
+        actions: vscode.CodeAction[]
+    ): void {
+        for (const diagnostic of context?.diagnostics ?? []) {
+            const code = this.getDiagnosticCode(diagnostic);
+            if (code !== DIAGNOSTIC_CODES.SYNTAX_UNCLOSED ||
+                !this.rangesOverlap(diagnostic.range, range)) {
+                continue;
+            }
+            const insertion = this.inferMissingCloserInsertion(document, diagnostic.range);
+            if (insertion === undefined) {
+                continue;
+            }
+            const fix = new vscode.CodeAction(`Insert missing '${insertion.closer}'`, vscode.CodeActionKind.QuickFix);
+            fix.edit = new vscode.WorkspaceEdit();
+            fix.edit.insert(document.uri, insertion.position, insertion.text);
+            fix.diagnostics = [diagnostic];
+            actions.push(fix);
+        }
+    }
+
     private findReplacementEnumValue(
         document: vscode.TextDocument,
         diagnosticRange: vscode.Range
@@ -281,6 +356,115 @@ export class ThriftRefactorCodeActionProvider {
         return {
             range: new vscode.Range(diagnosticRange.start.line, start, diagnosticRange.start.line, start + match[1].length),
             nextValue: maxValue + 1
+        };
+    }
+
+    private findOnewayThrowsClauseRange(
+        document: vscode.TextDocument,
+        diagnosticRange: vscode.Range
+    ): vscode.Range | undefined {
+        const ast = this.getDocumentAst(document);
+        for (const node of ast.body) {
+            if (node.type !== nodes.ThriftNodeType.Service && node.type !== nodes.ThriftNodeType.Interaction) {
+                continue;
+            }
+            const fn = node.functions.find(candidate =>
+                diagnosticRange.start.line >= candidate.range.start.line &&
+                diagnosticRange.start.line <= candidate.range.end.line &&
+                candidate.oneway &&
+                candidate.throws.length > 0
+            );
+            if (fn === undefined) {
+                continue;
+            }
+            const line = document.lineAt(fn.range.start.line).text;
+            const throwsIndex = line.indexOf('throws', fn.nameRange?.end.character ?? 0);
+            if (throwsIndex < 0) {
+                return undefined;
+            }
+            const openIndex = line.indexOf('(', throwsIndex);
+            if (openIndex < 0) {
+                return undefined;
+            }
+            const closeIndex = findMatchingParenOnLine(line, openIndex);
+            if (closeIndex < 0) {
+                return undefined;
+            }
+            const start = throwsIndex > 0 && /\s/.test(line[throwsIndex - 1]) ? throwsIndex - 1 : throwsIndex;
+            return new vscode.Range(fn.range.start.line, start, fn.range.start.line, closeIndex + 1);
+        }
+        return undefined;
+    }
+
+    private findLocalThrowsStructConversion(
+        document: vscode.TextDocument,
+        diagnosticRange: vscode.Range
+    ): {typeName: string; range: vscode.Range} | undefined {
+        const ast = this.getDocumentAst(document);
+        let throwType: string | undefined;
+        for (const node of ast.body) {
+            if (node.type !== nodes.ThriftNodeType.Service && node.type !== nodes.ThriftNodeType.Interaction) {
+                continue;
+            }
+            for (const fn of node.functions) {
+                const field = fn.throws.find(candidate =>
+                    diagnosticRange.start.line >= candidate.range.start.line &&
+                    diagnosticRange.start.line <= candidate.range.end.line
+                );
+                if (field !== undefined) {
+                    throwType = field.fieldType;
+                    break;
+                }
+            }
+        }
+        if (throwType === undefined || throwType.includes('.')) {
+            return undefined;
+        }
+        const structNode = ast.body.find((node): node is nodes.Struct =>
+            node.type === nodes.ThriftNodeType.Struct && node.name === throwType
+        );
+        if (structNode === undefined) {
+            return undefined;
+        }
+        const line = document.lineAt(structNode.range.start.line).text;
+        const keywordIndex = line.indexOf('struct');
+        if (keywordIndex < 0) {
+            return undefined;
+        }
+        return {
+            typeName: throwType,
+            range: new vscode.Range(
+                structNode.range.start.line,
+                keywordIndex,
+                structNode.range.start.line,
+                keywordIndex + 'struct'.length
+            )
+        };
+    }
+
+    private inferMissingCloserInsertion(
+        document: vscode.TextDocument,
+        diagnosticRange: vscode.Range
+    ): {closer: string; position: vscode.Position; text: string} | undefined {
+        const opener = document.getText(diagnosticRange);
+        const closer = opener === '{' ? '}' : opener === '(' ? ')' : opener === '<' ? '>' : undefined;
+        if (closer === undefined) {
+            return undefined;
+        }
+        if (closer === '}') {
+            const lastLine = Math.max(0, document.lineCount - 1);
+            const lastText = document.lineAt(lastLine).text;
+            return {
+                closer,
+                position: new vscode.Position(lastLine, lastText.length),
+                text: `\n${closer}`
+            };
+        }
+        const line = document.lineAt(diagnosticRange.start.line).text;
+        return {
+            closer,
+            position: new vscode.Position(diagnosticRange.start.line, line.length),
+            text: closer
         };
     }
 
@@ -521,4 +705,20 @@ export class ThriftRefactorCodeActionProvider {
         }
         return typeMap;
     }
+}
+
+function findMatchingParenOnLine(line: string, openIndex: number): number {
+    let depth = 0;
+    for (let index = openIndex; index < line.length; index++) {
+        const ch = line[index];
+        if (ch === '(') {
+            depth++;
+        } else if (ch === ')') {
+            depth--;
+            if (depth === 0) {
+                return index;
+            }
+        }
+    }
+    return -1;
 }

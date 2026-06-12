@@ -288,11 +288,11 @@ npm test
 - 检查：`packages/vscode/src/utils/dependencies.ts`
 - 新增：`packages/vscode/src/signature-help-provider.ts`
 - 新增：`packages/vscode/src/inlay-hints-provider.ts`
-- 新增：`packages/vscode/src/code-lens-provider.ts`
+- 新增：`packages/vscode/src/codelens-provider.ts`
 - 新增：`packages/vscode/src/include-organizer.ts`
 - 修改：`packages/vscode/src/code-actions-provider.ts`
 - 修改：`packages/vscode/src/rename-provider.ts`
-- 新增测试：`tests/src/signature-help-provider/`、`tests/src/inlay-hints-provider/`、`tests/src/code-lens-provider/`、`tests/src/code-actions-provider/`、`tests/src/rename-provider/`
+- 新增测试：`tests/src/signature-help-provider/`、`tests/src/inlay-hints-provider/`、`tests/src/codelens-provider/`、`tests/src/code-actions-provider/`、`tests/src/rename-provider/`
 
 - [x] **步骤 1：实现 service method signature help**
 
@@ -315,7 +315,7 @@ vscode.languages.registerSignatureHelpProvider('thrift', provider, '(', ',');
 - throws 列表不干扰参数索引。
 - cancellation 不返回过期结果。
 
-- [ ] **步骤 2：增加低噪音 inlay hints**
+- [x] **步骤 2：增加低噪音 inlay hints**
 
 默认配置：
 
@@ -339,7 +339,7 @@ vscode.languages.registerSignatureHelpProvider('thrift', provider, '(', ',');
 - comment/string literal 内不显示 hint。
 - 大文件处理尊重 cancellation。
 
-- [ ] **步骤 3：增加高信号 CodeLens**
+- [x] **步骤 3：增加高信号 CodeLens**
 
 只提供有导航价值的 CodeLens：
 
@@ -348,7 +348,7 @@ vscode.languages.registerSignatureHelpProvider('thrift', provider, '(', ',');
 
 避免为每个 field 增加低价值 CodeLens。
 
-- [ ] **步骤 4：增加 include organization**
+- [x] **步骤 4：增加 include organization**
 
 新增命令：
 
@@ -363,7 +363,7 @@ Thrift: Remove Unused Includes
 - 移除 unused include。
 - 排序 include block，并保留注释和 header 分组。
 
-- [ ] **步骤 5：增强 rename 校验**
+- [x] **步骤 5：增强 rename 校验**
 
 `ThriftRenameProvider.prepareRename` 应拒绝：
 
@@ -373,13 +373,13 @@ Thrift: Remove Unused Includes
 - 与同 scope 顶层 symbol 冲突的新名字。
 - 与同 struct/union/exception 的 field 或同 enum 的 member 冲突的新名字。
 
-- [ ] **步骤 6：扩展 Quick Fix 覆盖**
+- [x] **步骤 6：扩展 Quick Fix 覆盖**
 
 补齐可确定修复的规则：
 
-- `service.oneway.hasThrows`：删除 throws clause。
-- `service.throws.notException`：仅在目标类型为本地 struct 且 range 安全时提供转换。
-- `syntax.unclosed`：仅在 opener 和 insertion point 明确时插入 closer。
+- [x] `service.oneway.hasThrows`：删除 throws clause。
+- [x] `service.throws.notException`：仅在目标类型为本地 struct 且 range 安全时提供转换。
+- [x] `syntax.unclosed`：仅在 opener 和 insertion point 明确时插入 closer。
 - [x] `enum.negativeValue`：在任务 2 创建或确认该规则后，改为下一个非负值。
 
 ---
