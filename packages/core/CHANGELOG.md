@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.2.0](https://github.com/tzzs/vsce-thrift-support/compare/core-v3.1.0...core-v3.2.0) (2026-06-12)
+
+
+### Features
+
+* productize thrift support with trust and workspace UX ([b33aed9](https://github.com/tzzs/vsce-thrift-support/commit/b33aed92c67e088fb86d08aaa44fa546ce30c3c5))
+
+
+### Bug Fixes
+
+* **idl:** align thrift 0.24 container and enum semantics ([56d389e](https://github.com/tzzs/vsce-thrift-support/commit/56d389ed25f15f8a5603b9a08296c27959f469bc))
+
 ## [3.1.0](https://github.com/tzzs/vsce-thrift-support/compare/core-v3.0.0...core-v3.1.0) (2026-06-10)
 
 
