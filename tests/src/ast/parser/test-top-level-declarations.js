@@ -14,7 +14,9 @@ describe('top-level-declarations', () => {
         const content = [
             'namespace java com.example',
             'include "shared.thrift"',
+            'cpp_include "gen-cpp/custom.h"',
             'typedef map<string, i32> StringMap',
+            'typedef map cpp_type "std::unordered_map"<string, i32> NativeStringMap',
             'const i32 MAX = 3',
             'enum Status {',
             '  OK = 1',
@@ -31,7 +33,9 @@ describe('top-level-declarations', () => {
 
         const namespaceNode = ast.body.find(n => n.type === 'Namespace');
         const includeNode = ast.body.find(n => n.type === 'Include');
-        const typedefNode = ast.body.find(n => n.type === 'Typedef');
+        const cppIncludeNode = ast.body.find(n => n.type === 'Include' && n.path === 'gen-cpp/custom.h');
+        const typedefNode = ast.body.find(n => n.type === 'Typedef' && n.name === 'StringMap');
+        const nativeTypedefNode = ast.body.find(n => n.type === 'Typedef' && n.name === 'NativeStringMap');
         const constNode = ast.body.find(n => n.type === 'Const');
         const enumNode = ast.body.find(n => n.type === 'Enum');
         const structNode = ast.body.find(n => n.type === 'Struct');
@@ -42,8 +46,12 @@ describe('top-level-declarations', () => {
         assert.strictEqual(sliceByRange(lines, namespaceNode?.nameRange), 'com.example');
 
         assert.strictEqual(includeNode?.path, 'shared.thrift');
+        assert.strictEqual(includeNode?.includeKind, 'include');
+        assert.strictEqual(cppIncludeNode?.path, 'gen-cpp/custom.h');
+        assert.strictEqual(cppIncludeNode?.includeKind, 'cpp_include');
         assert.strictEqual(typedefNode?.name, 'StringMap');
         assert.strictEqual(typedefNode?.aliasType, 'map<string, i32>');
+        assert.strictEqual(nativeTypedefNode?.aliasType, 'map cpp_type "std::unordered_map"<string, i32>');
         assert.strictEqual(constNode?.name, 'MAX');
         assert.strictEqual(constNode?.valueType, 'i32');
 

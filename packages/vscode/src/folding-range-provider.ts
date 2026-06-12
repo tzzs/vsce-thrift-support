@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import {ThriftParser} from '@tanzz/thrift-core';
-import {ThriftTokenizer} from '@tanzz/thrift-core';
 import {nodes} from '@tanzz/thrift-core';
 import {ErrorHandler} from '@tanzz/thrift-core';
+import {stripCommentsFromLine} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
 
 /**
@@ -68,8 +68,8 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
     }
 
     private stripCommentText(lines: string[]): string[] {
-        const tokenizer = new ThriftTokenizer();
-        return lines.map(line => tokenizer.scanLine(line).stripped);
+        const state = {inBlock: false};
+        return lines.map(line => stripCommentsFromLine(line, state));
     }
 
     private getTypeBlockRange(node: nodes.ThriftNode, lines: string[]): vscode.FoldingRange | undefined {

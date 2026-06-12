@@ -2,16 +2,19 @@
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-A VSCode extension that provides complete support for Apache Thrift files, including syntax highlighting, code
-formatting, and navigation.
+Apache Thrift language intelligence for VS Code: syntax highlighting, formatter, diagnostics, navigation, completion, rename/refactor, a CI-ready CLI, and performance gates.
 
 [![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/tanzz.thrift-support?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=tanzz.thrift-support)
 [![Installs](https://img.shields.io/visual-studio-marketplace/i/tanzz.thrift-support?label=Installs)](https://marketplace.visualstudio.com/items?itemName=tanzz.thrift-support)
 [![Open VSX](https://img.shields.io/open-vsx/v/tanzz/thrift-support?label=Open%20VSX)](https://open-vsx.org/extension/tanzz/thrift-support)
 [![OVSX Downloads](https://img.shields.io/open-vsx/dt/tanzz/thrift-support?label=OVSX%20Downloads)](https://open-vsx.org/extension/tanzz/thrift-support)
-[![CI](https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml/badge.svg?branch=master)](https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml)
+[![CI](https://github.com/tzzs/vsce-thrift-support/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/tzzs/vsce-thrift-support/actions/workflows/ci.yml)
+[![Publish](https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml/badge.svg)](https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml)
+
+![Thrift diagnostics and formatting preview](docs/assets/marketplace/format-diagnostics.png)
 
 > For development details, see [DEVELOPMENT.md](DEVELOPMENT.md).
+> For configuration keys, see [docs/settings-reference.md](docs/settings-reference.md). For supported versions and vulnerability reporting, see [SECURITY.md](SECURITY.md).
 
 ## 🚀 Features
 
@@ -67,6 +70,14 @@ See [PERFORMANCE.md](PERFORMANCE.md) for tuning tips and CI integration details.
 ## 📖 Advanced Feature Docs
 
 See [advanced features](docs/advanced-features.md) for details about stream, sink, interaction, and other experimental syntax.
+
+## 🔐 Trust and Release Posture
+
+- MIT licensed, free extension published under the `tanzz` namespace on Visual Studio Marketplace and Open VSX.
+- No telemetry or analytics collection is implemented in the current source.
+- Release automation uses release-please; a published GitHub Release triggers VSIX packaging, Visual Studio Marketplace publishing, Open VSX publishing, and npm CLI publishing.
+- CI gates cover lint, build, test, coverage, CLI dogfood, package smoke, and performance assertions.
+- See [docs/release-verification.md](docs/release-verification.md) and [SECURITY.md](SECURITY.md) for the current verification and security model.
 
 ## 🖥️ CLI Tool
 
@@ -237,9 +248,9 @@ Configure these options in VS Code settings:
 - `alignAssignments`: master switch for struct field `=` and enum `=` / value alignment. If it is not set explicitly, each alignment family keeps its own default behavior.
 - `alignStructDefaults`: controls struct default-value `=` alignment only. It is independent from `alignAssignments`.
 
-## 📐 Language Spec Alignment (IDL 0.23)
+## 📐 Language Spec Alignment (IDL 0.24)
 
-- Starting from Apache Thrift IDL 0.23, `uuid` is treated as a built-in base type in this extension.
+- Apache Thrift IDL 0.24 lists `uuid` as a built-in base type; this extension treats `uuid` as a primitive everywhere it would otherwise resolve user-defined types.
 - Alignment touches the following components:
     - Diagnostics: `uuid` is recognized as a primitive type
     - Definition Provider: `uuid` is excluded from user-defined symbol navigation
@@ -332,7 +343,8 @@ See the complete changelog:
 - GitHub Repository: https://github.com/tzzs/vsce-thrift-support
 - Issues: https://github.com/tzzs/vsce-thrift-support/issues
 - Discussions: https://github.com/tzzs/vsce-thrift-support/discussions
-- CI Status: https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml
+- CI Status: https://github.com/tzzs/vsce-thrift-support/actions/workflows/ci.yml
+- Publish Status: https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml
 - Changelog: https://github.com/tzzs/vsce-thrift-support/blob/master/CHANGELOG.md
 - Apache Thrift IDL: https://thrift.apache.org/docs/idl
 - Thrift Type system: https://thrift.apache.org/docs/types

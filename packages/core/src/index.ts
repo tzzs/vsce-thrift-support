@@ -11,7 +11,7 @@ export {ThriftTokenizer} from './ast/tokenizer';
 export * as nodes from './ast/nodes.types';
 export {createField, createDocument, createStructBlock, createEnumBlock, createServiceBlock, createInteractionBlock} from './ast/factory';
 export {sliceTextByRange} from './ast/text-utils';
-export {positionInRange, rangeSize, findSmallestNodeAtPosition, collectIncludes, collectTopLevelTypes, nodePathFromLeaf, walkNodes} from './ast/utils';
+export {positionInRange, rangeSize, findSmallestNodeAtPosition, collectIncludes, collectTopLevelTypes, isThriftInclude, nodePathFromLeaf, walkNodes} from './ast/utils';
 
 // Refactor helpers
 export {inferExtractTypeTarget, buildExtractTypeEdits, inferMoveTypeTarget} from './refactor/type-refactor';

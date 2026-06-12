@@ -31,6 +31,8 @@ export const DIAGNOSTIC_CODES = {
     VALUE_TYPE_MISMATCH: 'value.typeMismatch',
     /** Enum member value is not an integer literal */
     ENUM_VALUE_NOT_INTEGER: 'enum.valueNotInteger',
+    /** Enum member value is negative, which Apache Thrift IDL disallows */
+    ENUM_NEGATIVE_VALUE: 'enum.negativeValue',
     /** Unmatched closing brace/paren */
     SYNTAX_UNMATCHED_CLOSER: 'syntax.unmatchedCloser',
     /** Mismatched brace/paren pair */

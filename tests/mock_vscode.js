@@ -97,6 +97,28 @@ class SnippetString {
     }
 }
 
+const InlayHintKind = {
+    Type: 1,
+    Parameter: 2
+};
+
+class InlayHint {
+    constructor(position, label, kind) {
+        this.position = position;
+        this.label = label;
+        this.kind = kind;
+        this.tooltip = undefined;
+    }
+}
+
+class CodeLens {
+    constructor(range, command) {
+        this.range = range;
+        this.command = command;
+        this.isResolved = command !== undefined;
+    }
+}
+
 // --- Phase 6A/6B/6C/6D mocks ---
 
 class SemanticTokensLegend {
@@ -311,6 +333,10 @@ const commonDefaults = {
             }
         })
     },
+    commands: {
+        registerCommand: () => ({dispose: () => {}}),
+        executeCommand: () => Promise.resolve()
+    },
     languages: {
         createDiagnosticCollection: () => ({
             set: () => {
@@ -324,6 +350,9 @@ const commonDefaults = {
         }),
         registerDocumentSemanticTokensProvider: () => ({dispose: () => {}}),
         registerDocumentLinkProvider: () => ({dispose: () => {}}),
+        registerSignatureHelpProvider: () => ({dispose: () => {}}),
+        registerInlayHintsProvider: () => ({dispose: () => {}}),
+        registerCodeLensProvider: () => ({dispose: () => {}}),
         registerCallHierarchyProvider: () => ({dispose: () => {}}),
         registerTypeHierarchyProvider: () => ({dispose: () => {}}),
         registerDocumentHighlightProvider: () => ({dispose: () => {}})
@@ -435,6 +464,9 @@ vscode.CallHierarchyOutgoingCall = CallHierarchyOutgoingCall;
 vscode.TypeHierarchyItem = TypeHierarchyItem;
 vscode.DocumentHighlight = DocumentHighlight;
 vscode.DocumentHighlightKind = DocumentHighlightKind;
+vscode.InlayHint = InlayHint;
+vscode.InlayHintKind = InlayHintKind;
+vscode.CodeLens = CodeLens;
 
 // Ensure languages is properly set
 if (!vscode.languages) {
@@ -514,6 +546,9 @@ Object.assign(vscode, {
     CompletionItemKind,
     CompletionItem,
     SnippetString,
+    InlayHint,
+    InlayHintKind,
+    CodeLens,
     reset: () => {
         // Restore core classes (in case they were overridden)
         vscode.Position = Position;
@@ -527,7 +562,11 @@ Object.assign(vscode, {
         vscode.CodeActionKind = CodeActionKind;
         vscode.CompletionItem = CompletionItem;
         vscode.CompletionItemKind = CompletionItemKind;
+        vscode.InlayHint = InlayHint;
+        vscode.InlayHintKind = InlayHintKind;
+        vscode.CodeLens = CodeLens;
         vscode.languages = commonDefaults.languages;
+        vscode.commands = commonDefaults.commands;
 
         // Reset workspace to a fresh snapshot so tests always start from the same state.
         currentWorkspace = createWorkspaceInstance();

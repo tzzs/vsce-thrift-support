@@ -26,11 +26,15 @@ export function registerDiagnostics(context: vscode.ExtensionContext, deps?: Par
 
         clearIncludeCaches();
 
-        vscode.workspace.textDocuments.forEach(doc => {
-            if (doc.languageId === 'thrift') {
-                diagnosticManager.scheduleAnalysis(doc, false, false, 'fileSystemChange');
-            }
-        });
+        if (diagnosticManager.getStatus().workspaceMode === 'workspace') {
+            diagnosticManager.scheduleWorkspaceScan('fileSystemChange');
+        } else {
+            vscode.workspace.textDocuments.forEach(doc => {
+                if (doc.languageId === 'thrift') {
+                    diagnosticManager.scheduleAnalysis(doc, false, false, 'fileSystemChange');
+                }
+            });
+        }
     });
 
     context.subscriptions.push(diagnosticsFileWatcher);
@@ -105,10 +109,33 @@ export function registerDiagnostics(context: vscode.ExtensionContext, deps?: Par
             }
         },
 
+        vscode.commands.registerCommand('thrift.showDiagnosticsStatus', async () => {
+            if (diagnosticManager.getStatus().workspaceMode === 'workspace') {
+                await diagnosticManager.scanWorkspace('statusCommand');
+            }
+            await vscode.window.showInformationMessage(formatDiagnosticsStatus(diagnosticManager.getStatus()));
+        }),
+
         diagnosticManager
     );
 
-    if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.languageId === 'thrift') {
+    if (diagnosticManager.getStatus().workspaceMode === 'workspace') {
+        diagnosticManager.scheduleWorkspaceScan('extensionActivate', 0);
+    } else if (vscode.window.activeTextEditor && vscode.window.activeTextEditor.document.languageId === 'thrift') {
         diagnosticManager.scheduleAnalysis(vscode.window.activeTextEditor.document, true, false, 'extensionActivate');
     }
+}
+
+function formatDiagnosticsStatus(status: ReturnType<DiagnosticManager['getStatus']>): string {
+    const topRules = status.topRuleIds.length > 0
+        ? status.topRuleIds.map(item => `${item.ruleId}: ${item.count}`).join(', ')
+        : 'none';
+    return [
+        `Workspace mode: ${status.workspaceMode}`,
+        `Indexed files: ${status.indexedFileCount}`,
+        `Files with diagnostics: ${status.filesWithDiagnostics}`,
+        `Last scan duration: ${status.lastScanDurationMs}ms`,
+        `Top rule IDs: ${topRules}`,
+        `Scanning: ${status.isScanning ? 'yes' : 'no'}`
+    ].join('\n');
 }

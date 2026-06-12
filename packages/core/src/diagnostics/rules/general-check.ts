@@ -47,12 +47,24 @@ export function checkConst(
 export function checkEnum(node: nodes.Enum, issues: ThriftIssue[]) {
     if (node.isSenum !== true) {
         for (const member of node.members) {
-            if (typeof member.initializer === 'string' && member.initializer.length > 0 && !isIntegerLiteral(member.initializer)) {
+            if (typeof member.initializer !== 'string' || member.initializer.length === 0) {
+                continue;
+            }
+            if (!isIntegerLiteral(member.initializer)) {
                 issues.push({
                     message: `Enum value must be an integer literal`,
                     range: member.range,
                     severity: DiagnosticSeverity.Error,
                     code: DIAGNOSTIC_CODES.ENUM_VALUE_NOT_INTEGER
+                });
+                continue;
+            }
+            if (member.initializer.trim().startsWith('-')) {
+                issues.push({
+                    message: `Enum value must be non-negative`,
+                    range: member.range,
+                    severity: DiagnosticSeverity.Error,
+                    code: DIAGNOSTIC_CODES.ENUM_NEGATIVE_VALUE
                 });
             }
         }

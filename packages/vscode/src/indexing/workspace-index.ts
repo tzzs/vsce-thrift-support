@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import {collectTopLevelTypes, config, nodes, safeResolveIncludePath, ThriftParser} from '@tanzz/thrift-core';
+import {collectTopLevelTypes, config, isThriftInclude, nodes, safeResolveIncludePath, ThriftParser} from '@tanzz/thrift-core';
 import {createLocation, toVscodeRange} from '../utils/vscode-utils';
 import {IndexedThriftSymbol, SymbolIndex} from './symbol-index';
 
@@ -9,6 +9,7 @@ export interface WorkspaceIndexDeps {
     readFile?: (uri: vscode.Uri) => Thenable<string> | Promise<string>;
     createWatcher?: (invalidate: (uri?: vscode.Uri) => void) => vscode.Disposable;
     workspaceFolders?: vscode.Uri[];
+    isTrusted?: () => boolean;
 }
 
 interface IndexedInclude {
@@ -38,6 +39,9 @@ export class WorkspaceIndex implements vscode.Disposable {
     public async refresh(): Promise<void> {
         this.symbols.clear();
         this.files.clear();
+        if (!this.isWorkspaceTrusted()) {
+            return;
+        }
         const files = await this.findFiles();
         for (const uri of files) {
             await this.indexFile(uri);
@@ -61,6 +65,9 @@ export class WorkspaceIndex implements vscode.Disposable {
     }
 
     public async getText(uri: vscode.Uri): Promise<string> {
+        if (!this.isWorkspaceTrusted()) {
+            throw new Error('Workspace index is disabled in Restricted Mode');
+        }
         const key = uri.toString();
         const cached = this.files.get(key);
         if (cached !== undefined) {
@@ -75,6 +82,9 @@ export class WorkspaceIndex implements vscode.Disposable {
     }
 
     public getIncludedUrisForText(uri: vscode.Uri, text: string, version?: number): vscode.Uri[] {
+        if (!this.isWorkspaceTrusted()) {
+            return [];
+        }
         const key = version === undefined
             ? `${uri.toString()}#includes`
             : `${uri.toString()}#includes:${version}`;
@@ -161,7 +171,7 @@ export class WorkspaceIndex implements vscode.Disposable {
     private collectIncludes(uri: vscode.Uri, ast: nodes.ThriftDocument): IndexedInclude[] {
         const includes: IndexedInclude[] = [];
         for (const node of ast.body) {
-            if (node.type !== nodes.ThriftNodeType.Include) {
+            if (!isThriftInclude(node)) {
                 continue;
             }
             const includeUri = this.resolveIncludeUri(uri, node.path);
@@ -238,5 +248,12 @@ export class WorkspaceIndex implements vscode.Disposable {
             nameRange: toVscodeRange(node.nameRange ?? node.range),
             namespace
         };
+    }
+
+    private isWorkspaceTrusted(): boolean {
+        if (this.deps.isTrusted) {
+            return this.deps.isTrusted();
+        }
+        return vscode.workspace.isTrusted !== false;
     }
 }

@@ -14,6 +14,7 @@ const CLI = path.join(__dirname, '../../packages/cli/dist/cli.js');
 const TEST_FILES = path.join(__dirname, '../../test-files');
 const SAMPLE = path.join(TEST_FILES, 'example.thrift');
 const SAMPLE_ENUM = path.join(TEST_FILES, 'example-enum.thrift');
+const SAMPLE_LINT_CLEAN = SAMPLE_ENUM;
 const SAMPLE_SMALL = path.join(TEST_FILES, 'shared.thrift'); // 196 bytes, safe for multi-file parse
 
 function run(args, options = {}) {
@@ -94,12 +95,12 @@ describe('CLI integration', () => {
 
     describe('lint command', () => {
         it('exits 0 for a valid thrift file', () => {
-            const {code} = run(['lint', SAMPLE]);
+            const {code} = run(['lint', SAMPLE_LINT_CLEAN]);
             assert.strictEqual(code, 0, 'valid file should lint clean');
         });
 
         it('--json outputs JSON array for clean file', () => {
-            const {code, stdout} = run(['lint', '--json', SAMPLE]);
+            const {code, stdout} = run(['lint', '--json', SAMPLE_LINT_CLEAN]);
             assert.strictEqual(code, 0);
             const issues = JSON.parse(stdout);
             assert.ok(Array.isArray(issues), 'should output JSON array');
@@ -118,23 +119,23 @@ describe('CLI integration', () => {
         });
 
         it('--severity error filters to errors only', () => {
-            const {code} = run(['lint', '--severity', 'error', SAMPLE]);
+            const {code} = run(['lint', '--severity', 'error', SAMPLE_LINT_CLEAN]);
             assert.strictEqual(code, 0);
         });
 
         it('--severity warning filters to warnings and errors', () => {
-            const {code} = run(['lint', '--severity', 'warning', SAMPLE]);
+            const {code} = run(['lint', '--severity', 'warning', SAMPLE_LINT_CLEAN]);
             assert.strictEqual(code, 0);
         });
 
         it('--quiet suppresses stdout output', () => {
-            const {code, stdout} = run(['lint', '--quiet', SAMPLE]);
+            const {code, stdout} = run(['lint', '--quiet', SAMPLE_LINT_CLEAN]);
             assert.strictEqual(code, 0);
             assert.strictEqual(stdout, '', '--quiet should suppress stdout');
         });
 
         it('multiple files are all linted', () => {
-            const {code} = run(['lint', SAMPLE, SAMPLE_ENUM]);
+            const {code} = run(['lint', SAMPLE_LINT_CLEAN, SAMPLE_SMALL]);
             assert.strictEqual(code, 0);
         });
 

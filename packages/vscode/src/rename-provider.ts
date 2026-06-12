@@ -1,7 +1,53 @@
 import * as vscode from 'vscode';
 import {ThriftReferencesProvider} from './references-provider';
-import {ErrorHandler} from '@tanzz/thrift-core';
+import {ErrorHandler, ThriftParser, nodes} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
+
+const IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const PRIMITIVE_TYPES = new Set([
+    'bool',
+    'byte',
+    'double',
+    'i8',
+    'i16',
+    'i32',
+    'i64',
+    'string',
+    'binary',
+    'uuid',
+    'void'
+]);
+const RESERVED_KEYWORDS = new Set([
+    'async',
+    'const',
+    'cpp_include',
+    'cpp_type',
+    'enum',
+    'exception',
+    'extends',
+    'final',
+    'include',
+    'interaction',
+    'list',
+    'map',
+    'namespace',
+    'native',
+    'oneway',
+    'optional',
+    'performs',
+    'readonly',
+    'reference',
+    'required',
+    'senum',
+    'service',
+    'set',
+    'sink',
+    'stream',
+    'struct',
+    'throws',
+    'typedef',
+    'union'
+]);
 
 /**
  * ThriftRenameProvider：处理 Thrift 文件的符号重命名。
@@ -22,26 +68,40 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         range: vscode.Range;
         placeholder: string;
     }> {
+        const wordRange = this.getWordRange(document, position);
+        if (!wordRange) {
+            return Promise.reject(new Error('No symbol to rename at cursor'));
+        }
+        const placeholder = document.getText(wordRange);
+        const validationError = this.validateIdentifierForRename(placeholder, 'symbol');
+        if (validationError !== undefined) {
+            return Promise.reject(validationError);
+        }
+
         return this.errorHandler.wrapSync(() => {
             void token;
-            const wordRange = this.getWordRange(document, position);
-            if (!wordRange) {
-                return Promise.reject(new Error('No symbol to rename at cursor'));
-            }
-            const placeholder = document.getText(wordRange);
             return {range: wordRange, placeholder};
         }, {
             component: 'ThriftRenameProvider',
             operation: 'prepareRename',
-            filePath: document.uri.fsPath,
+            filePath: this.getUriKey(document.uri),
             additionalInfo: {position: `${position.line}:${position.character}`}
-        }, Promise.reject(new Error('Rename failed')));
+        });
     }
 
     /**
      * 生成重命名的 WorkspaceEdit，尽量使用精确范围替换。
      */
     async provideRenameEdits(document: vscode.TextDocument, position: vscode.Position, newName: string, token: vscode.CancellationToken): Promise<vscode.WorkspaceEdit | undefined> {
+        const newNameError = this.validateIdentifierForRename(newName, 'new name');
+        if (newNameError !== undefined) {
+            return Promise.reject(newNameError);
+        }
+        const conflictError = this.validateRenameConflict(document, position, newName);
+        if (conflictError !== undefined) {
+            return Promise.reject(conflictError);
+        }
+
         return this.errorHandler.wrapAsync(async () => {
             const wordRange = this.getWordRange(document, position);
             if (!wordRange) {
@@ -89,7 +149,7 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
         }, {
             component: 'ThriftRenameProvider',
             operation: 'provideRenameEdits',
-            filePath: document.uri.fsPath,
+            filePath: this.getUriKey(document.uri),
             additionalInfo: {position: `${position.line}:${position.character}`, newName}
         }, undefined);
     }
@@ -117,6 +177,125 @@ export class ThriftRenameProvider implements vscode.RenameProvider {
     private getUriKey(uri: vscode.Uri): string {
         const uriAny = uri as unknown as {fsPath?: string; path?: string; toString?: () => string};
         return uriAny.fsPath ?? uriAny.path ?? (uriAny.toString ? uriAny.toString() : '');
+    }
+
+    private validateIdentifierForRename(value: string, label: string): Error | undefined {
+        if (!IDENTIFIER_PATTERN.test(value)) {
+            return new Error(`Invalid Thrift identifier for ${label}: "${value}"`);
+        }
+        if (PRIMITIVE_TYPES.has(value)) {
+            return new Error(`Cannot rename primitive type "${value}"`);
+        }
+        if (RESERVED_KEYWORDS.has(value)) {
+            return new Error(`Cannot rename reserved keyword "${value}"`);
+        }
+        return undefined;
+    }
+
+    private validateRenameConflict(
+        document: vscode.TextDocument,
+        position: vscode.Position,
+        newName: string
+    ): Error | undefined {
+        let ast: nodes.ThriftDocument;
+        try {
+            ast = new ThriftParser(document.getText()).parse();
+        } catch {
+            return undefined;
+        }
+
+        const topLevelTarget = ast.body.find(node => this.isNamedRangeHit(node, position));
+        if (topLevelTarget !== undefined) {
+            const conflict = ast.body.find(node =>
+                node !== topLevelTarget &&
+                node.name === newName &&
+                this.isTopLevelRenameScopeNode(node)
+            );
+            if (conflict !== undefined) {
+                return new Error(`Rename conflicts with existing top-level symbol "${newName}"`);
+            }
+        }
+
+        const scopedConflict = this.findScopedConflict(ast, position, newName);
+        if (scopedConflict !== undefined) {
+            return scopedConflict;
+        }
+        return undefined;
+    }
+
+    private findScopedConflict(
+        ast: nodes.ThriftDocument,
+        position: vscode.Position,
+        newName: string
+    ): Error | undefined {
+        for (const node of ast.body) {
+            if (nodes.isStructNode(node)) {
+                const target = node.fields.find(field => this.isNamedRangeHit(field, position));
+                if (target !== undefined && node.fields.some(field => field !== target && field.name === newName)) {
+                    return new Error(`Rename conflicts with existing field "${newName}" in ${node.name ?? 'struct'}`);
+                }
+            }
+
+            if (nodes.isEnumNode(node)) {
+                const target = node.members.find(member => this.isNamedRangeHit(member, position));
+                if (target !== undefined && node.members.some(member => member !== target && member.name === newName)) {
+                    return new Error(`Rename conflicts with existing enum member "${newName}" in ${node.name ?? 'enum'}`);
+                }
+            }
+
+            if (nodes.isServiceNode(node) || nodes.isInteractionNode(node)) {
+                const methodConflict = this.findFunctionScopeConflict(node, position, newName);
+                if (methodConflict !== undefined) {
+                    return methodConflict;
+                }
+            }
+        }
+        return undefined;
+    }
+
+    private findFunctionScopeConflict(
+        node: nodes.Service | nodes.Interaction,
+        position: vscode.Position,
+        newName: string
+    ): Error | undefined {
+        const target = node.functions.find(fn => this.isNamedRangeHit(fn, position));
+        if (target !== undefined && node.functions.some(fn => fn !== target && fn.name === newName)) {
+            return new Error(`Rename conflicts with existing function "${newName}" in ${node.name ?? 'service'}`);
+        }
+
+        for (const fn of node.functions) {
+            const argTarget = fn.arguments.find(arg => this.isNamedRangeHit(arg, position));
+            if (argTarget !== undefined && fn.arguments.some(arg => arg !== argTarget && arg.name === newName)) {
+                return new Error(`Rename conflicts with existing argument "${newName}" in ${fn.name ?? 'function'}`);
+            }
+
+            const throwsTarget = fn.throws.find(field => this.isNamedRangeHit(field, position));
+            if (throwsTarget !== undefined && fn.throws.some(field => field !== throwsTarget && field.name === newName)) {
+                return new Error(`Rename conflicts with existing throws field "${newName}" in ${fn.name ?? 'function'}`);
+            }
+        }
+        return undefined;
+    }
+
+    private isTopLevelRenameScopeNode(node: nodes.ThriftNode): boolean {
+        return node.type === nodes.ThriftNodeType.Const ||
+            node.type === nodes.ThriftNodeType.Typedef ||
+            node.type === nodes.ThriftNodeType.Enum ||
+            node.type === nodes.ThriftNodeType.Struct ||
+            node.type === nodes.ThriftNodeType.Union ||
+            node.type === nodes.ThriftNodeType.Exception ||
+            node.type === nodes.ThriftNodeType.Service ||
+            node.type === nodes.ThriftNodeType.Interaction;
+    }
+
+    private isNamedRangeHit(node: nodes.ThriftNode, position: vscode.Position): boolean {
+        if (node.nameRange === undefined) {
+            return false;
+        }
+        return position.line >= node.nameRange.start.line &&
+            position.line <= node.nameRange.end.line &&
+            (position.line !== node.nameRange.start.line || position.character >= node.nameRange.start.character) &&
+            (position.line !== node.nameRange.end.line || position.character <= node.nameRange.end.character);
     }
 
     /**

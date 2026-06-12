@@ -49,6 +49,7 @@ Supported severity values are `error`, `warning`, `information`, and `hint`. Use
 | `field.duplicateId` | error | field | yes |
 | `value.typeMismatch` | warning | value | no |
 | `enum.valueNotInteger` | error | enum | no |
+| `enum.negativeValue` | error | enum | no |
 | `syntax.unmatchedCloser` | error | syntax | no |
 | `syntax.mismatched` | error | syntax | no |
 | `syntax.unclosed` | error | syntax | no |

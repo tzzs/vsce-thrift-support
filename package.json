@@ -5,6 +5,17 @@
   "version": "3.1.0",
   "publisher": "tanzz",
   "icon": "icon.png",
+  "license": "MIT",
+  "homepage": "https://github.com/tzzs/vsce-thrift-support#readme",
+  "bugs": {
+    "url": "https://github.com/tzzs/vsce-thrift-support/issues"
+  },
+  "galleryBanner": {
+    "color": "#0F172A",
+    "theme": "dark"
+  },
+  "qna": "https://github.com/tzzs/vsce-thrift-support/discussions",
+  "pricing": "Free",
   "repository": {
     "type": "git",
     "url": "https://github.com/tzzs/vsce-thrift-support.git"
@@ -19,6 +30,15 @@
     "Linters",
     "Formatters"
   ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Thrift syntax, formatting, and open-file analysis are available in Restricted Mode. Workspace-wide indexing, include traversal, and generated reports may be limited until the workspace is trusted.",
+      "restrictedConfigurations": [
+        "thrift.diagnostics.workspaceMode"
+      ]
+    }
+  },
   "keywords": [
     "thrift",
     "apache thrift",
@@ -39,8 +59,11 @@
     "onLanguage:thrift",
     "onCommand:thrift.format.document",
     "onCommand:thrift.format.selection",
+    "onCommand:thrift.organizeIncludes",
+    "onCommand:thrift.removeUnusedIncludes",
     "onCommand:thrift.refactor.extractType",
     "onCommand:thrift.refactor.moveType",
+    "onCommand:thrift.showDiagnosticsStatus",
     "onCommand:thrift.showPerformanceReport",
     "onCommand:thrift.clearPerformanceData",
     "onCommand:thrift.showMemoryReport",
@@ -54,7 +77,17 @@
     "README.md",
     "README.zh-CN.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "SECURITY.md",
+    "docs/advanced-features.md",
+    "docs/annotation-policy.md",
+    "docs/diagnostics-rules.md",
+    "docs/settings-reference.md",
+    "docs/release-verification.md",
+    "docs/security-model.md",
+    "docs/release-channels.md",
+    "docs/adr/**",
+    "docs/assets/**"
   ],
   "contributes": {
     "languages": [
@@ -89,6 +122,16 @@
         "category": "Thrift"
       },
       {
+        "command": "thrift.organizeIncludes",
+        "title": "Organize Includes",
+        "category": "Thrift"
+      },
+      {
+        "command": "thrift.removeUnusedIncludes",
+        "title": "Remove Unused Includes",
+        "category": "Thrift"
+      },
+      {
         "command": "thrift.refactor.extractType",
         "title": "Extract Type (typedef)",
         "category": "Thrift"
@@ -96,6 +139,11 @@
       {
         "command": "thrift.refactor.moveType",
         "title": "Move Type to File...",
+        "category": "Thrift"
+      },
+      {
+        "command": "thrift.showDiagnosticsStatus",
+        "title": "Show Diagnostics Status",
         "category": "Thrift"
       },
       {
@@ -130,12 +178,23 @@
           "when": "editorLangId == thrift"
         },
         {
+          "command": "thrift.organizeIncludes",
+          "when": "editorLangId == thrift"
+        },
+        {
+          "command": "thrift.removeUnusedIncludes",
+          "when": "editorLangId == thrift"
+        },
+        {
           "command": "thrift.refactor.extractType",
           "when": "editorLangId == thrift"
         },
         {
           "command": "thrift.refactor.moveType",
           "when": "editorLangId == thrift"
+        },
+        {
+          "command": "thrift.showDiagnosticsStatus"
         },
         {
           "command": "thrift.showPerformanceReport"
@@ -215,6 +274,36 @@
           "default": "preserve",
           "description": "How to format collection values in const declarations: preserve (keep inline), multiline (always expand), auto (expand if line exceeds maxLineLength)"
         },
+        "thrift.inlayHints.requiredness": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show an inlay hint for fields that rely on Thrift's default requiredness semantics."
+        },
+        "thrift.inlayHints.includeAliases": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show an inlay hint for the namespace alias inferred from an include path."
+        },
+        "thrift.inlayHints.serviceOverrides": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show an inlay hint when a service method overrides an inherited method."
+        },
+        "thrift.diagnostics.workspaceMode": {
+          "type": "string",
+          "enum": [
+            "openFiles",
+            "workspace",
+            "off"
+          ],
+          "default": "openFiles",
+          "description": "Control extension diagnostics scope: openFiles checks open Thrift documents, workspace scans indexed workspace files, and off disables extension diagnostics while leaving CLI lint available."
+        },
+        "thrift.diagnostics.workspaceFileLimit": {
+          "type": "number",
+          "default": 500,
+          "description": "Maximum number of workspace .thrift files scanned when thrift.diagnostics.workspaceMode is workspace."
+        },
         "thrift.diagnostics.debug": {
           "type": "boolean",
           "default": false,
@@ -281,6 +370,9 @@
     "smoke:package": "node tests/package-smoke.js",
     "smoke:package:vsix": "node tests/package-smoke.js --vsix-only",
     "smoke:package:cli": "node tests/package-smoke.js --cli-only",
+    "security:unicode": "node scripts/check-invisible-unicode.js",
+    "security:audit": "pnpm audit --audit-level high --registry=https://registry.npmjs.org",
+    "metrics:marketplace": "node scripts/marketplace-metrics.js",
     "test": "pnpm run build && pnpm run build:cli && mocha",
     "test:single": "pnpm run build && pnpm run build:cli && mocha --config .mocharc.single.json",
     "coverage": "pnpm run build && pnpm run build:cli && c8 --reporter text-summary --reporter lcov mocha",

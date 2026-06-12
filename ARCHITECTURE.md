@@ -13,6 +13,7 @@
 - [并发控制](#并发控制)
 - [依赖注入](#依赖注入)
 - [性能监控](#性能监控)
+- [LSP 策略](#lsp-策略)
 
 ---
 
@@ -263,3 +264,20 @@ const result = await performanceMonitor.measureAsync('diagnostics', () => runDia
 | large (>1000 行) | parser <500ms, formatter <500ms |
 
 超过阈值时 exit 1，阻断 CI。
+
+---
+
+## LSP 策略
+
+当前扩展继续采用直接 VS Code Provider 架构，不为了趋势本身重写为 Language Server Protocol。
+
+保持该决策的前提是：
+
+- 产品目标仍然以 VS Code 扩展体验为主；
+- 运行时不需要 language-server 子进程；
+- 可复用语言逻辑继续沉淀在 `packages/core`；
+- VS Code 专属 provider、命令、配置和 workspace 行为保留在 `packages/vscode`。
+
+如果后续出现明确的非 VS Code 目标，例如 Zed、Neovim、JetBrains、远程分析服务，或需要编辑器无关协议的共享 MCP server，再重新评估 LSP。
+
+详细决策见 [docs/adr/0001-lsp-strategy.md](docs/adr/0001-lsp-strategy.md)。

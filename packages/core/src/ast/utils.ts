@@ -5,7 +5,14 @@ import * as nodes from './nodes.types';
  * 收集 include 节点。
  */
 export function collectIncludes(doc: nodes.ThriftDocument): nodes.Include[] {
-    return doc.body.filter((node): node is nodes.Include => node.type === nodes.ThriftNodeType.Include);
+    return doc.body.filter(isThriftInclude);
+}
+
+/**
+ * 判断是否为普通 thrift include。`cpp_include` 只用于 C++ 代码生成头文件，不参与 thrift include graph。
+ */
+export function isThriftInclude(node: nodes.ThriftNode): node is nodes.Include {
+    return node.type === nodes.ThriftNodeType.Include && (node.includeKind ?? 'include') === 'include';
 }
 
 /**

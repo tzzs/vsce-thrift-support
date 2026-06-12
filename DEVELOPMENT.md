@@ -110,9 +110,9 @@ thrift-support/
 
 以上选项共同决定“最大内容宽度”和各列的目标对齐位置，详细实现与宽度计算请参考 `packages/core/src/formatter/`。
 
-### 语言规范同步（IDL 0.23）与实现更新
+### 语言规范同步（IDL 0.24）与实现更新
 
-- 背景：自 Apache Thrift IDL 0.23 起，uuid 被纳入内建基础类型（BaseType）。
+- 背景：Apache Thrift IDL 0.24 官方文档将 uuid 列为内建基础类型（BaseType）。
 - 代码同步点：
     - `packages/vscode/src/diagnostics/index.ts`
         - 基本类型集合包含 `uuid`
@@ -445,7 +445,7 @@ npm run smoke:package
 - publish（.github/workflows/publish.yml）
     - 触发：GitHub Release 发布（release: published）；仅处理 `thrift-support-v*` 根扩展 release
     - 作用：安装依赖 → 构建 → 打包 VSIX → 上传到 GitHub Release → 发布到 VS Code Marketplace、Open VSX 与 npm CLI 包
-    - 凭据：VSCE_PAT（Marketplace）、OVSX_PAT（Open VSX）、npm OIDC trusted publishing，以及内置 GITHUB_TOKEN（上传 Release 附件）
+    - 凭据：VSCE_PAT/VSCE_TOKEN（Marketplace）、OVSX_PAT/OPENVSX_TOKEN（Open VSX）、npm OIDC trusted publishing，以及内置 GITHUB_TOKEN（上传 Release 附件）
 
 建议流程：功能分支开发 → 合并到 master → 等待/审阅 release-please 生成的 Release PR → 合并 Release PR → 触发 publish
 自动发布。

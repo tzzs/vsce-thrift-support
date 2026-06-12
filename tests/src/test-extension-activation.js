@@ -88,6 +88,32 @@ describe('extension activation', () => {
             WorkspaceIndex.prototype.dispose = originalDispose;
         }
     });
+
+    it('does not refresh the shared workspace index in untrusted workspaces', async () => {
+        const {WorkspaceIndex} = require('../../out/indexing/workspace-index.js');
+        const originalRefresh = WorkspaceIndex.prototype.refresh;
+        const originalIsTrusted = vscode.workspace.isTrusted;
+        let refreshCount = 0;
+
+        WorkspaceIndex.prototype.refresh = async function () {
+            refreshCount += 1;
+        };
+        vscode.workspace.isTrusted = false;
+
+        installActivationStubs();
+
+        const extension = require('../../out/extension.js');
+        const context = {subscriptions: []};
+
+        try {
+            await extension.activate(context);
+            assert.strictEqual(refreshCount, 0, 'activate should not refresh workspaceIndex in Restricted Mode');
+        } finally {
+            disposeSubscriptions(context);
+            WorkspaceIndex.prototype.refresh = originalRefresh;
+            vscode.workspace.isTrusted = originalIsTrusted;
+        }
+    });
 });
 
 function disposeSubscriptions(context) {
@@ -120,6 +146,8 @@ function installActivationStubs(onCommand) {
         registerFoldingRangeProvider: () => ({dispose: () => {}}),
         registerSelectionRangeProvider: () => ({dispose: () => {}}),
         registerRenameProvider: () => ({dispose: () => {}}),
+        registerInlayHintsProvider: () => ({dispose: () => {}}),
+        registerCodeLensProvider: () => ({dispose: () => {}}),
         registerCodeActionsProvider: () => ({dispose: () => {}})
     });
 

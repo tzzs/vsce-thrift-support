@@ -220,13 +220,13 @@ export class ThriftParser {
             return invalid;
         }
 
-        if (keywordToken.value === 'include') {
-            const node = parseIncludeDeclaration(parent, line, this.currentLine, tokens);
+        if (keywordToken.value === 'include' || keywordToken.value === 'cpp_include') {
+            const node = parseIncludeDeclaration(parent, line, this.currentLine, tokens, keywordToken.value);
             if (node !== undefined) {
                 this.currentLine++;
                 return node;
             }
-            const invalid = this.createInvalidNode(parent, line, 'Invalid include declaration');
+            const invalid = this.createInvalidNode(parent, line, `Invalid ${keywordToken.value} declaration`);
             this.currentLine++;
             return invalid;
         }
