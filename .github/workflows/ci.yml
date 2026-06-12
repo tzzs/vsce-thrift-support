@@ -79,4 +79,4 @@ jobs:
         run: pnpm run perf:benchmark -- --iterations 5
 
       - name: Performance assertions (multi-size)
-        run: pnpm exec mocha --require tests/require-hook.js --timeout 120000 tests/perf/perf-assertions.js
+        run: pnpm run perf:assertions

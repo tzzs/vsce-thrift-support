@@ -7,6 +7,7 @@ export type {ThriftFormattingOptions, StructField, EnumField, ConstField} from '
 // AST
 export {ThriftParser} from './ast/parser';
 export type {IncrementalParseResult} from './ast/parser';
+export {ThriftTokenizer} from './ast/tokenizer';
 export * as nodes from './ast/nodes.types';
 export {createField, createDocument, createStructBlock, createEnumBlock, createServiceBlock, createInteractionBlock} from './ast/factory';
 export {sliceTextByRange} from './ast/text-utils';

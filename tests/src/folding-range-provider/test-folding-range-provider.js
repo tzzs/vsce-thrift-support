@@ -428,4 +428,40 @@ enum Status {
         const structRange = findFoldingRange(ranges, 0, 2);
         assert.ok(structRange, 'Expected folding range for struct despite braces in strings');
     });
+
+    it('should not create collection or parameter folding ranges from line comments', async () => {
+        const provider = new ThriftFoldingRangeProvider();
+        const text = `// fake list [
+// still a comment
+// ]
+# fake method (
+# still a comment
+# )`;
+        const document = createMockDocument(text);
+
+        const ranges = await provider.provideFoldingRanges(
+            document,
+            createMockFoldingContext(),
+            createMockCancellationToken()
+        );
+
+        assert.deepStrictEqual(ranges, [], `Expected no folding ranges from line comments, got ${JSON.stringify(ranges)}`);
+    });
+
+    it('should only create the block comment fold when brackets appear inside block comments', async () => {
+        const provider = new ThriftFoldingRangeProvider();
+        const text = `/* fake list [
+   still a comment
+   ] */`;
+        const document = createMockDocument(text);
+
+        const ranges = await provider.provideFoldingRanges(
+            document,
+            createMockFoldingContext(),
+            createMockCancellationToken()
+        );
+
+        assert.strictEqual(ranges.length, 1, `Expected only block comment folding range, got ${JSON.stringify(ranges)}`);
+        assert.ok(findFoldingRange(ranges, 0, 2), 'Expected folding range for the block comment');
+    });
 });

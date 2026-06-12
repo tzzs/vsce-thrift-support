@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import {ThriftParser} from '@tanzz/thrift-core';
 import {nodes} from '@tanzz/thrift-core';
 import {ErrorHandler} from '@tanzz/thrift-core';
+import {stripCommentsFromLine} from '@tanzz/thrift-core';
 import {CoreDependencies} from './utils/dependencies';
 
 /**
@@ -51,8 +52,9 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
             }
 
             ranges.push(...this.collectBlockCommentRanges(lines, token));
-            ranges.push(...this.collectParenthesisRanges(lines, token));
-            ranges.push(...this.collectBracketRanges(lines, token));
+            const codeLines = this.stripCommentText(lines);
+            ranges.push(...this.collectParenthesisRanges(codeLines, token));
+            ranges.push(...this.collectBracketRanges(codeLines, token));
 
             return ranges;
         } catch (error) {
@@ -63,6 +65,11 @@ export class ThriftFoldingRangeProvider implements vscode.FoldingRangeProvider {
             });
             return [];
         }
+    }
+
+    private stripCommentText(lines: string[]): string[] {
+        const state = {inBlock: false};
+        return lines.map(line => stripCommentsFromLine(line, state));
     }
 
     private getTypeBlockRange(node: nodes.ThriftNode, lines: string[]): vscode.FoldingRange | undefined {

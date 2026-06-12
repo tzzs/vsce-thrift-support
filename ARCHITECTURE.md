@@ -1,6 +1,6 @@
 # Architecture
 
-本文档描述 Thrift Support 扩展的核心机制：缓存系统、增量解析/格式化与并发控制。
+本文档描述 Thrift Support 的包级数据流，以及 VS Code 扩展运行时的缓存系统、增量解析/格式化与并发控制。
 
 ---
 
@@ -18,6 +18,28 @@
 ---
 
 ## 整体结构
+
+### 包级数据流
+
+```
+packages/core/src
+  ├─ parser / tokenizer / formatter / diagnostics / refactor primitives
+  ├─ shared config normalization
+  └─ cache, memory, error, and performance utilities
+
+packages/cli/src      -> packages/core/src
+packages/vscode/src   -> packages/core/src + VS Code API
+tests                 -> compiled root out/ and package outputs via tests/require-hook.js
+```
+
+边界规则：
+
+- `packages/core/src/` 不依赖 VS Code API；共享语言语义、格式化、诊断规则和配置归一化应放在 core。
+- `packages/vscode/src/` 负责 provider 生命周期、命令注册、工作区索引、编辑器范围处理和 VS Code 配置桥接。
+- `packages/cli/src/` 负责 CLI 参数、终端输出和配置加载；语言行为应调用 core。
+- 新增跨包共享行为时，优先在 core 建模，再由 VS Code 与 CLI 层分别适配输入输出。
+
+### VS Code 运行时
 
 ```
 extension.ts

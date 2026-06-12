@@ -23,3 +23,5 @@ Use this page as the repository-local map for agent and contributor documentatio
 ## Feedback Loop
 
 When a review comment, incident, or repeated bug reveals hidden project knowledge, promote it into one of these docs, a test, a lint, or a script. Prefer executable checks for invariants that must not drift.
+
+Run `npm run harness:check` after changing agent entry docs, local Markdown links, Node/pnpm version anchors, or workflow Node setup.
