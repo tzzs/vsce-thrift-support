@@ -567,7 +567,7 @@ Web mode 中隐藏或禁用：
 - 新增：`scripts/check-invisible-unicode.js`
 - 新增测试：`tests/src/security/`
 
-- [ ] **步骤 1：声明 Workspace Trust 能力**
+- [x] **步骤 1：声明 Workspace Trust 能力**
 
 建议初始声明：
 
@@ -585,7 +585,7 @@ Web mode 中隐藏或禁用：
 }
 ```
 
-- [ ] **步骤 2：增加不可见 Unicode 扫描**
+- [x] **步骤 2：增加不可见 Unicode 扫描**
 
 新增 `scripts/check-invisible-unicode.js`，扫描：
 
@@ -600,7 +600,7 @@ Web mode 中隐藏或禁用：
 
 - `tests/fixtures/security/invisible-unicode/**`
 
-- [ ] **步骤 3：接入 CI 安全检查**
+- [x] **步骤 3：接入 CI 安全检查**
 
 新增 CI 步骤：
 
@@ -609,7 +609,7 @@ node scripts/check-invisible-unicode.js
 pnpm audit --audit-level high
 ```
 
-- [ ] **步骤 4：记录扩展安全模型**
+- [x] **步骤 4：记录扩展安全模型**
 
 新增 `docs/security-model.md`，覆盖：
 
@@ -631,7 +631,7 @@ pnpm audit --audit-level high
 - 新增：`docs/release-channels.md`
 - 新增：`scripts/marketplace-metrics.js`
 
-- [ ] **步骤 1：记录 pre-release channel 决策**
+- [x] **步骤 1：记录 pre-release channel 决策**
 
 文档化：
 
@@ -640,7 +640,7 @@ pnpm audit --audit-level high
 - pre-release publishing 使用 `vsce publish --pre-release`。
 - 启用自动发布前明确 Open VSX 和 npm 行为。
 
-- [ ] **步骤 2：增加 adoption metric 脚本**
+- [x] **步骤 2：增加 adoption metric 脚本**
 
 `scripts/marketplace-metrics.js` 查询：
 
@@ -674,7 +674,7 @@ pnpm audit --audit-level high
 - 修改：`ARCHITECTURE.md`
 - 修改：`docs/PROJECT_MAP.md`
 
-- [ ] **步骤 1：记录当前决策**
+- [x] **步骤 1：记录当前决策**
 
 ADR 结论：
 
@@ -683,7 +683,7 @@ ADR 结论：
 - 继续把可复用语言逻辑沉淀到 `packages/core`。
 - 只有出现明确的 VS Code 之外目标时才重新评估 LSP，例如 Zed、Neovim、JetBrains、远程分析服务，或需要编辑器无关协议的共享 MCP server。
 
-- [ ] **步骤 2：定义 LSP readiness 边界**
+- [x] **步骤 2：定义 LSP readiness 边界**
 
 LSP 可行前需要稳定的 core API：
 
