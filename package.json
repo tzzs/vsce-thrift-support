@@ -2,7 +2,7 @@
   "name": "thrift-support",
   "displayName": "Thrift Support",
   "description": "Apache Thrift language support: syntax highlighting, formatting, diagnostics, navigation, completion, and rename",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "publisher": "tanzz",
   "icon": "icon.png",
   "license": "MIT",

@@ -1,5 +1,22 @@
 # Changelog | 更新日志
 
+## [3.2.0](https://github.com/tzzs/vsce-thrift-support/compare/thrift-support-v3.1.0...thrift-support-v3.2.0) (2026-06-12)
+
+
+### Features
+
+* **diagnostics:** add workspace scan parity mode ([ee8836b](https://github.com/tzzs/vsce-thrift-support/commit/ee8836b5d9bf7b367d715464384220e3ee263c5f))
+* **language:** add high-frequency editor affordances ([6681dc4](https://github.com/tzzs/vsce-thrift-support/commit/6681dc4168058b66519a177c9d4d49f4b2a0fe65))
+* **language:** add thrift signature help quick fixes ([87ded4e](https://github.com/tzzs/vsce-thrift-support/commit/87ded4eeb0a4b37e045f0e4e4586543149f50ef2))
+* productize thrift support with trust and workspace UX ([b33aed9](https://github.com/tzzs/vsce-thrift-support/commit/b33aed92c67e088fb86d08aaa44fa546ce30c3c5))
+* **release:** add channel metrics workflow ([8770a41](https://github.com/tzzs/vsce-thrift-support/commit/8770a41ebe2cb773c957950f0708f3c34697cb3f))
+* **security:** declare workspace trust boundary ([1e40bb2](https://github.com/tzzs/vsce-thrift-support/commit/1e40bb24eabfee63c6334551dcf6b71b5e6e3536))
+
+
+### Bug Fixes
+
+* **idl:** align thrift 0.24 container and enum semantics ([56d389e](https://github.com/tzzs/vsce-thrift-support/commit/56d389ed25f15f8a5603b9a08296c27959f469bc))
+
 ## [3.1.0](https://github.com/tzzs/vsce-thrift-support/compare/thrift-support-v3.0.0...thrift-support-v3.1.0) (2026-06-10)
 
 
