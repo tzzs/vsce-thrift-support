@@ -91,6 +91,121 @@ describe('CLI integration', () => {
             const {code} = run(['format']);
             assert.notStrictEqual(code, 0);
         });
+
+        it('--range formats only the selected lines', () => {
+            const input = [
+                'struct User {',
+                '  1: string name',
+                '  2: i32   age',
+                '}',
+                '',
+                'enum Color {',
+                '    RED = 1',
+                '}',
+                ''
+            ].join('\n');
+            const f = tmpFile('cli-fmt-range.thrift', input);
+            try {
+                // struct 字段在 2~3 行（1-based），enum 在 7 行：只格式化 2:3
+                const {code, stdout} = run(['format', '--range', '2:3', f]);
+                assert.strictEqual(code, 0);
+                const expected = [
+                    'struct User {',
+                    '    1: string name',
+                    '    2: i32    age',
+                    '}',
+                    '',
+                    'enum Color {',
+                    '    RED = 1',
+                    '}',
+                    ''
+                ].join('\n');
+                assert.strictEqual(stdout, expected, 'only the range should be formatted');
+            } finally {
+                fs.unlinkSync(f);
+            }
+        });
+
+        it('--range keeps out-of-range lines untouched', () => {
+            const input = [
+                'enum Color {',
+                '    RED = 1',
+                '  BLUE = 2',
+                '}',
+                ''
+            ].join('\n');
+            const f = tmpFile('cli-fmt-range-keep.thrift', input);
+            try {
+                // 只格式化 2 行；3 行（BLUE 缩进不对）必须保持原样
+                const {code, stdout} = run(['format', '--range', '2:2', f]);
+                assert.strictEqual(code, 0);
+                const lines = stdout.split('\n');
+                assert.strictEqual(lines[1], '    RED = 1', 'line 2 should be formatted');
+                assert.strictEqual(lines[2], '  BLUE = 2', 'line 3 must remain untouched');
+            } finally {
+                fs.unlinkSync(f);
+            }
+        });
+
+        it('--range --check reports only when range is unformatted', () => {
+            const input = [
+                'struct User {',
+                '  1: string name',
+                '}',
+                ''
+            ].join('\n');
+            const f = tmpFile('cli-fmt-range-check.thrift', input);
+            try {
+                // range 内（2 行）缩进不正确 → 失败
+                const dirty = run(['format', '--check', '--range', '2:2', f]);
+                assert.notStrictEqual(dirty.code, 0);
+                assert.ok(dirty.stdout.includes(f), 'unformatted file path should be printed');
+                // 格式化后再检查同一 range → 通过
+                run(['format', '--write', '--range', '2:2', f]);
+                const clean = run(['format', '--check', '--range', '2:2', f]);
+                assert.strictEqual(clean.code, 0, 'formatted range should pass --check');
+            } finally {
+                fs.unlinkSync(f);
+            }
+        });
+
+        it('--range formats a field line inside a struct', () => {
+            const input = [
+                'struct User {',
+                '    1: i32  age',
+                '}',
+                ''
+            ].join('\n');
+            const f = tmpFile('cli-fmt-range-inner.thrift', input);
+            try {
+                // 只格式化 2 行：多余空格被规整，缩进由 struct 上下文推导（4 空格）
+                const {code, stdout} = run(['format', '--range', '2:2', f]);
+                assert.strictEqual(code, 0);
+                const lines = stdout.split('\n');
+                assert.strictEqual(lines[1], '    1: i32 age', 'field spacing should be normalized in-range');
+            } finally {
+                fs.unlinkSync(f);
+            }
+        });
+
+        it('--range rejects start > end', () => {
+            const f = tmpFile('cli-fmt-range-invalid.thrift', 'struct Foo {}\n');
+            try {
+                const {code, stderr} = run(['format', '--range', '5:2', f]);
+                assert.notStrictEqual(code, 0);
+                assert.ok(stderr.includes('--range'), 'should report the bad option');
+            } finally {
+                fs.unlinkSync(f);
+            }
+        });
+
+        it('--range supports --stdin', () => {
+            const input = 'struct User {\n  1: string name\n}\n';
+            const {code, stdout} = run(['format', '--stdin', '--range', '2:2'], {input});
+            assert.strictEqual(code, 0);
+            const lines = stdout.split('\n');
+            assert.strictEqual(lines[1], '    1: string name', 'field line should be formatted');
+        });
     });
 
     describe('lint command', () => {

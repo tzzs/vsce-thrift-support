@@ -37,6 +37,7 @@ Format Options:
   --write, -w             Write formatted output back to files
   --stdin                 Read from stdin, output to stdout
   --stdin-filepath <p>    Used with --stdin for config file lookup
+  --range <start>:<end>   Format only lines start..end (1-based, inclusive)
   --indent-size <n>       Indent size (default: 4)
   --max-line-length <n>   Max line length (default: 100)
   --trailing-comma <m>    preserve | add | remove
@@ -58,6 +59,7 @@ Symbols Options:
 Examples:
   thrift-support format --check src/**/*.thrift
   thrift-support format --write src/
+  thrift-support format --range 12:18 src/*.thrift
   thrift-support lint --severity error src/**/*.thrift
   thrift-support parse service.thrift | jq '.body[0]'
   thrift-support symbols --json service.thrift
