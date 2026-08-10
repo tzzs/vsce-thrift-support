@@ -28,8 +28,8 @@ const BLOCK_START_RE = /^(struct|union|exception|enum|senum|service|interaction)
 /**
  * 计算格式化上下文的纯文本入口（无 VS Code 依赖）。
  *
- * @param parseContent - 用于推导上下文的文本：通常是 range 之前（含起始行）的完整内容，
- *                       或整份文档内容。AST 无效时会退化为逐行扫描。
+ * @param parseContent - 用于推导上下文的文本：通常是 range 起始行之前的完整内容，
+ *                       或整份文档内容。AST 无效时会退化为逐行扫描（仅扫到 boundaryLine）。
  * @param boundaryLine - 边界行号（基于 parseContent 的 0-based 行号）。
  *                       包含该行的块节点会计入上下文。
  * @param uri - 可选缓存键（默认使用内存 key）。
@@ -53,7 +53,7 @@ export function computeFormattingContext(
         });
 
         if (!hasValidRanges) {
-            return computeContextByLineScan(parseContent.split('\n'));
+            return computeContextByLineScan(parseContent.split('\n'), boundaryLine);
         }
 
         return computeContextByAst(ast, boundaryLine);
@@ -70,7 +70,8 @@ function computeContextByAst(ast: nodes.ThriftDocument, boundaryLine: number): F
     const stack: BlockKind[] = [];
 
     const traverse = (node: nodes.ThriftNode) => {
-        if (node.range !== undefined && node.range.start.line <= boundaryLine && node.range.end.line >= boundaryLine) {
+        if (node.range !== undefined && node.range !== null &&
+            node.range.start.line <= boundaryLine && node.range.end.line >= boundaryLine) {
             if (node.type === nodes.ThriftNodeType.Struct ||
                 node.type === nodes.ThriftNodeType.Union ||
                 node.type === nodes.ThriftNodeType.Exception) {
@@ -106,9 +107,12 @@ function computeContextByAst(ast: nodes.ThriftDocument, boundaryLine: number): F
     return {indentLevel: stack.length, inStruct, inEnum, inService, inInteraction};
 }
 
-function computeContextByLineScan(lines: string[]): FormattingContext {
+function computeContextByLineScan(lines: string[], boundaryLine: number): FormattingContext {
     const stack: BlockKind[] = [];
-    for (const rawLine of lines) {
+    // 只扫描到边界行：boundary 之后的块（含其后闭合的块）不应影响边界处的上下文
+    const scanLimit = Math.min(Math.max(boundaryLine, 0), lines.length - 1);
+    for (let i = 0; i <= scanLimit; i++) {
+        const rawLine = lines[i];
         const line = rawLine.replace(/\/\/.*$/, '').replace(/#.*$/, '').trim();
         if (!line) {
             continue;

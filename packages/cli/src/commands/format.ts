@@ -93,12 +93,19 @@ function formatRange(
 ): string {
     const lines = content.split(/\r?\n/);
     const lastLine = Math.max(0, lines.length - 1);
-    const startLine = Math.max(0, Math.min(range.startLine, lastLine));
+
+    // 请求的 range 完全超出文件范围时无操作，避免误格式化最后一行
+    if (range.startLine > lastLine) {
+        return content;
+    }
+
+    const startLine = Math.max(0, range.startLine);
     const endLine = Math.max(startLine, Math.min(range.endLine, lastLine));
 
-    // 上下文推导：解析 range 之前（含起始行）的文本
-    const beforeContent = lines.slice(0, startLine + 1).join('\n');
-    const initialContext = computeFormattingContext(beforeContent, startLine, `file://${filePath}#range`);
+    // 上下文推导：解析 range 起始行之前（不含该行）的文本，
+    // 与 VS Code 非缓存路径（getText(0,0 → start)）语义一致
+    const beforeContent = lines.slice(0, startLine).join('\n');
+    const initialContext = computeFormattingContext(beforeContent, Math.max(0, startLine - 1), `file://${filePath}#range`);
 
     const rangeText = lines.slice(startLine, endLine + 1).join('\n');
     const formattedRange = formatter.format(rangeText, {...options, initialContext});

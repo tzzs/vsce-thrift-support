@@ -169,6 +169,39 @@ describe('CLI integration', () => {
             }
         });
 
+        it('--range starting on a block declaration line does not indent it', () => {
+            const input = [
+                'struct User {',
+                '  1: string name',
+                '}',
+                ''
+            ].join('\n');
+            const f = tmpFile('cli-fmt-range-opener.thrift', input);
+            try {
+                // 1 行是 struct 声明行：起始上下文不应把该块算入，声明行保持列 0
+                const {code, stdout} = run(['format', '--range', '1:2', f]);
+                assert.strictEqual(code, 0);
+                const lines = stdout.split('\n');
+                assert.strictEqual(lines[0], 'struct User {', 'block declaration line must not be indented');
+                assert.strictEqual(lines[1], '    1: string name', 'field should use struct indent');
+            } finally {
+                fs.unlinkSync(f);
+            }
+        });
+
+        it('--range beyond EOF is a no-op', () => {
+            const f = tmpFile('cli-fmt-range-eof.thrift', 'struct Foo {}\n');
+            try {
+                const {code, stdout} = run(['format', '--range', '99:100', f]);
+                assert.strictEqual(code, 0);
+                assert.strictEqual(stdout, 'struct Foo {}\n', 'out-of-range request must not format anything');
+                const {code: checkCode} = run(['format', '--check', '--range', '99:100', f]);
+                assert.strictEqual(checkCode, 0, 'out-of-range --check must pass');
+            } finally {
+                fs.unlinkSync(f);
+            }
+        });
+
         it('--range formats a field line inside a struct', () => {
             const input = [
                 'struct User {',

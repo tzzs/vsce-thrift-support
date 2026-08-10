@@ -80,14 +80,14 @@ describe('formatting-context', () => {
     });
 
     describe('cached AST path (useCachedAst=true)', () => {
-        let originalParseWithCache;
+        let originalParseContentWithCache;
 
         beforeEach(() => {
-            originalParseWithCache = ThriftParser.parseWithCache;
+            originalParseContentWithCache = ThriftParser.parseContentWithCache;
         });
 
         afterEach(() => {
-            ThriftParser.parseWithCache = originalParseWithCache;
+            ThriftParser.parseContentWithCache =originalParseContentWithCache;
         });
 
         it('should detect struct from AST', () => {
@@ -97,7 +97,7 @@ describe('formatting-context', () => {
                 range: makeRange(0, 0, 2, 1),
                 fields: []
             };
-            ThriftParser.parseWithCache = () => ({
+            ThriftParser.parseContentWithCache =() => ({
                 type: ThriftNodeType.Document,
                 range: makeRange(0, 0, 2, 1),
                 body: [astNode]
@@ -119,7 +119,7 @@ describe('formatting-context', () => {
                 range: makeRange(0, 0, 2, 1),
                 members: []
             };
-            ThriftParser.parseWithCache = () => ({
+            ThriftParser.parseContentWithCache =() => ({
                 type: ThriftNodeType.Document,
                 range: makeRange(0, 0, 2, 1),
                 body: [astNode]
@@ -139,7 +139,7 @@ describe('formatting-context', () => {
                 range: makeRange(0, 0, 2, 1),
                 functions: []
             };
-            ThriftParser.parseWithCache = () => ({
+            ThriftParser.parseContentWithCache =() => ({
                 type: ThriftNodeType.Document,
                 range: makeRange(0, 0, 2, 1),
                 body: [astNode]
@@ -159,7 +159,7 @@ describe('formatting-context', () => {
                 range: makeRange(0, 0, 2, 1),
                 functions: []
             };
-            ThriftParser.parseWithCache = () => ({
+            ThriftParser.parseContentWithCache =() => ({
                 type: ThriftNodeType.Document,
                 range: makeRange(0, 0, 2, 1),
                 body: [astNode]
@@ -179,7 +179,7 @@ describe('formatting-context', () => {
                 range: makeRange(0, 0, 2, 1),
                 fields: []
             };
-            ThriftParser.parseWithCache = () => ({
+            ThriftParser.parseContentWithCache =() => ({
                 type: ThriftNodeType.Document,
                 range: makeRange(0, 0, 3, 1),
                 body: [astNode]
