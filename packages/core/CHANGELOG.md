@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.3.0](https://github.com/tzzs/vsce-thrift-support/compare/core-v3.2.0...core-v3.3.0) (2026-08-11)
+
+
+### Features
+
+* **cli:** add --range partial formatting to format command ([e960483](https://github.com/tzzs/vsce-thrift-support/commit/e9604831c643c43208300a1da678d452fda36190))
+* **cli:** add --range partial formatting to format command ([2496055](https://github.com/tzzs/vsce-thrift-support/commit/249605535cd2b5ad9b56d384fa2def4d659fea16))
+
+
+### Bug Fixes
+
+* **cli:** correct --range context boundary and out-of-EOF handling ([f98dddf](https://github.com/tzzs/vsce-thrift-support/commit/f98dddfa26c1dfbbc99ff7b8020bfe933fcf3b9c))
+* **security:** resolve range formatting CI blockers ([5a5881d](https://github.com/tzzs/vsce-thrift-support/commit/5a5881d435dfa97524cd59c4710fd78100787a58))
+
 ## [3.2.0](https://github.com/tzzs/vsce-thrift-support/compare/core-v3.1.0...core-v3.2.0) (2026-06-12)
 
 

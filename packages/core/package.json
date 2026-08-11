@@ -1,6 +1,6 @@
 {
     "name": "@tanzz/thrift-core",
-    "version": "3.2.0",
+    "version": "3.3.0",
     "description": "Shared Apache Thrift IDL parser, formatter, diagnostics, and language primitives",
     "private": true,
     "main": "./out/index.js",
