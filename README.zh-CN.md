@@ -1,4 +1,4 @@
-# Thrift Support for VSCode
+# Thrift Support for VS Code 与 CLI
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
@@ -9,14 +9,23 @@
 [![CI](https://github.com/tzzs/vsce-thrift-support/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/tzzs/vsce-thrift-support/actions/workflows/ci.yml)
 [![Publish](https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml/badge.svg)](https://github.com/tzzs/vsce-thrift-support/actions/workflows/publish.yml)
 
-一个面向 Apache Thrift IDL 的 VS Code 语言智能扩展，覆盖语法高亮、格式化、诊断、导航、补全、重命名/重构、CI 可用 CLI 与性能门禁。
+一套基于共享语言核心构建的 Apache Thrift IDL 工具：VS Code 扩展负责交互式开发体验，CLI 负责自动化、脚本与 CI/CD。
 
 ![Thrift 诊断与格式化预览](docs/assets/marketplace/format-diagnostics.png)
 
 > 开发者请阅读开发指南：见仓库根目录的 [DEVELOPMENT.md](DEVELOPMENT.md)。
 > 配置项详见 [docs/settings-reference.md](docs/settings-reference.md)，安全支持范围与漏洞报告详见 [SECURITY.md](SECURITY.md)。
 
-## 🚀 功能特性
+## 选择使用入口
+
+| 入口 | 适用场景 | 主要能力 | 安装方式 |
+|------|----------|----------|----------|
+| **VS Code 扩展** | 交互式编写、浏览与评审 | 高亮、补全、诊断、导航、格式化、重命名、重构与层级视图 | 在 VS Code 中搜索 **Thrift Support**，或通过 [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=tanzz.thrift-support) / [Open VSX](https://open-vsx.org/extension/tanzz/thrift-support) 安装 |
+| **`thrift-support` CLI** | CI/CD、提交前检查、脚本及独立于编辑器的工作流 | 整文件/行范围格式化、诊断、AST 输出与符号列表 | `npm install --save-dev thrift-support` |
+
+两个入口都复用 `@tanzz/thrift-core` 的 Thrift 解析与语言行为。其中，VS Code 的**格式化选择**与 CLI 的 `format --range` 使用同一套格式化上下文逻辑。
+
+## 🚀 VS Code 扩展
 
 ### 语法高亮
 
@@ -78,7 +87,7 @@
 
 ## 🖥️ CLI 工具
 
-除 VS Code 扩展外，本项目同时提供独立的 npm CLI 工具 `thrift-support`，可在 CI/CD 或命令行中使用。
+独立 npm 包 `thrift-support` 将共享 Thrift 引擎提供给 CI/CD、提交前检查、Shell 脚本及其他编辑器。完整参数见 [CLI 使用文档](https://github.com/tzzs/vsce-thrift-support/blob/master/packages/cli/README.md)。
 
 ### 安装
 
@@ -97,8 +106,16 @@ thrift-support format --check src/**/*.thrift
 # 格式化并写回文件
 thrift-support format --write src/
 
+# 仅格式化第 12 至 18 行（从 1 开始，包含首尾）
+thrift-support format --range 12:18 src/example.thrift
+
+# 仅检查或写回该范围
+thrift-support format --check --range 12:18 src/example.thrift
+thrift-support format --write --range 12:18 src/example.thrift
+
 # 从 stdin 读取并输出
 echo "struct Foo{1:i32 id}" | thrift-support format --stdin
+echo "struct Foo{1:i32 id}" | thrift-support format --stdin --range 1:1
 
 # 运行诊断（语法 + 语义规则）
 thrift-support lint src/**/*.thrift
@@ -110,6 +127,8 @@ thrift-support parse --stdin < myfile.thrift
 # 列出定义的符号
 thrift-support symbols --json src/my.thrift
 ```
+
+`--range` 只修改选中的行，缩进上下文从范围之前的内容推导。由于两个入口调用同一套 core 实现，其行为与扩展的**格式化选择**一致。
 
 ### 配置文件
 
@@ -138,14 +157,12 @@ thrift-support symbols --json src/my.thrift
 | 2 | 用法错误 |
 | 3 | 内部错误 |
 
-## 📦 安装
+## 📦 安装 VS Code 扩展
 
-1. 打开 VSCode
+1. 打开 VS Code
 2. 进入扩展市场 (`Ctrl+Shift+X`)
 3. 搜索 "Thrift Support"
 4. 点击安装
-
-## 🔧 使用方法
 
 ## 🧭 项目结构
 
@@ -162,6 +179,8 @@ thrift-support symbols --json src/my.thrift
 - `test-files/` / `tests/src/**/test-files/`: 测试夹具
 - `language-configuration.json`: VS Code 语言括号、注释等配置
 
+## 🔧 VS Code 扩展使用方法
+
 ### 格式化代码
 
 - **格式化文档**：`Ctrl+Shift+I` (Windows/Linux) 或 `Cmd+Shift+I` (Mac)
@@ -170,7 +189,7 @@ thrift-support symbols --json src/my.thrift
     - `Thrift: Format Document`
     - `Thrift: Format Selection`
 
-> 发布命名空间：`tanzz`（VS Marketplace 与 Open VSX 均使用此命名空间）
+扩展的格式化选择与 CLI `format --range` 使用同一套 core 格式化上下文实现：交互编辑使用扩展命令，自动化场景使用 CLI。
 
 ### 代码导航
 
@@ -199,7 +218,7 @@ thrift-support symbols --json src/my.thrift
     - 忽略字段注解中的 '='，避免被误识别为默认值起始
     - set<T> 默认值同时接受 `[]` 或 `{}` 包裹，并依据顶层括号进行元素分隔校验
 
-说明：诊断在编辑与保存时即时更新，可在 VSCode “问题”面板查看并定位。
+说明：诊断在编辑与保存时即时更新，可在 VS Code“问题”面板查看并定位。
 
 ### 代码重构
 
@@ -221,7 +240,7 @@ thrift-support symbols --json src/my.thrift
 
 ### 配置选项
 
-在 VSCode 设置中可以配置以下选项：
+在 VS Code 设置中可以配置以下选项：
 
 ```json
 {
@@ -276,7 +295,7 @@ struct User {
 
 1. **GitHub Issues**：在 [项目仓库](https://github.com/tzzs/vsce-thrift-support) 中创建 Issue
 2. **描述问题**：请详细描述遇到的问题，包括：
-    - VSCode 版本
+    - VS Code 版本
     - 扩展版本
     - 重现步骤
     - 期望行为

@@ -471,6 +471,16 @@ describe('CLI unit tests', () => {
             assert.strictEqual(r.stdin, true);
         });
 
+        it('parses format --range as 0-based lines', () => {
+            const r = argsMod.parseArgs(['node', 'cli.js', 'format', '--range', '12:18', 'f.thrift']);
+            assert.deepStrictEqual(r.range, {startLine: 11, endLine: 17});
+        });
+
+        it('parses format --range single line', () => {
+            const r = argsMod.parseArgs(['node', 'cli.js', 'format', '--range', '3:3', 'f.thrift']);
+            assert.deepStrictEqual(r.range, {startLine: 2, endLine: 2});
+        });
+
         it('parses --stdin-filepath option', () => {
             const r = argsMod.parseArgs(['node', 'cli.js', 'format', '--stdin', '--stdin-filepath', 'x.thrift']);
             assert.strictEqual(r.stdinFilepath, 'x.thrift');

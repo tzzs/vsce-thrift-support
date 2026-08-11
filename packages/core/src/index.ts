@@ -20,6 +20,8 @@ export type {ExtractTypeEdits, ExtractTypeTarget, MoveTypeTarget, PositionLike, 
 // Formatter
 export {ThriftFormatter} from './formatter/index';
 export {formatThriftContent} from './formatter/formatter-core';
+export {computeFormattingContext, DEFAULT_FORMATTING_CONTEXT} from './formatter/format-context';
+export type {FormattingContext} from './formatter/format-context';
 
 // Diagnostics
 export {DIAGNOSTIC_CODES, UNKNOWN_TYPE_DIAGNOSTIC_CODES} from './diagnostics/diagnostic-codes';

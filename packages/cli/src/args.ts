@@ -19,6 +19,7 @@ export interface ParsedArgs {
     maxLineLength?: number;
     trailingComma?: 'preserve' | 'add' | 'remove';
     collectionStyle?: 'preserve' | 'multiline' | 'auto';
+    range?: {startLine: number; endLine: number};
     // Lint
     severity?: 'error' | 'warning' | 'all';
     json: boolean;
@@ -145,6 +146,21 @@ export function parseArgs(argv: string[]): ParsedArgs {
                 const val = consumeNextArg(args, i, '--collection-style');
                 if (!COLLECTION_STYLE_VALUES.has(val)) {parseError(`--collection-style must be one of: preserve, multiline, auto`);}
                 result.collectionStyle = val as 'preserve' | 'multiline' | 'auto';
+                i++;
+                break;
+            }
+            case '--range': {
+                const val = consumeNextArg(args, i, '--range');
+                const m = val.match(/^(\d+):(\d+)$/);
+                if (m === null) {
+                    parseError('--range must be in the form <startLine>:<endLine> (1-based, inclusive)');
+                }
+                const startLine = parseInt(m[1], 10);
+                const endLine = parseInt(m[2], 10);
+                if (startLine < 1 || endLine < startLine) {
+                    parseError('--range must satisfy 1 <= startLine <= endLine');
+                }
+                result.range = {startLine: startLine - 1, endLine: endLine - 1};
                 i++;
                 break;
             }

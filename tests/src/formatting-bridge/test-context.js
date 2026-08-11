@@ -35,20 +35,20 @@ function createDoc(text, overrides) {
 }
 
 describe('formatting-context', () => {
-    let originalParseWithCache;
-    let originalParseContentWithCache;
-
-    before(() => {
-        originalParseWithCache = ThriftParser.parseWithCache;
-        originalParseContentWithCache = ThriftParser.parseContentWithCache;
-    });
-
-    after(() => {
-        ThriftParser.parseWithCache = originalParseWithCache;
-        ThriftParser.parseContentWithCache = originalParseContentWithCache;
-    });
-
+    // Mock 静态方法必须按分组隔离：describe 级 after 恢复太晚，
+    // 会把上一个分组的 mock 泄漏给后续分组（computeFormattingContext
+    // 内部经 parseContentWithCache 真实解析，mock 残留会导致误判）。
     describe('inline parse path (useCachedAst=false)', () => {
+        let originalParseContentWithCache;
+
+        beforeEach(() => {
+            originalParseContentWithCache = ThriftParser.parseContentWithCache;
+        });
+
+        afterEach(() => {
+            ThriftParser.parseContentWithCache = originalParseContentWithCache;
+        });
+
         it('should return default context for empty before text', () => {
             ThriftParser.parseContentWithCache = () => ({body: []});
 
@@ -80,6 +80,16 @@ describe('formatting-context', () => {
     });
 
     describe('cached AST path (useCachedAst=true)', () => {
+        let originalParseContentWithCache;
+
+        beforeEach(() => {
+            originalParseContentWithCache = ThriftParser.parseContentWithCache;
+        });
+
+        afterEach(() => {
+            ThriftParser.parseContentWithCache =originalParseContentWithCache;
+        });
+
         it('should detect struct from AST', () => {
             const astNode = {
                 type: ThriftNodeType.Struct,
@@ -87,7 +97,7 @@ describe('formatting-context', () => {
                 range: makeRange(0, 0, 2, 1),
                 fields: []
             };
-            ThriftParser.parseWithCache = () => ({
+            ThriftParser.parseContentWithCache =() => ({
                 type: ThriftNodeType.Document,
                 range: makeRange(0, 0, 2, 1),
                 body: [astNode]
@@ -109,7 +119,7 @@ describe('formatting-context', () => {
                 range: makeRange(0, 0, 2, 1),
                 members: []
             };
-            ThriftParser.parseWithCache = () => ({
+            ThriftParser.parseContentWithCache =() => ({
                 type: ThriftNodeType.Document,
                 range: makeRange(0, 0, 2, 1),
                 body: [astNode]
@@ -129,7 +139,7 @@ describe('formatting-context', () => {
                 range: makeRange(0, 0, 2, 1),
                 functions: []
             };
-            ThriftParser.parseWithCache = () => ({
+            ThriftParser.parseContentWithCache =() => ({
                 type: ThriftNodeType.Document,
                 range: makeRange(0, 0, 2, 1),
                 body: [astNode]
@@ -149,7 +159,7 @@ describe('formatting-context', () => {
                 range: makeRange(0, 0, 2, 1),
                 functions: []
             };
-            ThriftParser.parseWithCache = () => ({
+            ThriftParser.parseContentWithCache =() => ({
                 type: ThriftNodeType.Document,
                 range: makeRange(0, 0, 2, 1),
                 body: [astNode]
@@ -169,7 +179,7 @@ describe('formatting-context', () => {
                 range: makeRange(0, 0, 2, 1),
                 fields: []
             };
-            ThriftParser.parseWithCache = () => ({
+            ThriftParser.parseContentWithCache =() => ({
                 type: ThriftNodeType.Document,
                 range: makeRange(0, 0, 3, 1),
                 body: [astNode]
@@ -187,6 +197,16 @@ describe('formatting-context', () => {
     });
 
     describe('fallback heuristic (no valid AST ranges)', () => {
+        let originalParseContentWithCache;
+
+        beforeEach(() => {
+            originalParseContentWithCache = ThriftParser.parseContentWithCache;
+        });
+
+        afterEach(() => {
+            ThriftParser.parseContentWithCache = originalParseContentWithCache;
+        });
+
         it('should detect struct keyword and brace', () => {
             const text = 'struct Foo {\n  1: i32 id\n';
             ThriftParser.parseContentWithCache = () => ({
@@ -255,6 +275,16 @@ describe('formatting-context', () => {
     });
 
     describe('error handling', () => {
+        let originalParseContentWithCache;
+
+        beforeEach(() => {
+            originalParseContentWithCache = ThriftParser.parseContentWithCache;
+        });
+
+        afterEach(() => {
+            ThriftParser.parseContentWithCache = originalParseContentWithCache;
+        });
+
         it('should return default context when parser throws', () => {
             ThriftParser.parseContentWithCache = () => {
                 throw new Error('Parse error');

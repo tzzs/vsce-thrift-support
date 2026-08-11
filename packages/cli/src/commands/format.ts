@@ -1,9 +1,15 @@
 /**
  * format 命令：格式化 Thrift IDL 文件。
+ * 支持整文件与 --range 部分格式化。
  */
 import * as fs from 'fs';
-import {normalizeFormattingOptions, ThriftFormatter} from '@tanzz/thrift-core';
-import type {ThriftFormattingConfigInput, ThriftFormattingOptions} from '@tanzz/thrift-core';
+import {
+    computeFormattingContext,
+    normalizeFormattingOptions,
+    ThriftFormatter,
+    ThriftFormattingOptions
+} from '@tanzz/thrift-core';
+import type {ThriftFormattingConfigInput} from '@tanzz/thrift-core';
 import type {ParsedArgs} from '../args';
 
 export function runFormat(
@@ -20,7 +26,7 @@ export function runFormat(
             process.stderr.write('Error: --write cannot be used with --stdin.\n');
             return 2;
         }
-        return formatStdin(formatter, options, args.check);
+        return formatStdin(formatter, options, args);
     }
 
     if (files.length === 0) {
@@ -41,7 +47,9 @@ export function runFormat(
 
         let formatted: string;
         try {
-            formatted = formatter.format(content, options);
+            formatted = args.range !== undefined
+                ? formatRange(formatter, content, options, args.range, filePath)
+                : formatter.format(content, options);
         } catch (error) {
             process.stderr.write(`Error: Formatting failed for "${filePath}": ${error instanceof Error ? error.message : String(error)}\n`);
             return 3;
@@ -71,7 +79,46 @@ export function runFormat(
     return hasUnformatted ? 1 : 0;
 }
 
-function formatStdin(formatter: ThriftFormatter, options: ThriftFormattingOptions, checkMode: boolean): number {
+/**
+ * 部分格式化：只格式化 [startLine, endLine]（0-based，含两端）内的文本，
+ * 其余内容原样保留。起始上下文由 range 之前的文本推导，与 VS Code
+ * "Format Selection" 行为一致。
+ */
+function formatRange(
+    formatter: ThriftFormatter,
+    content: string,
+    options: ThriftFormattingOptions,
+    range: {startLine: number; endLine: number},
+    filePath: string
+): string {
+    const lines = content.split(/\r?\n/);
+    const lastLine = Math.max(0, lines.length - 1);
+
+    // 请求的 range 完全超出文件范围时无操作，避免误格式化最后一行
+    if (range.startLine > lastLine) {
+        return content;
+    }
+
+    const startLine = Math.max(0, range.startLine);
+    const endLine = Math.max(startLine, Math.min(range.endLine, lastLine));
+
+    // 上下文推导：解析 range 起始行之前（不含该行）的文本，
+    // 与 VS Code 非缓存路径（getText(0,0 → start)）语义一致
+    const beforeContent = lines.slice(0, startLine).join('\n');
+    const initialContext = computeFormattingContext(beforeContent, Math.max(0, startLine - 1), `file://${filePath}#range`);
+
+    const rangeText = lines.slice(startLine, endLine + 1).join('\n');
+    const formattedRange = formatter.format(rangeText, {...options, initialContext});
+
+    const result = [
+        ...lines.slice(0, startLine),
+        ...formattedRange.split('\n'),
+        ...lines.slice(endLine + 1)
+    ];
+    return result.join('\n');
+}
+
+function formatStdin(formatter: ThriftFormatter, options: ThriftFormattingOptions, args: ParsedArgs): number {
     const chunks: Buffer[] = [];
     const buf = Buffer.alloc(65536);
     let bytesRead: number;
@@ -81,8 +128,10 @@ function formatStdin(formatter: ThriftFormatter, options: ThriftFormattingOption
 
     const content = Buffer.concat(chunks).toString('utf-8');
     try {
-        const formatted = formatter.format(content, options);
-        if (checkMode) {
+        const formatted = args.range !== undefined
+            ? formatRange(formatter, content, options, args.range, args.stdinFilepath ?? '<stdin>')
+            : formatter.format(content, options);
+        if (args.check) {
             if (formatted !== content) {
                 process.stderr.write('<stdin>: unformatted\n');
                 return 1;

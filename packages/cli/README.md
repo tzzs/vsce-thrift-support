@@ -1,6 +1,6 @@
 # thrift-support
 
-CLI tool for Apache Thrift IDL: format, lint, parse, and list symbols.
+Apache Thrift IDL CLI powered by the same shared core as the Thrift Support VS Code extension. It formats whole files or line ranges, runs diagnostics, outputs AST JSON, and lists symbols.
 
 [![npm](https://img.shields.io/npm/v/thrift-support)](https://www.npmjs.com/package/thrift-support)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -27,6 +27,7 @@ Options:
   --write, -w             Write formatted output back to files
   --stdin                 Read from stdin, write to stdout
   --stdin-filepath <p>    Filepath hint used with --stdin for config lookup
+  --range <start>:<end>   Format only lines start..end (1-based, inclusive)
   --indent-size <n>       Spaces per indent level (default: 4)
   --max-line-length <n>   Target max line length (default: 100)
   --trailing-comma <m>    preserve | add | remove  (default: preserve)
@@ -44,7 +45,14 @@ thrift-support format --write src/
 
 # Pipe through stdin
 cat myfile.thrift | thrift-support format --stdin
+
+# Format only lines 12 through 18
+thrift-support format --range 12:18 src/*.thrift
 ```
+
+`--range` formats only the selected lines and leaves the rest of the file
+untouched. The indentation context is derived from the lines before the
+range, matching the VS Code extension's "Format Selection" behavior.
 
 ### `lint`
 
@@ -134,9 +142,12 @@ The CLI resolves options in this order (highest priority first):
 
 ## Relation to the VS Code Extension
 
-This package contains the same formatting and diagnostic engine as the
-[Thrift Support VS Code extension](https://marketplace.visualstudio.com/items?itemName=tanzz.thrift-support).
-Options map directly to `thrift.format.*` settings in VS Code.
+This package and the
+[Thrift Support VS Code extension](https://marketplace.visualstudio.com/items?itemName=tanzz.thrift-support)
+both use `@tanzz/thrift-core` for parsing and language behavior. CLI
+`format --range` and VS Code **Format Selection** therefore derive indentation
+context through the same implementation. Formatting options map directly to
+the extension's `thrift.format.*` settings.
 
 ## License
 
