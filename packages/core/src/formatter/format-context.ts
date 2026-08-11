@@ -113,7 +113,16 @@ function computeContextByLineScan(lines: string[], boundaryLine: number): Format
     const scanLimit = Math.min(Math.max(boundaryLine, 0), lines.length - 1);
     for (let i = 0; i <= scanLimit; i++) {
         const rawLine = lines[i];
-        const line = rawLine.replace(/\/\/.*$/, '').replace(/#.*$/, '').trim();
+        const slashComment = rawLine.indexOf('//');
+        const hashComment = rawLine.indexOf('#');
+        let commentStart = rawLine.length;
+        if (slashComment >= 0) {
+            commentStart = slashComment;
+        }
+        if (hashComment >= 0) {
+            commentStart = Math.min(commentStart, hashComment);
+        }
+        const line = rawLine.slice(0, commentStart).trim();
         if (!line) {
             continue;
         }

@@ -8,6 +8,16 @@ allowBuilds:
   esbuild: true
   keytar: true
 
+minimumReleaseAgeExclude:
+  - form-data@4.0.6
+  - undici@7.29.0
+  - brace-expansion@1.1.18
+  - brace-expansion@2.1.4
+  - brace-expansion@5.0.9
+  - js-yaml@4.3.1
+  - linkify-it@5.0.2
+  - fast-uri@3.1.5
+
 # CVE remediations on transitive deps. pnpm 11 no longer reads
 # package.json#pnpm.overrides (silently — see pnpm/pnpm#11536), so these
 # MUST live here to keep the supply-chain fixes effective.
