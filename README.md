@@ -1,8 +1,8 @@
-# Thrift Support for VSCode
+# Thrift Support for VS Code and CLI
 
 [English](./README.md) | [简体中文](./README.zh-CN.md)
 
-Apache Thrift language intelligence for VS Code: syntax highlighting, formatter, diagnostics, navigation, completion, rename/refactor, a CI-ready CLI, and performance gates.
+Apache Thrift IDL tooling built on one shared language core, delivered through a VS Code extension for interactive development and a CLI for automation and CI/CD.
 
 [![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/tanzz.thrift-support?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=tanzz.thrift-support)
 [![Installs](https://img.shields.io/visual-studio-marketplace/i/tanzz.thrift-support?label=Installs)](https://marketplace.visualstudio.com/items?itemName=tanzz.thrift-support)
@@ -16,7 +16,16 @@ Apache Thrift language intelligence for VS Code: syntax highlighting, formatter,
 > For development details, see [DEVELOPMENT.md](DEVELOPMENT.md).
 > For configuration keys, see [docs/settings-reference.md](docs/settings-reference.md). For supported versions and vulnerability reporting, see [SECURITY.md](SECURITY.md).
 
-## 🚀 Features
+## Choose Your Interface
+
+| Interface | Best for | Main capabilities | Install |
+|-----------|----------|-------------------|---------|
+| **VS Code extension** | Interactive authoring and review | Highlighting, completion, diagnostics, navigation, formatting, rename, refactors, and hierarchy views | Search for **Thrift Support** in VS Code, or install from [VS Marketplace](https://marketplace.visualstudio.com/items?itemName=tanzz.thrift-support) / [Open VSX](https://open-vsx.org/extension/tanzz/thrift-support) |
+| **`thrift-support` CLI** | CI/CD, pre-commit checks, scripts, and editor-independent workflows | Whole-file and line-range formatting, diagnostics, AST output, and symbol listing | `npm install --save-dev thrift-support` |
+
+Both interfaces reuse `@tanzz/thrift-core` for Thrift parsing and language behavior. In particular, VS Code **Format Selection** and CLI `format --range` share the same formatting-context logic.
+
+## 🚀 VS Code Extension
 
 ### Syntax Highlighting
 
@@ -30,8 +39,6 @@ Apache Thrift language intelligence for VS Code: syntax highlighting, formatter,
 - Selection formatting: format only the selected text
 - Smart alignment: align field types, field names, and comments
 - Configurable: indentation, line length, and more formatting rules
-
-> Publisher namespace: tanzz (used for both VS Marketplace and Open VSX)
 
 ### Code Navigation
 
@@ -81,7 +88,7 @@ See [advanced features](docs/advanced-features.md) for details about stream, sin
 
 ## 🖥️ CLI Tool
 
-In addition to the VS Code extension, a standalone npm CLI tool `thrift-support` is available for use in CI/CD pipelines or the command line.
+The standalone npm package `thrift-support` exposes the shared Thrift engine to CI/CD pipelines, pre-commit hooks, shell scripts, and other editors. See the [complete CLI reference](https://github.com/tzzs/vsce-thrift-support/blob/master/packages/cli/README.md) for every option.
 
 ### Install
 
@@ -100,8 +107,16 @@ thrift-support format --check src/**/*.thrift
 # Format and write back to files
 thrift-support format --write src/
 
+# Format only lines 12 through 18 (1-based, inclusive)
+thrift-support format --range 12:18 src/example.thrift
+
+# Check or write only that range
+thrift-support format --check --range 12:18 src/example.thrift
+thrift-support format --write --range 12:18 src/example.thrift
+
 # Read from stdin and output to stdout
 echo "struct Foo{1:i32 id}" | thrift-support format --stdin
+echo "struct Foo{1:i32 id}" | thrift-support format --stdin --range 1:1
 
 # Run diagnostics (syntax + semantic rules)
 thrift-support lint src/**/*.thrift
@@ -113,6 +128,8 @@ thrift-support parse --stdin < myfile.thrift
 # List defined symbols
 thrift-support symbols --json src/my.thrift
 ```
+
+`--range` changes only the selected lines; indentation context is derived from the preceding lines. This matches the extension's **Format Selection** behavior because both paths call the shared core implementation.
 
 ### Configuration
 
@@ -141,14 +158,12 @@ Create a `.thriftrc.json` in your project root; the CLI searches upward automati
 | 2 | Usage error |
 | 3 | Internal error |
 
-## 📦 Installation
+## 📦 Install the VS Code Extension
 
-1. Open VSCode
+1. Open VS Code
 2. Open the Extensions view (`Ctrl+Shift+X`)
 3. Search for "Thrift Support"
 4. Click Install
-
-## 🔧 Usage
 
 ## 🧭 Project Structure
 
@@ -165,6 +180,8 @@ For a fuller agent-readable directory map and validation matrix, see [docs/PROJE
 - `test-files/` / `tests/src/**/test-files/`: fixtures
 - `language-configuration.json`: VS Code bracket, comment, and language configuration
 
+## 🔧 VS Code Extension Usage
+
 ### Formatting
 
 - Format Document: `Ctrl+Shift+I` (Windows/Linux) or `Cmd+Shift+I` (macOS)
@@ -172,12 +189,8 @@ For a fuller agent-readable directory map and validation matrix, see [docs/PROJE
 - Command Palette:
     - `Thrift: Format Document`
     - `Thrift: Format Selection`
-    - `Thrift: Extract Type (typedef)`
-    - `Thrift: Move Type to File...`
-    - `Thrift: Show Performance Report`
-    - `Thrift: Clear Performance Data`
-    - `Thrift: Show Memory Report`
-    - `Thrift: Force Garbage Collection`
+
+Selection formatting and CLI `format --range` use the same core formatting-context implementation; use the editor command interactively and the CLI form in automation.
 
 ### Code Navigation
 
@@ -206,7 +219,7 @@ For a fuller agent-readable directory map and validation matrix, see [docs/PROJE
     - Ignore '=' inside field annotations so it won’t be treated as the start of a default value
     - set<T> default values accept either `[]` or `{}` with bracket-aware element checks
 
-Note: Diagnostics update in real-time during editing and on save. You can review them in VSCode’s “Problems” panel.
+Note: Diagnostics update in real-time during editing and on save. You can review them in VS Code’s “Problems” panel.
 
 ### Code Refactoring
 

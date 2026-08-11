@@ -11,6 +11,7 @@ Use this page as the repository-local map for agent and contributor documentatio
 | [annotation-policy.md](annotation-policy.md) | Formatter annotation and alignment policy | Update when formatter alignment semantics change |
 | [advanced-features.md](advanced-features.md) | Stream, sink, interaction, and experimental syntax examples | Update when grammar/parser support changes |
 | [settings-reference.md](settings-reference.md) | VS Code settings keys, defaults, examples, and legacy fallback notes | Update when `package.json#contributes.configuration` changes |
+| [../packages/cli/README.md](../packages/cli/README.md) | CLI installation, commands, line-range formatting, configuration, and exit codes | Update when CLI flags or behavior change |
 | [release-verification.md](release-verification.md) | Release automation chain and local/package verification commands | Update when GitHub Actions release gates change |
 | [release-channels.md](release-channels.md) | Stable/pre-release channel policy and adoption metrics workflow | Update when Marketplace, Open VSX, or npm release strategy changes |
 | [security-model.md](security-model.md) | Workspace Trust, file access, CLI write, package, and future AI/MCP security boundaries | Update when security posture or workspace access changes |

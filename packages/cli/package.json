@@ -1,7 +1,7 @@
 {
     "name": "thrift-support",
     "version": "3.1.0",
-    "description": "CLI tool for Apache Thrift IDL: format, lint, parse, symbols",
+    "description": "Apache Thrift IDL CLI for file/range formatting, diagnostics, AST output, and symbols",
     "bin": {
         "thrift-support": "./dist/cli.js"
     },

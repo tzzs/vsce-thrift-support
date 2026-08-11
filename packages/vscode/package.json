@@ -1,7 +1,7 @@
 {
     "name": "@tanzz/thrift-vscode",
     "private": true,
-    "description": "VS Code extension source for thrift-support (requires @tanzz/thrift-core)",
+    "description": "VS Code integration for Thrift Support, backed by the shared @tanzz/thrift-core package",
     "dependencies": {
         "@tanzz/thrift-core": "workspace:*"
     },
