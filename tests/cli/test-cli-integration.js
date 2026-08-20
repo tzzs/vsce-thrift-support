@@ -221,14 +221,16 @@ describe('CLI integration', () => {
                 const {code, stdout} = run(['format', '--range', '6:21', f]);
                 assert.strictEqual(code, 0);
                 const lines = stdout.split('\n');
+                // 顶层声明不得被嵌套缩进（列 0），枚举成员应缩进一层（4 空格）。
+                // 只断言缩进层级与成员归属，`=` 两侧用 \s* 容忍对齐配置产生的空格。
                 assert.strictEqual(lines[5], 'enum ReachReadReaderType {', 'enum must stay at top level');
-                assert.strictEqual(lines[6], '    Unknown = 0', 'first enum member indented once');
-                assert.strictEqual(lines[7], '    Valid   = 1', 'second enum member');
-                assert.strictEqual(lines[8], '    Invalid = 2', 'third enum member');
+                assert.match(lines[6], /^ {4}Unknown\s*=\s*0$/, 'first enum member indented once');
+                assert.match(lines[7], /^ {4}Valid\s*=\s*1$/, 'Valid stays in ReachReadReaderType');
+                assert.match(lines[8], /^ {4}Invalid\s*=\s*2$/, 'Invalid stays in ReachReadReaderType');
                 assert.strictEqual(lines[11], 'enum ReachReadEvent {', 'second enum must stay at top level');
-                assert.strictEqual(lines[12], '    Unknown   = 0', 'second enum member kept in its own enum');
-                assert.strictEqual(lines[13], '    STARTED   = 1', 'STARTED stays in ReachReadEvent');
-                assert.strictEqual(lines[14], '    COMPLETED = 2', 'COMPLETED stays in ReachReadEvent');
+                assert.match(lines[12], /^ {4}Unknown\s*=\s*0$/, 'ReachReadEvent Unknown kept in its own enum');
+                assert.match(lines[13], /^ {4}STARTED\s*=\s*1$/, 'STARTED stays in ReachReadEvent');
+                assert.match(lines[14], /^ {4}COMPLETED\s*=\s*2$/, 'COMPLETED stays in ReachReadEvent');
                 assert.strictEqual(lines[17], 'struct ReachReadEventData {', 'struct stays at top level');
             } finally {
                 fs.unlinkSync(f);
