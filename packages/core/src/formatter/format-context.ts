@@ -26,6 +26,36 @@ type BlockKind = 'struct' | 'enum' | 'service' | 'interaction';
 const BLOCK_START_RE = /^(struct|union|exception|enum|senum|service|interaction)\b/;
 
 /**
+ * 判断 boundaryLine 是否位于块体内部。
+ *
+ * AST 节点的 line range 是 [start, end)（end 为闭括号的下一行）。对于完整块，
+ * 闭括号行是 end.line - 1，因此在 boundaryLine 早于闭括号行时才算“位于块内”。
+ * 但对于不完整块（before-content 在块体中被截断，尚未出现闭括号），end.line - 1
+ * 只是最后一行内容，块仍然处于打开状态，boundaryLine 只要 >= start.line 即算在块内。
+ *
+ * @param range - 节点 range（[start, end)）。
+ * @param boundaryLine - 边界行号。
+ * @param sourceLines - 推导上下文所用的源行（用于判断块是否已闭合）。
+ * @returns 该块在 boundaryLine 处是否仍然打开。
+ */
+function nodeRangeContainsBoundary(
+    range: {start: {line: number}; end: {line: number}},
+    boundaryLine: number,
+    sourceLines: string[]
+): boolean {
+    if (boundaryLine < range.start.line) {
+        return false;
+    }
+    const closingLine = range.end.line - 1;
+    const closingLineText = sourceLines[closingLine]?.trim() ?? '';
+    const isComplete = closingLine >= range.start.line && closingLineText.startsWith('}');
+    if (isComplete) {
+        return boundaryLine < closingLine;
+    }
+    return boundaryLine <= range.end.line;
+}
+
+/**
  * 计算格式化上下文的纯文本入口（无 VS Code 依赖）。
  *
  * @param parseContent - 用于推导上下文的文本：通常是 range 起始行之前的完整内容，
@@ -52,17 +82,23 @@ export function computeFormattingContext(
                 typeof node.range.end?.line === 'number';
         });
 
+        const sourceLines = parseContent.split('\n');
+
         if (!hasValidRanges) {
-            return computeContextByLineScan(parseContent.split('\n'), boundaryLine);
+            return computeContextByLineScan(sourceLines, boundaryLine);
         }
 
-        return computeContextByAst(ast, boundaryLine);
+        return computeContextByAst(ast, boundaryLine, sourceLines);
     } catch {
         return {...DEFAULT_FORMATTING_CONTEXT};
     }
 }
 
-function computeContextByAst(ast: nodes.ThriftDocument, boundaryLine: number): FormattingContext {
+function computeContextByAst(
+    ast: nodes.ThriftDocument,
+    boundaryLine: number,
+    sourceLines: string[]
+): FormattingContext {
     let inStruct = false;
     let inEnum = false;
     let inService = false;
@@ -71,7 +107,7 @@ function computeContextByAst(ast: nodes.ThriftDocument, boundaryLine: number): F
 
     const traverse = (node: nodes.ThriftNode) => {
         if (node.range !== undefined && node.range !== null &&
-            node.range.start.line <= boundaryLine && node.range.end.line >= boundaryLine) {
+            nodeRangeContainsBoundary(node.range, boundaryLine, sourceLines)) {
             if (node.type === nodes.ThriftNodeType.Struct ||
                 node.type === nodes.ThriftNodeType.Union ||
                 node.type === nodes.ThriftNodeType.Exception) {

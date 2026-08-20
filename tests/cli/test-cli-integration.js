@@ -189,6 +189,73 @@ describe('CLI integration', () => {
             }
         });
 
+        it('--range keeps sibling top-level blocks un-nested and preserves enum semantics', () => {
+            const input = [
+                'struct SomeStruct {',
+                '  1: string name',
+                '  2: i32 count',
+                '}',
+                '',
+                'enum ReachReadReaderType {',
+                '  Unknown = 0',
+                '  Valid = 1',
+                '  Invalid = 2',
+                '}',
+                '',
+                'enum ReachReadEvent {',
+                '  Unknown = 0',
+                '  STARTED = 1',
+                '  COMPLETED = 2',
+                '}',
+                '',
+                'struct ReachReadEventData {',
+                '  1: ReachReadEvent event',
+                '  2: string detail',
+                '}',
+                ''
+            ].join('\n');
+            const f = tmpFile('cli-fmt-range-blocks.thrift', input);
+            try {
+                // 覆盖 enum/struct 块（6~21 行，1-based）。顶层声明不得被嵌套缩进，
+                // 各枚举项必须留在各自的 enum 内，不得合并或清空。
+                const {code, stdout} = run(['format', '--range', '6:21', f]);
+                assert.strictEqual(code, 0);
+                const lines = stdout.split('\n');
+                assert.strictEqual(lines[5], 'enum ReachReadReaderType {', 'enum must stay at top level');
+                assert.strictEqual(lines[6], '    Unknown = 0', 'first enum member indented once');
+                assert.strictEqual(lines[7], '    Valid   = 1', 'second enum member');
+                assert.strictEqual(lines[8], '    Invalid = 2', 'third enum member');
+                assert.strictEqual(lines[11], 'enum ReachReadEvent {', 'second enum must stay at top level');
+                assert.strictEqual(lines[12], '    Unknown   = 0', 'second enum member kept in its own enum');
+                assert.strictEqual(lines[13], '    STARTED   = 1', 'STARTED stays in ReachReadEvent');
+                assert.strictEqual(lines[14], '    COMPLETED = 2', 'COMPLETED stays in ReachReadEvent');
+                assert.strictEqual(lines[17], 'struct ReachReadEventData {', 'struct stays at top level');
+            } finally {
+                fs.unlinkSync(f);
+            }
+        });
+
+        it('--range does not over-indent service methods', () => {
+            const input = [
+                'service Calculator {',
+                '  i32 add(1: i32 a, 2: i32 b)',
+                '  i32 subtract(1: i32 a, 2: i32 b)',
+                '}',
+                ''
+            ].join('\n');
+            const f = tmpFile('cli-fmt-range-service.thrift', input);
+            try {
+                // 只格式化 service 方法行（2~3 行）：不得比整文件格式化多缩进一层
+                const {code, stdout} = run(['format', '--range', '2:3', f]);
+                assert.strictEqual(code, 0);
+                const lines = stdout.split('\n');
+                assert.strictEqual(lines[1], '    i32 add(1: i32 a, 2: i32 b)', 'method at service method indent');
+                assert.strictEqual(lines[2], '    i32 subtract(1: i32 a, 2: i32 b)', 'method at service method indent');
+            } finally {
+                fs.unlinkSync(f);
+            }
+        });
+
         it('--range beyond EOF is a no-op', () => {
             const f = tmpFile('cli-fmt-range-eof.thrift', 'struct Foo {}\n');
             try {
