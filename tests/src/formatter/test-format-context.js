@@ -92,4 +92,31 @@ describe('core formatting context', () => {
 
         assert.deepStrictEqual(result, DEFAULT_FORMATTING_CONTEXT);
     });
+
+    it('does not treat a closed block as open when boundary is its closing brace', () => {
+        const content = 'struct A {\n  1: i32 x\n}\n\nenum B {\n  X = 0\n}\n';
+        const lines = content.split('\n');
+        // boundary = 3 (blank line right after struct A's closing brace): not inside struct A
+        const ctx = computeFormattingContext(lines.slice(0, 4).join('\n'), 3, 'closed-boundary-1');
+        assert.strictEqual(ctx.indentLevel, 0, 'should be at top level after struct closes');
+        assert.strictEqual(ctx.inStruct, false, 'closed struct must not count as open');
+    });
+
+    it('keeps an unclosed (truncated) block open at the boundary', () => {
+        const content = 'struct A {\n  1: i32 x\n';
+        // boundary = 1 (inside an unclosed struct body): still inside struct
+        const ctx = computeFormattingContext(content, 1, 'truncated-open-1');
+        assert.strictEqual(ctx.inStruct, true, 'unclosed struct should remain open');
+        assert.strictEqual(ctx.indentLevel, 1, 'indent level inside unclosed struct');
+    });
+
+    it('treats a single-line block as closed after its own line', () => {
+        const content = 'struct A {}\nstruct B {\n  1: i32 x\n}\n';
+        const lines = content.split('\n');
+        // boundary = 0 (struct A's own line): the single-line block is already closed,
+        // so a range starting on the next line must be at top level, not inside struct A
+        const ctx = computeFormattingContext(lines.slice(0, 1).join('\n'), 0, 'single-line-closed-1');
+        assert.strictEqual(ctx.inStruct, false, 'single-line block must not count as open');
+        assert.strictEqual(ctx.indentLevel, 0, 'should be at top level after single-line block');
+    });
 });

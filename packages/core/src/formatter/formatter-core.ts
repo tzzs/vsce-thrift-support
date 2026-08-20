@@ -111,8 +111,13 @@ export function formatThriftContent(
     let inEnum = !!(options.initialContext && options.initialContext.inEnum);
     let inService = options.initialContext?.inService === true;
     let inInteraction = options.initialContext?.inInteraction === true;
-    let serviceIndentLevel = (options.initialContext && typeof options.initialContext.indentLevel === 'number')
-        ? options.initialContext.indentLevel : 0;
+    // 当片段从 service/interaction 块内部开始（inService/inInteraction 为 true）时，
+    // initialContext.indentLevel 表示“块内”的缩进层级，而 serviceIndentLevel 应为
+    // 该 service/interaction 声明自身的基层级（顶层恒为 0），即 indentLevel - 1。
+    // 否则会多缩进一层。
+    let serviceIndentLevel = (inService || inInteraction)
+        ? Math.max(0, (typeof options.initialContext?.indentLevel === 'number' ? options.initialContext.indentLevel : 1) - 1)
+        : (typeof options.initialContext?.indentLevel === 'number' ? options.initialContext.indentLevel : 0);
     let structFields: StructField[] = [];
     let enumFields: EnumField[] = [];
     let constFields: ConstField[] = [];
