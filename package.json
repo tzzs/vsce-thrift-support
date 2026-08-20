@@ -2,7 +2,7 @@
   "name": "thrift-support",
   "displayName": "Thrift Support",
   "description": "Apache Thrift language intelligence for VS Code, with a companion CLI for automation and CI/CD",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "publisher": "tanzz",
   "icon": "icon.png",
   "license": "MIT",
