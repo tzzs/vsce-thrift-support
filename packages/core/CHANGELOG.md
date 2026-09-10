@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.3.1](https://github.com/tzzs/vsce-thrift-support/compare/core-v3.3.0...core-v3.3.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* **formatter:** make --range keep top-level blocks un-nested ([8124531](https://github.com/tzzs/vsce-thrift-support/commit/8124531e08123f4c973dab7f6c3868c7fc3c2f03))
+* **formatter:** make --range keep top-level blocks un-nested ([e650b05](https://github.com/tzzs/vsce-thrift-support/commit/e650b05371ad8830eda772d17c111470507a7998))
+* **formatter:** recognize single-line blocks as closed for range context ([d07f9b4](https://github.com/tzzs/vsce-thrift-support/commit/d07f9b4cb19809d3e0b095f8a8b0f77fe88f9173))
+
 ## [3.3.0](https://github.com/tzzs/vsce-thrift-support/compare/core-v3.2.0...core-v3.3.0) (2026-08-11)
 
 
